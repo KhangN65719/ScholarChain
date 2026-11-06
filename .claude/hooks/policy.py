@@ -53,11 +53,32 @@ def checkout_path(value):
 
 
 READ_GIT = {"status", "diff", "log", "show", "ls-files", "rev-parse", "branch"}
+# Exactly the read-only review forms that may name a constitutional path. review_git() tries every
+# form and accepts if any one matches, so this table's order carries no meaning: do not introduce a
+# break-on-first-prefix-match without also making the order explicit and tested.
+REVIEW_GIT = (("diff", "--stat"), ("log", "--oneline"), ("show", "--stat"), ("diff",))
 CHECK_SBT = {"check", "Test/compile"}
 SCRIPT_ROOTS = {
     "dataset-engineer": ("datasets/scripts/",),
     "infra-engineer": ("scripts/validation/",),
 }
+
+
+def review_git(tokens):
+    """Match exactly `git diff`, `git diff --stat`, `git log --oneline` and `git show --stat`,
+    with revision ranges and pathspecs. Every remaining argument must be a revision, a pathspec or
+    the `--` separator, so `--output`, `--ext-diff`, `--textconv`, `--exec-path` and `--no-index`
+    stay refused and no other option can ride along. Callers apply this only after the sensitive-path
+    and destructive-operation scans, which therefore keep their effect on these forms."""
+    if not tokens or tokens[0] != "git":
+        return False
+    arguments = tokens[1:]
+    for form in REVIEW_GIT:
+        if tuple(arguments[: len(form)]) != form:
+            continue
+        if all(item == "--" or not item.startswith("-") for item in arguments[len(form):]):
+            return True
+    return False
 
 
 def guard_shell(command, cwd, agent):
@@ -87,6 +108,11 @@ def guard_shell(command, cwd, agent):
             or not re.fullmatch(r"(?:describe|list)-[a-z-]+|get-caller-identity|ls", tokens[2])
         ):
             return deny("Direct AWS shell calls are limited to metadata inspection. Route mutations through the approved human workflow.")
+    # Read-only review of constitutional files. Reviews need to read the diff of the very files the
+    # token scan below protects, so this allowance precedes it. It grants read only: no write, no
+    # checkout, no branch change. The scans above still apply, so a diff cannot name a secret path.
+    if review_git(tokens):
+        return 0
     if any(
         CONSTITUTION.search(value) or CONSTITUTION.search(checkout_path(resolved_path(value, cwd)) or "")
         for value in tokens
@@ -228,22 +254,55 @@ def changed_at(path):
     return target.stat().st_mtime_ns
 
 
-def verify_tests():
+def verify_tests(payload=None):
     source = [path for path in changed_paths() if source_path(path)]
     if not source:
         return 0
     if TEST_MARKER.is_symlink() or not TEST_MARKER.is_file():
-        return deny("Changed sources require a fresh passing sbt check. The test marker is missing.")
-    if TEST_MARKER.stat().st_mtime_ns <= max(changed_at(path) for path in source):
-        return deny("Changed sources are newer than the test marker. Run sbt check after the final edit.")
-    return 0
+        message = "Changed sources require a fresh passing sbt check. The test marker is missing."
+    elif TEST_MARKER.stat().st_mtime_ns <= max(changed_at(path) for path in source):
+        message = "Changed sources are newer than the test marker. Run sbt check after the final edit."
+    else:
+        return 0
+    # Trade-off, loop termination against gate strength. Blocking again after Claude Code has already
+    # re-run this hook for the same stop produces an unsatisfiable loop, which Claude Code eventually
+    # overrides anyway, so the stop is allowed on the second pass. The gate is NOT satisfied: report it
+    # as a non-blocking error (exit 1, stderr shown to the operator) instead of returning a silent 0,
+    # so a stale marker is visible and attributable rather than inferred to be success. No state is
+    # written: the test marker stays build-generated and guard() keeps refusing agent writes to it.
+    # Identity, not truthiness: the contract is a boolean, so "false", 1 and other truthy non-booleans
+    # keep the gate fully enforced rather than opening the one path that deliberately weakens it.
+    if (payload or {}).get("stop_hook_active") is True:
+        print(
+            "ScholarChain policy: UNVERIFIED STOP. The test gate was not satisfied, and this hook "
+            f"already ran for this stop, so it is not blocking again. {message} Operator action: treat "
+            ".claude/.last-test-run as stale, run sbt check over the changed sources listed below, and "
+            "record the result before this work is reviewed, committed or ratified. Changed sources: "
+            f"{', '.join(sorted(path.as_posix() for path in source))}.",
+            file=sys.stderr,
+        )
+        return 1
+    return deny(message)
+
+
+def stop_payload():
+    """Stop and SubagentStop deliver a JSON payload carrying stop_hook_active. An absent payload keeps
+    the gate fully enforced, which is the closed direction; non-empty malformed input raises so that
+    main() fails closed. isatty keeps a direct terminal invocation from blocking on stdin."""
+    raw = "" if sys.stdin.isatty() else sys.stdin.read()
+    if not raw.strip():
+        return {}
+    payload = json.loads(raw)
+    if not isinstance(payload, dict):
+        raise ValueError("A stop payload must be a JSON object.")
+    return payload
 
 
 def main():
     try:
         action = sys.argv[1]
         if action == "tests":
-            return verify_tests()
+            return verify_tests(stop_payload())
         payload = json.load(sys.stdin)
         return {"guard": guard, "format": format_scala}[action](payload)
     except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.CalledProcessError):
