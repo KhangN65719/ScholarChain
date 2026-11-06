@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "rawBucket": "local-raw-example",
+  "curatedBucket": "local-curated-example",
+  "graphEndpoint": "http://localhost:8182",
+  "vectorEndpoint": "http://localhost:9000",
+  "awsAccountId": "000000000000",
+  "answerModelId": "local-answer-model",
+  "embeddingModelId": "local-embedding-model",
+  "matchAcceptThreshold": 0.95,
+  "matchRejectThreshold": 0.35,
+  "graphStartYear": 2000,
+  "graphEndYear": 2025,
+  "bridgeAlgorithm": "cross-community-degree",
+  "bridgeSampleSize": 100,
+  "bridgeRandomSeed": "42"
+}

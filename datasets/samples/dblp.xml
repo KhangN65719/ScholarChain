@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dblp>
+  <article key="journals/pvldb/Ley09">
+    <author orcid="0000-0001-7580-4351">Michael Ley</author>
+    <title>DBLP - Some Lessons Learned.</title>
+    <journal>Proc. VLDB Endow.</journal>
+    <year>2009</year>
+    <ee>https://doi.org/10.14778/1687553.1687577</ee>
+  </article>
+  <inproceedings key="conf/jcdl/MichelsFLSS17" mdate="2023-03-23">
+    <author>Christopher Michels</author>
+    <author>Ruslan R. Fayzrakhmanov</author>
+    <author>Michael Ley</author>
+    <author>Emanuel Sallinger</author>
+    <author>Ralf Schenkel</author>
+    <title>OXPath-Based Data Acquisition for dblp.</title>
+    <pages>319-320</pages>
+    <year>2017</year>
+    <booktitle>JCDL</booktitle>
+    <ee>https://doi.org/10.1109/JCDL.2017.7991609</ee>
+  </inproceedings>
+</dblp>

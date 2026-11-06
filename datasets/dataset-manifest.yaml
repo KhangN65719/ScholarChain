@@ -1,0 +1,356 @@
+{
+  "manifest_version": 1,
+  "datasets": [
+    {
+      "id": "dblp",
+      "source": {
+        "name": "DBLP Computer Science Bibliography",
+        "url": "https://dblp.org/xml/"
+      },
+      "license": {
+        "scope": "CC0-1.0 bibliographic metadata; DTD scope is stated separately on its release page.",
+        "url": "https://dblp.org/db/about/copyright.html"
+      },
+      "snapshot": {
+        "version": "2026-11-01",
+        "url": "https://drops.dagstuhl.de/entities/artifact/10.4230/dblp.xml.2026-11-01"
+      },
+      "format": "gzip-compressed DBLP XML plus separate DTD",
+      "size_estimate": "1.03 GB compressed XML and 12 kB DTD (publisher listing).",
+      "s3_prefixes": {
+        "raw": "raw/dblp/2026-11-01/",
+        "curated": "curated/dblp/2026-11-01/"
+      },
+      "checksums": [
+        {
+          "artifact": "dblp-2026-11-01.xml.gz",
+          "status": "publisher-reported",
+          "algorithm": "md5",
+          "value": "18ad5db59592406ec74289975c4b44cb",
+          "evidence": "https://drops.dagstuhl.de/entities/artifact/10.4230/dblp.xml.2026-11-01"
+        },
+        {
+          "artifact": "dblp-2023-06-28.dtd",
+          "status": "publisher-reported",
+          "algorithm": "md5",
+          "value": "96e4283e71886dec2173718957293648",
+          "evidence": "https://drops.dagstuhl.de/entities/artifact/10.4230/dblp.xml.dtd.2023-06-28"
+        }
+      ],
+      "subset_rule": "Replay the first N of two fixed publication keys; download mode fetches only the versioned DTD.",
+      "schema": "schemas/dblp.md",
+      "linkage_keys": [
+        "DBLP record key",
+        "DOI and arXiv ID from known electronic-edition URLs",
+        "DBLP person key",
+        "explicit ORCID"
+      ],
+      "update_method": "Select a new dated DOI, record its linked DTD and publisher digest, and verify before promoting a new raw prefix.",
+      "limitations": "Computer science bibliography. Author names can be ambiguous. Record types and identifier coverage vary.",
+      "privacy_notes": "Retain only bibliographic names and public identifiers needed for scholarly linkage.",
+      "validation_commands": [
+        "python3 -B datasets/scripts/datasets.py validate",
+        "python3 -B datasets/scripts/datasets.py sample --dataset dblp --max-rows 1 --output /tmp/scholarchain-phase3-samples"
+      ],
+      "sample": {
+        "path": "samples/dblp.xml",
+        "format": "xml",
+        "key": "@key",
+        "rows": 2,
+        "sha256": "a33f55bcd067d9b8a3c2b82a862d87e92c907dfe79c1d75a3cb4e09b18625548",
+        "evidence": [
+          "https://dblp.org/rec/journals/pvldb/Ley09.html",
+          "https://dblp.org/faq/How%2Bare%2BORCIDs%2Bintegrated%2Bin%2Bdblp.html",
+          "https://dblp1.uni-trier.de/rec/conf/jcdl/MichelsFLSS17.html"
+        ],
+        "provenance": "CC0 manual standalone XML projection of publisher record metadata and ORCID example, observed 2026-11-05 America/Chicago; independent of the bulk archive bytes.",
+        "root": "dblp"
+      },
+      "bounded_download": {
+        "url": "https://drops.dagstuhl.de/storage/artifacts/dblp/xml/2023/dblp-2023-06-28.dtd",
+        "filename": "dblp-2023-06-28.dtd"
+      }
+    },
+    {
+      "id": "openalex",
+      "source": {
+        "name": "OpenAlex public standard-format snapshot",
+        "url": "https://help.openalex.org/access/snapshot/"
+      },
+      "license": {
+        "scope": "CC0-1.0 OpenAlex data. Linked full text is out of scope.",
+        "url": "https://help.openalex.org/access/overview/"
+      },
+      "snapshot": {
+        "version": "2026-10-14",
+        "url": "https://openalex.s3.amazonaws.com/data/jsonl/manifest.json"
+      },
+      "format": "gzip-compressed JSON Lines, one entity object per line",
+      "size_estimate": "755,513,952,946 compressed bytes across JSONL entities (release manifest).",
+      "s3_prefixes": {
+        "raw": "raw/openalex/2026-10-14/",
+        "curated": "curated/openalex/2026-10-14/"
+      },
+      "checksums": [
+        {
+          "artifact": "complete JSONL snapshot",
+          "status": "not-published",
+          "evidence": "https://help.openalex.org/access/snapshot/",
+          "reason": "The published inventory specifies object paths, byte lengths and record counts without an aggregate content digest."
+        }
+      ],
+      "subset_rule": "Replay the first N of two Works selected by DOI; download mode looks up one Work by DOI.",
+      "schema": "schemas/openalex.md",
+      "linkage_keys": [
+        "OpenAlex Work ID",
+        "DOI",
+        "OpenAlex Author ID",
+        "ORCID",
+        "OpenAlex Institution ID",
+        "ROR",
+        "OpenAlex Topic ID"
+      ],
+      "update_method": "At quarterly refresh, capture the inventory, pin the release date and object integrity in a new raw prefix, and apply relevant deletion and merge information.",
+      "limitations": "The public bucket changes in place. Live API records can diverge from archived release data. Automated author and institution resolution can be wrong.",
+      "privacy_notes": "Exclude contact fields, abstract reconstruction and linked full text from the development fixture.",
+      "validation_commands": [
+        "python3 -B datasets/scripts/datasets.py validate",
+        "python3 -B datasets/scripts/datasets.py sample --dataset openalex --max-rows 1 --output /tmp/scholarchain-phase3-samples"
+      ],
+      "sample": {
+        "path": "samples/openalex.jsonl",
+        "format": "jsonl",
+        "key": "id",
+        "rows": 2,
+        "sha256": "d8e765e845abbef946d4433e07468e7f572ca2ca3360fe66bca8c9d471394b07",
+        "evidence": [
+          "https://api.openalex.org/works/https://doi.org/10.14778/1687553.1687577",
+          "https://api.openalex.org/works/https://doi.org/10.1109/JCDL.2017.7991609"
+        ],
+        "provenance": "Allowlisted projections of two live Work API records retrieved 2026-11-05 America/Chicago; retains up to three topics per work."
+      },
+      "bounded_download": {
+        "url": "https://api.openalex.org/works/https://doi.org/10.14778/1687553.1687577",
+        "filename": "openalex-work.json",
+        "expected_json": {
+          "path": "id",
+          "value": "https://openalex.org/W2147107544"
+        }
+      }
+    },
+    {
+      "id": "orcid",
+      "source": {
+        "name": "ORCID annual Public Data File",
+        "url": "https://info.orcid.org/documentation/integration-guide/working-with-bulk-data/"
+      },
+      "license": {
+        "scope": "CC0-1.0 annual public file; use registry visibility and public data file use policy.",
+        "url": "https://info.orcid.org/public-data-file-use-policy/"
+      },
+      "snapshot": {
+        "version": "2026-10-13-v1",
+        "url": "https://doi.org/10.23640/07243.34697766.v1"
+      },
+      "format": "gzip-compressed tar archives containing namespaced ORCID XML",
+      "size_estimate": "270.98 GB across compressed archives (ORCID Figshare listing).",
+      "s3_prefixes": {
+        "raw": "raw/orcid/2026-10-13-v1/",
+        "curated": "curated/orcid/2026-10-13-v1/"
+      },
+      "checksums": [
+        {
+          "artifact": "ORCID_2026_10_activities_0.tar.gz",
+          "status": "publisher-reported",
+          "algorithm": "md5",
+          "value": "b4408eaed823afbd42d6a800b01c821c",
+          "evidence": "https://api.figshare.com/v2/articles/34697766/versions/1"
+        },
+        {
+          "artifact": "ORCID_2026_10_activities_1.tar.gz",
+          "status": "publisher-reported",
+          "algorithm": "md5",
+          "value": "17fd95ff1cd557902e219e6e5e1c3f9c",
+          "evidence": "https://api.figshare.com/v2/articles/34697766/versions/1"
+        },
+        {
+          "artifact": "ORCID_2026_10_activities_2.tar.gz",
+          "status": "publisher-reported",
+          "algorithm": "md5",
+          "value": "21c7be85e944d8a0a9580e29c617cdaa",
+          "evidence": "https://api.figshare.com/v2/articles/34697766/versions/1"
+        },
+        {
+          "artifact": "ORCID_2026_10_activities_3.tar.gz",
+          "status": "publisher-reported",
+          "algorithm": "md5",
+          "value": "c350088e3653d51ff7f39467bf338bb1",
+          "evidence": "https://api.figshare.com/v2/articles/34697766/versions/1"
+        },
+        {
+          "artifact": "ORCID_2026_10_activities_4.tar.gz",
+          "status": "publisher-reported",
+          "algorithm": "md5",
+          "value": "483d5a5c63bc5ec8f8bf88d0d92e41bd",
+          "evidence": "https://api.figshare.com/v2/articles/34697766/versions/1"
+        },
+        {
+          "artifact": "ORCID_2026_10_activities_5.tar.gz",
+          "status": "publisher-reported",
+          "algorithm": "md5",
+          "value": "99ebd6b33c5d6ed39cbd62fae7550c89",
+          "evidence": "https://api.figshare.com/v2/articles/34697766/versions/1"
+        },
+        {
+          "artifact": "ORCID_2026_10_activities_6.tar.gz",
+          "status": "publisher-reported",
+          "algorithm": "md5",
+          "value": "87a4b05d567436110b01b916a8c119fa",
+          "evidence": "https://api.figshare.com/v2/articles/34697766/versions/1"
+        },
+        {
+          "artifact": "ORCID_2026_10_activities_7.tar.gz",
+          "status": "publisher-reported",
+          "algorithm": "md5",
+          "value": "378338721f5d913cb231a0fee0bb114e",
+          "evidence": "https://api.figshare.com/v2/articles/34697766/versions/1"
+        },
+        {
+          "artifact": "ORCID_2026_10_activities_8.tar.gz",
+          "status": "publisher-reported",
+          "algorithm": "md5",
+          "value": "3d14bdda9e5ebb8c94b0701c99c9bb7f",
+          "evidence": "https://api.figshare.com/v2/articles/34697766/versions/1"
+        },
+        {
+          "artifact": "ORCID_2026_10_activities_9.tar.gz",
+          "status": "publisher-reported",
+          "algorithm": "md5",
+          "value": "54f6739ed5de832fc32b79df6a39daf6",
+          "evidence": "https://api.figshare.com/v2/articles/34697766/versions/1"
+        },
+        {
+          "artifact": "ORCID_2026_10_activities_X.tar.gz",
+          "status": "publisher-reported",
+          "algorithm": "md5",
+          "value": "ba665d7d3471ac873d1d7b4ed93d3a1f",
+          "evidence": "https://api.figshare.com/v2/articles/34697766/versions/1"
+        },
+        {
+          "artifact": "ORCID_2026_10_summaries.tar.gz",
+          "status": "publisher-reported",
+          "algorithm": "md5",
+          "value": "a55a16fe0b292bda03cc6016546c8984",
+          "evidence": "https://api.figshare.com/v2/articles/34697766/versions/1"
+        }
+      ],
+      "subset_rule": "Replay the first N of two public person projections keyed by ORCID iD; download mode requests one public person response.",
+      "schema": "schemas/orcid.md",
+      "linkage_keys": [
+        "ORCID iD with check digit",
+        "work DOI where present",
+        "organization identifier where present",
+        "researcher and activity put-code"
+      ],
+      "update_method": "Select a new annual versioned DOI and record per-archive checksums. Process deletion or visibility changes for derived outputs.",
+      "limitations": "Public records only. Visibility and completeness vary. The small fixture uses the person API JSON shape; annual bulk sources use XML.",
+      "privacy_notes": "Minimize copied personal fields and honor removed or hidden records. Sample retains only public name and identifier fields.",
+      "validation_commands": [
+        "python3 -B datasets/scripts/datasets.py validate",
+        "python3 -B datasets/scripts/datasets.py sample --dataset orcid --max-rows 1 --output /tmp/scholarchain-phase3-samples"
+      ],
+      "sample": {
+        "path": "samples/orcid.jsonl",
+        "format": "jsonl",
+        "key": "name.path",
+        "rows": 2,
+        "sha256": "f4ac89ec1bc315939119a648b3e28a1d85e72bf110277b8eb0c85244267be2d3",
+        "evidence": [
+          "https://pub.orcid.org/v3.0/0000-0001-7580-4351/person",
+          "https://pub.orcid.org/v3.0/0000-0001-5379-5191/person"
+        ],
+        "provenance": "Allowlisted projections of two public v3.0 person responses retrieved 2026-11-05 America/Chicago. Bulk release metadata is separate."
+      },
+      "bounded_download": {
+        "url": "https://pub.orcid.org/v3.0/0000-0001-7580-4351/person",
+        "filename": "orcid-person.json",
+        "expected_json": {
+          "path": "name.path",
+          "value": "0000-0001-7580-4351"
+        }
+      }
+    },
+    {
+      "id": "crossref",
+      "source": {
+        "name": "Crossref annual public data file",
+        "url": "https://www.crossref.org/services/metadata-retrieval/public-data-file/"
+      },
+      "license": {
+        "scope": "Bibliographic facts are reusable; Crossref-generated data is CC0. Abstracts retain publisher or author rights.",
+        "url": "https://www.crossref.org/documentation/retrieve-metadata/"
+      },
+      "snapshot": {
+        "version": "2026-03",
+        "url": "https://doi.org/10.13003/nggf-vt1j"
+      },
+      "format": "tar distribution of compressed JSON Lines metadata files",
+      "size_estimate": "208 GB compressed, nearly 180 million records (Crossref release announcement).",
+      "s3_prefixes": {
+        "raw": "raw/crossref/2026-03/",
+        "curated": "curated/crossref/2026-03/"
+      },
+      "checksums": [
+        {
+          "artifact": "torrent info dictionary",
+          "status": "publisher-reported",
+          "algorithm": "sha1",
+          "value": "b5ee0e102689b3e67023dd024694c0f5f124646f",
+          "evidence": "https://academictorrents.com/details/b5ee0e102689b3e67023dd024694c0f5f124646f"
+        },
+        {
+          "artifact": "full archive as a single file digest",
+          "status": "not-published",
+          "evidence": "https://academictorrents.com/details/b5ee0e102689b3e67023dd024694c0f5f124646f",
+          "reason": "The torrent distributes piece hashes and a torrent info hash; no whole-file content digest was established."
+        }
+      ],
+      "subset_rule": "Replay the first N of two work projections keyed by DOI; download mode requests one REST work response.",
+      "schema": "schemas/crossref.md",
+      "linkage_keys": [
+        "DOI",
+        "explicit author ORCID",
+        "venue ISSN",
+        "ROR where provided",
+        "referenced DOI"
+      ],
+      "update_method": "Select a new annual release DOI. Verify torrent metadata and piece integrity at acquisition and store local object hashes.",
+      "limitations": "Metadata availability and quality vary with each deposit. API metadata can change after the annual release.",
+      "privacy_notes": "Exclude abstracts, full text links, free-text affiliations and contact details from checked-in fixture.",
+      "validation_commands": [
+        "python3 -B datasets/scripts/datasets.py validate",
+        "python3 -B datasets/scripts/datasets.py sample --dataset crossref --max-rows 1 --output /tmp/scholarchain-phase3-samples"
+      ],
+      "sample": {
+        "path": "samples/crossref.jsonl",
+        "format": "jsonl",
+        "key": "DOI",
+        "rows": 2,
+        "sha256": "b601c0dfa3d4594f9ef22cd209ef1aee7d85a79126079491577ce49837857129",
+        "evidence": [
+          "https://api.crossref.org/works/10.14778/1687553.1687577",
+          "https://api.crossref.org/works/10.1109/JCDL.2017.7991609"
+        ],
+        "provenance": "Allowlisted bibliographic facts projected from two live REST work responses retrieved 2026-11-05 America/Chicago."
+      },
+      "bounded_download": {
+        "url": "https://api.crossref.org/works/10.14778/1687553.1687577",
+        "filename": "crossref-work.json",
+        "expected_json": {
+          "path": "message.DOI",
+          "value": "10.14778/1687553.1687577"
+        }
+      }
+    }
+  ]
+}
