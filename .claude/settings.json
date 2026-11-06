@@ -1,0 +1,160 @@
+{
+  "enableAllProjectMcpServers": false,
+  "permissions": {
+    "defaultMode": "default",
+    "disableBypassPermissionsMode": "disable",
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash(git status --short)",
+      "Bash(git diff --stat)",
+      "Bash(.claude/hooks/validate-agent-files.sh)"
+    ],
+    "deny": [
+      "Read(/**/.env*)",
+      "Read(/**/.aws/**)",
+      "Read(/**/.ssh/**)",
+      "Read(/**/.gnupg/**)",
+      "Read(/**/.kube/**)",
+      "Read(/**/secret/**)",
+      "Read(/**/secrets/**)",
+      "Read(/**/credential/**)",
+      "Read(/**/credentials/**)",
+      "Read(/**/.netrc)",
+      "Read(/**/.git-credentials)",
+      "Read(/**/.npmrc)",
+      "Read(/**/*credentials*)",
+      "Read(/**/*.pem)",
+      "Read(/**/*.key)",
+      "Read(/**/*.p12)",
+      "Read(/**/*.pfx)",
+      "Read(/**/*.tfstate*)",
+      "Read(~/.aws/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.netrc)",
+      "Read(~/.git-credentials)",
+      "Read(~/.npmrc)",
+      "Bash(terraform apply *)",
+      "Bash(terraform destroy *)",
+      "Bash(tofu apply *)",
+      "Bash(tofu destroy *)",
+      "Bash(git push *--force*)",
+      "Bash(git push * -f *)",
+      "Bash(git push -f *)",
+      "Bash(git push --mirror *)",
+      "Bash(aws s3 rm *)",
+      "Bash(aws s3 rb *)",
+      "Bash(aws s3api delete-* *)",
+      "Bash(aws dynamodb delete-* *)",
+      "Bash(aws neptune delete-* *)",
+      "Bash(aws neptunedata delete-* *)",
+      "Bash(aws neptunedata cancel-* *)",
+      "Bash(aws s3vectors delete-* *)",
+      "Bash(aws ecr delete-* *)",
+      "Bash(aws ecr batch-delete-* *)",
+      "Bash(aws kms schedule-key-deletion *)",
+      "Bash(aws kms disable-* *)",
+      "Bash(aws emr terminate-* *)",
+      "Bash(aws emr modify-* *)",
+      "Bash(aws emr add-instance-* *)",
+      "Bash(aws emr put-auto-scaling-* *)",
+      "PowerShell",
+      "Monitor"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": false,
+    "allowUnsandboxedCommands": false,
+    "filesystem": {
+      "denyRead": [
+        "**/.env*",
+        "**/.aws/**",
+        "**/.ssh/**",
+        "**/.gnupg/**",
+        "**/.kube/**",
+        "**/secret/**",
+        "**/secrets/**",
+        "**/credential/**",
+        "**/credentials/**",
+        "**/.netrc",
+        "**/.git-credentials",
+        "**/.npmrc",
+        "**/*credentials*",
+        "**/*.pem",
+        "**/*.key",
+        "**/*.p12",
+        "**/*.pfx",
+        "**/*.tfstate*",
+        "~/.aws/**",
+        "~/.ssh/**",
+        "~/.gnupg/**",
+        "~/.kube/**",
+        "~/.netrc",
+        "~/.git-credentials",
+        "~/.npmrc"
+      ],
+      "denyWrite": [
+        ".claude/settings.json",
+        ".claude/hooks",
+        ".claude/agents",
+        ".claude/commands",
+        ".mcp.json",
+        "CLAUDE.md",
+        "docs/agents.md"
+      ]
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-dangerous.sh\"",
+            "timeout": 15
+          }
+        ],
+        "matcher": "Bash|Read|Grep|Glob|Write|Edit|MultiEdit|NotebookEdit"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/format-scala.sh\"",
+            "timeout": 120
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/verify-tests-ran.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/verify-tests-ran.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
