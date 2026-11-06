@@ -103,6 +103,9 @@ final case class WorkRecord(
   present(title, "Title")
   present(normalizedTitle, "Normalized title")
   present(recordType, "Record type")
+  // Venue IDs come from external vocabularies, so only nonblankness is
+  // enforced here, matching Venue.venueId rather than the minted ID kinds.
+  venueId.foreach(present(_, "Work venue ID"))
   require(
     source == provenance.source && sourceRecordId == provenance.sourceRecordId,
     "Work source and record ID must match provenance"
@@ -415,6 +418,9 @@ final case class EvidenceBundle(
 ) derives ReadWriter:
   record(schemaVersion, provenance)
   present(bundleId, "Bundle ID")
+  // An empty bundle is the honest representation of retrieval that found
+  // nothing. The evidence obligation binds claims, not this container, and is
+  // enforced by AnswerClaim and by AnswerResponse's resolution check.
   require(
     items.map(_.evidenceId).distinct.size == items.size,
     "Duplicate evidence ID in bundle"
@@ -454,6 +460,12 @@ final case class AnswerClaim(
   require(
     verificationStatus != VerificationStatus.Verified || evidenceIds.nonEmpty,
     "Verified claims require evidence"
+  )
+  // An unsupported or uncertain claim may legitimately cite nothing, but it
+  // must then state why, so no claim is ever both unevidenced and unexplained.
+  require(
+    evidenceIds.nonEmpty || uncertainty.exists(_.trim.nonEmpty),
+    "A claim citing no evidence must record its uncertainty"
   )
 
 final case class AnswerResponse(

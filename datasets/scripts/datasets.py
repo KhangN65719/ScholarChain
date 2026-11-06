@@ -2,6 +2,7 @@
 """Validate the dataset manifest, replay bounded samples, and fetch small artifacts."""
 
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -24,6 +25,14 @@ REQUIRED = {
     "update_method", "limitations", "privacy_notes", "validation_commands",
     "sample", "bounded_download",
 }
+REPLAY_TRANSFORM = "first-rows-v1"
+DOWNLOAD_TRANSFORM = "verbatim-artifact-v1"
+# SPDX short identifier shape, plus the SPDX-defined NOASSERTION value for a
+# release whose terms are not a single published license. Shape only: this
+# records an existing license determination in a checkable form and decides no
+# license question.
+SPDX_SHAPE = re.compile(r"NOASSERTION|[A-Za-z0-9][A-Za-z0-9.+-]{0,62}")
+ORCID_SHAPE = re.compile(r"\b(\d{4}-\d{4}-\d{4}-\d{3}[0-9X])\b")
 
 
 def bounded_read(path):
@@ -55,6 +64,26 @@ def atomic_write(path, data):
 def url(value):
     parsed = urlparse(value)
     return parsed.scheme == "https" and bool(parsed.hostname) and not parsed.username
+
+
+def orcid_check_digit(value):
+    """ISO 7064 MOD 11-2, the check digit ORCID iDs carry in their last position."""
+    digits = value.replace("-", "")
+    total = 0
+    for char in digits[:15]:
+        total = (total + int(char)) * 2 % 11
+    remainder = (12 - total) % 11
+    return digits[15] == ("X" if remainder == 10 else str(remainder))
+
+
+def orcid_ids(text, label):
+    for found in ORCID_SHAPE.findall(text):
+        if not orcid_check_digit(found):
+            raise ValueError(f"{label}: ORCID check digit failed: {found}")
+
+
+def utc_now():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def json_field(record, field):
@@ -112,7 +141,9 @@ def records(data, sample):
 
 def validate():
     # JSON is a YAML 1.2 subset and avoids an unpinned YAML parser.
-    manifest = json.loads(bounded_read(MANIFEST))
+    raw = bounded_read(MANIFEST)
+    orcid_ids(raw.decode("utf-8"), "manifest")
+    manifest = json.loads(raw)
     if manifest["manifest_version"] != 1:
         raise ValueError("unsupported manifest version")
     datasets = {}
@@ -120,11 +151,18 @@ def validate():
         dataset_id = entry["id"]
         if REQUIRED - entry.keys() or not all(entry[field] for field in REQUIRED):
             raise ValueError(f"{dataset_id}: missing required fields")
+        if entry.keys() - REQUIRED:
+            raise ValueError(
+                f"{dataset_id}: unknown dataset fields: "
+                + ", ".join(sorted(entry.keys() - REQUIRED))
+            )
         if not re.fullmatch(r"[a-z][a-z0-9-]+", dataset_id) or dataset_id in datasets:
             raise ValueError(f"invalid or duplicate dataset ID: {dataset_id}")
         for field in ("source", "license", "snapshot"):
             if not url(entry[field]["url"]):
                 raise ValueError(f"{dataset_id}: {field} must cite primary HTTPS evidence")
+        if not SPDX_SHAPE.fullmatch(str(entry["license"].get("spdx", ""))):
+            raise ValueError(f"{dataset_id}: malformed license SPDX identifier")
         if entry["s3_prefixes"] != {
             stage: f"{stage}/{dataset_id}/{entry['snapshot']['version']}/"
             for stage in ("raw", "curated")
@@ -145,6 +183,7 @@ def validate():
                 or not all(url(link) for link in sample["evidence"])):
             raise ValueError(f"{dataset_id}: missing sample provenance")
         data = bounded_read(owned_file(sample["path"], "samples"))
+        orcid_ids(data.decode("utf-8"), f"{dataset_id} sample")
         if sha256(data) != sample["sha256"]:
             raise ValueError(f"{dataset_id}: sample SHA-256 mismatch")
         if len(records(data, sample)) != sample["rows"]:
@@ -156,6 +195,19 @@ def validate():
     if "dblp" not in datasets or len(datasets) < 4:
         raise ValueError("manifest requires DBLP plus at least three enrichment datasets")
     return datasets
+
+
+def replay_run_id(dataset_id, fixture_sha256, rows):
+    """Content-derived replay run identifier.
+
+    Deterministic on purpose: replay output and its receipt must stay
+    byte-stable and mtime-stable across runs, which a random identifier would
+    destroy. It therefore identifies the replay inputs, not a wall-clock
+    occurrence, and is not the random UUIDv4 `runId` that the core Provenance
+    contract requires.
+    """
+    basis = f"{dataset_id}|{fixture_sha256}|{REPLAY_TRANSFORM}|{rows}"
+    return "replay-" + sha256(basis.encode())[:32]
 
 
 def replay(entry, output, limit):
@@ -176,8 +228,9 @@ def replay(entry, output, limit):
     metadata = {
         "dataset": entry["id"], "fixture": sample["path"],
         "fixture_sha256": sample["sha256"], "source_evidence": sample["evidence"],
-        "source_provenance": sample["provenance"], "transform": "first-rows-v1",
+        "source_provenance": sample["provenance"], "transform": REPLAY_TRANSFORM,
         "rows": len(selected), "sha256": sha256(payload),
+        "run_id": replay_run_id(entry["id"], sample["sha256"], len(selected)),
     }
     atomic_write(
         target.with_name(target.name + ".provenance.json"),
@@ -198,7 +251,8 @@ def download(entry, output):
     )
     if directory.exists():
         previous = json.loads(bounded_read(receipt))
-        if previous == download_provenance(artifact, bounded_read(target), expected):
+        current = download_provenance(artifact, bounded_read(target), expected)
+        if receipt_identity(previous) == receipt_identity(current):
             print(f"Reusing bounded artifact {target}")
             return
         raise ValueError(f"cached download or provenance does not match: {target}")
@@ -225,15 +279,25 @@ def download(entry, output):
             staging.rename(directory)
         except OSError:
             if (not directory.is_dir()
-                    or json.loads(bounded_read(receipt))
-                    != download_provenance(artifact, bounded_read(target), expected)):
+                    or receipt_identity(json.loads(bounded_read(receipt)))
+                    != receipt_identity(
+                        download_provenance(artifact, bounded_read(target), expected))):
                 raise
             print(f"Reusing bounded artifact {target}")
             return
     print(f"Downloaded bounded artifact {target}: {len(data)} bytes")
 
 
-def download_provenance(artifact, data, expected):
+def receipt_identity(receipt):
+    """Receipt content that a cached artifact must reproduce exactly.
+
+    `observed_at` records when the bytes were seen, so it differs legitimately
+    between the original fetch and a later reuse check and is excluded here.
+    """
+    return {key: value for key, value in receipt.items() if key != "observed_at"}
+
+
+def download_provenance(artifact, data, expected, observed_at=None):
     if not data:
         raise ValueError("empty bounded artifact")
     if expected:
@@ -248,7 +312,8 @@ def download_provenance(artifact, data, expected):
         raise ValueError(f"no integrity rule for {artifact['filename']}")
     return {
         "source": artifact["url"], "sha256": sha256(data), "bytes": len(data),
-        "publisher_checksum": expected,
+        "publisher_checksum": expected, "transform": DOWNLOAD_TRANSFORM,
+        "observed_at": observed_at or utc_now(),
     }
 
 

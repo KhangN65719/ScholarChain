@@ -1,5 +1,13 @@
-"""Feature tests for the offline dataset gate and bounded retrieval."""
+#!/usr/bin/env python3
+"""Feature tests for the offline dataset gate and bounded retrieval.
 
+`python3 -B -m unittest discover -s datasets/scripts -p 'test_*.py'` is the
+gate command. Running this file directly executes the same suite, which is the
+only form available to a role whose shell guard refuses interpreter wrappers.
+"""
+
+import contextlib
+import copy
 import json
 from pathlib import Path
 import subprocess
@@ -10,6 +18,157 @@ from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
 import datasets
+
+
+class ManifestRejectionTest(unittest.TestCase):
+    """Negative coverage for validate(), so each check is shown to fire.
+
+    Every case runs against a temporary copy of the manifest. The checked-in
+    `datasets/dataset-manifest.yaml` is never modified, which the control test
+    below asserts by digest.
+    """
+
+    @contextlib.contextmanager
+    def variant(self, mutate):
+        manifest = json.loads(datasets.bounded_read(datasets.MANIFEST))
+        mutate(manifest)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "dataset-manifest.yaml"
+            path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            with patch.object(datasets, "MANIFEST", path):
+                yield
+
+    @staticmethod
+    def entry(manifest, dataset_id):
+        return next(item for item in manifest["datasets"] if item["id"] == dataset_id)
+
+    def cases(self):
+        def sha256_mismatch(manifest):
+            self.entry(manifest, "dblp")["sample"]["sha256"] = "0" * 64
+
+        def row_count_mismatch(manifest):
+            self.entry(manifest, "openalex")["sample"]["rows"] = 3
+
+        def plain_http_evidence(manifest):
+            entry = self.entry(manifest, "openalex")
+            entry["license"]["url"] = entry["license"]["url"].replace("https://", "http://")
+
+        def checksum_evidence_not_https(manifest):
+            checksum = self.entry(manifest, "dblp")["checksums"][0]
+            checksum["evidence"] = checksum["evidence"].replace("https://", "http://")
+
+        def sample_evidence_not_https(manifest):
+            sample = self.entry(manifest, "crossref")["sample"]
+            sample["evidence"] = [link.replace("https://", "http://")
+                                  for link in sample["evidence"]]
+
+        def mismatched_s3_prefixes(manifest):
+            self.entry(manifest, "orcid")["s3_prefixes"]["curated"] = "curated/orcid/latest/"
+
+        def unpublished_checksum_with_value(manifest):
+            self.entry(manifest, "crossref")["checksums"][1]["value"] = "a" * 40
+
+        def short_publisher_digest(manifest):
+            self.entry(manifest, "dblp")["checksums"][0]["value"] = "18ad5db5"
+
+        def unknown_dataset_field(manifest):
+            self.entry(manifest, "dblp")["extra_field"] = "unreviewed"
+
+        def missing_required_field(manifest):
+            del self.entry(manifest, "orcid")["privacy_notes"]
+
+        def bad_spdx_identifier(manifest):
+            self.entry(manifest, "dblp")["license"]["spdx"] = "CC0 1.0 Universal"
+
+        def absent_spdx_identifier(manifest):
+            del self.entry(manifest, "openalex")["license"]["spdx"]
+
+        def bad_orcid_check_digit(manifest):
+            sample = self.entry(manifest, "orcid")["sample"]
+            sample["evidence"][0] = "https://pub.orcid.org/v3.0/0000-0001-7580-4352/person"
+
+        def duplicate_dataset_id(manifest):
+            manifest["datasets"].append(copy.deepcopy(self.entry(manifest, "dblp")))
+
+        def uppercase_dataset_id(manifest):
+            self.entry(manifest, "crossref")["id"] = "Crossref"
+
+        def unsupported_manifest_version(manifest):
+            manifest["manifest_version"] = 2
+
+        def dropped_enrichment_dataset(manifest):
+            manifest["datasets"] = manifest["datasets"][:3]
+
+        def plain_http_bounded_download(manifest):
+            download = self.entry(manifest, "orcid")["bounded_download"]
+            download["url"] = download["url"].replace("https://", "http://")
+
+        return {
+            "sample sha256 mismatch": (sha256_mismatch, r"dblp: sample SHA-256 mismatch"),
+            "sample row count mismatch": (row_count_mismatch,
+                                          r"openalex: sample row count mismatch"),
+            "license evidence not https": (plain_http_evidence,
+                                           r"openalex: license must cite primary HTTPS"),
+            "checksum evidence not https": (checksum_evidence_not_https,
+                                            r"dblp: missing checksum evidence"),
+            "sample evidence not https": (sample_evidence_not_https,
+                                          r"crossref: missing sample provenance"),
+            "mismatched s3 prefixes": (mismatched_s3_prefixes,
+                                       r"orcid: incorrect snapshot S3 prefixes"),
+            "not-published checksum carries a value": (unpublished_checksum_with_value,
+                                                       r"crossref: malformed checksum status"),
+            "short publisher digest": (short_publisher_digest,
+                                       r"dblp: malformed publisher digest"),
+            "unknown dataset field": (unknown_dataset_field,
+                                      r"dblp: unknown dataset fields: extra_field"),
+            "missing required field": (missing_required_field,
+                                       r"orcid: missing required fields"),
+            "malformed spdx identifier": (bad_spdx_identifier,
+                                          r"dblp: malformed license SPDX identifier"),
+            "absent spdx identifier": (absent_spdx_identifier,
+                                       r"openalex: malformed license SPDX identifier"),
+            "bad orcid check digit": (bad_orcid_check_digit,
+                                      r"manifest: ORCID check digit failed: "
+                                      r"0000-0001-7580-4352"),
+            "duplicate dataset id": (duplicate_dataset_id,
+                                     r"invalid or duplicate dataset ID: dblp"),
+            "uppercase dataset id": (uppercase_dataset_id,
+                                     r"invalid or duplicate dataset ID: Crossref"),
+            "unsupported manifest version": (unsupported_manifest_version,
+                                             r"unsupported manifest version"),
+            "too few enrichment datasets": (dropped_enrichment_dataset,
+                                            r"at least three enrichment datasets"),
+            "bounded download not https": (plain_http_bounded_download,
+                                           r"orcid: invalid bounded download"),
+        }
+
+    def test_each_malformed_manifest_fails_for_its_own_reason(self):
+        messages = {}
+        for name, (mutate, pattern) in self.cases().items():
+            with self.subTest(name):
+                with self.variant(mutate):
+                    with self.assertRaisesRegex(ValueError, pattern) as caught:
+                        datasets.validate()
+                messages[name] = str(caught.exception)
+        # A single over-broad failure must not be able to satisfy every case.
+        self.assertEqual(len(set(messages.values())), len(messages), messages)
+
+    def test_rejection_cases_leave_the_checked_in_manifest_untouched(self):
+        before = datasets.bounded_read(datasets.MANIFEST)
+        with self.variant(lambda manifest: manifest.update(manifest_version=2)):
+            self.assertNotEqual(datasets.MANIFEST, datasets.ROOT / "dataset-manifest.yaml")
+        self.assertEqual(datasets.MANIFEST, datasets.ROOT / "dataset-manifest.yaml")
+        self.assertEqual(datasets.sha256(before),
+                         datasets.sha256(datasets.bounded_read(datasets.MANIFEST)))
+        self.assertEqual(set(datasets.validate()), {"dblp", "openalex", "orcid", "crossref"})
+
+    def test_orcid_check_digit_accepts_the_registered_ids_and_rejects_drift(self):
+        for identifier in ("0000-0001-7580-4351", "0000-0001-5379-5191",
+                           "0000-0003-0523-8547", "0000-0001-7441-129X"):
+            with self.subTest(identifier):
+                self.assertTrue(datasets.orcid_check_digit(identifier))
+                last = "2" if identifier[-1] != "2" else "3"
+                self.assertFalse(datasets.orcid_check_digit(identifier[:-1] + last))
 
 
 class DatasetToolsTest(unittest.TestCase):

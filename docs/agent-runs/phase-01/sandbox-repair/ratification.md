@@ -36,3 +36,7 @@ Status: RATIFIED by the human architect.
 The human architect stated:
 
 > I ratify the sandbox repair: P2 and P3 adopted, P1 withdrawn and recorded as an open gate with the human sbt check workflow.
+
+## Later live observation (2026-11-06, Phase 03 revalidation session)
+
+- P2 observed live: after the Phase 03 repairs, the Stop hook blocked once, then on the repeat stop Claude Code displayed to the human: "Stop hook error: Failed with non-blocking status code: ScholarChain policy: UNVERIFIED STOP. ... Changed sources: ..." listing the six changed `modules/core` files. The non-blocking record is surfaced to the human, which closes the main pending P2 observation. The record remains non-durable (stderr only).

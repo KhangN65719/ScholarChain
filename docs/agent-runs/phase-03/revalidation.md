@@ -1,6 +1,6 @@
 # Phase 03 revalidation under the Claude Code orchestrator
 
-Status: PENDING. Run after the Phase 1 orchestrator repair is ratified and its restart probes pass.
+Status: ACCEPTED on 2026-11-06. See [ratification.md](ratification.md).
 
 Use one fresh Claude Code session from the repository root. The orchestrator delegates; it does not run the owner's work inline.
 

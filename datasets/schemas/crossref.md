@@ -6,6 +6,12 @@ Fixture records project fields from the public REST API's unwrapped
 
 - Preserve `DOI` as the record key. Normalize case and unwrap known DOI
   URLs when joining DBLP electronic editions or OpenAlex work DOIs.
+- DOI case drift between the evidence URLs and the stored keys is intentional.
+  The manifest's sample evidence URLs keep the registered suffix case
+  (`10.1109/JCDL.2017.7991609`), while the stored record key is lowercased
+  (`10.1109/jcdl.2017.7991609`) so joins need no case folding. DOIs are
+  case-insensitive, so the evidence URL is an equivalent request rather than a
+  literal round-trip of the stored key.
 - Preserve ordered `author` entries, contributor role and any explicitly
   supplied `ORCID`. Absent ORCID is common. Do not manufacture it from
   author name or infer individual identity from DOI alone.

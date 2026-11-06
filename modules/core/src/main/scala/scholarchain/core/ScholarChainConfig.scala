@@ -137,6 +137,6 @@ object ConfigLoader:
         )
       }
     }
-    val config = read[ScholarChainConfig](document)
-    require(config != null, "Configuration is required")
-    config
+    // `document.obj` above already rejects a non-object document, so the
+    // reader cannot reach upickle's null path and return null here.
+    read[ScholarChainConfig](document)

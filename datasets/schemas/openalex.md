@@ -6,7 +6,11 @@ not publication date. Capture the manifest and object integrity at acquisition
 because the public S3 prefix changes in place on refresh.
 
 - The work's `id` is an OpenAlex W ID. `doi` is optional and normally a DOI
-  URL. Retain both and normalize DOI for exact joins.
+  URL. Retain both and normalize DOI for exact joins. The stored `doi` is
+  lowercased (`10.1109/jcdl.2017.7991609`) while the manifest's evidence URL
+  keeps the registered suffix case (`JCDL`). DOIs are case-insensitive, so this
+  drift is intentional and the evidence URL is an equivalent request rather
+  than a literal round-trip of the stored value.
 - Preserve `authorships` order and the source `author_position` label.
   The nested author A ID and optional ORCID supply different identity signals.
   Indexed authors may split or merge and can share incorrect ORCIDs.

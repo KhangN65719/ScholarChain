@@ -5,6 +5,7 @@ import upickle.default.{ReadWriter, readwriter}
 private object EnumWire:
   def codec[A](values: Array[A], wire: A => String): ReadWriter[A] =
     val lookup = values.iterator.map(value => wire(value) -> value).toMap
+    require(lookup.size == values.length, "Enum wire values must be unique")
     readwriter[String].bimap[A](
       wire,
       key =>

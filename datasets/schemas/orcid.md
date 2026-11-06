@@ -7,7 +7,10 @@ depends on its researcher and section. Consume tar members without extracting
 paths to disk and parse by XML namespace.
 
 - Validate the ORCID check digit, preserve the original iD, and join against
-  DBLP's verified person links or OpenAlex author ORCIDs.
+  DBLP's verified person links or OpenAlex author ORCIDs. `datasets.py`
+  performs this check itself: `validate()` applies ISO 7064 MOD 11-2 to every
+  ORCID-shaped string in the manifest and in all four sample fixtures, so a
+  mistyped iD fails the dataset gate rather than reaching a consumer.
 - Separate self-asserted names and activities from institution or publisher
   assertions. Keep the assertion source and external identifier type and
   relationship. For works, prefer DOI; for affiliations retain organization
