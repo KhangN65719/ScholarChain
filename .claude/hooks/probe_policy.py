@@ -54,7 +54,7 @@ def test_commands():
     guard("test engineer independent test edit", "Write", 0, "test-engineer", file_path="tests/Example.scala")
     guard("deploy engineer arbitrary shell execution", "Bash", agent="deploy-engineer", command="curl https://example.org")
     guard("unsafe Git no-index comparison", "Bash", command="git diff --no-index . /tmp")
-    guard("Codex apply_patch constitution edit", "apply_patch", command="*** Begin Patch\n*** Delete File: CLAUDE.md\n*** End Patch")
+    guard("apply_patch constitution edit", "apply_patch", command="*** Begin Patch\n*** Delete File: CLAUDE.md\n*** End Patch")
     guard("factory constitutional edit", "Edit", 0, "factory-engineer", file_path="CLAUDE.md")
     guard("factory production edit", "Write", agent="factory-engineer", file_path="modules/core/Example.scala")
     guard("read-only Git status", "Bash", 0, command="git status --short")

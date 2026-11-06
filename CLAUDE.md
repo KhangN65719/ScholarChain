@@ -20,7 +20,7 @@ ScholarChain uses Scala 3, Hadoop MapReduce, Spark and AWS to build a temporal c
 - Obtain runtime secrets through AWS Secrets Manager. Use only approved nonsecret placeholders for local development. Keep credentials, private keys and generated secret files outside the repository and tool outputs.
 - Define AWS infrastructure in Terraform. Direct cloud-console mutation is prohibited. Route cloud operations through reviewed scripts and documented human approvals.
 - Use local or bounded development inputs by default. Use explicit environment and cost ceilings for live AWS work.
-- Use a fresh Codex orchestrator session per phase. Read this file and docs/agents.md and supply them with the role definition, work order and necessary evidence to the delegated agent.
+- Use one fresh Claude Code session, or `/clear`, per phase. The main session is the orchestrator: it reads this file and docs/agents.md, delegates each work order to the owning subagent with the necessary evidence, and never performs a specialist's work inline. Subagents do not invoke one another.
 - Preserve work orders, reports, validation, independent reviews and human decisions. Review and ratify constitutional changes before committing and restarting to activate them.
 
 ## MCP trust boundaries
@@ -34,7 +34,7 @@ Approve each server before use. Scope access per work order and treat server res
 | Terraform Registry | Requires Docker and outbound access to the public registry. The server enables the public registry toolset only and receives no tokens, Docker socket, host mounts or cloud credentials. [Toolsets](https://developer.hashicorp.com/terraform/mcp-server/reference) |
 | AWS documentation | Requires `uvx` and public documentation access. `AWS_DOCUMENTATION_PARTITION` selects the public AWS documentation partition and `FASTMCP_LOG_LEVEL` limits diagnostics. No AWS identity is required. [AWS Documentation MCP](https://awslabs.github.io/mcp/servers/aws-documentation-mcp-server) |
 
-Codex uses only explicitly approved equivalents. Verify their exposed tools and effective credential scope before use. Phase 1 validates the config without contacting servers or reading credential values.
+Project MCP servers stay disabled in Claude Code until each one is individually approved. Verify its exposed tools and effective credential scope before use. Phase 1 validates the config without contacting servers or reading credential values.
 
 ## Hook operation
 
@@ -44,4 +44,4 @@ The Phase 1 guard keeps ordinary live deployment, rollback, pipeline and load sc
 
 Keep a clean formatting baseline and serialize source edits while the formatter runs. The formatter runs project-wide `sbt fmt` and checks for Scala or sbt changes outside the tool's stated edit paths. If it detects collateral changes, route the diff to the affected owners. Do not continue until each owner has reviewed the changes. Hooks can run outside the shell sandbox, so use a trusted build and keep privileged credentials out of authoring sessions. Claude Code applies file read rules to broad searches on a best-effort basis. Verify secret isolation at the runtime boundary.
 
-Codex uses the same scripts as executable policy probes. Claude settings and agent tool declarations require separate wiring and verification in the Codex runtime. Do not report automatic enforcement from the existence of these files. If an event does not supply a verified agent identity, the guard refuses structured constitutional edits. Keep authoring and review tool access scoped in Codex, verify the actual fences and record any open gates. Do not supply unrestricted cloud or secret credentials while runtime controls remain unverified.
+Claude Code runs the hooks natively from `.claude/settings.json` and enforces each subagent's declared tools. Keep direct script probes and observed live interception as separate evidence, and do not report automatic enforcement from the existence of these files alone. If a hook event does not carry a verified `agent_type`, the guard refuses structured constitutional edits; record that as an open gate. Do not supply unrestricted cloud or secret credentials to authoring sessions.
