@@ -15,7 +15,8 @@ The [validation](validation.md) and [independent approval](review.md) apply to t
 - Date: November 5, 2026
 - Revalidated build: unchanged from the accepted Phase 2 commit `32ebc6d`. Confirmed by matching SHA-256 digests for `build.sbt`, `Dockerfile` and `tests/check_test_marker.py`, by an empty Git diff over the build paths, and by the reviewer's line-by-line read.
 - Evidence commit, first batch: `8c8bbe0` (`revalidation.md` acceptance line, `revalidation-diff.md`, `revalidation-results.md`, `revalidation-versions.md` as first written).
-- Evidence commit, second batch: `cf8fc4a`. `revalidation-review.md` and `revalidation-repairs.md` are new, and `revalidation.md`, `revalidation-diff.md`, `revalidation-results.md` and `revalidation-versions.md` carry later edits. The human architect records that SHA here after committing.
+- Evidence commit, second batch: `cf8fc4a`, recorded by the human architect. It adds `revalidation-review.md` and `revalidation-repairs.md` and carries the later edits to `revalidation.md`, `revalidation-diff.md`, `revalidation-results.md` and `revalidation-versions.md`.
+- This record's own SHA entry was committed as `1a8ecc7`.
 
 After the revalidation records were completed, the human architect stated:
 
