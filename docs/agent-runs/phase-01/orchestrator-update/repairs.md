@@ -47,11 +47,15 @@ No tool, ownership, permission, deny-rule or guard changes. The orchestrator ins
 | Finding | Severity | Repair | Owner | Status |
 |---|---|---|---|---|
 | N1–N4 | — | (see above) | — | **Resolved** (re-review-2) |
-| N5 | Low | Probe 9 needs an inconclusive branch (factory-engineer declines without calling Write, so record it as behavioral and leave the `agent_type` observation open) and a failure branch (a permission prompt appears, so deny it and record a failure). The work order should say that denial is the expected result. | factory-engineer (draft); orchestrator (insertion) | Open. Must be fixed before the probe run, but does not block ratification. Awaiting human direction. |
-| N6 | Low | L1 and L2 in `README.md`: record the exact refused argv, cite the transcript (not archived) as the only source, and narrow "cannot run git" to "the attempted git commands were refused". Leave the `review.md` note unchanged. | orchestrator | **Done** (`README.md` L1, L2) |
-| I1 | Info | Leftover files from probes 1 and 2 can be mistaken for a Stop block in probe 5 or 8. Probe 8 ends its session, so the remaining probes need another fresh session. | factory-engineer (optional) | Open, optional |
+| N5 | Low | Probe 9 needs an inconclusive branch (factory-engineer declines without calling Write, so record it as behavioral and leave the `agent_type` observation open) and a failure branch (a permission prompt appears, so deny it and record a failure). The work order should say that denial is the expected result. | factory-engineer (draft); orchestrator (insertion) | Dispatched (round 3, draft only). The human architect accepted this Low item without re-review. |
+| N6 | Low | L1 and L2 in `README.md`: record the exact refused argv, cite the transcript (not archived) as the only source, and narrow "cannot run git" to "the attempted git commands were refused". Leave the `review.md` note unchanged. | orchestrator | **Done** (`README.md` L1, L2, before ratification commit `d717c3d`). The human architect accepted this Low item without re-review. |
+| I1 | Info | Leftover files from probes 1 and 2 can be mistaken for a Stop block in probe 5 or 8. Probe 8 ends its session, so the remaining probes need another fresh session. | factory-engineer (draft); orchestrator (insertion) | Dispatched (round 3, draft only). The human architect accepted this item without re-review. |
 | I2 | Info | Probe 8's request hints at the expected answer. It is already labeled behavioral-only. | — | No action |
 | I3 | Info | In probe 8, deny any Edit permission prompt and record the attempt as a failure. | human (during the probe run) | Note for the probe run |
+
+## Human direction (round 3, after ratification)
+
+After ratifying at `d717c3d`, the human architect routed N5 and I1 to factory-engineer, with a scope of drafted probe 9 and run-order rows only. The orchestrator inserts them as received with attribution and fixes N6. **The human architect accepted these Low and Info items without re-review.** They change only `restart-probes.md`, which is phase evidence, and no constitutional file.
 
 ## Pending checks
 

@@ -8,7 +8,7 @@ Status: RATIFIED by the human architect for fresh-session testing.
   - [review.md](review.md): REQUEST CHANGES
   - [re-review.md](re-review.md): REQUEST CHANGES
   - [re-review-2.md](re-review-2.md): APPROVE
-- Repair commit SHA: recorded after commit.
+- Repair commit SHA: `d717c3d` ("Phase 1: Apply review repairs and record ratification"), pushed to `origin/main`. This SHA was added to the record after that commit.
 
 The human architect confirmed:
 
