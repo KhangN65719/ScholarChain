@@ -20,6 +20,8 @@ git diff --stat 32ebc6d..HEAD -- build.sbt project/ .scalafmt.conf .gitignore Do
 
 The last command produced no output: no build-owned file changed between the accepted Phase 2 commit and HEAD. The current build files are therefore identical to the accepted Phase 2 build files, and the diff below is the full Phase 2 build introduction.
 
+Confirmed independently by two later checks, recorded in `revalidation-review.md`: `code-reviewer` read all ten files and matched every line count against this diffstat, and the human architect's `shasum -a 256` output matched the Phase 02-approved digests for `build.sbt`, `Dockerfile` and `tests/check_test_marker.py` exactly.
+
 ## Build-file changes between `027c9b7` and `32ebc6d`
 
 ```
