@@ -42,6 +42,10 @@ APPROVED_OWNERSHIP = {
     'dependency-updater': 'Version values in project/DependencyVersions.scala; docs/dependencies/**',
 }
 TOOL_NAMES = {"Read", "Grep", "Glob", "Write", "Edit", "Bash"}
+# Default model per role. A role file's `model:` line sets the dispatch default only; an explicit
+# model override at dispatch still wins, so this is a declared default and not a guarantee.
+APPROVED_MODELS = {"code-reviewer": "opus"}
+DEFAULT_MODEL = "sonnet"
 
 
 def require(condition, message):
@@ -68,10 +72,13 @@ def verify_agents():
                 require(line.startswith("  ") and active_key == "description" and fields[active_key].startswith(">-"),
                         f"{path.name}: unsupported frontmatter line")
                 fields[active_key] += " " + line.strip()
-        require(set(fields) == {"name", "description", "tools"}, f"{path.name}: expected name, description and tools")
+        require(set(fields) == {"name", "model", "description", "tools"},
+                f"{path.name}: expected name, model, description and tools")
         name = fields["name"]
         require(name == path.stem and name not in names, f"{path.name}: mismatched or duplicate agent name")
         names.add(name)
+        require(fields["model"] == APPROVED_MODELS.get(name, DEFAULT_MODEL),
+                f"{path.name}: model must be {APPROVED_MODELS.get(name, DEFAULT_MODEL)}")
         require(fields["description"] not in {">-", ">"}, f"{path.name}: empty description")
         tools = fields["tools"].split(", ")
         require(len(set(tools)) == len(tools) and set(tools) <= TOOL_NAMES, f"{path.name}: invalid tool fence")
@@ -79,7 +86,7 @@ def verify_agents():
         if name == "code-reviewer":
             require(set(tools) == {"Read", "Grep", "Glob"}, "Reviewer must have only Read, Grep and Glob")
     require(names == REQUIRED, f"Agent list differs from course matrix: {sorted(names ^ REQUIRED)}")
-    print(f"PASS: {len(names)} unique agent names, explicit tools and read-only reviewer fence")
+    print(f"PASS: {len(names)} unique agent names, declared default models, explicit tools and read-only reviewer fence")
 
 
 def verify_ownership():

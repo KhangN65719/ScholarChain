@@ -1,5 +1,6 @@
 ---
 name: deploy-engineer
+model: sonnet
 description: >-
   Execute reviewed deployment and bounded pipeline scripts in a human-approved environment and record releases.
 tools: Read, Grep, Glob, Write, Edit, Bash

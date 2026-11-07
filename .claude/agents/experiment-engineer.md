@@ -1,5 +1,6 @@
 ---
 name: experiment-engineer
+model: sonnet
 description: >-
   Define reproducible performance and elasticity workloads, manifests and raw result collection.
 tools: Read, Grep, Glob, Write, Edit, Bash

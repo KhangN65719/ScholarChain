@@ -1,5 +1,6 @@
 ---
 name: factory-engineer
+model: sonnet
 description: Creates and maintains the ScholarChain agent workflow from an approved authority matrix, prepares changes for human review, and never ratifies its own work.
 tools: Read, Grep, Glob, Write, Edit, Bash
 ---

@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import tempfile
 
-from policy import ROOT
+from policy import CHECK_SBT, ROOT
 
 
 PASSES = []
@@ -56,10 +56,11 @@ def expect(name, condition):
 
 
 def test_settings():
-    """P1 is an accepted open gate: an agent cannot run `sbt check` in the sandbox, so the human runs
-    it with the `!` prefix. The settings therefore grant no sandbox write surface at all, and no
-    unsandboxing switch or deny list moved. Asserts file content only: the effective OS boundary must
-    be observed live in Claude Code, not inferred from this probe."""
+    """P1 is closed by `sandbox.excludedCommands`: exactly `sbt check` and `sbt Test/compile` run
+    outside the sandbox, so an agent can complete the check itself. The settings still grant no
+    sandbox write surface at all, and no unsandboxing switch or deny list moved. Asserts file content
+    only: the effective OS boundary must be observed live in Claude Code, not inferred from this
+    probe, and the exclusion's network widening is likewise not observable here."""
     settings = json.loads((ROOT / ".claude/settings.json").read_text())
     sandbox = settings["sandbox"]
     filesystem = sandbox["filesystem"]
@@ -96,8 +97,21 @@ def test_settings():
         "P1 no sandbox network setting was added",
         "network" not in sandbox and set(sandbox) == {
             "enabled", "failIfUnavailable", "autoAllowBashIfSandboxed",
-            "allowUnsandboxedCommands", "filesystem",
+            "allowUnsandboxedCommands", "excludedCommands", "filesystem",
         },
+    )
+    # Exact list, exact order, no wildcard. These entries are exact-match patterns, so any `*`, `:*`
+    # suffix or third entry would silently widen what leaves the sandbox and must fail the suite.
+    expect(
+        "P1 the sandbox exclusion is exactly the two check commands, with no wildcard",
+        sandbox["excludedCommands"] == ["sbt check", "sbt Test/compile"]
+        and not any("*" in entry for entry in sandbox["excludedCommands"]),
+    )
+    # Derived tie to the guard's own set, so editing CHECK_SBT or the exclusion alone fails the suite.
+    # Kept beside the literal above because the derived check alone passes if both sides drift together.
+    expect(
+        "P1 the sandbox exclusion matches the guard's CHECK_SBT set",
+        set(sandbox["excludedCommands"]) == {f"sbt {task}" for task in CHECK_SBT},
     )
     permissions = settings["permissions"]
     expect(
@@ -128,12 +142,42 @@ def test_settings():
             "Bash(.claude/hooks/validate-agent-files.sh)",
         ],
     )
-    # The guard still permits an implementing role to request `sbt check`, unchanged by P1's withdrawal.
-    # Guard permission is not completion: the command cannot succeed inside the sandbox, so these
-    # probes claim nothing about an agent satisfying the test gate. Both directions:
+    # The guard permits an implementing role to request both excluded commands. Guard permission is
+    # not completion: these probes say nothing about whether the run succeeds, only about the fence.
+    # Both directions:
     guard("P1 guard permits an implementing role to request sbt check", "Bash", 0, "domain-engineer", command="sbt check")
+    guard("P1 guard permits an implementing role to request sbt Test/compile", "Bash", 0, "domain-engineer", command="sbt Test/compile")
     guard("P1 sbt check still refused to deploy-engineer", "Bash", 2, "deploy-engineer", command="sbt check")
+    guard("P1 sbt Test/compile still refused to incident-responder", "Bash", 2, "incident-responder", command="sbt Test/compile")
     guard("P1 sbt is still limited to the check tasks", "Bash", 2, "domain-engineer", command="sbt publish")
+    # Near misses. The exclusion is exact-match, so these never leave the sandbox; the guard refuses
+    # them first, which is the stronger of the two fences. Each probe therefore records the guard's
+    # refusal, not a sandbox observation.
+    for command in (
+        "sbt checkAll", "sbt check --foo", "sbt -batch check", "sbt Test/compileAll",
+        "sbt clean check", "sbt check Test/compile",
+    ):
+        guard(f"P1 near miss still refused by the guard: {command}", "Bash", 2, "domain-engineer", command=command)
+    # The one near miss the guard ALLOWS. shlex normalization (policy.py) strips the quotes and the extra
+    # space, so the guard sees the bare two-token form and permits it. The sandbox exclusion is exact text
+    # match and does not cover these, so they run sandboxed and fail with the sbt.boot.lock EPERM.
+    # `sbt "check"` was measured that way on 2026-11-06. The other two are inferred from the same
+    # normalization path, not measured. This pins the asymmetry so it is not rediscovered.
+    guard('P1 guard permits quoted near miss that the sandbox does not exclude: sbt "check"', "Bash", 0, "domain-engineer", command='sbt "check"')
+    guard("P1 guard permits quoted near miss that the sandbox does not exclude: sbt 'Test/compile' (inferred)", "Bash", 0, "domain-engineer", command="sbt 'Test/compile'")
+    guard("P1 guard permits extra-whitespace near miss that the sandbox does not exclude: sbt  check (inferred)", "Bash", 0, "domain-engineer", command="sbt  check")
+    # The exclusion opened no chaining, redirection or expansion hole: a compound call keeps the whole
+    # command sandboxed per the documented matching rule, and the guard refuses it outright anyway.
+    for command in (
+        "sbt check && rm -rf target", "sbt check; ls", "sbt check | tee out.txt",
+        "sbt check > out.txt", "sbt Test/compile && sbt publish", "sbt $(echo check)",
+        "sbt check `whoami`", "cd modules && sbt check",
+    ):
+        guard(f"P1 compound or expanded form still refused: {command}", "Bash", 2, "domain-engineer", command=command)
+    # A non-permitted bare command and a shell write to a constitutional path are unchanged.
+    guard("P1 a non-permitted bare command is still refused", "Bash", 2, "domain-engineer", command="java -version")
+    guard("P1 a shell write to a constitutional path is still refused", "Bash", 2, "domain-engineer", command="touch CLAUDE.md")
+    guard("P1 a non-factory structured constitutional write is still refused", "Edit", 2, "domain-engineer", file_path=".claude/settings.json")
 
 
 def test_review_git():

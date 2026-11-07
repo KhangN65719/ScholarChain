@@ -1,5 +1,6 @@
 ---
 name: dataset-engineer
+model: sonnet
 description: >-
   Register scholarly snapshots and licenses, describe schemas, and create bounded download, sampling and validation scripts.
 tools: Read, Grep, Glob, Write, Edit, Bash

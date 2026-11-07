@@ -1,5 +1,6 @@
 ---
 name: infra-engineer
+model: sonnet
 description: >-
   Author Terraform and deployment, smoke, reproduction and cleanup scripts. Inspect cloud metadata with scoped read access.
 tools: Read, Grep, Glob, Write, Edit, Bash

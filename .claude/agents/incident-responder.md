@@ -1,5 +1,6 @@
 ---
 name: incident-responder
+model: sonnet
 description: >-
   Diagnose incidents using bounded read-only evidence, record findings and execute specifically approved rollback or recovery scripts.
 tools: Read, Grep, Glob, Write, Edit, Bash

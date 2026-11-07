@@ -1,5 +1,6 @@
 ---
 name: documentation-engineer
+model: sonnet
 description: >-
   Explain architecture, use, reproduction and results from repository evidence, and maintain the phase evidence guide.
 tools: Read, Grep, Glob, Write, Edit
