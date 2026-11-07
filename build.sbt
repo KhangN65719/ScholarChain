@@ -16,6 +16,17 @@ lazy val buildDockerLocal =
   taskKey[Unit]("Build the local service runtime image.")
 lazy val stageJob = taskKey[Unit]("Stage the job JAR and runtime dependencies.")
 
+// Hadoop's own diagnostics go through SLF4J, and hadoop-client-runtime brings
+// only slf4j-api 1.7.36 with no binding, so a test run logs nothing: job
+// submission messages and task failure stacks are discarded on exactly the run
+// that needs them. Both entries read the pinned ledger slf4j value, which
+// resolves the api to 2.0.18 and evicts Hadoop's 1.7.36; 2.0.x is a drop-in
+// replacement for a caller of the 1.7 api, which is all Hadoop is here.
+lazy val slf4jTestBinding = Seq(
+  "org.slf4j" % "slf4j-api" % DependencyVersions.slf4j % Test,
+  "org.slf4j" % "slf4j-simple" % DependencyVersions.slf4j % Test
+)
+
 def jobPackagingSettings(useProvidedScalaLibrary: Boolean = false) = Seq(
   stageJob := {
     val output = target.value / "job"
@@ -45,12 +56,31 @@ lazy val root = project
     rag,
     services
   )
-  .dependsOn(core % "test->compile")
+  // Test-scoped only, in both edges. Aggregation is not a classpath edge, so
+  // an independent test under tests/ can reference only what is named here.
+  // hadoop is a batch job module: a compile or runtime edge would pull it into
+  // the runtime graph, which the module boundaries forbid, so the edge maps
+  // test->compile and appears in no Compile, Runtime or packaged classpath.
+  .dependsOn(core % "test->compile", hadoop % "test->compile")
   .settings(
     name := "scholarchain",
     publish / skip := true,
     Test / scalaSource := baseDirectory.value / "tests" / "src" / "test" / "scala",
     Test / unmanagedSourceDirectories += baseDirectory.value / "tests" / "contracts",
+    // The reserved independent-test roots. Without these a .scala file placed
+    // in them is on no source path, so it is neither compiled nor run while
+    // sbt check still passes and writes the marker.
+    Test / unmanagedSourceDirectories ++= Seq(
+      baseDirectory.value / "tests" / "adversarial",
+      baseDirectory.value / "tests" / "integration",
+      baseDirectory.value / "tests" / "end-to-end"
+    ),
+    // sbt does not carry a Provided dependency across a project edge, so the
+    // Hadoop API that modules/hadoop keeps Provided is declared here at Test
+    // for tests under tests/ that reach the module's Hadoop-typed code.
+    libraryDependencies += "org.apache.hadoop" % "hadoop-client-api" % DependencyVersions.hadoop % Test,
+    libraryDependencies += "org.apache.hadoop" % "hadoop-client-runtime" % DependencyVersions.hadoop % Test,
+    libraryDependencies ++= slf4jTestBinding,
     buildDockerLocal := {
       val context = target.value / "docker-local"
       val serviceJar = (services / Compile / packageBin).value
@@ -109,7 +139,18 @@ lazy val hadoop = project
   .dependsOn(core)
   .settings(jobPackagingSettings())
   .settings(
-    libraryDependencies += "org.apache.hadoop" % "hadoop-client-api" % DependencyVersions.hadoop % Provided
+    libraryDependencies += "org.apache.hadoop" % "hadoop-client-api" % DependencyVersions.hadoop % Provided,
+    // A cluster supplies the shaded runtime, so production keeps it off the
+    // classpath. Tests run outside a cluster and need it: Configuration parses
+    // XML on construction and reaches for the shaded Woodstox parser.
+    libraryDependencies += "org.apache.hadoop" % "hadoop-client-runtime" % DependencyVersions.hadoop % Test,
+    // The runtime jar answers Configuration's construction only. Executing a
+    // job needs LocalJobRunner plumbing, job submission, split assignment, a
+    // task JVM, a shuffle and an OutputCommitter; the minicluster artifact is
+    // Hadoop's published test-side counterpart to api + runtime and carries
+    // them. Test scope, so it reaches no packaged job artifact.
+    libraryDependencies += "org.apache.hadoop" % "hadoop-client-minicluster" % DependencyVersions.hadoop % Test,
+    libraryDependencies ++= slf4jTestBinding
   )
 lazy val entityResolution =
   project
