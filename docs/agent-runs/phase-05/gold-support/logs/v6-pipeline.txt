@@ -1,0 +1,63 @@
+[info] welcome to sbt 1.11.7 (Eclipse Adoptium Java 21.0.13)
+[info] loading settings for project scholarchain-build-build from build.sbt...
+[info] loading project definition from /Users/winnguyen/ScholarChain/project/project
+[info] loading settings for project scholarchain-build from plugins.sbt...
+[info] loading project definition from /Users/winnguyen/ScholarChain/project
+[info] loading settings for project root from build.sbt...
+[info] set current project to scholarchain (in build file:/Users/winnguyen/ScholarChain/)
+[info] running scholarchain.hadoop.jobs.PipelineTool -Dscholarchain.run.snapshots=dblp=2026-11-05,openalex=2026-11-07,crossref=2026-11-07,orcid=2026-11-07 -Dscholarchain.run.id=run:v1:d4722bc7-0d02-42da-bdb6-088ee508a143 /Users/winnguyen/scholarchain-data/phase4-out/subset-v6 /Users/winnguyen/ScholarChain/datasets/subset/dblp-subset.xml openalex=/Users/winnguyen/ScholarChain/datasets/subset/openalex.jsonl crossref=/Users/winnguyen/ScholarChain/datasets/subset/crossref.jsonl orcid=/Users/winnguyen/ScholarChain/datasets/subset/orcid.jsonl
+ScholarChain pipeline run run:v1:d4722bc7-0d02-42da-bdb6-088ee508a143 datasets=crossref,dblp,openalex,orcid snapshots=crossref=2026-11-07,dblp=2026-11-05,openalex=2026-11-07,orcid=2026-11-07 output=/Users/winnguyen/scholarchain-data/phase4-out/subset-v6/run=run-v1-d4722bc7-0d02-42da-bdb6-088ee508a143/snapshot=8e1be6626420
+WARN NativeCodeLoader - Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!

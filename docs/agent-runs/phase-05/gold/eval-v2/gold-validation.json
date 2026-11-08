@@ -1,0 +1,114 @@
+{
+  "passed": true,
+  "headline": [
+    "REVIEW TIME AND PASSES (reported, not a pass or fail criterion)",
+    "REVIEW TIME pass 1, all 230 rows of gold.jsonl, labeled with suggestions: reviewedAt 2026-11-07T18:53:15.362Z .. 2026-11-07T18:59:44.797Z, span 6.5 min, median gap 0.7 s, 208 gaps under 2 s",
+    "REVIEW TIME pass 2, 77 blind relabels: reviewedAt 2026-11-07T21:42:39.757Z .. 2026-11-07T21:53:11.996Z, span 10.5 min, median gap 2.8 s, 30 gaps under 2 s",
+    "LABELS by pass: pass 1 153 (same 89, different 62, unsure 2); pass 2 77 (same 7, different 67, unsure 3)",
+    "NOT RE-REVIEWED: 153 pairs carry first-pass labels made with suggestions; only 77 pairs were reviewed blind"
+  ],
+  "checks": [
+    {
+      "name": "entry-count",
+      "status": "PASS",
+      "detail": "230 entries, expected 230"
+    },
+    {
+      "name": "loads-as-GoldLabel",
+      "status": "PASS",
+      "detail": "every row loads as a GoldLabel"
+    },
+    {
+      "name": "gold-pair-ids",
+      "status": "PASS",
+      "detail": "230 unique"
+    },
+    {
+      "name": "pairs-file",
+      "status": "PASS",
+      "detail": "230 unique pairs, expected 230"
+    },
+    {
+      "name": "gold-pairs-coverage",
+      "status": "PASS",
+      "detail": "230 pair_ids in both files"
+    },
+    {
+      "name": "gold-agrees-with-pairs",
+      "status": "PASS",
+      "detail": "all fields agree"
+    },
+    {
+      "name": "human-review-fields",
+      "status": "PASS",
+      "detail": "method, reviewer, time, sources"
+    },
+    {
+      "name": "dblp-snapshot",
+      "status": "PASS",
+      "detail": "every DBLP record is dblp:2026-11-05"
+    },
+    {
+      "name": "pass-field",
+      "status": "PASS",
+      "detail": "230 rows are marked pass 1 or 2"
+    },
+    {
+      "name": "pass1-file",
+      "status": "PASS",
+      "detail": "230 labels in gold.jsonl"
+    },
+    {
+      "name": "pass2-is-subset",
+      "status": "PASS",
+      "detail": "77 pass-2 rows are exactly the subset"
+    },
+    {
+      "name": "subset-recomputed",
+      "status": "PASS",
+      "detail": "recomputed 77 pairs, subset file 77"
+    },
+    {
+      "name": "pass2-blind",
+      "status": "PASS",
+      "detail": "77 pass-2 rows carry no suggestion"
+    },
+    {
+      "name": "pass1-carried",
+      "status": "PASS",
+      "detail": "153 pass-1 rows equal their lines in gold.jsonl"
+    },
+    {
+      "name": "label-totals",
+      "status": "SKIP",
+      "detail": "same/different/unsure 96/129/5; no expected totals given, shown for the record"
+    },
+    {
+      "name": "strata-key",
+      "status": "PASS",
+      "detail": "230 keys: clear-non-match 76, exact-id 77, hard-common-name 77"
+    }
+  ],
+  "info": [
+    "kinds: researcher 215, work 15",
+    "reviewers: khang-nguyen",
+    "rows with a note: 1",
+    "snapshots of crossref: crossref:2026-11-07",
+    "snapshots of dblp: dblp:2026-11-05",
+    "snapshots of openalex: openalex:2026-11-07"
+  ],
+  "compare": [
+    "descriptive only: not a threshold input and not a quality score; pass 1 was made with suggestions, pass 2 without",
+    "only 77 subset pairs were re-reviewed blind; 153 pairs were NOT re-reviewed and carry their pass-1 labels",
+    "exact agreement 72 of 77 (93.506%)",
+    "Cohen kappa over same/different: n 72, excluded for unsure: 5, observed 1.000, by chance 0.847, kappa 1.000",
+    "changes pass 1->pass 2: different->unsure 3, unsure->different 1, unsure->same 1",
+    "stratum hard-common-name: 77 pairs, 72 agree, 5 disagree",
+    "disagreements: 5",
+    "disagree pair:v1:14eb1bd6deba2520edc14350acf96a7a first=unsure second=different",
+    "disagree pair:v1:2603773206be8c600886af93213b1063 first=different second=unsure",
+    "disagree pair:v1:35516eb7dfe37fb59d3a4a5adb73c9e3 first=unsure second=same",
+    "disagree pair:v1:394ff8b12192948a1f9f3ff936524f09 first=different second=unsure",
+    "disagree pair:v1:65622c4eec3b7e74109adf6a22ab3010 first=different second=unsure"
+  ]
+}

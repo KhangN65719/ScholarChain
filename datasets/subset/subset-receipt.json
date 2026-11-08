@@ -1,0 +1,124 @@
+{
+  "coauthors": {
+    "dropped_large_team": 1246,
+    "evicted_by_coauthor_cap": 396293,
+    "names_found": 7208,
+    "names_used": 4000,
+    "works_seen": 399039
+  },
+  "dblp_dump": {
+    "bytes": 1116868681,
+    "dtd_file_name": "dblp.dtd",
+    "dtd_md5": "a48e41dde9dcd24542efcb0fffcca40b",
+    "dtd_md5_matches_registered": false,
+    "dtd_sha256": "2d864498f9eef9298662df11e3874171ff24cd4a21ab5974f1369c90acdb1ef6",
+    "entity_count": 65,
+    "file_name": "dblp.xml.gz",
+    "md5": "643ee4f925705373fea4209ec9275af2",
+    "registered_snapshot": "2026-11-01",
+    "registered_snapshot_match": false,
+    "release": "2026-11-05",
+    "scan": {
+      "coauthor_pass": {
+        "decompressed_bytes": 5391919218,
+        "records": 8848160,
+        "stopped": "end-of-dump"
+      },
+      "seed_pass": {
+        "decompressed_bytes": 5391919218,
+        "records": 8848160,
+        "stopped": "end-of-dump"
+      }
+    },
+    "sha256": "356634eef5696aef7ba4d07d864257ddcacae55c95f64a755570801df0a82fa1",
+    "sha256_checked_against": "operator-supplied value"
+  },
+  "dropped_by_total_cap": 0,
+  "encoding": "ISO-8859-1",
+  "file": {
+    "bytes": 2111266,
+    "name": "dblp-subset.xml",
+    "rows": 3472,
+    "sha256": "9076e8574643fa6f64619aa912956ed0ddef60f8d0634ae4be218b0edce28c7d"
+  },
+  "non_ascii_records": 0,
+  "seeds": {
+    "Hui Li": {
+      "dropped_by_shared_name_cap": 2,
+      "dropped_large_team": 15,
+      "evicted_by_per_name_cap": 3645,
+      "kept": 198,
+      "works_seen": 3860
+    },
+    "Jing Li": {
+      "dropped_by_shared_name_cap": 3,
+      "dropped_large_team": 15,
+      "evicted_by_per_name_cap": 3919,
+      "kept": 197,
+      "works_seen": 4134
+    },
+    "Jun Wang": {
+      "dropped_by_shared_name_cap": 2,
+      "dropped_large_team": 29,
+      "evicted_by_per_name_cap": 5933,
+      "kept": 200,
+      "works_seen": 6162
+    },
+    "Lei Zhang": {
+      "dropped_by_shared_name_cap": 1,
+      "dropped_large_team": 33,
+      "evicted_by_per_name_cap": 6992,
+      "kept": 200,
+      "works_seen": 7225
+    },
+    "Li Zhang": {
+      "dropped_by_shared_name_cap": 1,
+      "dropped_large_team": 26,
+      "evicted_by_per_name_cap": 4384,
+      "kept": 199,
+      "works_seen": 4610
+    },
+    "Wei Wang": {
+      "dropped_by_shared_name_cap": 6,
+      "dropped_large_team": 48,
+      "evicted_by_per_name_cap": 10532,
+      "kept": 200,
+      "works_seen": 10780
+    },
+    "Xin Li": {
+      "dropped_by_shared_name_cap": 4,
+      "dropped_large_team": 71,
+      "evicted_by_per_name_cap": 4892,
+      "kept": 196,
+      "works_seen": 5163
+    },
+    "Yan Zhang": {
+      "dropped_by_shared_name_cap": 2,
+      "dropped_large_team": 16,
+      "evicted_by_per_name_cap": 4247,
+      "kept": 198,
+      "works_seen": 4463
+    },
+    "Yang Liu": {
+      "dropped_by_shared_name_cap": 5,
+      "dropped_large_team": 59,
+      "evicted_by_per_name_cap": 10062,
+      "kept": 200,
+      "works_seen": 10321
+    },
+    "Ying Zhang": {
+      "dropped_by_shared_name_cap": 2,
+      "dropped_large_team": 10,
+      "evicted_by_per_name_cap": 3054,
+      "kept": 198,
+      "works_seen": 3264
+    }
+  },
+  "spec_sha256": "3731c8f92db22adbd5b433531a81b44e598ccceb211768e6f293ff72a1778692",
+  "unknown_entity_records": 0,
+  "works": {
+    "coauthor": 1500,
+    "seed": 1972,
+    "total": 3472
+  }
+}

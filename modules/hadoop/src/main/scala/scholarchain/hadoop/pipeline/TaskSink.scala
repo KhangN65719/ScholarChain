@@ -197,6 +197,16 @@ final class RecordingSink extends TaskSink:
       .map(counter => counter.name -> counters.getOrElse(counter, 0L))
       .filter(_._2 != 0L)
 
+/** Per-stream written-record counters.
+  *
+  * A reducer increments one counter per final record it commits, named by the
+  * stream label. The driver reads these off the completed job to learn which
+  * artifacts the job really wrote, so it never has to probe a directory (which
+  * could not tell "legitimately empty" from "the job lost its output").
+  */
+object StreamCounter:
+  val group = "scholarchain.streams"
+
 object TaskSink:
   /** Intermediate and final output labels. A label names exactly one artifact
     * stream, which is what the Hadoop jobs bind to a named output.

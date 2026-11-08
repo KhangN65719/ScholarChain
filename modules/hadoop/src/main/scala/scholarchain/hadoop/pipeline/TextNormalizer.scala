@@ -12,24 +12,95 @@ import java.util.Locale
   * the usual source of nondeterminism across cluster nodes.
   */
 object TextNormalizer:
-  private val diacritical = "\\p{M}+".r
-  private val nonAlphanumeric = "[^0-9a-z]+".r
+  private val nonWord = "[^\\p{L}\\p{N}\\p{M}]+".r
   private val whitespace = "\\s+".r
+
+  /** Letters that have no canonical decomposition, so mark stripping cannot
+    * reduce them. Without this table they used to fall through to a word break
+    * and split "Bjørn" into "bj" and "rn". The expansions are the conventional
+    * ASCII spellings.
+    */
+  private val latinExpansions: Map[Char, String] = Map(
+    'ø' -> "o",
+    'đ' -> "d",
+    'ð' -> "d",
+    'ł' -> "l",
+    'ħ' -> "h",
+    'ŧ' -> "t",
+    'ı' -> "i",
+    'ĸ' -> "k",
+    'ß' -> "ss",
+    'æ' -> "ae",
+    'œ' -> "oe",
+    'þ' -> "th",
+    // Greek final sigma, so a word-final and a standalone spelling agree.
+    'ς' -> "σ"
+  )
+
+  /** Whether a combining mark is a diacritic to fold away. Marks are dropped
+    * after scripts where they are optional decoration (Latin, Greek, Arabic,
+    * Hebrew), after no base at all, and for the two Cyrillic marks that are
+    * conventionally omitted (stress and diaeresis). They are kept elsewhere,
+    * because in Japanese, Hangul, Indic and Thai text they carry meaning: a
+    * Japanese dakuten turns か into が, and stripping it would merge distinct
+    * names.
+    */
+  private def dropsMark(base: Character.UnicodeScript, mark: Int): Boolean =
+    import Character.UnicodeScript.*
+    base match
+      case LATIN | GREEK | ARABIC | HEBREW | COMMON | INHERITED => true
+      case CYRILLIC => mark == 0x0301 || mark == 0x0308
+      case _        => false
+
+  private def isMark(codePoint: Int): Boolean =
+    Character.getType(codePoint) match
+      case Character.NON_SPACING_MARK | Character.ENCLOSING_MARK |
+          Character.COMBINING_SPACING_MARK =>
+        true
+      case _ => false
 
   def collapseWhitespace(value: String): String =
     whitespace.replaceAllIn(Option(value).getOrElse("").trim, " ")
 
-  /** NFKC, lowercase, diacritics stripped, non-alphanumerics folded to single
-    * spaces. The result is stable across runs and platforms.
+  /** The matching key: NFKC, lowercase, script-aware diacritic folding,
+    * non-letters and non-digits folded to single spaces. The result is stable
+    * across runs and platforms.
+    *
+    * This is **a matching key only**. Stored records keep the original
+    * characters; the folded form lives in `normalizedName` and
+    * `normalizedTitle`.
+    *
+    * Coverage, stated precisely:
+    *   - Latin, including letters with no decomposition (ø, ł, ß, æ, ...) and
+    *     any accented form: folded to ASCII, so "Bjørn Ødegård" and "Bjorn
+    *     Odegard" share a key.
+    *   - Greek and Arabic/Hebrew: marks (tonos, harakat, niqqud) are stripped;
+    *     letters are kept in their own script.
+    *   - Every other script (CJK, Hangul, Cyrillic, Indic, Thai, ...): the
+    *     NFKC-casefolded letters themselves are the key. These are same-script
+    *     exact-match keys. There is no cross-script transliteration, so "李明"
+    *     and "Li Ming" do not share a key. That would need a transliteration
+    *     table or library, which the version ledger does not carry.
     */
   def fold(value: String): String =
     val composed =
       Normalizer.normalize(Option(value).getOrElse(""), Normalizer.Form.NFKC)
     val lowered = composed.toLowerCase(Locale.ROOT)
-    val decomposed =
-      Normalizer.normalize(lowered, Normalizer.Form.NFD)
-    val stripped = diacritical.replaceAllIn(decomposed, "")
-    nonAlphanumeric.replaceAllIn(stripped, " ").trim
+    val decomposed = Normalizer.normalize(lowered, Normalizer.Form.NFD)
+    val out = new java.lang.StringBuilder(decomposed.length)
+    var base = Character.UnicodeScript.COMMON
+    val iterator = decomposed.codePoints().iterator()
+    while iterator.hasNext do
+      val codePoint = iterator.nextInt()
+      if isMark(codePoint) then
+        if !dropsMark(base, codePoint) then out.appendCodePoint(codePoint)
+      else
+        base = Character.UnicodeScript.of(codePoint)
+        latinExpansions.get(codePoint.toChar) match
+          case Some(expansion) if codePoint < 0x10000 => out.append(expansion)
+          case _ => out.appendCodePoint(codePoint)
+    val recomposed = Normalizer.normalize(out, Normalizer.Form.NFC)
+    nonWord.replaceAllIn(recomposed, " ").trim
 
   def titleKey(title: String): String = fold(title)
 

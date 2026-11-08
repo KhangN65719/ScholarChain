@@ -356,5 +356,186 @@
         }
       }
     }
+  ],
+  "subsets": [
+    {
+      "id": "phase5-dblp-subset",
+      "purpose": "Phase 5 bounded DBLP subset: works of common-name seed authors plus one hop of their coauthors, extracted from a local official dump. OpenAlex, Crossref and ORCID only enrich; they never filter DBLP works.",
+      "spec": {
+        "path": "subset/subset-spec.json",
+        "sha256": "3731c8f92db22adbd5b433531a81b44e598ccceb211768e6f293ff72a1778692"
+      },
+      "receipt": {
+        "path": "subset/subset-receipt.json",
+        "sha256": "1216b8aa5ed996eed3cfd13c3a1401ed368c3c4baf22feb765260c4a4d5a1e62"
+      },
+      "enrichment_receipt": {
+        "path": "subset/enrichment-receipt.json",
+        "sha256": "6d0b8d7b1d88a2b08facf922a5f1d915fd891b5263601dd3a5ffc2fd35ea2c60"
+      },
+      "retrieval_date": "2026-11-07",
+      "dblp_dump": {
+        "bytes": 1116868681,
+        "dtd_file_name": "dblp.dtd",
+        "dtd_md5": "a48e41dde9dcd24542efcb0fffcca40b",
+        "dtd_md5_matches_registered": false,
+        "dtd_sha256": "2d864498f9eef9298662df11e3874171ff24cd4a21ab5974f1369c90acdb1ef6",
+        "entity_count": 65,
+        "file_name": "dblp.xml.gz",
+        "md5": "643ee4f925705373fea4209ec9275af2",
+        "registered_snapshot": "2026-11-01",
+        "registered_snapshot_match": false,
+        "release": "2026-11-05",
+        "scan": {
+          "coauthor_pass": {
+            "decompressed_bytes": 5391919218,
+            "records": 8848160,
+            "stopped": "end-of-dump"
+          },
+          "seed_pass": {
+            "decompressed_bytes": 5391919218,
+            "records": 8848160,
+            "stopped": "end-of-dump"
+          }
+        },
+        "sha256": "356634eef5696aef7ba4d07d864257ddcacae55c95f64a755570801df0a82fa1",
+        "sha256_checked_against": "operator-supplied value"
+      },
+      "dblp_source": {
+        "release": "2026-11-05",
+        "url": "https://dblp.org/xml/dblp.xml.gz",
+        "release_specific_url": "UNVERIFIED",
+        "retrieved": "2026-11-07",
+        "retrieved_basis": "file-mtime",
+        "note": "Generic current-dump URL. The operator reported that a download probe returned HTTP 200; that report is operator-supplied and unverified. DBLP serves its latest dump there, so the URL does not itself identify release 2026-11-05; the release is identified by the operator-supplied SHA-256 356634eef5696aef7ba4d07d864257ddcacae55c95f64a755570801df0a82fa1 and size 1116868681 bytes in dblp_dump. No release-specific URL is recorded: release-specific URL UNVERIFIED. The 'retrieved' date was inferred from the modification time of the local dump file; it is not a recorded download time."
+      },
+      "files": [
+        {
+          "dataset": "dblp",
+          "path": "subset/dblp-subset.xml",
+          "format": "xml",
+          "rows": 3472,
+          "bytes": 2111266,
+          "sha256": "9076e8574643fa6f64619aa912956ed0ddef60f8d0634ae4be218b0edce28c7d",
+          "git_tracked": true,
+          "source_urls": [
+            "https://dblp.org/xml/dblp.xml.gz"
+          ]
+        },
+        {
+          "dataset": "openalex",
+          "path": "subset/openalex.jsonl",
+          "format": "jsonl",
+          "rows": 396,
+          "bytes": 940131,
+          "sha256": "fdeddfa389f0f9af861dff9d7c89b8e91e3d7b2cda96111504bf6ed8f8a062a9",
+          "git_tracked": true,
+          "source_urls": [
+            "https://api.openalex.org/works"
+          ]
+        },
+        {
+          "dataset": "crossref",
+          "path": "subset/crossref.jsonl",
+          "format": "jsonl",
+          "rows": 251,
+          "bytes": 174011,
+          "sha256": "c403ccbfe67ad475b3788a44cae0cc292c60ef05a4f6d02b8249b25a662cd368",
+          "git_tracked": true,
+          "source_urls": [
+            "https://api.crossref.org/works/{doi}"
+          ]
+        },
+        {
+          "dataset": "orcid",
+          "path": "subset/orcid.jsonl",
+          "format": "jsonl",
+          "rows": 100,
+          "bytes": 19675,
+          "sha256": "719a1cdb41069fe520bd2ab37aef5d253483d38c22e517cc714d369d91de35c5",
+          "git_tracked": true,
+          "source_urls": [
+            "https://pub.orcid.org/v3.0/{orcid}/person"
+          ]
+        }
+      ],
+      "licenses": {
+        "dblp": "CC0-1.0",
+        "openalex": "CC0-1.0",
+        "crossref": "NOASSERTION",
+        "orcid": "CC0-1.0"
+      },
+      "seeds": [
+        "Wei Wang",
+        "Li Zhang",
+        "Jun Wang",
+        "Yang Liu",
+        "Jing Li",
+        "Xin Li",
+        "Yan Zhang",
+        "Hui Li",
+        "Lei Zhang",
+        "Ying Zhang"
+      ],
+      "caps": {
+        "total_works": 3500,
+        "per_seed_name": 200,
+        "coauthor_works": 1500,
+        "max_coauthor_names": 4000,
+        "max_team_size": 25,
+        "max_dblp_bytes": 8388608
+      },
+      "counts": {
+        "works": {
+          "coauthor": 1500,
+          "seed": 1972,
+          "total": 3472
+        },
+        "dropped_by_total_cap": 0,
+        "exact_id_dois": 354,
+        "openalex_rows": 396,
+        "crossref_rows": 251,
+        "orcid_rows": 100
+      },
+      "size_bounds": {
+        "max_total_bytes": 10485760,
+        "max_dblp_bytes": 8388608,
+        "max_enrichment_file_bytes": 4194304,
+        "max_http_requests": 500,
+        "max_response_bytes": 2097152
+      },
+      "subset_rule": "Two streaming passes over the verified local DBLP dump in file order, stopping at 12884901888 decompressed bytes or 12000000 records. Pass one keeps every work, in any year and with or without a DOI, that has an author whose name (ignoring DBLP's numeric homonym suffix) folds to a seed name, dropping works with more than 25 authors; at most 200 works are kept for each seed name, where the per-name count is the number of works in the subset file that mention that name (a work with two seed names counts for both; coauthor works mention none). Works are admitted in order of the smallest SHA-256 of salt and DBLP key, skipping any work that would push a name over its cap. Pass two keeps works with no seed-name author that have an author who is, by exact DBLP name, a non-seed coauthor of a kept seed work (one hop; at most 4000 coauthor names, smallest SHA-256 first), the 1500 smallest by the same ranking. The total never exceeds 3500 works; seed works have priority. Ranking is a fixed-salt hash, so the result does not depend on record order or on randomness. OpenAlex, Crossref and ORCID rows are added afterwards for works with a DOI (seed works first) and never remove a work.",
+      "linkage_keys": [
+        "DOI (DBLP ee, OpenAlex doi, Crossref DOI)",
+        "ORCID iD (DBLP author attribute, OpenAlex author.orcid, Crossref author.ORCID, ORCID name.path)",
+        "DBLP record key and author name with homonym suffix",
+        "OpenAlex Work and Author ID"
+      ],
+      "estimated_candidate_pairs": {
+        "expected_total": 416166.4,
+        "unsalted_pairs": 286994,
+        "salted_pairs_before_bucketing": 1033379,
+        "salt_buckets": 8,
+        "by_strategy": {
+          "name-affiliation": 256,
+          "name-coauthor": 187140,
+          "name-venue": 21187,
+          "name-year": 77631,
+          "title-year": 780
+        },
+        "exact_identifier_agreement": 9217,
+        "same_paper_cross_source": 43773,
+        "cross_paper_same_block": 242441,
+        "work_pairs": 780
+      },
+      "git_tracked": true,
+      "limitations": "DBLP works come from one local dump; OpenAlex, Crossref and ORCID are live APIs, reproducible only from the response digests in the enrichment receipt. The pair estimate models Phase 4 blocking without its block-size bound and is not a pipeline count. Works of seed names are a hash-ranked sample, not a census. The DBLP dump is release 2026-11-05, not the registered snapshot 2026-11-01: its SHA-256 was checked only against an operator-supplied value, no publisher digest for it is registered, and the DBLP dataset entry's snapshot and checksums were left unchanged. Registering this release is a separate decision.",
+      "privacy_notes": "DBLP records are verbatim public bibliographic metadata. Enrichment rows are allowlisted projections: no abstracts, contact fields or free-text affiliations from Crossref; ORCID rows keep public name and iD only.",
+      "validation_commands": [
+        "python3 -B datasets/scripts/datasets.py validate",
+        "python3 -B datasets/scripts/subsettool.py replay --max-rows 5 --output /tmp/scholarchain-phase5-subset-replay",
+        "python3 -B datasets/scripts/subsettool.py estimate"
+      ]
+    }
   ]
 }

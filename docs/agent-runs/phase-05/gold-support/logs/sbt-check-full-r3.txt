@@ -1,0 +1,1446 @@
+[info] welcome to sbt 1.11.7 (Eclipse Adoptium Java 21.0.13)
+[info] loading settings for project scholarchain-build-build from build.sbt...
+[info] loading project definition from /Users/winnguyen/ScholarChain/project/project
+[info] loading settings for project scholarchain-build from plugins.sbt...
+[info] loading project definition from /Users/winnguyen/ScholarChain/project
+[info] loading settings for project root from build.sbt...
+[info] set current project to scholarchain (in build file:/Users/winnguyen/ScholarChain/)
+[success] Total time: 0 s, completed Nov 7, 2026, 5:55:41 PM
+[info] scalafmt: Checking 20 Scala sources (/Users/winnguyen/ScholarChain)...
+[info] scalafmt: Checking 19 Scala sources (/Users/winnguyen/ScholarChain/modules/hadoop)...
+[info] scalafmt: Checking 6 Scala sources (/Users/winnguyen/ScholarChain/modules/core)...
+[info] scalafmt: Checking 4 Scala sources (/Users/winnguyen/ScholarChain/modules/core)...
+[info] scalafmt: Checking 29 Scala sources (/Users/winnguyen/ScholarChain/modules/hadoop)...
+[info] scalafmt: Checking 30 Scala sources (/Users/winnguyen/ScholarChain/modules/entity-resolution)...
+[info] scalafmt: Checking 24 Scala sources (/Users/winnguyen/ScholarChain/modules/entity-resolution)...
+[info] scalafmt: Checking 1 Scala sources (/Users/winnguyen/ScholarChain)...
+[info] scalafmt: Checking 3 Scala sources (/Users/winnguyen/ScholarChain)...
+[info] compiling 6 Scala sources to /Users/winnguyen/ScholarChain/modules/core/target/scala-3.3.7/classes ...
+[info] done compiling
+[info] compiling 30 Scala sources to /Users/winnguyen/ScholarChain/modules/entity-resolution/target/scala-3.3.7/classes ...
+[info] compiling 29 Scala sources to /Users/winnguyen/ScholarChain/modules/hadoop/target/scala-3.3.7/classes ...
+[info] done compiling
+[info] done compiling
+[info] compiling 4 Scala sources to /Users/winnguyen/ScholarChain/modules/core/target/scala-3.3.7/test-classes ...
+[info] compiling 24 Scala sources to /Users/winnguyen/ScholarChain/modules/entity-resolution/target/scala-3.3.7/test-classes ...
+[info] compiling 20 Scala sources to /Users/winnguyen/ScholarChain/target/scala-3.3.7/test-classes ...
+[info] compiling 19 Scala sources to /Users/winnguyen/ScholarChain/modules/hadoop/target/scala-3.3.7/test-classes ...
+[info] done compiling
+[32mscholarchain.core.ConfigSuite:[0m
+[32m  + [0m[32mload versioned local YAML with explicit environment precedence[0m [90m0.059s[0m
+[32m  + [0m[32mreject invalid environment numbers, windows, thresholds and secret-bearing endpoints[0m [90m0.009s[0m
+[32m  + [0m[32mreject unknown configuration keys and missing or unsupported versions[0m [90m0.005s[0m
+[32m  + [0m[32mreject a configuration file missing a required non-version field[0m [90m0.002s[0m
+[32m  + [0m[32mconfiguration invariants reject each malformed field distinctly[0m [90m0.011s[0m
+[32mscholarchain.core.MatchCandidateSuite:[0m
+[32m  + [0m[32mfrozen Hadoop wire example decodes and re-encodes byte for byte[0m [90m0.065s[0m
+[32m  + [0m[32mevery block kind and strategy round trips with its wire string[0m [90m0.021s[0m
+[32m  + [0m[32munknown fields are ignored on read[0m [90m0.005s[0m
+[32m  + [0m[32ma missing required field is rejected[0m [90m0.001s[0m
+[32m  + [0m[32man unsupported schema version is rejected[0m [90m0.0s[0m
+[32m  + [0m[32mendpoints must be distinct and in ascending order[0m [90m0.005s[0m
+[32m  + [0m[32mnon-finite features are rejected[0m [90m0.003s[0m
+[32m  + [0m[32ma null provenance is rejected[0m [90m0.0s[0m
+[32m  + [0m[32munknown block kind and strategy values are rejected[0m [90m0.002s[0m
+[32m  + [0m[32man unknown source type is rejected[0m [90m0.003s[0m
+[info] done compiling
+[info] done compiling
+[32mscholarchain.core.ContractSuite:[0m
+[32m  + [0m[32mfreeze work and match-decision wire shape, values, and option representation[0m [90m0.068s[0m
+[32m  + [0m[32mreject absent, null, incomplete and unversioned provenance[0m [90m0.012s[0m
+[32m  + [0m[32mreject absent and unsupported top-level and nested versions[0m [90m0.003s[0m
+[32m  + [0m[32mreject fractional and text schema versions[0m [90m0.001s[0m
+[32m  + [0m[32mreject malformed stable IDs including noncanonical base64url[0m [90m0.005s[0m
+[32m  + [0m[32mreject invalid confidence through constructors and wire decoding[0m [90m0.003s[0m
+[32m  + [0m[32mcanonical edge key is independent of pair order, but the contract requires sorted distinct IDs[0m [90m0.008s[0m
+[32m  + [0m[32mcandidate pairs sort mention IDs while preserving author positions[0m [90m0.012s[0m
+[32m  + [0m[32mreject reversed year windows through the wire and invalid edge observation years[0m [90m0.002s[0m
+[32m  + [0m[32mstable internal IDs use framed fields and bind identity, text, versions, and graph evidence[0m [90m0.017s[0m
+[32m  + [0m[32mstable IDs reject isolated UTF-16 surrogates and preserve supplementary characters[0m [90m0.008s[0m
+[32m  + [0m[32mrun IDs are random UUIDv4 and the immutable manifest preserves the run and snapshot IDs[0m [90m0.005s[0m
+[32m  + [0m[32mclaims resolve to evidence in the wire response[0m [90m0.012s[0m
+[32m  + [0m[32mreject unknown enum wire values[0m [90m0.0s[0m
+[32m  + [0m[32mcoauthor graph edges require matching collaboration statistics[0m [90m0.005s[0m
+[32m  + [0m[32mwork records bind author mentions to the work and its one-based sequence[0m [90m0.004s[0m
+[32m  + [0m[32mfreeze author-mention wire shape, values, and collection members[0m [90m0.005s[0m
+[32m  + [0m[32mcanonical researchers and authorship records bind mentions to researchers[0m [90m0.008s[0m
+[32m  + [0m[32mpublication teams follow the work's one-based mention sequence[0m [90m0.009s[0m
+[32m  + [0m[32mresearcher metrics reject negative, nonfinite and absent aggregates[0m [90m0.012s[0m
+[32m  + [0m[32mvenue, institution and topic records carry external vocabulary IDs[0m [90m0.011s[0m
+[32m  + [0m[32mgraph nodes dispatch identifier discipline by node type[0m [90m0.008s[0m
+[32m  + [0m[32mquery plans require a positive result limit and researcher IDs[0m [90m0.012s[0m
+[32m  + [0m[32mevidence bundles reject duplicates and unevidenced claims explain why[0m [90m0.003s[0m
+[32m  + [0m[32menum wire values are unique and a duplicate codec fails loudly[0m [90m0.003s[0m
+[32m  + [0m[32mnull members are rejected rather than silently accepted[0m [90m0.002s[0m
+[32mscholarchain.hadoop.DblpDtdEntitiesSuite:[0m
+[32m  + [0m[32mthe transcription holds the 65 entities the DTD declares[0m [90m0.01s[0m
+[32m  + [0m[32mevery entity the DTD declares is in the table with the same code[0m [90m0.008s[0m
+[32m  + [0m[32mthe table is a documented superset: 183 HTML 4 names the DTD omits[0m [90m0.002s[0m
+ScholarChain pipeline not started: Argument 'stray' is not <dataset>=<path> with a non-empty dataset and path
+ScholarChain pipeline not started: Unknown dataset 'scopus'; known datasets: crossref, openalex, orcid
+ScholarChain pipeline not started: Usage: <outputRoot> <dblpInput> [<dataset>=<path>]...
+[32mscholarchain.hadoop.IdentifierAndKeySuite:[0m
+[32m  + [0m[32mDOIs normalize across resolver prefixes and case[0m [90m0.001s[0m
+[32m  + [0m[32marXiv IDs normalize and drop version suffixes[0m [90m0.001s[0m
+[32m  + [0m[32mORCID iDs are accepted only with a valid check digit[0m [90m0.002s[0m
+[32m  + [0m[32mOpenAlex identifiers are namespaced by entity prefix[0m [90m0.002s[0m
+[32m  + [0m[32mROR and ISSN normalize to their registry forms[0m [90m0.005s[0m
+[32m  + [0m[32ma DBLP electronic edition yields a DOI and never a DBLP crossref key[0m [90m0.001s[0m
+[32m  + [0m[32mjoin keys round-trip[0m [90m0.001s[0m
+[32m  + [0m[32mname folding is Unicode- and locale-stable[0m [90m0.001s[0m
+[32m  + [0m[32ma DBLP homonym ordinal is not part of the name[0m [90m0.0s[0m
+[32m  + [0m[32mname block keys combine family name and given initials[0m [90m0.001s[0m
+[32m  + [0m[32mtitle folding strips punctuation and case[0m [90m0.005s[0m
+[32m  + [0m[32mpartition assignment is deterministic and in range[0m [90m0.008s[0m
+[32m  + [0m[32mpartitioning ignores the stream label so a join stays intact[0m [90m0.007s[0m
+[32m  + [0m[32ma key with no label decodes to itself[0m [90m0.001s[0m
+[32mscholarchain.hadoop.JobWiringSuite:[0m
+[32m  + [0m[32ma run context survives a job configuration round-trip[0m [90m0.053s[0m
+[32m  + [0m[32mthe round-trip preserves a non-default bound[0m [90m0.003s[0m
+[32m  + [0m[32msnapshots round-trip as a sorted dataset list[0m [90m0.002s[0m
+[32m  + [0m[32man absent or malformed snapshot list yields no snapshots[0m [90m0.001s[0m
+[32m  + [0m[32ma configuration missing the run identity is refused, not defaulted[0m [90m0.005s[0m
+[32mscholarchain.hadoop.PartitionerWiringSuite:[0m
+[32m  + [0m[32mthe partitioner routes on the logical key, ignoring the stream label[0m [90m0.062s[0m
+[32m  + [0m[32mpartition indices stay in range and are stable across calls[0m [90m0.004s[0m
+[32m  + [0m[32man unlabeled key partitions as itself[0m [90m0.001s[0m
+[32mscholarchain.hadoop.NonLatinFoldingSuite:[0m
+[32m  + [0m[32mLatin with decomposable diacritics is unchanged[0m [90m0.014s[0m
+[32m  + [0m[32mLatin letters with no decomposition fold to ASCII[0m [90m0.001s[0m
+[32m  + [0m[32mCJK names give non-empty, deterministic, same-script keys[0m [90m0.001s[0m
+[32m  + [0m[32mmeaningful marks in non-Latin scripts are kept[0m [90m0.002s[0m
+[32m  + [0m[32mCyrillic, Greek and Arabic keep their own script[0m [90m0.004s[0m
+[32m  + [0m[32ma mixed-script name keeps the foreign letter instead of deleting it[0m [90m0.001s[0m
+[32m  + [0m[32ma lone combining mark is still not a name[0m [90m0.0s[0m
+[32m  + [0m[32mstored records keep original characters; only the key is folded[0m [90m0.024s[0m
+[32m  + [0m[32mdifferent CJK names land in different blocks, not one[0m [90m0.015s[0m
+[32m  + [0m[32ma title prefix never splits a supplementary-plane letter[0m [90m0.008s[0m
+[32m  + [0m[32man oversize same-name CJK block is still bounded and counted[0m [90m0.006s[0m
+[32mscholarchain.hadoop.PipelineToolArgumentsSuite:[0m
+[32m  + [0m[32mdataset=path arguments are parsed and grouped[0m [90m0.01s[0m
+[32m  + [0m[32man argument without = is an error that names it[0m [90m0.001s[0m
+[32m  + [0m[32man empty dataset or an empty path is an error that names it[0m [90m0.001s[0m
+[32m  + [0m[32man unknown dataset name is an error that names it[0m [90m0.001s[0m
+[32m  + [0m[32mthe tool run returns a failure code for a bad argument[0m [90m0.035s[0m
+[32m  + [0m[32mabsent snapshots print a WARNING with the defaults to both streams[0m [90m0.026s[0m
+[32m  + [0m[32ma blank snapshot setting is treated as absent and warns[0m [90m0.001s[0m
+[32m  + [0m[32mexplicit snapshots print no warning and are used[0m [90m0.003s[0m
+[32m  + [0m[32mthe stdout summary names the effective snapshots and the datasets[0m [90m0.001s[0m
+[32mscholarchain.hadoop.DblpEntitySuite:[0m
+[32m  + [0m[32ma named entity in an author resolves and keeps the original character[0m [90m0.039s[0m
+[32m  + [0m[32mnamed entities in a title resolve[0m [90m0.002s[0m
+[32m  + [0m[32ma named entity inside an attribute value resolves[0m [90m0.002s[0m
+[32m  + [0m[32man undeclared entity is a counted MalformedXml reject[0m [90m0.031s[0m
+[32m  + [0m[32ma DOCTYPE that declares a DBLP entity name is still refused[0m [90m0.0s[0m
+[32m  + [0m[32man external entity declaration is still refused[0m [90m0.002s[0m
+[32m  + [0m[32mpredefined entities are untouched and an escaped ampersand stays literal[0m [90m0.001s[0m
+[32m  + [0m[32mentity text inside CDATA is literal[0m [90m0.001s[0m
+[32m  + [0m[32mthe table is the HTML 4 set without XML predefined names[0m [90m0.005s[0m
+[32m  + [0m[32mstored names keep sharp s and slashed o as written[0m [90m0.002s[0m
+[32mscholarchain.hadoop.XmlRecordStreamSuite:[0m
+[32m  + [0m[32mreads every publication record in a whole document[0m [90m0.011s[0m
+[32m  + [0m[32midentity tags are read separately from publication tags[0m [90m0.001s[0m
+[32m  + [0m[32ma record is never split across two readers[0m [90m0.093s[0m
+[32m  + [0m[32ma reader past the last start tag claims nothing[0m [90m0.0s[0m
+[32m  + [0m[32ma self-closing child does not end the record early[0m [90m0.001s[0m
+[32m  + [0m[32ma self-closing record element is a complete record[0m [90m0.0s[0m
+[32m  + [0m[32ma nested same-named element does not end the record early[0m [90m0.0s[0m
+[32m  + [0m[32mmulti-byte content survives the byte-level scan[0m [90m0.001s[0m
+[32m  + [0m[32man unterminated element is reported rather than silently truncated[0m [90m0.001s[0m
+[32m  + [0m[32man unknown tag is skipped without consuming the next record[0m [90m0.0s[0m
+[32m  + [0m[32mrootTag names the element without a full parse[0m [90m0.0s[0m
+[32mscholarchain.hadoop.TeamExpansionSuite:[0m
+[32m  + [0m[32mthe pair count formula is n * (n - 1) / 2[0m [90m0.01s[0m
+[32m  + [0m[32mthe formula does not overflow at large team sizes[0m [90m0.001s[0m
+[32m  + [0m[32ma one-author paper produces a team and no pairs[0m [90m0.02s[0m
+[32m  + [0m[32ma two-author paper produces exactly one pair[0m [90m0.007s[0m
+[32m  + [0m[32ma three-author paper produces exactly three distinct pairs[0m [90m0.002s[0m
+[32m  + [0m[32ma five-author paper produces exactly ten pairs covering every couple[0m [90m0.016s[0m
+[32m  + [0m[32mpair endpoints are in ascending mention-ID order, not position order[0m [90m0.01s[0m
+[32m  + [0m[32mevery pair preserves work ID, year and source provenance[0m [90m0.004s[0m
+[32m  + [0m[32ma work with no year still yields pairs with an open year[0m [90m0.002s[0m
+[32m  + [0m[32mexpansion is deterministic[0m [90m0.005s[0m
+[32m  + [0m[32man oversize team is counted and reported but still expanded[0m [90m0.033s[0m
+[32m  + [0m[32mpair expansion is suppressed above the per-work pair bound[0m [90m0.006s[0m
+[32m  + [0m[32ma single-author work is counted as such[0m [90m0.001s[0m
+[32m  + [0m[32mduplicate pair records for one mention pair consolidate[0m [90m0.01s[0m
+[32m  + [0m[32mauthor-paper records leave researcher resolution open[0m [90m0.002s[0m
+[32mscholarchain.hadoop.SourceNormalizerSuite:[0m
+[32m  + [0m[32mevery selected dataset has a registered normalizer[0m [90m0.01s[0m
+[32m  + [0m[32man OpenAlex work normalizes with its source-specific identifiers[0m [90m0.073s[0m
+[32m  + [0m[32mOpenAlex topics and institutions are retained with their IDs[0m [90m0.002s[0m
+[32m  + [0m[32mOpenAlex authorship order is the author sequence[0m [90m0.005s[0m
+[32m  + [0m[32man OpenAlex record without a work ID is rejected[0m [90m0.001s[0m
+[32m  + [0m[32mmalformed JSON is rejected, not thrown[0m [90m0.002s[0m
+[32m  + [0m[32man ORCID person record becomes identity evidence and not a work[0m [90m0.005s[0m
+[32m  + [0m[32man ORCID record with an invalid check digit is rejected[0m [90m0.001s[0m
+[32m  + [0m[32man ORCID record with no public name is rejected[0m [90m0.001s[0m
+[32m  + [0m[32ma Crossref work normalizes keyed by DOI[0m [90m0.003s[0m
+[32m  + [0m[32mCrossref DOI case is folded so the two samples agree on one key[0m [90m0.004s[0m
+[32m  + [0m[32mthe Crossref REST envelope and the bulk shape both normalize[0m [90m0.002s[0m
+[32m  + [0m[32ma Crossref record without a valid DOI is rejected[0m [90m0.0s[0m
+[32m  + [0m[32mnormalization is deterministic for identical input[0m [90m0.018s[0m
+[32m  + [0m[32ma DOI prefix shorter than four digits is not a DOI[0m [90m0.0s[0m
+[32m  + [0m[32mno Crossref abstract text is copied, only a reference[0m [90m0.003s[0m
+[32m  + [0m[32man OpenAlex inverted abstract yields a reference and no text[0m [90m0.002s[0m
+[32mscholarchain.hadoop.DblpParserSuite:[0m
+[32m  + [0m[32mthe bounded fixture yields the two pinned publication records[0m [90m0.01s[0m
+[32m  + [0m[32ma single-author article normalizes completely[0m [90m0.031s[0m
+[32m  + [0m[32mauthor occurrence order is the author sequence and is not sorted[0m [90m0.01s[0m
+[32m  + [0m[32mevery record carries source and transformation provenance[0m [90m0.014s[0m
+[32m  + [0m[32mparsing is deterministic for identical input[0m [90m0.019s[0m
+[32m  + [0m[32ma DBLP crossref element is never read as a DOI[0m [90m0.007s[0m
+[32m  + [0m[32ma record without a key is rejected[0m [90m0.004s[0m
+[32m  + [0m[32ma record without a title is rejected[0m [90m0.001s[0m
+[32m  + [0m[32ma blank author element is rejected rather than renumbered[0m [90m0.007s[0m
+[32m  + [0m[32mmalformed XML is rejected with a diagnostic, not an exception[0m [90m0.012s[0m
+[32m  + [0m[32ma DOCTYPE declaration is refused rather than resolved[0m [90m0.009s[0m
+[32m  + [0m[32man unsupported record type is rejected as unsupported[0m [90m0.003s[0m
+[32m  + [0m[32minline title markup is preserved as text[0m [90m0.006s[0m
+[32m  + [0m[32mUnicode author names normalize without loss[0m [90m0.007s[0m
+[32m  + [0m[32meditors are kept out of the author sequence[0m [90m0.002s[0m
+[32m  + [0m[32ma www identity record normalizes to a canonical researcher[0m [90m0.002s[0m
+[32m  + [0m[32ma publication record is not accepted on the identity path[0m [90m0.002s[0m
+[32mscholarchain.hadoop.BlockingAndCandidateSuite:[0m
+[32m  + [0m[32ma block key records its kind and strategy[0m [90m0.013s[0m
+[32m  + [0m[32mthe coauthor block key is the same from either side of the pair[0m [90m0.017s[0m
+[32m  + [0m[32mthe coauthor key is unchanged when the author order is reversed[0m [90m0.002s[0m
+[32m  + [0m[32ma mention derives one coauthor key per distinct coauthor[0m [90m0.001s[0m
+[32m  + [0m[32ma bounded selector retains the smallest members by ordering[0m [90m0.033s[0m
+[32m  + [0m[32mthe retained subset does not depend on arrival order[0m [90m0.008s[0m
+[32m  + [0m[32ma pathological block is truncated, counted and marked[0m [90m0.003s[0m
+[32m  + [0m[32ma block within its bound is not marked truncated[0m [90m0.001s[0m
+[32m  + [0m[32ma duplicate member is retained once but counted as a record received[0m [90m0.001s[0m
+[32m  + [0m[32mthe reducer path and the whole-block path agree exactly[0m [90m0.004s[0m
+[32m  + [0m[32mtruncation is reported only when a member was actually dropped[0m [90m0.001s[0m
+[32m  + [0m[32mnon-selective strategies are salted and selective ones are not[0m [90m0.002s[0m
+[32m  + [0m[32mfeatures are finite, bounded and symmetric[0m [90m0.005s[0m
+[32m  + [0m[32medit similarity is normalized and symmetric[0m [90m0.001s[0m
+[32m  + [0m[32mjaccard handles the empty case without dividing by zero[0m [90m0.001s[0m
+[32m  + [0m[32midentifier agreement and conflict are reported apart[0m [90m0.0s[0m
+[32m  + [0m[32mtwo mentions on one paper are never a researcher candidate[0m [90m0.001s[0m
+[32m  + [0m[32ma member is never compared with itself[0m [90m0.0s[0m
+[32m  + [0m[32mcandidates are emitted in ascending ID order regardless of argument order[0m [90m0.004s[0m
+[32m  + [0m[32ma block of n members yields n * (n - 1) / 2 candidates[0m [90m0.008s[0m
+[32m  + [0m[32ma candidate carries no decision and no score[0m [90m0.019s[0m
+[32m  + [0m[32mthe Hadoop candidate output is the frozen Phase 4 wire shape[0m [90m0.03s[0m
+[32m  + [0m[32mcandidate construction is deterministic[0m [90m0.008s[0m
+[32mscholarchain.tests.adversarial.AdversarialXmlSuite:[0m
+[32m  + [0m[32ma record tag inside an XML comment is read as a live record[0m [90m0.033s[0m
+[32m  + [0m[32ma commented-out region contributes no record[0m [90m0.015s[0m
+[32m  + [0m[32mwhether a commented-out record is ingested turns on one space[0m [90m0.001s[0m
+[32m  + [0m[32ma record tag inside a CDATA section is read as a live record[0m [90m0.001s[0m
+[32m  + [0m[32ma literal '>' in an attribute value is read as content[0m [90m0.001s[0m
+[32m  + [0m[32mthe same attribute is survivable when the record has a closing tag[0m [90m0.001s[0m
+[32m  + [0m[32ma complete record survives an unterminated record after it[0m [90m0.005s[0m
+[32m  + [0m[32mdeeply nested inline markup in a title is flattened, not truncated[0m [90m0.002s[0m
+[32m  + [0m[32man unknown named entity is still a counted MalformedXml reject[0m [90m0.002s[0m
+[32m  + [0m[32man external entity declaration is rejected and never resolved[0m [90m0.001s[0m
+[32m  + [0m[32ma DOCTYPE redefining a DBLP entity name is rejected, not honored[0m [90m0.001s[0m
+[32m  + [0m[32ma named DBLP entity resolves to its Unicode character[0m [90m0.002s[0m
+[32m  + [0m[32mthe five predefined entities still decode[0m [90m0.001s[0m
+[32m  + [0m[32ma non-UTF-8 byte is not accepted as content[0m [90m0.005s[0m
+[32m  + [0m[32mthe reader refuses malformed construction rather than scanning[0m [90m0.0s[0m
+[32mscholarchain.tests.adversarial.AdversarialUnicodeSuite:[0m
+[32m  + [0m[32mevery non-Latin script folds to a non-empty deterministic key[0m [90m0.019s[0m
+[32m  + [0m[32mdifferent non-Latin names do not collapse into one block[0m [90m0.002s[0m
+[32m  + [0m[32mJapanese dakuten is kept, so か and が stay distinct[0m [90m0.001s[0m
+[32m  + [0m[32man author name in a non-Latin script is accepted with its original[0m [90m0.02s[0m
+[32m  + [0m[32ma title in a non-Latin script is accepted with its original[0m [90m0.008s[0m
+[32m  + [0m[32ma Latin letter with no decomposition becomes a word break[0m [90m0.002s[0m
+[32m  + [0m[32mthe resulting block key names the wrong family and initials[0m [90m0.001s[0m
+[32m  + [0m[32ma case-folding pair that should agree does not[0m [90m0.0s[0m
+[32m  + [0m[32mthe Turkish dotted capital I folds but the dotless i does not[0m [90m0.001s[0m
+[32m  + [0m[32ma Cyrillic homoglyph silently redirects a name to another block[0m [90m0.001s[0m
+[32m  + [0m[32ma combining mark on its own is not a name[0m [90m0.0s[0m
+[32m  + [0m[32ma bidirectional control is dropped from the key, kept on display[0m [90m0.004s[0m
+[32m  + [0m[32ma supplementary-plane letter folds through NFKC[0m [90m0.001s[0m
+[32m  + [0m[32ma supplementary-plane symbol folds to a word break[0m [90m0.003s[0m
+[32m  + [0m[32mfullwidth forms normalize to their ASCII equivalents[0m [90m0.001s[0m
+[32m  + [0m[32ma homonym ordinal written in fullwidth digits is not stripped[0m [90m0.003s[0m
+[32mscholarchain.tests.adversarial.AdversarialJobConfigSuite:[0m
+[32m  + [0m[32mhyperauthorship bounds survive a configuration round-trip[0m [90m0.035s[0m
+[32m  + [0m[32ma snapshot version containing a comma is silently discarded[0m [90m0.007s[0m
+[32m  + [0m[32ma dataset name containing an equals sign is silently renamed[0m [90m0.0s[0m
+[32m  + [0m[32ma renamed dataset moves the snapshot digest and the output prefix[0m [90m0.006s[0m
+[32m  + [0m[32mthe renamed dataset breaks the snapshot lookup instead[0m [90m0.001s[0m
+[32m  + [0m[32ma version containing an equals sign does round-trip[0m [90m0.001s[0m
+[32m  + [0m[32mcomma-bearing snapshot versions are preserved or explicitly refused[0m [90m0.012s[0m
+[32m  + [0m[32mequals-bearing dataset names are preserved or explicitly refused[0m [90m0.001s[0m
+[32m  + [0m[32mdistinct snapshot maps have distinct digests[0m [90m0.0s[0m
+[32mscholarchain.tests.adversarial.AdversarialErRecallSuite:[0m
+[32m  + [0m[32ma shared ORCID accepts initials, order swaps and diacritics[0m [90m0.061s[0m
+[32m  + [0m[32ma shared ORCID on a single-letter initial against a full name[0m [90m0.005s[0m
+[32m  + [0m[32mNFC and NFD spellings with shared coauthors are not rejected[0m [90m0.006s[0m
+[32m  + [0m[32mname order variants with strong context are never rejected[0m [90m0.017s[0m
+[32m  + [0m[32minitials against full names with strong context are never rejected[0m [90m0.005s[0m
+[32m  + [0m[32ma middle name on one side is neutral[0m [90m0.001s[0m
+[32m  + [0m[32ma DBLP homonym ordinal and a suffix do not split a person[0m [90m0.003s[0m
+[32m  + [0m[32mapostrophe variants of a family name agree[0m [90m0.001s[0m
+[32m  + [0m[32mwork: DOI prefix, case and title-markup variants are accepted[0m [90m0.003s[0m
+[32m  + [0m[32mwork: a preprint and its published version are not rejected[0m [90m0.004s[0m
+[32m  + [0m[32mwork: a title typo with the same DOI is still accepted[0m [90m0.002s[0m
+[32m  + [0m[32mwork: author order and punctuation variants meet by rule[0m [90m0.001s[0m
+[32mscholarchain.tests.adversarial.AdversarialErConflictSuite:[0m
+[32m  + [0m[32mtwo different valid ORCIDs on identical people are a CONFLICT[0m [90m0.015s[0m
+[32m  + [0m[32mthe conflict is symmetric in argument order[0m [90m0.01s[0m
+[32m  + [0m[32mORCID spelled with a URL prefix or lowercase X is the same iD[0m [90m0.001s[0m
+[32m  + [0m[32mdifferent DOIs on works with identical title, authors and year conflict[0m [90m0.004s[0m
+[32m  + [0m[32mDOI case and resolver prefix differences are not a conflict[0m [90m0.001s[0m
+[32m  + [0m[32ma DOI list that overlaps agrees, and a disjoint list conflicts[0m [90m0.004s[0m
+[32m  + [0m[32ma preprint DOI is an arXiv identifier, not a DOI that disagrees[0m [90m0.006s[0m
+[32m  + [0m[32mone agreeing and one disagreeing authoritative ID is a CONFLICT[0m [90m0.003s[0m
+[32m  + [0m[32ma strong ID agreement contradicted by the names is a CONFLICT[0m [90m0.004s[0m
+[32m  + [0m[32man aggregator ID agreement is never accepted against the names[0m [90m0.001s[0m
+[32m  + [0m[32mdiffering aggregator author IDs are evidence, not a CONFLICT[0m [90m0.004s[0m
+[32m  + [0m[32man ORCID with a bad check digit is dropped, never matched on[0m [90m0.002s[0m
+[32m  + [0m[32man invalid ORCID against a valid different one is silence, not conflict[0m [90m0.005s[0m
+[32m  + [0m[32ma source-local key is not authoritative, so it cannot conflict[0m [90m0.001s[0m
+[32m  + [0m[32mORCID on only one side is silence, not a conflict or an accept[0m [90m0.003s[0m
+[32m  + [0m[32ma conflict outranks every later accept rule on a source mix[0m [90m0.003s[0m
+[32mscholarchain.tests.adversarial.AdversarialDuplicateIdSuite:[0m
+[32m  + [0m[32mcontradictory native keys report one duplicate and one conflict[0m [90m0.09s[0m
+[32m  + [0m[32ma fivefold replay reports four duplicates without a conflict[0m [90m0.006s[0m
+[32m  + [0m[32ma DOI claimed by two works in one source is a duplicate[0m [90m0.001s[0m
+[32m  + [0m[32mthree disagreeing titles count as two title disagreements[0m [90m0.001s[0m
+[32m  + [0m[32ma prolific ORCID is correctly not a finding and incorrectly unbounded[0m [90m0.005s[0m
+[32m  + [0m[32mtwo sources agreeing on a DOI is a clean cross-source join[0m [90m0.003s[0m
+[32m  + [0m[32man unknown namespace resolves to nothing, not to a mislabelled key[0m [90m0.0s[0m
+[32m  + [0m[32man identifier value containing the delimiter survives the key[0m [90m0.003s[0m
+[32m  + [0m[32mone ORCID on two mentions of one work collapses to the first[0m [90m0.01s[0m
+[32m  + [0m[32mpair consolidation is decided by arrival order when the tiebreak ties[0m [90m0.007s[0m
+[32m  + [0m[32mpair consolidation is independent of replay arrival order[0m [90m0.007s[0m
+[32m  + [0m[32mshared ORCID on two authors is reported as a conflict[0m [90m0.022s[0m
+[32mscholarchain.tests.adversarial.AdversarialErCommonNameSuite:[0m
+[32m  + [0m[32midentical common names with nothing else in common are not accepted[0m [90m0.002s[0m
+[32m  + [0m[32midentical names, same year and venue, no coauthors: not accepted[0m [90m0.0s[0m
+[32m  + [0m[32ma mononym pair is never accepted on the name[0m [90m0.001s[0m
+[32m  + [0m[32mempty names never merge[0m [90m0.001s[0m
+[32m  + [0m[32man initial collision does not merge John and Jane Smith[0m [90m0.0s[0m
+[32m  + [0m[32mJ. Smith against two different full names stays unaccepted[0m [90m0.003s[0m
+[32m  + [0m[32mtwo mentions of one work are distinct people, even with equal names[0m [90m0.002s[0m
+[32m  + [0m[32ma shared coauthor from a huge team does not prove identity[0m [90m0.041s[0m
+[32m  + [0m[32mdifferent families are rejected however similar the rest is[0m [90m0.001s[0m
+[32m  + [0m[32ma source reliability edge does not turn a name match into identity[0m [90m0.005s[0m
+[32m  + [0m[32mworks: a generic short title with no authors is not accepted[0m [90m0.004s[0m
+[32m  + [0m[32mworks: the same long title with different authors is not a rule accept[0m [90m0.003s[0m
+[32m  + [0m[32mworks: the same title and authors seven years apart is not a rule accept[0m [90m0.005s[0m
+[32m  + [0m[32mworks: a one-year gap still matches the rule, a two-year gap does not[0m [90m0.003s[0m
+[32mscholarchain.tests.adversarial.AdversarialMissingFieldSuite:[0m
+[32m  + [0m[32ma record with no author element at all is accepted[0m [90m0.038s[0m
+[32m  + [0m[32ma zero-author work is counted as a single-author work[0m [90m0.105s[0m
+[32m  + [0m[32ma blank title is missing, in every shape it can take[0m [90m0.011s[0m
+[32m  + [0m[32ma key that cannot be a join key is refused, delimiter included[0m [90m0.015s[0m
+[32m  + [0m[32mthe missing-field checks have a fixed precedence[0m [90m0.003s[0m
+[32m  + [0m[32ma self-closing author element is refused like a blank one[0m [90m0.002s[0m
+[32m  + [0m[32ma record with neither year nor venue keeps only unsalted recall[0m [90m0.005s[0m
+[32m  + [0m[32ma blank normalized title is unreachable, so its guard is dead code[0m [90m0.001s[0m
+[32m  + [0m[32man unusable ORCID is dropped with no counter and no reject[0m [90m0.003s[0m
+[32m  + [0m[32man ee link that is not an identifier is kept but joins nothing[0m [90m0.008s[0m
+[32m  + [0m[32ma work with no exact identifier counts as a missing join key[0m [90m0.001s[0m
+[32m  + [0m[32mzero-author works do not increment SingleAuthorWorks[0m [90m0.002s[0m
+[32mscholarchain.tests.adversarial.AdversarialCounterSuite:[0m
+[32m  + [0m[32mteam reduction preserves one count per map emission and reject[0m [90m0.116s[0m
+[32m  + [0m[32mblocking preserves map rejects and counts every map output once[0m [90m0.046s[0m
+[32m  + [0m[32midentifier reduction does not add to the map emission count[0m [90m0.01s[0m
+[32mscholarchain.hadoop.CrossrefAffiliationPrivacySuite:[0m
+[32m  + [0m[32mthe fixture row really carries the affiliation[0m [90m0.073s[0m
+[32m  + [0m[32ma Crossref author affiliation name gives the mention no affiliation[0m [90m0.027s[0m
+[32m  + [0m[32mthe affiliation reaches no stage output of the whole pipeline[0m [90m0.225s[0m
+[32mscholarchain.tests.adversarial.AdversarialErSameRecordSuite:[0m
+[32m  + [0m[32msame record with a DOI: an agreeing ORCID on two slots is CONFLICT[0m [90m0.031s[0m
+[32m  + [0m[32msame record with no DOI and no arXiv ID: still CONFLICT[0m [90m0.014s[0m
+[32m  + [0m[32msame record with only an arXiv ID: still CONFLICT[0m [90m0.01s[0m
+[32m  + [0m[32msame record with a DOI and an arXiv ID: still CONFLICT[0m [90m0.004s[0m
+[32m  + [0m[32mthe ruling holds for the other source and for other slot pairs[0m [90m0.012s[0m
+[32m  + [0m[32msame slot, same ORCID, two sources: not CONFLICT by this rule[0m [90m0.011s[0m
+[32m  + [0m[32msame record without ORCID agreement is unchanged: REJECTED[0m [90m0.014s[0m
+[32m  + [0m[32man ORCID on one slot only is not an agreement: REJECTED[0m [90m0.004s[0m
+[32m  + [0m[32mdifferent ORCIDs on the two slots of one record are a CONFLICT too[0m [90m0.02s[0m
+[32mscholarchain.tests.adversarial.AdversarialErLabelingSuite:[0m
+[32m  + [0m[32mscanner self-check: it flags what it must and passes loopback use[0m [90m0.01s[0m
+[32m  + [0m[32mthe labeling and exporter sources were found[0m [90m0.003s[0m
+[32m  + [0m[32mthe labeling tool opens no outbound connection[0m [90m0.003s[0m
+[32m  + [0m[32mthe labeling tool names no host other than loopback[0m [90m0.012s[0m
+[32m  + [0m[32mthe labeling tool uses java.net only for loopback binding and decoding[0m [90m0.002s[0m
+[32m  + [0m[32mevery server bind in the labeling tool is the loopback address[0m [90m0.007s[0m
+[32m  + [0m[32mthe labeling page loads no remote script, style, image or frame[0m [90m0.006s[0m
+[32m  + [0m[32mthe exporter reaches no network at all[0m [90m0.003s[0m
+[info] Passed: Total 41, Failed 0, Errors 0, Passed 41
+WARN NativeCodeLoader - Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+[32mscholarchain.hadoop.PipelineSnapshotSuite:[0m
+[32m  + [0m[32mthe command-line -D flag reaches the run context[0m [90m0.084s[0m
+[32m  + [0m[32msnapshot flows into the DBLP work records[0m [90m0.241s[0m
+[32m  + [0m[32msnapshot flows into the normalized enrichment records[0m [90m0.008s[0m
+[32m  + [0m[32msnapshot flows into the match-candidate provenance[0m [90m0.03s[0m
+[32m  + [0m[32ma different snapshot set changes the digest and the output path[0m [90m0.001s[0m
+[32m  + [0m[32mthe default path is unchanged when no snapshots are configured[0m [90m0.0s[0m
+[32m  + [0m[32man explicit snapshot set must cover exactly the supplied datasets[0m [90m0.0s[0m
+[32m  + [0m[32ma supplied dataset without a snapshot is an error[0m [90m0.002s[0m
+[32m  + [0m[32ma snapshot for a dataset that was not supplied is an error[0m [90m0.001s[0m
+[32m  + [0m[32ma malformed or duplicated snapshot entry is an error, not a default[0m [90m0.001s[0m
+[32m  + [0m[32mwith nothing configured the defaults must cover the datasets[0m [90m0.0s[0m
+[32mscholarchain.tests.adversarial.AdversarialLeakageSuite:[0m
+[32m  + [0m[32msource scan flags every planted reference form (positive control)[0m [90m0.013s[0m
+[32m  + [0m[32msource scan passes ordinary matching code (negative control)[0m [90m0.003s[0m
+[32m  + [0m[32mbrace, rename, wildcard and qualified forms are named distinctly[0m [90m0.003s[0m
+[32m  + [0m[32mthe scan walks nested directories (recursion control)[0m [90m0.008s[0m
+[32m  + [0m[32mmatching and llm sources exist, so the reference scan is not empty[0m [90m0.004s[0m
+[32m  + [0m[32mmatching and llm reach no eval, review, sampling or pairs package[0m [90m0.022s[0m
+[32m  + [0m[32mmatching and llm never name eval, labeling or exporter types[0m [90m0.017s[0m
+[32m  + [0m[32mthe package layout is the one the scans know about[0m [90m0.004s[0m
+[32m  + [0m[32monly scholarchain/er/eval is exempt, never a nested eval (control)[0m [90m0.001s[0m
+[32m  + [0m[32mvocabulary scan flags a planted file in a nested eval (control)[0m [90m0.013s[0m
+[32m  + [0m[32mvocabulary scanner flags gold-set and suggestion references[0m [90m0.002s[0m
+[32m  + [0m[32mmatching sources reference no gold-set or suggestion vocabulary[0m [90m0.026s[0m
+[32m  + [0m[32mclass scan flags planted constant-pool strings (control)[0m [90m0.004s[0m
+[32m  + [0m[32mclass scan walks nested directories and finds a planted class[0m [90m0.004s[0m
+[32m  + [0m[32mclass scan fails loudly on a missing or empty directory (control)[0m [90m0.004s[0m
+[32m  + [0m[32mcompiled matching and llm classes reference no protected package[0m [90m0.011s[0m
+[32m  + [0m[32mthe compiled scan can see the protected packages it guards[0m [90m0.004s[0m
+[32m  + [0m[32mstrict network scan flags every planted client (control)[0m [90m0.001s[0m
+[32m  + [0m[32mloopback scan allows a loopback server and flags the rest (control)[0m [90m0.002s[0m
+[32m  + [0m[32mloopback binding is checked per call, not per file (control)[0m [90m0.001s[0m
+[32m  + [0m[32mmatching, llm, eval/assess, eval/validation, review, pairs and sampling reach no network[0m [90m0.014s[0m
+[32m  + [0m[32mthe top level of eval reaches no network[0m [90m0.002s[0m
+[32m  + [0m[32meval/labeling is the only loopback exception and stays loopback-only[0m [90m0.006s[0m
+[32mscholarchain.tests.adversarial.AdversarialErSameWorkSuite:[0m
+[32m  + [0m[32msame name at different positions of one paper, two sources: rejected by the new rule[0m [90m0.007s[0m
+[32m  + [0m[32mthe same pair is not accepted whichever source is listed first[0m [90m0.024s[0m
+[32m  + [0m[32mthe decision is the same whichever way round the pair is given[0m [90m0.011s[0m
+[32m  + [0m[32mwithin one source the same pair is rejected (anchor)[0m [90m0.005s[0m
+[32m  + [0m[32mcontrol: the same author at the same position may still match[0m [90m0.004s[0m
+[32m  + [0m[32mcontrol: the same author at the last position may still match[0m [90m0.001s[0m
+[32m  + [0m[32mcontrol: different DOIs are different papers, so the rule stays silent[0m [90m0.005s[0m
+[32m  + [0m[32mcontrol: a missing DOI on one side cannot prove one paper[0m [90m0.002s[0m
+[32m  + [0m[32mcontrol: an unknown author position cannot prove two people[0m [90m0.004s[0m
+[32m  + [0m[32ma DOI that differs only in letter case still names one paper[0m [90m0.002s[0m
+[32m  + [0m[32ma resolver prefix on one DOI still names one paper[0m [90m0.022s[0m
+[32m  + [0m[32marXiv: DBLP arXiv ID vs OpenAlex arXiv DOI, same-name coauthors[0m [90m0.004s[0m
+[32m  + [0m[32marXiv: the decision is the same whichever way round, both ways[0m [90m0.011s[0m
+[32m  + [0m[32marXiv: an arXiv URL, a version suffix and case do not hide the ID[0m [90m0.01s[0m
+[32m  + [0m[32marXiv: the ID given as a field on both sides[0m [90m0.002s[0m
+[32m  + [0m[32marXiv control: different arXiv IDs are different papers[0m [90m0.002s[0m
+[32m  + [0m[32marXiv control: an arXiv ID on one side only proves nothing[0m [90m0.004s[0m
+[32m  + [0m[32marXiv control: an unknown position cannot prove two people[0m [90m0.003s[0m
+[32m  + [0m[32marXiv control: the same position is not rejected by the rule[0m [90m0.001s[0m
+[32m  + [0m[32mconflict: an ORCID on two slots of one DOI work is a CONFLICT[0m [90m0.005s[0m
+[32m  + [0m[32mconflict: an ORCID on two slots of one arXiv work is a CONFLICT[0m [90m0.003s[0m
+[32m  + [0m[32mconflict: a content-supported aggregator ID on two slots: CONFLICT[0m [90m0.004s[0m
+[32m  + [0m[32mconflict control: the same ORCID at the same position is accepted[0m [90m0.005s[0m
+[32m  + [0m[32mconflict control: an ORCID across two different works stays accepted[0m [90m0.001s[0m
+[32mscholarchain.tests.adversarial.AdversarialErLlmSuite:[0m
+[32m  + [0m[32mthe base fixture is unresolved, probabilistic and in the band[0m [90m0.001s[0m
+[32m  + [0m[32mstrict parse rejects every off-schema shape[0m [90m0.097s[0m
+[32m  + [0m[32mstrict parse accepts the boundary values[0m [90m0.013s[0m
+[32m  + [0m[32man invented identifier is rejected and becomes an abstention[0m [90m0.034s[0m
+[32m  + [0m[32ma cited candidate identifier is accepted[0m [90m0.008s[0m
+[32m  + [0m[32mabstain, however confident, leaves the pair unresolved[0m [90m0.003s[0m
+[32m  + [0m[32mthe confidence floor is inclusive[0m [90m0.011s[0m
+[32m  + [0m[32ma throwing model and an oversize answer both abstain[0m [90m0.017s[0m
+[32m  + [0m[32mthe band edges: low edge in, just below out, accept edge out[0m [90m0.008s[0m
+[32m  + [0m[32monly a probabilistic unresolved record is ever sent to the model[0m [90m0.001s[0m
+[32m  + [0m[32ma conflict between ORCIDs is never offered to the model[0m [90m0.002s[0m
+[32m  + [0m[32ma repeated pair is served from the cache, including abstentions[0m [90m0.005s[0m
+[32m  + [0m[32mchanging model, policy or input misses the cache; same parts hit[0m [90m0.008s[0m
+[32m  + [0m[32meach of the four cache key parts changes the digest[0m [90m0.001s[0m
+[32m  + [0m[32mcache key parts cannot be shifted across a boundary or left blank[0m [90m0.0s[0m
+[32m  + [0m[32mthe input hash tracks content but not set-like ordering[0m [90m0.013s[0m
+[32m  + [0m[32ma request must describe the decision it adjudicates[0m [90m0.0s[0m
+[32m  + [0m[32mthe adjudication module reaches no network[0m [90m0.003s[0m
+[32mscholarchain.tests.adversarial.AdversarialErMetricsSuite:[0m
+[32m  + [0m[32mtotals exclude the unsure label[0m [90m0.0s[0m
+[32m  + [0m[32mconfusion matrix counts match the hand tally[0m [90m0.001s[0m
+[32m  + [0m[32mprecision, recall, F1, coverage and rates are exact[0m [90m0.002s[0m
+[32m  + [0m[32mprecision and recall are separate numbers, not one aggregate[0m [90m0.001s[0m
+[32m  + [0m[32mmetrics are reported per match path[0m [90m0.002s[0m
+[32m  + [0m[32mthe per-path accepted counts sum to the overall accepted count[0m [90m0.001s[0m
+[32m  + [0m[32ma conflict is an abstention, not a rejection or an acceptance[0m [90m0.001s[0m
+[32m  + [0m[32mfewer than 200 labels is reported, not hidden[0m [90m0.002s[0m
+[32m  + [0m[32merror analysis lists the false positives and negatives with their sources[0m [90m0.002s[0m
+[32m  + [0m[32mthe error sample is capped but the available count is not[0m [90m0.006s[0m
+[32m  + [0m[32mresearchers and works are reported separately[0m [90m0.004s[0m
+[32m  + [0m[32mdegenerate inputs give None, never NaN or an exception[0m [90m0.001s[0m
+[32m  + [0m[32mthe sensitivity sweep follows scores, fixes rules and honors caps[0m [90m0.003s[0m
+[32m  + [0m[32ma threshold exactly at a score accepts it[0m [90m0.001s[0m
+[32m  + [0m[32ma label that is not human-reviewed or is malformed is refused[0m [90m0.007s[0m
+[32m  + [0m[32ma label file with contradictory verdicts for one pair is refused[0m [90m0.005s[0m
+[phase-4 measured] works=6 maximumAuthorTeamSize=5 maximumAuthorTeamWorkId=work:v1:dblp:Y29uZi9qY2RsL01pY2hlbHNGTFNTMTc largestPairExpansion=10 emittedPairs=30 blockingGroups=20 largestBlockingGroup=6 largestBlockingGroupKey=researcher|name-coauthor|fayzrakhmanov|rr|ley|m blockingGroupSizesTop10of20=[6,6,6,6,6,6,6,6,6,6] totalRejects=1 partitionCount=4 partitionSpread=blocking/blocking-groups->Vector((0,5), (1,4), (2,7), (3,4)),blocking/blocking-members->Vector((0,19), (1,21), (2,29), (3,18)),candidate-features/match-candidates->Vector((0,33), (1,39), (2,47), (3,25)),dblp-extraction/venues->Vector((2,1), (3,1)),dblp-extraction/works->Vector((0,1), (2,1)),graph-export/author-mentions->Vector((0,2), (1,3), (2,6), (3,7)),graph-export/institutions->Vector((0,1), (3,1)),graph-export/researchers->Vector((1,1), (2,2), (3,1)),graph-export/topics->Vector((0,1), (1,2), (2,2)),graph-export/venues->Vector((0,2), (2,1), (3,1)),graph-export/works->Vector((0,3), (2,2), (3,1)),identifier-join/identifier-keys->Vector((0,4), (1,5), (2,4), (3,2)),source-normalization/crossref/venues->Vector((0,2)),source-normalization/crossref/works->Vector((0,1), (3,1)),source-normalization/openalex/institutions->Vector((0,2), (3,1)),source-normalization/openalex/researchers->Vector((1,2), (2,2), (3,1)),source-normalization/openalex/topics->Vector((0,2), (1,2), (2,2)),source-normalization/openalex/works->Vector((0,1), (2,1)),source-normalization/orcid/researchers->Vector((1,1), (3,1)),team-expansion/author-papers->Vector((0,2), (1,3), (2,6), (3,7)),team-expansion/pair-candidates->Vector((0,8), (1,6), (2,8), (3,8)),team-expansion/teams->Vector((0,3), (2,2), (3,1))
+[phase-4 stage] stage=dblp-extraction counters=(InputRecords,2),(AcceptedRecords,2),(EmittedRecords,4) rejects=0 reasons=
+[phase-4 stage] stage=source-normalization/crossref counters=(InputRecords,2),(AcceptedRecords,2),(EmittedRecords,4) rejects=0 reasons=
+[phase-4 stage] stage=source-normalization/openalex counters=(InputRecords,2),(AcceptedRecords,2),(EmittedRecords,16) rejects=0 reasons=
+[phase-4 stage] stage=source-normalization/orcid counters=(InputRecords,2),(AcceptedRecords,2),(EmittedRecords,2) rejects=0 reasons=
+[phase-4 stage] stage=identifier-join counters=(InputRecords,6),(AcceptedRecords,6),(RejectedRecords,1),(ConflictRecords,1),(EmittedRecords,22) rejects=1 reasons=(IDENTIFIER_CONFLICT,1)
+[phase-4 stage] stage=blocking counters=(InputRecords,6),(AcceptedRecords,6),(EmittedRecords,126) rejects=0 reasons=
+[phase-4 stage] stage=candidate-features counters=(InputRecords,87),(AcceptedRecords,87),(ConflictRecords,5),(EmittedRecords,87) rejects=0 reasons=
+[phase-4 stage] stage=team-expansion counters=(InputRecords,6),(AcceptedRecords,6),(ExpandedPairs,30),(EmittedPairs,30),(SingleAuthorWorks,3),(EmittedRecords,54) rejects=0 reasons=
+[phase-4 stage] stage=graph-export counters=(InputRecords,26),(AcceptedRecords,26),(ConflictRecords,4),(EmittedRecords,44) rejects=0 reasons=
+[phase-4 output] works=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=graph-export/works/v1
+[phase-4 output] author-mentions=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=graph-export/author-mentions/v1
+[phase-4 output] researchers=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=graph-export/researchers/v1
+[phase-4 output] teams=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=team-expansion/teams/v1
+[phase-4 output] author-papers=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=team-expansion/author-papers/v1
+[phase-4 output] pair-candidates=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=team-expansion/pair-candidates/v1
+[phase-4 output] identifier-keys=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=identifier-join/identifier-keys/v1
+[phase-4 output] blocking-groups=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=blocking/blocking-groups/v1
+[phase-4 output] blocking-members=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=blocking/blocking-members/v1
+[phase-4 output] match-candidates=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=candidate-features/match-candidates/v1
+[phase-4 output] topics=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=graph-export/topics/v1
+[phase-4 output] institutions=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=graph-export/institutions/v1
+[phase-4 output] venues=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=graph-export/venues/v1
+[phase-4 output] works=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=dblp-extraction/works/v1
+[phase-4 output] researchers=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=dblp-extraction/researchers/v1
+[phase-4 output] venues=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=dblp-extraction/venues/v1
+[phase-4 output] run-manifest=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=graph-export/run-manifest/v1
+[phase-4 reject-output] dblp-extraction=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=dblp-extraction/rejects/v1
+[phase-4 reject-output] source-normalization=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=source-normalization/rejects/v1
+[phase-4 reject-output] identifier-join=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=identifier-join/rejects/v1
+[phase-4 reject-output] blocking=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=blocking/rejects/v1
+[phase-4 reject-output] candidate-features=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=candidate-features/rejects/v1
+[phase-4 reject-output] team-expansion=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=team-expansion/rejects/v1
+[phase-4 reject-output] graph-export=s3://local-curated-example/curated/run=run-v1-1e7c6f4a-2b55-4d38-9a1f-0c2b7d6e5f40/snapshot=26a3ad334ddf/stage=graph-export/rejects/v1
+[32mscholarchain.hadoop.LocalPipelineSuite:[0m
+[32m  + [0m[32mthe DBLP stage accepts both pinned records and rejects none[0m [90m0.322s[0m
+[32m  + [0m[32meach external dataset normalizes its two pinned records[0m [90m0.002s[0m
+[32m  + [0m[32mORCID yields identity evidence and no works[0m [90m0.002s[0m
+[32m  + [0m[32mthe bounded run yields six works across three work-bearing sources[0m [90m0.011s[0m
+[32m  + [0m[32mevery emitted work carries complete provenance[0m [90m0.01s[0m
+[32m  + [0m[32mthe maximum author team and largest pair expansion are reported[0m [90m0.0s[0m
+[32m  + [0m[32mpair generation totals the per-work formula across the run[0m [90m0.008s[0m
+[32m  + [0m[32mno oversize team or oversize block appears at the default bounds[0m [90m0.002s[0m
+[32m  + [0m[32mevery pair record resolves to a real team member[0m [90m0.005s[0m
+[32m  + [0m[32ma repeated run over the same input produces identical output[0m [90m0.064s[0m
+[32m  + [0m[32mchanging only the run ID leaves the derived content alone[0m [90m0.046s[0m
+[32m  + [0m[32moutput paths are a function of the run and the snapshot set only[0m [90m0.001s[0m
+[32m  + [0m[32mevery artifact has exactly one owning stage and output path[0m [90m0.002s[0m
+[32m  + [0m[32ma dataset-scoped artifact cannot be addressed without its dataset[0m [90m0.0s[0m
+[32m  + [0m[32ma dataset-scoped path matches what the sink actually commits[0m [90m0.001s[0m
+[32m  + [0m[32mthe run manifest pins every dataset snapshot the run read[0m [90m0.002s[0m
+[32m  + [0m[32mevery blocking group is non-trivial and within its bound[0m [90m0.003s[0m
+[32m  + [0m[32mboth researcher and work blocks are produced[0m [90m0.001s[0m
+[32m  + [0m[32mcandidates compare across sources and never within one work[0m [90m0.01s[0m
+[32m  + [0m[32mthe graph export emits one record per distinct entity[0m [90m0.001s[0m
+[32m  + [0m[32mreport the run's measured figures[0m [90m0.007s[0m
+[32m  + [0m[32mthe counter inventory required by the specification is declared[0m [90m0.002s[0m
+[32m  + [0m[32mevery key lands in range under the declared partition count[0m [90m0.002s[0m
+[32m  + [0m[32mthe identifier join unifies the two DOIs across all three sources[0m [90m0.001s[0m
+[32m  + [0m[32mORCID join keys are person-scoped and report no false conflicts[0m [90m0.002s[0m
+[32m  + [0m[32ma genuine title disagreement on one DOI is reported as a conflict[0m [90m0.002s[0m
+[32m  + [0m[32mno work reaches the join without an exact identifier[0m [90m0.0s[0m
+[32m  + [0m[32mauthor-paper records cover every author position exactly once[0m [90m0.002s[0m
+[32m  + [0m[32mlocal map rejects transfer exactly once through blocking and team reduction[0m [90m0.003s[0m
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+[32mscholarchain.tests.adversarial.AdversarialCommonNameSuite:[0m
+[32m  + [0m[32mDBLP's own disambiguation is discarded before blocking[0m [90m0.035s[0m
+[32m  + [0m[32ma selective strategy carries no salt, so one key takes every record[0m [90m0.286s[0m
+[32m  + [0m[32mthe salt fan-out is a constant factor, not a bound[0m [90m0.106s[0m
+[32m  + [0m[32mthe salt bucket is a pure function of the member ID[0m [90m0.001s[0m
+[32m  + [0m[32mthe bound truncates the output and not the input[0m [90m0.005s[0m
+[32m  + [0m[32mtruncating a common-name block can starve a whole source[0m [90m0.004s[0m
+[32m  + [0m[32mcoauthor context is the escape from a common-name block[0m [90m0.002s[0m
+[32m  + [0m[32mhomonymous authors retain coauthor context by mention identity[0m [90m0.001s[0m
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+[32mscholarchain.tests.adversarial.AdversarialErNormalizationSuite:[0m
+[32m  + [0m[32mevery DOI prefix and case form folds to one key[0m [90m0.002s[0m
+[32m  + [0m[32mmalformed DOIs normalize to nothing instead of a bogus key[0m [90m0.001s[0m
+[32m  + [0m[32marXiv forms agree and version suffixes are dropped[0m [90m0.003s[0m
+[32m  + [0m[32mORCID check digit: transposition, truncation and format are refused[0m [90m0.004s[0m
+[32m  + [0m[32mOpenAlex and repository identifiers do not cross kinds[0m [90m0.006s[0m
+[32m  + [0m[32mNFC and NFD spellings of a name fold identically[0m [90m0.006s[0m
+[32m  + [0m[32mfullwidth, ligature, apostrophe and stroke variants fold together[0m [90m0.004s[0m
+[32m  + [0m[32mnon-Latin names stay distinct rather than collapsing to one empty key[0m [90m0.01s[0m
+[32m  + [0m[32mname order, initials and punctuation parse to the same parts[0m [90m0.008s[0m
+[32m  + [0m[32ma mononym, an empty name and null parse without throwing[0m [90m0.002s[0m
+[32m  + [0m[32mtitle markup, entities and LaTeX do not change the title key[0m [90m0.017s[0m
+[32m  + [0m[32mtwo works differing only in title markup match by rule[0m [90m0.016s[0m
+[32m  + [0m[32mempty and null-ish fields decide without throwing or accepting[0m [90m0.004s[0m
+[32m  + [0m[32ma SideRecord refuses blank identity fields[0m [90m0.0s[0m
+[32m  + [0m[32mhuge inputs fold and decide without failure[0m [90m0.434s[0m
+[info] done compiling
+[32mscholarchain.er.LabelingLeakageSuite:[0m
+[32m  + [0m[32mthe new packages have sources to scan[0m [90m0.01s[0m
+[32m  + [0m[32mmatching and adjudication code never reference the new packages[0m [90m0.006s[0m
+[32m  + [0m[32mthe new packages do not read matcher output[0m [90m0.001s[0m
+[32m  + [0m[32mthe compiled matcher signatures take no export or labeling types[0m [90m0.006s[0m
+[32mscholarchain.er.NormalizationSuite:[0m
+[32m  + [0m[32mfold removes diacritics and case but keeps non-Latin letters[0m [90m0.011s[0m
+[32m  + [0m[32mcomposed and decomposed spellings fold to one key[0m [90m0.0s[0m
+[32m  + [0m[32mnames fold apostrophes away instead of splitting on them[0m [90m0.005s[0m
+[32m  + [0m[32mtitle markup, entities and latex are stripped from keys only[0m [90m0.002s[0m
+[32m  + [0m[32mDOI prefixes normalize to one lowercase key[0m [90m0.001s[0m
+[32m  + [0m[32marXiv forms drop version suffixes and accept the arXiv DOI[0m [90m0.001s[0m
+[32m  + [0m[32mORCID requires a valid check digit[0m [90m0.0s[0m
+[32m  + [0m[32mrepository URLs reduce to host, owner and repository[0m [90m0.002s[0m
+[32m  + [0m[32mname order, particles, ordinals and suffixes parse consistently[0m [90m0.003s[0m
+[32m  + [0m[32mforename comparison grades full, initial, near and conflicting[0m [90m0.002s[0m
+[32m  + [0m[32ma swapped given and family order is recognized and flagged[0m [90m0.002s[0m
+[32m  + [0m[32msimilarity functions are symmetric and bounded[0m [90m0.004s[0m
+[32mscholarchain.er.IdentifierRulesSuite:[0m
+[32m  + [0m[32mthe policy version is 1.4.0, bumped for the same-record position CONFLICT[0m [90m0.011s[0m
+[32m  + [0m[32mresearchers: an ORCID mismatch is a CONFLICT[0m [90m0.013s[0m
+[32m  + [0m[32mresearchers: an OpenAlex author ID mismatch alone is not a CONFLICT[0m [90m0.001s[0m
+[32m  + [0m[32mresearchers: a DBLP author ID mismatch alone is not a CONFLICT[0m [90m0.003s[0m
+[32m  + [0m[32mworks: a DOI mismatch is a CONFLICT[0m [90m0.002s[0m
+[32m  + [0m[32mpending human ruling: other work identifier mismatches also conflict[0m [90m0.003s[0m
+[32mscholarchain.er.LeakageSuite:[0m
+[32m  + [0m[32mthe structural scan flags every planted reference form (control)[0m [90m0.011s[0m
+[32m  + [0m[32mthe structural scan passes ordinary matching code (control)[0m [90m0.001s[0m
+[32m  + [0m[32mbrace, rename, wildcard and qualified forms are named distinctly[0m [90m0.004s[0m
+[32m  + [0m[32mthe scan walks nested directories (recursion control)[0m [90m0.005s[0m
+[32m  + [0m[32mthe matching and llm packages have sources to scan[0m [90m0.002s[0m
+[32m  + [0m[32mmatching and llm reach no eval, review, sampling or pairs package[0m [90m0.008s[0m
+[32m  + [0m[32mthe vocabulary scan sees a planted mention in a nested file (control)[0m [90m0.002s[0m
+[32m  + [0m[32mmatching code does not reference gold labels or suggestions[0m [90m0.003s[0m
+[32m  + [0m[32mmatching code does not depend on adjudication, which sits above it[0m [90m0.002s[0m
+[32m  + [0m[32madjudication code does not reference gold labels, suggestions or evaluation[0m [90m0.0s[0m
+[32m  + [0m[32mthe compiled matcher and adjudicator signatures take no evaluation types[0m [90m0.004s[0m
+[32mscholarchain.er.SameRecordIdAgreementSuite:[0m
+[32m  + [0m[32msame record, two slots, agreeing ORCID, WITH a DOI: CONFLICT[0m [90m0.025s[0m
+[32m  + [0m[32msame record, two slots, agreeing ORCID, WITH an arXiv ID: CONFLICT[0m [90m0.004s[0m
+[32m  + [0m[32msame record, two slots, agreeing ORCID, NO DOI and NO arXiv ID[0m [90m0.003s[0m
+[32m  + [0m[32mthe no-id and with-id cases carry the same reason code[0m [90m0.002s[0m
+[32m  + [0m[32msame record and same slot is not a CONFLICT by this rule[0m [90m0.002s[0m
+[32m  + [0m[32man unknown position on one side is not guessed: ACCEPTED as before[0m [90m0.002s[0m
+[32m  + [0m[32mdifferent records with no shared key keep the ORCID ACCEPTED[0m [90m0.003s[0m
+[32m  + [0m[32msame record, no ORCID agreement: REJECTED as distinct mentions[0m [90m0.005s[0m
+[32m  + [0m[32msame record, no shared key: an aggregator ID stays REJECTED[0m [90m0.003s[0m
+[32m  + [0m[32mtwo different ORCIDs on one record stay the ID-conflict rung[0m [90m0.002s[0m
+[32m  + [0m[32mthe slot rule needs researchers, equal work IDs and known positions[0m [90m0.003s[0m
+[32mscholarchain.er.InputFilesSuite:[0m
+[32m  + [0m[32mpart files are read in name order and Hadoop markers are skipped[0m [90m0.003s[0m
+[32m  + [0m[32mnested directories are read depth first in name order[0m [90m0.003s[0m
+[32m  + [0m[32ma single file is read as itself[0m [90m0.001s[0m
+[32m  + [0m[32mthe directory digest changes with content and with part names[0m [90m0.003s[0m
+[32m  + [0m[32ma directory with no data files is an error, not an empty input[0m [90m0.002s[0m
+[32m  + [0m[32mstreamed lines match the eager lines[0m [90m0.003s[0m
+[32mscholarchain.er.ReviewQueueSuite:[0m
+[32m  + [0m[32mthe queue caps each stratum and always covers conflicts[0m [90m0.009s[0m
+[32m  + [0m[32mselection is deterministic for a salt and varies with the salt[0m [90m0.002s[0m
+[32m  + [0m[32mevery item traces to source records and hides the matcher output[0m [90m0.006s[0m
+[32m  + [0m[32mselections join to items by ID and record why a pair was queued[0m [90m0.001s[0m
+[32m  + [0m[32maggregator ID disagreements are queued as their own stratum[0m [90m0.002s[0m
+[32m  + [0m[32ma pair whose records cannot be found is not queued[0m [90m0.0s[0m
+[32mscholarchain.er.MatcherSuite:[0m
+[32m  + [0m[32mtwo different ORCIDs on a pair are a CONFLICT, never ACCEPTED[0m [90m0.025s[0m
+[32m  + [0m[32mtwo different DOIs on a pair are a CONFLICT[0m [90m0.005s[0m
+[32m  + [0m[32man agreeing and a disagreeing identifier is flagged as contradictory[0m [90m0.002s[0m
+[32m  + [0m[32man agreeing strong identifier is accepted on the exact-id path[0m [90m0.001s[0m
+[32m  + [0m[32ma strong identifier agreement that content contradicts is a CONFLICT[0m [90m0.002s[0m
+[32m  + [0m[32ma DOI agreement that the titles contradict is a CONFLICT[0m [90m0.002s[0m
+[32m  + [0m[32man agreeing aggregator researcher ID never merges on its own[0m [90m0.003s[0m
+[32m  + [0m[32man agreeing aggregator ID plus corroboration is a scored acceptance[0m [90m0.001s[0m
+[32m  + [0m[32mdiffering aggregator researcher IDs lower the score, not conflict[0m [90m0.005s[0m
+[32m  + [0m[32man ORCID agreement is not undone by differing aggregator IDs[0m [90m0.002s[0m
+[32m  + [0m[32mwork DOI and arXiv disagreements still conflict[0m [90m0.0s[0m
+[32m  + [0m[32man invalid identifier is recorded and never used to conflict[0m [90m0.003s[0m
+[32m  + [0m[32msource-local record keys never produce an identifier conflict[0m [90m0.002s[0m
+[32m  + [0m[32ma preprint DOI and a journal DOI meet on the arXiv identifier[0m [90m0.001s[0m
+[32m  + [0m[32mDOIs found in links are compared like keyed DOIs[0m [90m0.001s[0m
+[32m  + [0m[32mtwo mentions of one work are distinct people and are rejected[0m [90m0.002s[0m
+[32m  + [0m[32ma family name far from equal is rejected by rule[0m [90m0.001s[0m
+[32m  + [0m[32mcommon-name trap: same name, no shared context, is not accepted[0m [90m0.001s[0m
+[32m  + [0m[32ma name match alone is never accepted, even when the score is forced[0m [90m0.001s[0m
+[32m  + [0m[32mname variants with strong shared context are accepted[0m [90m0.001s[0m
+[32m  + [0m[32ma swapped name order is matched but flagged for review[0m [90m0.001s[0m
+[32m  + [0m[32mone shared coauthor and no affiliation lands in the unresolved band[0m [90m0.001s[0m
+[32m  + [0m[32msame title and authors across sources is accepted by rule[0m [90m0.001s[0m
+[32m  + [0m[32ma generic title is not accepted on title and year alone[0m [90m0.0s[0m
+[32m  + [0m[32mthe same long title with different authors is not accepted[0m [90m0.001s[0m
+[32m  + [0m[32munrelated titles are rejected[0m [90m0.0s[0m
+[32m  + [0m[32ma decision does not depend on which side is listed first[0m [90m0.002s[0m
+[32m  + [0m[32mevery decision is a valid core MatchDecision with full provenance[0m [90m0.014s[0m
+[32m  + [0m[32mpolicy v1 score is frozen, so a weight edit must change the version[0m [90m0.0s[0m
+[32mscholarchain.tests.adversarial.AdversarialGiantTeamSuite:[0m
+[32m  + [0m[32ma 300-author paper expands to exactly 44850 distinct pairs[0m [90m0.475s[0m
+[32m  + [0m[32mevery author position appears in exactly 299 pairs[0m [90m0.178s[0m
+[32m  + [0m[32mthe default pair bound excludes any paper above 141 authors[0m [90m0.003s[0m
+[32m  + [0m[32mthe pair bound is exclusive exactly at the bound[0m [90m0.001s[0m
+[32m  + [0m[32ma suppressed fan-out is reported as an oversize author team[0m [90m0.003s[0m
+[32m  + [0m[32mblocking suppresses oversize coauthor fan-out and records its reason[0m [90m0.007s[0m
+[32m  + [0m[32msuppressed blocking keeps record and payload growth linear[0m [90m0.008s[0m
+[32m  + [0m[32mthe coauthor bound admits its exact boundary and rejects one below[0m [90m0.005s[0m
+[32m  + [0m[32ma team sharing one name retains one coauthor key per mention[0m [90m0.018s[0m
+[32m  + [0m[32msuppressed pair expansion has a distinct diagnostic from team size[0m [90m0.002s[0m
+[32mscholarchain.er.SameDoiDistinctPositionSuite:[0m
+[32m  + [0m[32mthe same-name coauthors of one DOI seen through two sources: rejected[0m [90m0.025s[0m
+[32m  + [0m[32mthe decision is the same whichever side is listed first[0m [90m0.006s[0m
+[32m  + [0m[32mcontrol: without the DOI the same pair scores about 0.978, ACCEPTED[0m [90m0.005s[0m
+[32m  + [0m[32mcontrol: the same author at the same position still matches[0m [90m0.001s[0m
+[32m  + [0m[32mcontrol: different DOIs do not trigger the rule[0m [90m0.002s[0m
+[32m  + [0m[32mcontrol: a DOI on one side only does not trigger the rule[0m [90m0.002s[0m
+[32m  + [0m[32man arXiv-prefixed DOI is not a work DOI; it keys as an arXiv ID[0m [90m0.003s[0m
+[32m  + [0m[32mcontrol: an unknown position is not guessed[0m [90m0.005s[0m
+[32m  + [0m[32mcontrol: author lists that do not align are not compared[0m [90m0.002s[0m
+[32m  + [0m[32ma different spelling and order of the same names still aligns[0m [90m0.003s[0m
+[32m  + [0m[32man agreeing ORCID on two slots of one aligned list is a CONFLICT[0m [90m0.002s[0m
+[32m  + [0m[32man agreeing ORCID on two slots with a shared arXiv ID is a CONFLICT[0m [90m0.001s[0m
+[32m  + [0m[32man agreeing aggregator author ID on two slots is a CONFLICT[0m [90m0.002s[0m
+[32m  + [0m[32mcontrol: an aggregator ID the content does not support stays rejected[0m [90m0.001s[0m
+[32m  + [0m[32mcontrol: differing aggregator IDs on two slots stay rejected by rule[0m [90m0.001s[0m
+[32m  + [0m[32mcontrol: the same ORCID at the same position is still ACCEPTED[0m [90m0.002s[0m
+[32m  + [0m[32mcontrol: an ORCID agreeing with no shared work key is unchanged[0m [90m0.002s[0m
+[32m  + [0m[32mcontrol: an ORCID with unaligned lists or an unknown position is unchanged[0m [90m0.002s[0m
+[32m  + [0m[32mcontrol: different ORCIDs on two slots are still a CONFLICT by ORCID[0m [90m0.001s[0m
+[32m  + [0m[32ma DOI that differs only by URL prefix is the same work key[0m [90m0.002s[0m
+[32m  + [0m[32ma DOI that differs only by case is the same work key[0m [90m0.002s[0m
+[32m  + [0m[32mworkArxiv: every spelling of one arXiv ID is one key[0m [90m0.001s[0m
+[32m  + [0m[32mworkArxiv: a non-arXiv value is not a key[0m [90m0.001s[0m
+[32m  + [0m[32ma DBLP arXiv ID and an OpenAlex arXiv DOI form: not ACCEPTED, rejected[0m [90m0.003s[0m
+[32m  + [0m[32ma shared arXiv ID in the plain field on both sides fires the rule[0m [90m0.001s[0m
+[32m  + [0m[32mcontrol: without any arXiv key the same pair is ACCEPTED (failure mode)[0m [90m0.001s[0m
+[32m  + [0m[32mcontrol: different arXiv IDs do not trigger the rule[0m [90m0.001s[0m
+[32m  + [0m[32mcontrol: an arXiv ID on one side only does not trigger the rule[0m [90m0.003s[0m
+[32m  + [0m[32mcontrol: an unknown or out-of-range position is not guessed (arXiv)[0m [90m0.01s[0m
+[32m  + [0m[32mcontrol: the same position under a shared arXiv ID is not forced to REJECTED[0m [90m0.002s[0m
+[32m  + [0m[32mcontrol: unaligned author lists are not compared (arXiv)[0m [90m0.001s[0m
+[32m  + [0m[32mcontrol: a preprint and a published version with different DOIs are not conflated[0m [90m0.001s[0m
+[32m  + [0m[32mcontrol: one arXiv ID under two different work DOIs is not conflated[0m [90m0.002s[0m
+[32m  + [0m[32ma shared work DOI wins over a shared arXiv ID, with the DOI codes[0m [90m0.001s[0m
+[32m  + [0m[32mthe arXiv ID of a published version meets the preprint's arXiv DOI form[0m [90m0.001s[0m
+[32m  + [0m[32ma position is the zero-based list index in all three sources[0m [90m0.001s[0m
+[32m  + [0m[32mworkDoi keeps the wire format: absent when empty, optional on read[0m [90m0.001s[0m
+[32mscholarchain.er.PipelineSuite:[0m
+[32m  + [0m[32mthe policy thresholds equal the shipped project configuration[0m [90m0.066s[0m
+[32m  + [0m[32man inconsistent threshold set is refused[0m [90m0.0s[0m
+[32m  + [0m[32mthe adjudication band is bounded below the accept threshold[0m [90m0.002s[0m
+[32m  + [0m[32ma frozen Hadoop wire example parses and flows through the pipeline[0m [90m0.016s[0m
+[32m  + [0m[32ma candidate with an unexpected record type is left unresolved[0m [90m0.002s[0m
+[32m  + [0m[32mcore records build an index whose works resolve by identifier[0m [90m0.012s[0m
+[32m  + [0m[32ma pair reached from several blocks is decided once, deterministically[0m [90m0.002s[0m
+[32m  + [0m[32ma candidate whose records are missing is left unresolved[0m [90m0.003s[0m
+[32m  + [0m[32ma candidate whose kind disagrees with its records is not decided[0m [90m0.001s[0m
+[32m  + [0m[32moriginal characters survive matching; only keys are folded[0m [90m0.001s[0m
+[32mscholarchain.er.LlmAdjudicationSuite:[0m
+[32m  + [0m[32mthe fixture really is unresolved and inside the band[0m [90m0.003s[0m
+[32m  + [0m[32mthe model can abstain and the pair stays unresolved[0m [90m0.043s[0m
+[32m  + [0m[32ma malformed or off-schema answer is an abstention, not a decision[0m [90m0.01s[0m
+[32m  + [0m[32man identifier that is not in the candidates is refused[0m [90m0.003s[0m
+[32m  + [0m[32ma confident accept becomes an LLM-adjudicated acceptance[0m [90m0.009s[0m
+[32m  + [0m[32ma confident reject becomes an LLM-adjudicated rejection[0m [90m0.002s[0m
+[32m  + [0m[32man answer below the confidence floor is treated as abstention[0m [90m0.002s[0m
+[32m  + [0m[32mthe model is never asked about a pair outside the unresolved band[0m [90m0.002s[0m
+[32m  + [0m[32ma conflict cannot be overturned by the model[0m [90m0.001s[0m
+[32m  + [0m[32madjudication changes neither endpoint IDs nor source records[0m [90m0.001s[0m
+[32m  + [0m[32mcache hits skip the model for the same input, prompt, model, policy[0m [90m0.002s[0m
+[32m  + [0m[32ma different model version does not reuse a cached answer[0m [90m0.001s[0m
+[32m  + [0m[32mthe cache key changes with each of its four parts[0m [90m0.001s[0m
+[32m  + [0m[32mthe input hash follows the input and is stable across rebuilds[0m [90m0.002s[0m
+[32m  + [0m[32ma policy version change invalidates cached answers[0m [90m0.001s[0m
+[32m  + [0m[32ma model that throws is an abstention[0m [90m0.001s[0m
+[32m  + [0m[32mthe prompt carries the schema and only the pair's own facts[0m [90m0.0s[0m
+[32mscholarchain.er.EvaluatorSuite:[0m
+[32m  + [0m[32mresearcher and work resolution are reported separately[0m [90m0.001s[0m
+[32m  + [0m[32mthe confusion matrix has a column for every outcome[0m [90m0.0s[0m
+[32m  + [0m[32mprecision, recall and F1 are separate numbers with exact values[0m [90m0.001s[0m
+[32m  + [0m[32mabstentions lower recall but not precision[0m [90m0.001s[0m
+[32m  + [0m[32mmetrics are reported for each match path[0m [90m0.001s[0m
+[32m  + [0m[32merror analysis lists errors with their source records[0m [90m0.002s[0m
+[32m  + [0m[32ma report with fewer than ten errors says so[0m [90m0.0s[0m
+[32m  + [0m[32mtwo hundred reviewed pairs meet the minimum[0m [90m0.029s[0m
+[32m  + [0m[32mthreshold sensitivity re-applies thresholds to scored pairs only[0m [90m0.002s[0m
+[32m  + [0m[32mcapped and rule outcomes are held fixed in the sweep[0m [90m0.001s[0m
+[32m  + [0m[32mthe report serializes to JSON[0m [90m0.011s[0m
+[32m  + [0m[32ma label must be human reviewed and traceable to source records[0m [90m0.001s[0m
+[32m  + [0m[32ma label file parses, rejects bad lines and inconsistent duplicates[0m [90m0.005s[0m
+[32mscholarchain.er.PassSplitEvaluationSuite:[0m
+[32m  + [0m[32mwithout a pass field the report is the single-pass report[0m [90m0.068s[0m
+[32m  + [0m[32ma two-pass file is reported overall and split by pass[0m [90m0.002s[0m
+[32m  + [0m[32mthe text names carried rows as not re-reviewed and pass 2 as blind[0m [90m0.005s[0m
+[32m  + [0m[32ma label with no pass in a two-pass file is warned about[0m [90m0.002s[0m
+[32m  + [0m[32mthe json carries the split and reads back[0m [90m0.018s[0m
+[32m  + [0m[32mpasses are read from the pass field of the gold lines[0m [90m0.001s[0m
+[info] Passed: Total 240, Failed 0, Errors 0, Passed 240
+[32mscholarchain.er.Pass3EvaluationSuite:[0m
+[32m  + [0m[32mpass fields are read, with pass 3 only when it is allowed[0m [90m0.011s[0m
+[32m  + [0m[32mthe pass-1 label of a pass-3 row is read, and only from pass 3[0m [90m0.003s[0m
+[32m  + [0m[32ma v3 file is reported overall, by pass and by stratum[0m [90m0.001s[0m
+[32m  + [0m[32mthe text names pass 2 as 77-style blind and pass 3 as a blind re-review[0m [90m0.003s[0m
+[32m  + [0m[32mthe uncertainty section does not claim a suggestion was seen[0m [90m0.002s[0m
+[32m  + [0m[32ma pass 1 and 2 file is reported as before[0m [90m0.002s[0m
+[32m  + [0m[32mthe json carries the split and reads back[0m [90m0.018s[0m
+[32m  + [0m[32mlabel changes are pass-3 rows whose verdict differs from the pass-1 label[0m [90m0.001s[0m
+[32m  + [0m[32mthe comparison puts the pooled numbers side by side[0m [90m0.005s[0m
+[32m  + [0m[32mchanged labels are listed with the matcher decision beside them[0m [90m0.002s[0m
+[32m  + [0m[32mit shows whether changes sit on pairs the earlier report flagged[0m [90m0.0s[0m
+[32m  + [0m[32ma comparison of reports from different inputs carries a warning[0m [90m0.001s[0m
+[32m  + [0m[32mthe comparison states that it alters nothing[0m [90m0.001s[0m
+[32m  + [0m[32mthe report text without a comparison is unchanged by the comparison code[0m [90m0.001s[0m
+[32m  + [0m[32m--compare-with is optional and names the earlier report[0m [90m0.002s[0m
+[32m  + [0m[32man earlier report is read back from its json, or refused[0m [90m0.001s[0m
+decided 1 of 1 pairs
+[32mscholarchain.er.LocationsAndLifecycleSuite:[0m
+[32m  + [0m[32ma path inside the repository is refused[0m [90m0.008s[0m
+[32m  + [0m[32mthe repository is found from a subdirectory of the working directory[0m [90m0.003s[0m
+[32m  + [0m[32ma path under a target directory is refused wherever it is[0m [90m0.004s[0m
+[32m  + [0m[32ma path outside the repository and target is allowed[0m [90m0.001s[0m
+[32m  + [0m[32ma sibling whose name only starts like the repository is allowed[0m [90m0.003s[0m
+[32m  + [0m[32ma path inside a protected input directory is refused[0m [90m0.026s[0m
+[32m  + [0m[32minterrupting the labeling server's wait stops it and frees the port[0m [90m0.062s[0m
+decided 1 of 1 pairs
+[32mscholarchain.er.RealPhase4FormatSuite:[0m
+[32m  + [0m[32mthe real candidate line is accepted as a core MatchCandidate[0m [90m0.019s[0m
+[32m  + [0m[32mthe real work line is accepted and indexes the work and its mentions[0m [90m0.006s[0m
+[32m  + [0m[32mone records directory resolves candidates across sources[0m [90m0.013s[0m
+[32m  + [0m[32mrecords from only one source leave the other source's pairs missing[0m [90m0.003s[0m
+[32m  + [0m[32ma pair in several blocks counts once and keeps the smallest block[0m [90m0.006s[0m
+[32m  + [0m[32mstreaming a candidate directory equals running on the loaded vector[0m [90m0.058s[0m
+[32m  + [0m[32ma directory of only markers fails loudly instead of exporting zero[0m [90m0.035s[0m
+[32m  + [0m[32ma malformed candidate line names its number[0m [90m0.019s[0m
+ScholarChain entity-resolution gold evaluation
+policy scholarchain.er.policy/1.4.0: accept 0.95, reject 0.35, adjudication band [0.7, 0.95)
+thresholds are the shipped provisional values, not tuned on this set
+input gold: 8a6911c20ae228638e0e71ffaefb432dab376f1409520d8cf9e6653d6f27ee57
+input pairs: b693991e176171dad03783a36bb9ccdac7eb2197c7680d4578479149beb7928a
+input records (directory digest): 1b810ddb5a885887380870dfcf027e1581da8c3456f354c8987c6652515f17c6
+input strata-key: a8e049e1000a4d3d8e028e6b81fb12cd44852d9e1336a37c2b9ccc50d24f5032
+
+WARNINGS
+  Only 1 labeled pairs; at least 200 are required
+  researcher: only 0 false positives available, fewer than 10
+  researcher: only 0 false negatives available, fewer than 10
+
+== pooled over researcher and work (gold rows include unsure)
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0         0           0         0        0
+  different          0         0           1         0        0
+  unsure             0         0           0         0        0
+  precision n/a
+  recall    n/a
+  F1        n/a
+
+== separate by kind (unsure excluded)
+-- researcher: 1 scored, 0 unsure excluded (rows are gold, unsure not shown)
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0         0           0         0        0
+  different          0         0           1         0        0
+  precision n/a  recall n/a  F1 n/a  decided-recall n/a
+  coverage 0.000  unresolved-rate 1.000  conflict-rate 0.000
+  path exact-id: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+  path deterministic-bibliographic: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+  path probabilistic: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+  path llm-adjudicated: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+
+== by stratum (private key, report only)
+-- hard-common-name: 1 pairs
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0         0           0         0        0
+  different          0         0           1         0        0
+  unsure             0         0           0         0        0
+  precision n/a
+  recall    n/a
+  F1        n/a
+
+== adjudication band, never auto-labeled
+  UNRESOLVED in band by gold: same 0, different 0, unsure 0
+  eligible for adjudication 0, abstained by offline-stub/abstain-1: 0, model calls 0
+
+== errors by pair_id, false accepts first
+
+== threshold sensitivity
+-- sweep, researcher, reject fixed at 0.35
+  accept 0.9 reject 0.35: accepted 0 precision n/a recall n/a F1 n/a unresolved 1.000
+  accept 0.92 reject 0.35: accepted 0 precision n/a recall n/a F1 n/a unresolved 1.000
+  accept 0.94 reject 0.35: accepted 0 precision n/a recall n/a F1 n/a unresolved 1.000
+  accept 0.95 reject 0.35: accepted 0 precision n/a recall n/a F1 n/a unresolved 1.000  <- policy
+  accept 0.96 reject 0.35: accepted 0 precision n/a recall n/a F1 n/a unresolved 1.000
+  accept 0.98 reject 0.35: accepted 0 precision n/a recall n/a F1 n/a unresolved 1.000
+-- sweep, researcher, accept fixed at 0.95
+  accept 0.95 reject 0.2: accepted 0 precision n/a recall n/a F1 n/a unresolved 1.000
+  accept 0.95 reject 0.25: accepted 0 precision n/a recall n/a F1 n/a unresolved 1.000
+  accept 0.95 reject 0.3: accepted 0 precision n/a recall n/a F1 n/a unresolved 1.000
+  accept 0.95 reject 0.35: accepted 0 precision n/a recall n/a F1 n/a unresolved 1.000  <- policy
+  accept 0.95 reject 0.4: accepted 0 precision n/a recall n/a F1 n/a unresolved 1.000
+  accept 0.95 reject 0.45: accepted 0 precision n/a recall n/a F1 n/a unresolved 1.000
+  accept 0.95 reject 0.5: accepted 0 precision n/a recall n/a F1 n/a unresolved 1.000
+
+== uncertainty
+  n = 1 labeled pairs, 0 labeled unsure and excluded from precision and recall; the metrics rest on that small sample.
+  The sample is stratified by design (exact-id, hard-common-name, clear-non-match, about a third each), not random, so these are not population rates. Pooled precision and recall depend on the mix.
+  Pooled precision does not measure the probabilistic path when the export left out pairs whose context agrees (includeAgreeingContext false), and the exact-id stratum is selected by the same shared identifier rule the exact-id path accepts on, so its accepts agree with it by construction. A high pooled precision therefore says nothing about the probabilistic or deterministic-bibliographic accept paths.
+  Intervals are Wilson 95% intervals for a simple binomial, which ignores the stratification and the clustering of pairs by author.
+  Recall is measured over candidate pairs only. Matches that blocking never proposed are not in the sample, so true recall is lower or equal.
+  Gold labels come from one reviewer who saw an external suggestion; 0 labels differed from it. Agreement with a suggestion the reviewer saw may overstate independence.
+  DBLP names carry numeric homonym suffixes, so many DBLP-DBLP labels are decided by DBLP's own disambiguation. Scores against those labels measure agreement with DBLP, not independent truth.
+  Thresholds are provisional and hand-set. The sweep reads them off this sample only; a change chosen from it would be tuned to the evaluation set and needs a separate sample.
+Wrote /var/folders/k6/1c1ms0x54c9d6rl_b6_rxs6h0000gn/T/er-evaluation-out18069851670252669386/decisions.jsonl, /var/folders/k6/1c1ms0x54c9d6rl_b6_rxs6h0000gn/T/er-evaluation-out18069851670252669386/evaluation-report.txt and /var/folders/k6/1c1ms0x54c9d6rl_b6_rxs6h0000gn/T/er-evaluation-out18069851670252669386/evaluation-report.json
+[32mscholarchain.er.GoldEvaluationSuite:[0m
+[32m  + [0m[32mthe fixture produces the outcomes the other tests rely on[0m [90m0.002s[0m
+[32m  + [0m[32mevery pair is decided and none is dropped[0m [90m0.0s[0m
+[32m  + [0m[32ma pair whose records are not indexed is listed and gets no decision[0m [90m0.003s[0m
+[32m  + [0m[32mdeciding takes no label, verdict or stratum argument[0m [90m0.001s[0m
+[32m  + [0m[32mthe decision stage source never mentions labels, suggestions or strata[0m [90m0.0s[0m
+[32m  + [0m[32ma decisions line holds the matcher's answer and nothing from the labels[0m [90m0.002s[0m
+[32m  + [0m[32mdeciding the same pairs twice gives the same decisions[0m [90m0.003s[0m
+[32m  + [0m[32mthe run ID has the shape the contracts require and is repeatable[0m [90m0.001s[0m
+[32m  + [0m[32mthe confusion table has a row for unsure and a column for every outcome[0m [90m0.001s[0m
+[32m  + [0m[32mprecision and recall are separate numbers with exact values[0m [90m0.001s[0m
+[32m  + [0m[32mthe per-kind report from the evaluator agrees with the pooled one[0m [90m0.001s[0m
+[32m  + [0m[32mstrata are reported separately and use the key only for grouping[0m [90m0.001s[0m
+[32m  + [0m[32ma label with no stratum is reported as unknown with a warning[0m [90m0.001s[0m
+[32m  + [0m[32mband pairs and unsure pairs stay UNRESOLVED and are never auto-labeled[0m [90m0.008s[0m
+[32m  + [0m[32merrors are listed by pair_id with false accepts first[0m [90m0.0s[0m
+[32m  + [0m[32mthe sweep covers accept 0.90-0.98 and reject 0.20-0.50 once at the policy[0m [90m0.002s[0m
+[32m  + [0m[32mthe policy thresholds in the report are the shipped ones, unchanged[0m [90m0.001s[0m
+[32m  + [0m[32mthe uncertainty statement gives n, unsure, stratification and caveats[0m [90m0.002s[0m
+[32m  + [0m[32mthe text report names every section and lists the errors[0m [90m0.001s[0m
+[32m  + [0m[32mthe report round-trips through JSON[0m [90m0.003s[0m
+[32m  + [0m[32mWilson intervals are proper: inside [0, 1], around the estimate[0m [90m0.001s[0m
+[32m  + [0m[32mthe changed count comes from the suggestion the reviewer saw[0m [90m0.002s[0m
+[32m  + [0m[32mthe strata key is read as pair_id to stratum[0m [90m0.0s[0m
+[32m  + [0m[32marguments are required and unknown options are refused[0m [90m0.001s[0m
+[32m  + [0m[32mfiles in, report out: the full run on real-format files[0m [90m0.103s[0m
+[32mscholarchain.er.PairsExportSuite:[0m
+[32m  + [0m[32mthe pairs file holds evidence only: no strata, scores or decisions[0m [90m0.074s[0m
+[32m  + [0m[32mthe strongest evidence comes first in each side[0m [90m0.005s[0m
+[32m  + [0m[32mthe same input and seed give identical output, in any input order[0m [90m0.018s[0m
+[32m  + [0m[32ma different seed draws a different sample[0m [90m0.004s[0m
+[32m  + [0m[32mthe pair order does not group pairs by stratum[0m [90m0.002s[0m
+[32m  + [0m[32ma total is split into thirds and each stratum reports its count[0m [90m0.003s[0m
+[32m  + [0m[32ma short stratum gives what it has, reports the shortfall, no top-up[0m [90m0.002s[0m
+[32m  + [0m[32msame-work mentions and agreeing contexts are excluded and counted[0m [90m0.004s[0m
+[32m  + [0m[32mstrata follow raw features, not matcher output[0m [90m0.005s[0m
+[32m  + [0m[32mevery pair traces to source records, snapshot and run[0m [90m0.007s[0m
+[32m  + [0m[32mfiles are written, the key is separate and the pairs file round trips[0m [90m0.123s[0m
+decided 1 of 1 pairs
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+ScholarChain entity-resolution gold evaluation
+policy scholarchain.er.policy/1.4.0: accept 0.95, reject 0.35, adjudication band [0.7, 0.95)
+thresholds are the shipped provisional values, not tuned on this set
+input gold: 10570a2c777e8573a67b8b89a7b5dbf51400f05bcde939e233c74d76a670262c
+input pairs: e0e2b92f39e5471bb010b565b2626f49efe60b905b3e76cd9ac9754d7da61546
+input records (directory digest): 1283df8bbc737ef474ef4a25ce8c4aae5803ad7904169ae1619ac84a245d773d
+input strata-key: 1b56b5292276827b1bc91232f1ec68f39d72b0276cb8c376a1429ab554fc8c3c
+
+WARNINGS
+  Only 1 labeled pairs; at least 200 are required
+  researcher: only 0 false positives available, fewer than 10
+  researcher: only 0 false negatives available, fewer than 10
+
+== pooled over researcher and work (gold rows include unsure)
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0         0           1         0        0
+  different          0         0           0         0        0
+  unsure             0         0           0         0        0
+  precision n/a
+  recall    0.000 [0.000, 0.793]
+  F1        n/a
+
+== separate by kind (unsure excluded)
+-- researcher: 1 scored, 0 unsure excluded (rows are gold, unsure not shown)
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0         0           1         0        0
+  different          0         0           0         0        0
+  precision n/a  recall 0.000  F1 n/a  decided-recall n/a
+  coverage 0.000  unresolved-rate 1.000  conflict-rate 0.000
+  path exact-id: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+  path deterministic-bibliographic: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+  path probabilistic: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+  path llm-adjudicated: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+
+== by stratum (private key, report only)
+-- hard-common-name: 1 pairs
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0         0           1         0        0
+  different          0         0           0         0        0
+  unsure             0         0           0         0        0
+  precision n/a
+  recall    0.000 [0.000, 0.793]
+  F1        n/a
+
+== adjudication band, never auto-labeled
+  UNRESOLVED in band by gold: same 0, different 0, unsure 0
+  eligible for adjudication 0, abstained by offline-stub/abstain-1: 0, model calls 0
+
+== errors by pair_id, false accepts first
+  3-same-left-unresolved pair:v1:01d6f37a8de66c086b5a6029e1df424a researcher hard-common-name gold=match UNRESOLVED probabilistic score=0.401 [Jane Doe | Jane Doe] k1 k2 unresolved.score-between-thresholds,feature.missing:affiliation.compat,feature.missing:citation.shared
+
+== threshold sensitivity
+-- sweep, researcher, reject fixed at 0.35
+  accept 0.9 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.92 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.94 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000  <- policy
+  accept 0.96 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.98 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+-- sweep, researcher, accept fixed at 0.95
+  accept 0.95 reject 0.2: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.25: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.3: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000  <- policy
+  accept 0.95 reject 0.4: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.45: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 0.000
+  accept 0.95 reject 0.5: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 0.000
+
+== uncertainty
+  n = 1 labeled pairs, 0 labeled unsure and excluded from precision and recall; the metrics rest on that small sample.
+  The sample is stratified by design (exact-id, hard-common-name, clear-non-match, about a third each), not random, so these are not population rates. Pooled precision and recall depend on the mix.
+  Pooled precision does not measure the probabilistic path when the export left out pairs whose context agrees (includeAgreeingContext false), and the exact-id stratum is selected by the same shared identifier rule the exact-id path accepts on, so its accepts agree with it by construction. A high pooled precision therefore says nothing about the probabilistic or deterministic-bibliographic accept paths.
+  Intervals are Wilson 95% intervals for a simple binomial, which ignores the stratification and the clustering of pairs by author.
+  Recall is measured over candidate pairs only. Matches that blocking never proposed are not in the sample, so true recall is lower or equal.
+  Gold labels come from one reviewer who saw an external suggestion; 0 labels differed from it. Agreement with a suggestion the reviewer saw may overstate independence.
+  DBLP names carry numeric homonym suffixes, so many DBLP-DBLP labels are decided by DBLP's own disambiguation. Scores against those labels measure agreement with DBLP, not independent truth.
+  Thresholds are provisional and hand-set. The sweep reads them off this sample only; a change chosen from it would be tuned to the evaluation set and needs a separate sample.
+  Export manifest: includeAgreeingContext false; 5766 same-name agreeing-context pairs were excluded from the sample.
+Wrote /var/folders/k6/1c1ms0x54c9d6rl_b6_rxs6h0000gn/T/er-first4443097407987835935/decisions.jsonl, /var/folders/k6/1c1ms0x54c9d6rl_b6_rxs6h0000gn/T/er-first4443097407987835935/evaluation-report.txt and /var/folders/k6/1c1ms0x54c9d6rl_b6_rxs6h0000gn/T/er-first4443097407987835935/evaluation-report.json
+decided 1 of 1 pairs
+ScholarChain entity-resolution gold evaluation
+policy scholarchain.er.policy/1.4.0: accept 0.95, reject 0.35, adjudication band [0.7, 0.95)
+thresholds are the shipped provisional values, not tuned on this set
+input gold: 10570a2c777e8573a67b8b89a7b5dbf51400f05bcde939e233c74d76a670262c
+input pairs: e0e2b92f39e5471bb010b565b2626f49efe60b905b3e76cd9ac9754d7da61546
+input records (directory digest): 1283df8bbc737ef474ef4a25ce8c4aae5803ad7904169ae1619ac84a245d773d
+input strata-key: 1b56b5292276827b1bc91232f1ec68f39d72b0276cb8c376a1429ab554fc8c3c
+
+WARNINGS
+  Only 1 labeled pairs; at least 200 are required
+  researcher: only 0 false positives available, fewer than 10
+  researcher: only 0 false negatives available, fewer than 10
+
+== pooled over researcher and work (gold rows include unsure)
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0         0           1         0        0
+  different          0         0           0         0        0
+  unsure             0         0           0         0        0
+  precision n/a
+  recall    0.000 [0.000, 0.793]
+  F1        n/a
+
+== separate by kind (unsure excluded)
+-- researcher: 1 scored, 0 unsure excluded (rows are gold, unsure not shown)
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0         0           1         0        0
+  different          0         0           0         0        0
+  precision n/a  recall 0.000  F1 n/a  decided-recall n/a
+  coverage 0.000  unresolved-rate 1.000  conflict-rate 0.000
+  path exact-id: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+  path deterministic-bibliographic: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+  path probabilistic: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+  path llm-adjudicated: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+
+== by stratum (private key, report only)
+-- hard-common-name: 1 pairs
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0         0           1         0        0
+  different          0         0           0         0        0
+  unsure             0         0           0         0        0
+  precision n/a
+  recall    0.000 [0.000, 0.793]
+  F1        n/a
+
+== adjudication band, never auto-labeled
+  UNRESOLVED in band by gold: same 0, different 0, unsure 0
+  eligible for adjudication 0, abstained by offline-stub/abstain-1: 0, model calls 0
+
+== errors by pair_id, false accepts first
+  3-same-left-unresolved pair:v1:01d6f37a8de66c086b5a6029e1df424a researcher hard-common-name gold=match UNRESOLVED probabilistic score=0.401 [Jane Doe | Jane Doe] k1 k2 unresolved.score-between-thresholds,feature.missing:affiliation.compat,feature.missing:citation.shared
+
+== threshold sensitivity
+-- sweep, researcher, reject fixed at 0.35
+  accept 0.9 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.92 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.94 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000  <- policy
+  accept 0.96 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.98 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+-- sweep, researcher, accept fixed at 0.95
+  accept 0.95 reject 0.2: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.25: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.3: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000  <- policy
+  accept 0.95 reject 0.4: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.45: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 0.000
+  accept 0.95 reject 0.5: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 0.000
+
+== uncertainty
+  n = 1 labeled pairs, 0 labeled unsure and excluded from precision and recall; the metrics rest on that small sample.
+  The sample is stratified by design (exact-id, hard-common-name, clear-non-match, about a third each), not random, so these are not population rates. Pooled precision and recall depend on the mix.
+  Pooled precision does not measure the probabilistic path when the export left out pairs whose context agrees (includeAgreeingContext false), and the exact-id stratum is selected by the same shared identifier rule the exact-id path accepts on, so its accepts agree with it by construction. A high pooled precision therefore says nothing about the probabilistic or deterministic-bibliographic accept paths.
+  Intervals are Wilson 95% intervals for a simple binomial, which ignores the stratification and the clustering of pairs by author.
+  Recall is measured over candidate pairs only. Matches that blocking never proposed are not in the sample, so true recall is lower or equal.
+  Gold labels come from one reviewer who saw an external suggestion; 0 labels differed from it. Agreement with a suggestion the reviewer saw may overstate independence.
+  DBLP names carry numeric homonym suffixes, so many DBLP-DBLP labels are decided by DBLP's own disambiguation. Scores against those labels measure agreement with DBLP, not independent truth.
+  Thresholds are provisional and hand-set. The sweep reads them off this sample only; a change chosen from it would be tuned to the evaluation set and needs a separate sample.
+  Export manifest: includeAgreeingContext false; 5766 same-name agreeing-context pairs were excluded from the sample.
+
+== matcher decisions compared with decisions.jsonl (sha256 90f9694b3858916000e848d3f43c352f379fda5337fd884acc92bf8fcf7a2963)
+descriptive only: never used to alter a threshold, a rule or a label
+pairs earlier 1, this run 1, in both 1, only earlier 0, only this run 0
+decisions changed (outcome, path, score or reasons): 0 of 1
+by outcome: none
+by gold label: none
+Wrote /var/folders/k6/1c1ms0x54c9d6rl_b6_rxs6h0000gn/T/er-same14529212278278826297/decisions.jsonl, /var/folders/k6/1c1ms0x54c9d6rl_b6_rxs6h0000gn/T/er-same14529212278278826297/evaluation-report.txt and /var/folders/k6/1c1ms0x54c9d6rl_b6_rxs6h0000gn/T/er-same14529212278278826297/evaluation-report.json
+[32mscholarchain.er.GoldValidatorSuite:[0m
+[32m  + [0m[32mthe fixture really has the shape the expectations describe[0m [90m0.0s[0m
+[32m  + [0m[32ma clean label file passes every check and none is skipped[0m [90m0.019s[0m
+[32m  + [0m[32moptional inputs that are absent are skipped, not passed[0m [90m0.002s[0m
+[32m  + [0m[32ma wrong entry count fails[0m [90m0.001s[0m
+[32m  + [0m[32ma repeated gold pair_id fails[0m [90m0.002s[0m
+[32m  + [0m[32man itemId that differs from pair_id fails[0m [90m0.001s[0m
+[32m  + [0m[32ma pair with no gold row, and a gold row with no pair, both fail[0m [90m0.003s[0m
+[32m  + [0m[32ma duplicated pairs file fails and the dependent checks say why[0m [90m0.001s[0m
+[32m  + [0m[32mevery bad row is reported with its line number, not only the first[0m [90m0.001s[0m
+[32m  + [0m[32ma label that is not human, unsigned or untimed fails the human check[0m [90m0.009s[0m
+[32m  + [0m[32man unexpected reviewer fails when a reviewer is expected[0m [90m0.001s[0m
+[32m  + [0m[32ma DBLP side on another snapshot fails, a non-DBLP side is only listed[0m [90m0.007s[0m
+[32m  + [0m[32mthe snapshots found per source are reported as information[0m [90m0.002s[0m
+[32m  + [0m[32mlabel totals that differ from the reported facts fail[0m [90m0.001s[0m
+[32m  + [0m[32ma row without a usable suggestion fails[0m [90m0.006s[0m
+[32m  + [0m[32mthe changed count is recomputed from the labels, not trusted[0m [90m0.004s[0m
+[32m  + [0m[32mthe suggestion source must be one file and one SHA-256 on every row[0m [90m0.005s[0m
+[32m  + [0m[32ma suggestion file that differs from the one the gold records fails[0m [90m0.003s[0m
+[32m  + [0m[32ma malformed suggestion file fails with the parser's reason[0m [90m0.004s[0m
+[32m  + [0m[32mthe private strata key must cover the same pairs[0m [90m0.004s[0m
+[32m  + [0m[32mthe review time spread is reported without being judged[0m [90m0.002s[0m
+[32m  + [0m[32mthe report renders and serializes with every check named[0m [90m0.003s[0m
+[32m  + [0m[32marguments are checked: required, unknown and non-numeric options[0m [90m0.005s[0m
+[32m  + [0m[32mthe phase 5 facts are the defaults of the validator[0m [90m0.0s[0m
+[32m  + [0m[32mthe validation sources do not touch matching or adjudication code[0m [90m0.001s[0m
+decided 1 of 1 pairs
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+ScholarChain entity-resolution gold evaluation
+policy scholarchain.er.policy/1.4.0: accept 0.95, reject 0.35, adjudication band [0.7, 0.95)
+thresholds are the shipped provisional values, not tuned on this set
+input gold: 10570a2c777e8573a67b8b89a7b5dbf51400f05bcde939e233c74d76a670262c
+input pairs: e0e2b92f39e5471bb010b565b2626f49efe60b905b3e76cd9ac9754d7da61546
+input records (directory digest): 1283df8bbc737ef474ef4a25ce8c4aae5803ad7904169ae1619ac84a245d773d
+input strata-key: 1b56b5292276827b1bc91232f1ec68f39d72b0276cb8c376a1429ab554fc8c3c
+
+WARNINGS
+  Only 1 labeled pairs; at least 200 are required
+  researcher: only 0 false positives available, fewer than 10
+  researcher: only 0 false negatives available, fewer than 10
+
+== pooled over researcher and work (gold rows include unsure)
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0         0           1         0        0
+  different          0         0           0         0        0
+  unsure             0         0           0         0        0
+  precision n/a
+  recall    0.000 [0.000, 0.793]
+  F1        n/a
+
+== separate by kind (unsure excluded)
+-- researcher: 1 scored, 0 unsure excluded (rows are gold, unsure not shown)
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0         0           1         0        0
+  different          0         0           0         0        0
+  precision n/a  recall 0.000  F1 n/a  decided-recall n/a
+  coverage 0.000  unresolved-rate 1.000  conflict-rate 0.000
+  path exact-id: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+  path deterministic-bibliographic: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+  path probabilistic: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+  path llm-adjudicated: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+
+== by stratum (private key, report only)
+-- hard-common-name: 1 pairs
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0         0           1         0        0
+  different          0         0           0         0        0
+  unsure             0         0           0         0        0
+  precision n/a
+  recall    0.000 [0.000, 0.793]
+  F1        n/a
+
+== adjudication band, never auto-labeled
+  UNRESOLVED in band by gold: same 0, different 0, unsure 0
+  eligible for adjudication 0, abstained by offline-stub/abstain-1: 0, model calls 0
+
+== errors by pair_id, false accepts first
+  3-same-left-unresolved pair:v1:01d6f37a8de66c086b5a6029e1df424a researcher hard-common-name gold=match UNRESOLVED probabilistic score=0.401 [Jane Doe | Jane Doe] k1 k2 unresolved.score-between-thresholds,feature.missing:affiliation.compat,feature.missing:citation.shared
+
+== threshold sensitivity
+-- sweep, researcher, reject fixed at 0.35
+  accept 0.9 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.92 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.94 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000  <- policy
+  accept 0.96 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.98 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+-- sweep, researcher, accept fixed at 0.95
+  accept 0.95 reject 0.2: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.25: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.3: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.35: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000  <- policy
+  accept 0.95 reject 0.4: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 1.000
+  accept 0.95 reject 0.45: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 0.000
+  accept 0.95 reject 0.5: accepted 0 precision n/a recall 0.000 F1 n/a unresolved 0.000
+
+== uncertainty
+  n = 1 labeled pairs, 0 labeled unsure and excluded from precision and recall; the metrics rest on that small sample.
+  The sample is stratified by design (exact-id, hard-common-name, clear-non-match, about a third each), not random, so these are not population rates. Pooled precision and recall depend on the mix.
+  Pooled precision does not measure the probabilistic path when the export left out pairs whose context agrees (includeAgreeingContext false), and the exact-id stratum is selected by the same shared identifier rule the exact-id path accepts on, so its accepts agree with it by construction. A high pooled precision therefore says nothing about the probabilistic or deterministic-bibliographic accept paths.
+  Intervals are Wilson 95% intervals for a simple binomial, which ignores the stratification and the clustering of pairs by author.
+  Recall is measured over candidate pairs only. Matches that blocking never proposed are not in the sample, so true recall is lower or equal.
+  Gold labels come from one reviewer who saw an external suggestion; 0 labels differed from it. Agreement with a suggestion the reviewer saw may overstate independence.
+  DBLP names carry numeric homonym suffixes, so many DBLP-DBLP labels are decided by DBLP's own disambiguation. Scores against those labels measure agreement with DBLP, not independent truth.
+  Thresholds are provisional and hand-set. The sweep reads them off this sample only; a change chosen from it would be tuned to the evaluation set and needs a separate sample.
+  Export manifest: includeAgreeingContext false; 5766 same-name agreeing-context pairs were excluded from the sample.
+
+== matcher decisions compared with earlier.jsonl (sha256 8e33dec8768c86c54e3243b3ce69221df43ba1ceb949f2fae9de041d0ea86997)
+descriptive only: never used to alter a threshold, a rule or a label
+pairs earlier 1, this run 1, in both 1, only earlier 0, only this run 0
+decisions changed (outcome, path, score or reasons): 1 of 1
+by outcome: EARLIER-OUTCOME->UNRESOLVED 1
+by gold label: same 1
+  decision-change pair:v1:01d6f37a8de66c086b5a6029e1df424a researcher hard-common-name gold=same EARLIER-OUTCOME->UNRESOLVED path probabilistic->probabilistic score 0.401->0.401 reasons [unresolved.score-between-thresholds,feature.missing:affiliation.compat,feature.missing:citation.shared]->[unresolved.score-between-thresholds,feature.missing:affiliation.compat,feature.missing:citation.shared]
+Wrote /var/folders/k6/1c1ms0x54c9d6rl_b6_rxs6h0000gn/T/er-changed11520846832973716050/decisions.jsonl, /var/folders/k6/1c1ms0x54c9d6rl_b6_rxs6h0000gn/T/er-changed11520846832973716050/evaluation-report.txt and /var/folders/k6/1c1ms0x54c9d6rl_b6_rxs6h0000gn/T/er-changed11520846832973716050/evaluation-report.json
+[32mscholarchain.er.RepairRound1Suite:[0m
+[32m  + [0m[32mthe uncertainty text says pooled precision misses the other paths[0m [90m0.01s[0m
+[32m  + [0m[32mthe export manifest's counts are printed when it carries them[0m [90m0.044s[0m
+[32m  + [0m[32ma symlink into the repository does not hide the repository[0m [90m0.018s[0m
+[32m  + [0m[32ma symlinked working directory still finds its repository[0m [90m0.002s[0m
+[32m  + [0m[32ma path in a different repository is refused too[0m [90m0.004s[0m
+[32m  + [0m[32ma link out of the repository to a free place is allowed[0m [90m0.001s[0m
+[32m  + [0m[32man input directory reached through a link is still protected[0m [90m0.017s[0m
+[32m  + [0m[32mdecisions are on disk before a corrupt label file is parsed[0m [90m0.09s[0m
+[32m  + [0m[32m--compare-decisions lists changed decisions with their gold label[0m [90m0.159s[0m
+[32m  + [0m[32ma decisions file that is not a decision file is refused[0m [90m0.001s[0m
+[32m  + [0m[32ma change in score, path or reasons alone counts as a change[0m [90m0.001s[0m
+[32m  + [0m[32mpairs present on one side only are counted, not compared[0m [90m0.0s[0m
+[32m  + [0m[32m--compare-decisions is optional on the command line[0m [90m0.0s[0m
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+[32mscholarchain.er.LabelingSuite:[0m
+[32m  + [0m[32msuggestions are hidden by default and shown only after reveal[0m [90m0.101s[0m
+[32m  + [0m[32maccepting works only when a suggestion exists and is revealed[0m [90m0.054s[0m
+[32m  + [0m[32m1, 2 and 3 override the suggestion and are counted as changes[0m [90m0.097s[0m
+[32m  + [0m[32ma gold line records the suggestion, its source, reviewer and note[0m [90m0.025s[0m
+[32m  + [0m[32mthe gold file is accepted by eval.GoldFile and GoldLabel[0m [90m0.023s[0m
+[32m  + [0m[32mdiffering snapshots are both kept and joined for GoldLabel[0m [90m0.021s[0m
+[32m  + [0m[32mevery answer is saved at once and a reopened session resumes[0m [90m0.048s[0m
+[32m  + [0m[32ma failed write leaves the previous gold file and no temp files[0m [90m0.033s[0m
+[32m  + [0m[32ma label whose save fails is not kept in memory[0m [90m0.011s[0m
+[32m  + [0m[32ma corrupt or foreign gold file is refused and left untouched[0m [90m0.031s[0m
+[32m  + [0m[32ma blank reviewer or an empty pairs file is refused[0m [90m0.021s[0m
+[32m  + [0m[32man over-long note is refused[0m [90m0.012s[0m
+[32m  + [0m[32mmalformed suggestion rows are refused with line numbers[0m [90m0.0s[0m
+[32m  + [0m[32ma wrong header, an empty file and an open quote are refused[0m [90m0.001s[0m
+[32m  + [0m[32munknown pair IDs are reported, not silently dropped[0m [90m0.0s[0m
+[32m  + [0m[32mquoted fields, accepted aliases, a BOM and CRLF line ends are read[0m [90m0.0s[0m
+[32m  + [0m[32ma malformed CSV stops the session from opening[0m [90m0.009s[0m
+[32m  + [0m[32mthe server needs its token, hides suggestions and saves labels[0m [90m0.121s[0m
+[32mscholarchain.er.BlindPassSuite:[0m
+[32m  + [0m[32mthe subset is hard-common-name plus suggested unsure, counted[0m [90m0.007s[0m
+[32m  + [0m[32mthe order is a fixed shuffle that ignores stratum and input order[0m [90m0.001s[0m
+[32m  + [0m[32mselection refuses a key, a suggestion list or a stratum that does not fit[0m [90m0.001s[0m
+[32m  + [0m[32mthe subset file round trips in order and refuses repeats and blanks[0m [90m0.013s[0m
+[32m  + [0m[32mstrata lines are read by pair_id and stratum only[0m [90m0.0s[0m
+[32m  + [0m[32mthe second pass shows the subset in subset order and starts at its first[0m [90m0.117s[0m
+[32m  + [0m[32ma labeled subset is a full 230-style file: pass 2 rows and pass 1 rows[0m [90m0.001s[0m
+[32m  + [0m[32mthe second-pass file is read by eval.GoldFile and carries no tag it needs[0m [90m0.001s[0m
+[32m  + [0m[32mthe file is saved after every answer and a reopened session resumes[0m [90m0.086s[0m
+[32m  + [0m[32ma pair outside the subset cannot be labeled in a second pass[0m [90m0.049s[0m
+[32m  + [0m[32mthe second pass will not write over the first pass file[0m [90m0.054s[0m
+[32m  + [0m[32ma second pass takes no suggestions and refuses unusable input[0m [90m0.064s[0m
+[32m  + [0m[32ma first-pass file given as the second-pass gold file is refused[0m [90m0.051s[0m
+[32m  + [0m[32ma pass without suggestions refuses a gold file that holds suggestions[0m [90m0.046s[0m
+[32m  + [0m[32mthe page data never carries a suggestion, a stratum or the first label[0m [90m0.063s[0m
+[32m  + [0m[32mthe page hides suggestion keys, says subset, and has no reveal for a blind pass[0m [90m0.001s[0m
+[32m  + [0m[32m--only and --carry-from go together and exclude --suggestions[0m [90m0.008s[0m
+[32m  + [0m[32ma correct second-pass file passes and asks for no totals[0m [90m0.007s[0m
+[32m  + [0m[32mexpected totals are optional and checked when given[0m [90m0.002s[0m
+[32m  + [0m[32mreview time and label counts are printed first, separately by pass[0m [90m0.002s[0m
+[32m  + [0m[32ma rushed second pass is reported, and does not fail the file[0m [90m0.001s[0m
+[32m  + [0m[32ma pass 2 row with any suggestion field, or a wrong first label, fails[0m [90m0.005s[0m
+[32m  + [0m[32mnull and absent suggestion keys on pass 2 rows are accepted[0m [90m0.0s[0m
+[32m  + [0m[32mpass 1 rows must equal the first-pass file in every field[0m [90m0.005s[0m
+[32m  + [0m[32mthe pass 2 rows must be exactly the subset[0m [90m0.002s[0m
+[32m  + [0m[32mevery row needs pass 1 or 2[0m [90m0.001s[0m
+[32m  + [0m[32mwithout the first-pass file the dependent checks fail, not skip[0m [90m0.001s[0m
+[32m  + [0m[32mthe subset is re-derived from the strata key and suggestions when given[0m [90m0.002s[0m
+[32m  + [0m[32mthe other checks still fail on the faults they must catch[0m [90m0.004s[0m
+[32m  + [0m[32mthe agreement is descriptive, on the subset only, and says what was not reviewed[0m [90m0.001s[0m
+[32m  + [0m[32mstratum-wise agreement appears only with a strata key[0m [90m0.001s[0m
+[32m  + [0m[32mkappa is undefined when it has no meaning[0m [90m0.0s[0m
+[32m  + [0m[32mthe comparison never changes pass or fail[0m [90m0.001s[0m
+[32m  + [0m[32mv2 arguments: first-pass file and subset required, totals optional[0m [90m0.002s[0m
+[32m  + [0m[32mwithout --mode v2 the arguments and defaults are what they were[0m [90m0.0s[0m
+[32mscholarchain.er.Pass3Suite:[0m
+[32m  + [0m[32mthe pass-3 subset is the complement of the pass-2 subset[0m [90m0.0s[0m
+[32m  + [0m[32mthe order is a SHA-256 shuffle with its own salt, blind to stratum[0m [90m0.001s[0m
+[32m  + [0m[32mthe same salt as pass 2 is refused, and so is input that does not fit[0m [90m0.001s[0m
+[32m  + [0m[32mthe selection needs no strata key and the counts are printed[0m [90m0.001s[0m
+[32m  + [0m[32mthe subset file round trips in order[0m [90m0.006s[0m
+[32m  + [0m[32mpass-3 subset arguments: pairs, pass-2 subset and out are required[0m [90m0.002s[0m
+[32m  + [0m[32ma pass 3 session shows the subset in order and writes nothing on open[0m [90m0.128s[0m
+[32m  + [0m[32mgold.jsonl and gold-v2.jsonl are never written[0m [90m0.0s[0m
+[32m  + [0m[32mpass-3 rows are blind, human, marked pass 3 and keep the pass-1 label[0m [90m0.001s[0m
+[32m  + [0m[32mnothing of the replaced pass-1 rows is carried into pass-3 rows[0m [90m0.0s[0m
+[32m  + [0m[32mthe 77-style pass-2 rows are carried value for value from gold-v2[0m [90m0.001s[0m
+[32m  + [0m[32mthe v3 file is read by eval.GoldFile[0m [90m0.001s[0m
+[32m  + [0m[32mthe file is saved after every answer and a reopened session resumes[0m [90m0.096s[0m
+[32m  + [0m[32ma pair outside the pass-3 subset cannot be labeled[0m [90m0.077s[0m
+[32m  + [0m[32mguards: the gold path may not be the carry file or the first pass[0m [90m0.065s[0m
+[32m  + [0m[32mguards: a gold file that is not from this mode is not resumed[0m [90m0.078s[0m
+[32m  + [0m[32mguards: the carry file must be a second-pass file for exactly this subset[0m [90m0.069s[0m
+[32m  + [0m[32mthe pass-2 invocation is unchanged and defaults to pass 2[0m [90m0.003s[0m
+[32m  + [0m[32m--relabel-pass 3 is explicit, goes with --only and --carry-from[0m [90m0.001s[0m
+[32m  + [0m[32mpage data: pair k of 153, no suggestion, stratum, pass-1 label or output[0m [90m0.05s[0m
+[32m  + [0m[32mthe page text says pair k of n (subset) and has no reveal for pass 3[0m [90m0.0s[0m
+[32m  + [0m[32mthe labeling sources hold nothing from the error analysis or decisions[0m [90m0.001s[0m
+[32m  + [0m[32mvalidator v3: a correct file passes and asks for no totals[0m [90m0.004s[0m
+[32m  + [0m[32mvalidator v3: review time per pass is printed first, then counts[0m [90m0.001s[0m
+[32m  + [0m[32mvalidator v3: a pass 3 row with a suggestion or a wrong pass-1 label fails[0m [90m0.007s[0m
+[32m  + [0m[32mvalidator v3: pass-1 labels are checked against gold.jsonl[0m [90m0.002s[0m
+[32m  + [0m[32mvalidator v3: pass-2 rows must equal gold-v2 and point at it[0m [90m0.005s[0m
+[32m  + [0m[32mvalidator v3: pass-3 rows are exactly the subset[0m [90m0.003s[0m
+[32m  + [0m[32mvalidator v3: the two subsets are disjoint and cover every pair[0m [90m0.004s[0m
+[32m  + [0m[32mvalidator v3: every row is pass 2 or pass 3[0m [90m0.002s[0m
+[32m  + [0m[32mvalidator v3: a suggestion anywhere is reported and not claimed away[0m [90m0.001s[0m
+[32m  + [0m[32mvalidator v3: the other checks still fail on the faults they must catch[0m [90m0.003s[0m
+[32m  + [0m[32mvalidator v3: totals are optional and checked when given[0m [90m0.002s[0m
+[32m  + [0m[32mvalidator v3: pass 1 against pass 3 is descriptive and lists changes[0m [90m0.001s[0m
+[32m  + [0m[32mvalidator v3: stratum-wise changes appear only with a strata key[0m [90m0.001s[0m
+[32m  + [0m[32mvalidator v3: the comparison never changes pass or fail[0m [90m0.001s[0m
+[32m  + [0m[32mvalidator v3 reads no matcher output[0m [90m0.001s[0m
+[32m  + [0m[32mv3 arguments: first pass, gold-v2 and subset are required[0m [90m0.002s[0m
+[32m  + [0m[32mv3 arguments: missing, mixed or confusing options are refused[0m [90m0.001s[0m
+[32m  + [0m[32mthe v3 files are named in the printed digests[0m [90m0.002s[0m
+[info] Passed: Total 366, Failed 0, Errors 0, Passed 366
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+[32mscholarchain.hadoop.MapReduceEndToEndSuite:[0m
+[32m  + [0m[32mjob 1 executes as a real MapReduce job and commits its output[0m [90m1.948s[0m
+[32m  + [0m[32mHadoop's split calculation divides the input, records still read once[0m [90m0.009s[0m
+[32m  + [0m[32ma reduce task ran and received grouped keys[0m [90m0.001s[0m
+[32m  + [0m[32mjob 1's counters, read off the completed job, match the input[0m [90m0.004s[0m
+[32m  + [0m[32mthe reduce side collapses a duplicated DBLP key[0m [90m0.003s[0m
+[32m  + [0m[32mcommitted works carry provenance and their full author sequence[0m [90m0.001s[0m
+[32m  + [0m[32ma real committing task writes the reject to its versioned path[0m [90m0.0s[0m
+[32m  + [0m[32mjob 2 executes and consumes job 1's committed output[0m [90m1.132s[0m
+[32m  + [0m[32mLocalJobRunner does not maintain the launched-task counters[0m [90m0.003s[0m
+[32m  + [0m[32mjob 2 shuffles three keyed streams into three committed artifacts[0m [90m0.003s[0m
+[32m  + [0m[32mthe pair counters are not double-counted across map and reduce[0m [90m0.009s[0m
+[32m  + [0m[32mrerunning a committed stage fails rather than overwriting it[0m [90m0.007s[0m
+[32m  + [0m[32ma new run ID writes a separate prefix over the same input[0m [90m1.106s[0m
+[32m  + [0m[32mthe two runs agree on everything except the run identity[0m [90m0.001s[0m
+[32m  + [0m[32mmalformed records reject without failing the task and native conflicts remain visible[0m [90m1.106s[0m
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+[32mscholarchain.hadoop.PipelineDriverUnknownDatasetSuite:[0m
+[32m  + [0m[32ma direct run with an unknown dataset throws, naming it and the known[0m [90m0.011s[0m
+[32m  + [0m[32man unknown dataset beside a known one is still refused[0m [90m0.003s[0m
+[32m  + [0m[32mevery registered dataset passes the check[0m [90m0.0s[0m
+[32m  + [0m[32ma known dataset still runs to completion[0m [90m8.643s[0m
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN JobResourceUploader - Hadoop command-line option parsing not performed. Implement the Tool interface and execute your application with ToolRunner to remedy this.
+WARN JobResourceUploader - No job jar file set.  User classes may not be found. See Job or Job#setJar(String).
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+WARN MetricsSystemImpl - JobTracker metrics system already initialized!
+ScholarChain stage source-normalization/openalex finished without writing expected output works
+ScholarChain pipeline failed at stage source-normalization/openalex
+[32mscholarchain.hadoop.PipelineDriverOutputsSuite:[0m
+[32m  + [0m[32mwork paths exclude a dataset that wrote no works[0m [90m0.01s[0m
+[32m  + [0m[32mexport inputs list exactly the artifacts that were written[0m [90m0.006s[0m
+[32m  + [0m[32man expected artifact that was not written is reported missing[0m [90m0.002s[0m
+[32m  + [0m[32mexpected outputs are declared for every normalizer and are real[0m [90m0.098s[0m
+[32m  + [0m[32mjob stream counters report what a normalization job really wrote[0m [90m2.96s[0m
+[32m  + [0m[32mdblp, openalex, crossref and orcid flow through all seven stages[0m [90m10.15s[0m
+[32m  + [0m[32ma dataset that should produce works but writes none fails the run[0m [90m2.214s[0m
+[info] Passed: Total 207, Failed 0, Errors 0, Passed 207
+[success] Total time: 29 s, completed Nov 7, 2026, 5:56:10 PM

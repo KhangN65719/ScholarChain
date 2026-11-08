@@ -3,55 +3,8 @@ package scholarchain.hadoop.pipeline
 import java.nio.charset.StandardCharsets.UTF_8
 import java.security.MessageDigest
 import scholarchain.core.{AuthorMention, SourceType, WorkRecord}
+import scholarchain.core.pairing.{BlockKind, BlockStrategy}
 import upickle.default.ReadWriter
-
-/** The entity being blocked. Researcher and work blocks are kept in one key
-  * space with an explicit discriminator so a single shuffle serves both.
-  */
-enum BlockKind(val wire: String):
-  case Researcher extends BlockKind("researcher")
-  case Work extends BlockKind("work")
-
-object BlockKind:
-  given ReadWriter[BlockKind] =
-    upickle.default
-      .readwriter[String]
-      .bimap[BlockKind](
-        _.wire,
-        wire =>
-          values
-            .find(_.wire == wire)
-            .getOrElse(
-              throw new IllegalArgumentException(s"Unknown block kind: $wire")
-            )
-      )
-
-/** Which signal produced a blocking key. Recording the strategy lets the
-  * candidate stage weight evidence and lets an oversize block be attributed to
-  * a specific strategy rather than to blocking as a whole.
-  */
-enum BlockStrategy(val wire: String, val selective: Boolean):
-  case NameYear extends BlockStrategy("name-year", true)
-  case NameVenue extends BlockStrategy("name-venue", true)
-  case NameCoauthor extends BlockStrategy("name-coauthor", true)
-  case NameAffiliation extends BlockStrategy("name-affiliation", true)
-  case NameInitials extends BlockStrategy("name-initials", false)
-  case TitleYear extends BlockStrategy("title-year", true)
-  case TitlePrefix extends BlockStrategy("title-prefix", false)
-
-object BlockStrategy:
-  given ReadWriter[BlockStrategy] =
-    upickle.default
-      .readwriter[String]
-      .bimap[BlockStrategy](
-        _.wire,
-        wire =>
-          values
-            .find(_.wire == wire)
-            .getOrElse(
-              throw new IllegalArgumentException(s"Unknown strategy: $wire")
-            )
-      )
 
 /** One member of a candidate block, carrying only the features the candidate
   * stage needs. Keeping this narrow bounds reducer memory for a large block.
@@ -281,7 +234,16 @@ object Blocking:
     val title = work.normalizedTitle
     if title.isEmpty then Vector.empty
     else
-      val prefix = title.take(24)
+      // Cut on code points, so a supplementary-plane letter (CJK extension B,
+      // for instance) is never split into a lone surrogate.
+      val prefix =
+        title.substring(
+          0,
+          title.offsetByCodePoints(
+            0,
+            math.min(24, title.codePointCount(0, title.length))
+          )
+        )
       Vector(
         work.year.map(year =>
           BlockStrategy.TitleYear -> key(

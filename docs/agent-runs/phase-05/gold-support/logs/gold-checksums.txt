@@ -1,0 +1,5 @@
+be3aea1b754a10ce71bdbeeec0050cba168a19f0a6d9893c754ff10df15e3050  /Users/winnguyen/scholarchain-data/gold/phase5/pairs.jsonl
+1cbbbf15d885080dfad03fe14baee165ac8dc6997607edf7d807b0e767f087e9  /Users/winnguyen/scholarchain-data/gold/phase5/gold.jsonl
+7a9bcd25ce6deabf2fc2e0c97eecb0327cf813a500305de6bc320d7c3cae3199  /Users/winnguyen/scholarchain-data/gold/phase5/private/strata-key.jsonl
+4a2a706d63d7264b4c1486994899ed2abaac12e7e7d547fd30e61d2870fffd43  /Users/winnguyen/scholarchain-data/gold/phase5/private/export-manifest.json
+e65f1a411dd461553c9855a3da279d770a02efa724cb53c0cdd510ae9faa1b0b  /Users/winnguyen/scholarchain-codex-suggestions.csv

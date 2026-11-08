@@ -1,0 +1,85 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "entry-count",
+      "status": "PASS",
+      "detail": "230 entries, expected 230"
+    },
+    {
+      "name": "loads-as-GoldLabel",
+      "status": "PASS",
+      "detail": "every row loads as a GoldLabel"
+    },
+    {
+      "name": "gold-pair-ids",
+      "status": "PASS",
+      "detail": "230 unique"
+    },
+    {
+      "name": "pairs-file",
+      "status": "PASS",
+      "detail": "230 unique pairs, expected 230"
+    },
+    {
+      "name": "gold-pairs-coverage",
+      "status": "PASS",
+      "detail": "230 pair_ids in both files"
+    },
+    {
+      "name": "gold-agrees-with-pairs",
+      "status": "PASS",
+      "detail": "all fields agree"
+    },
+    {
+      "name": "human-review-fields",
+      "status": "PASS",
+      "detail": "method, reviewer, time, sources"
+    },
+    {
+      "name": "dblp-snapshot",
+      "status": "PASS",
+      "detail": "every DBLP record is dblp:2026-11-05"
+    },
+    {
+      "name": "label-totals",
+      "status": "PASS",
+      "detail": "same/different/unsure 95/131/4, expected 95/131/4"
+    },
+    {
+      "name": "suggestion-on-every-row",
+      "status": "PASS",
+      "detail": "230 rows have one"
+    },
+    {
+      "name": "suggestion-source",
+      "status": "PASS",
+      "detail": "scholarchain-codex-suggestions.csv e65f1a411dd461553c9855a3da279d770a02efa724cb53c0cdd510ae9faa1b0b"
+    },
+    {
+      "name": "suggestions-csv",
+      "status": "PASS",
+      "detail": "scholarchain-codex-suggestions.csv sha256 e65f1a411dd461553c9855a3da279d770a02efa724cb53c0cdd510ae9faa1b0b matches every row"
+    },
+    {
+      "name": "changed-from-suggestion",
+      "status": "PASS",
+      "detail": "recomputed 64 changed (expected 64); 0 stored flags disagree"
+    },
+    {
+      "name": "strata-key",
+      "status": "PASS",
+      "detail": "230 keys: clear-non-match 76, exact-id 77, hard-common-name 77"
+    }
+  ],
+  "info": [
+    "kinds: researcher 215, work 15",
+    "reviewers: khang-nguyen",
+    "suggestion->final: different->different 84, different->same 12, different->unsure 3, same->different 1, same->same 81, unsure->different 46, unsure->same 2, unsure->unsure 1",
+    "reviewedAt 2026-11-07T18:53:15.362Z .. 2026-11-07T18:59:44.797Z, span 6.5 min, median gap 0.7 s, 208 gaps under 2 s",
+    "rows with a note: 0",
+    "snapshots of crossref: crossref:2026-11-07",
+    "snapshots of dblp: dblp:2026-11-05",
+    "snapshots of openalex: openalex:2026-11-07"
+  ]
+}

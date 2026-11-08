@@ -1,0 +1,17 @@
+[info] welcome to sbt 1.11.7 (Eclipse Adoptium Java 21.0.13)
+[info] loading settings for project scholarchain-build-build from build.sbt...
+[info] loading project definition from /Users/winnguyen/ScholarChain/project/project
+[info] loading settings for project scholarchain-build from plugins.sbt...
+[info] loading project definition from /Users/winnguyen/ScholarChain/project
+[info] loading settings for project root from build.sbt...
+[info] set current project to scholarchain (in build file:/Users/winnguyen/ScholarChain/)
+[info] running scholarchain.er.sampling.PairsExport --candidates /Users/winnguyen/scholarchain-data/phase4-out/subset-v5/run=run-v1-d4722bc7-0d02-42da-bdb6-088ee508a143/snapshot=8e1be6626420/stage=candidate-features/match-candidates/v1 --records /Users/winnguyen/scholarchain-data/phase4-out/subset-v5/run=run-v1-d4722bc7-0d02-42da-bdb6-088ee508a143/snapshot=8e1be6626420/stage=graph-export/works/v1 --out /Users/winnguyen/scholarchain-data/gold/phase5 --seed scholarchain-er-phase5-v1 --total 230
+records indexed: 25686; candidates read: 362905; distinct pairs: 311249
+stratum exact-id: selected 77 of target 77, eligible 3332
+stratum hard-common-name: selected 77 of target 77, eligible 57214
+stratum clear-non-match: selected 76 of target 76, eligible 240579
+excluded: Map(unclassified -> 4358, same-name-agreeing-context -> 5766)
+Pairs file: /Users/winnguyen/scholarchain-data/gold/phase5/pairs.jsonl
+Private strata key: /Users/winnguyen/scholarchain-data/gold/phase5/private/strata-key.jsonl
+Private manifest: /Users/winnguyen/scholarchain-data/gold/phase5/private/export-manifest.json
+[success] Total time: 6 s, completed Nov 7, 2026, 12:45:00 PM

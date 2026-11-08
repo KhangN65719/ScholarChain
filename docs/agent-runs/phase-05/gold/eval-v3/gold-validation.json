@@ -1,0 +1,126 @@
+{
+  "passed": true,
+  "headline": [
+    "REVIEW TIME AND PASSES (reported, not a pass or fail criterion)",
+    "REVIEW TIME pass 1, all 230 rows of gold.jsonl, labeled with suggestions: reviewedAt 2026-11-07T18:53:15.362Z .. 2026-11-07T18:59:44.797Z, span 6.5 min, median gap 0.7 s, 208 gaps under 2 s",
+    "REVIEW TIME pass 2, 77 blind relabels (rows of gold-v2.jsonl): reviewedAt 2026-11-07T21:42:39.757Z .. 2026-11-07T21:53:11.996Z, span 10.5 min, median gap 2.8 s, 30 gaps under 2 s",
+    "REVIEW TIME pass 3, 153 blind relabels of the pass-1 pairs: reviewedAt 2026-11-07T22:18:01.414Z .. 2026-11-07T22:23:19.008Z, span 5.3 min, median gap 0.6 s, 143 gaps under 2 s",
+    "LABELS by pass: pass 2 77 (same 7, different 67, unsure 3); pass 3 153 (same 89, different 64, unsure 0)",
+    "BLIND REVIEW: pass 2: 77 labels, pass 3: 153 labels were reviewed blind; no label in v3 is a with-suggestion label"
+  ],
+  "checks": [
+    {
+      "name": "entry-count",
+      "status": "PASS",
+      "detail": "230 entries, expected 230"
+    },
+    {
+      "name": "loads-as-GoldLabel",
+      "status": "PASS",
+      "detail": "every row loads as a GoldLabel"
+    },
+    {
+      "name": "gold-pair-ids",
+      "status": "PASS",
+      "detail": "230 unique"
+    },
+    {
+      "name": "pairs-file",
+      "status": "PASS",
+      "detail": "230 unique pairs, expected 230"
+    },
+    {
+      "name": "gold-pairs-coverage",
+      "status": "PASS",
+      "detail": "230 pair_ids in both files"
+    },
+    {
+      "name": "gold-agrees-with-pairs",
+      "status": "PASS",
+      "detail": "all fields agree"
+    },
+    {
+      "name": "human-review-fields",
+      "status": "PASS",
+      "detail": "method, reviewer, time, sources"
+    },
+    {
+      "name": "dblp-snapshot",
+      "status": "PASS",
+      "detail": "every DBLP record is dblp:2026-11-05"
+    },
+    {
+      "name": "pass-field",
+      "status": "PASS",
+      "detail": "230 rows are marked pass 2 or 3"
+    },
+    {
+      "name": "pass1-file",
+      "status": "PASS",
+      "detail": "230 labels in gold.jsonl"
+    },
+    {
+      "name": "pass2-file",
+      "status": "PASS",
+      "detail": "230 labels in gold-v2.jsonl, 77 of them pass 2"
+    },
+    {
+      "name": "pass3-is-subset",
+      "status": "PASS",
+      "detail": "153 pass-3 rows are exactly the subset"
+    },
+    {
+      "name": "subsets-partition",
+      "status": "PASS",
+      "detail": "pass-2 77 + pass-3 153 = 230 of 230 pairs, disjoint and complete"
+    },
+    {
+      "name": "pass3-blind",
+      "status": "PASS",
+      "detail": "153 pass-3 rows carry no suggestion and the pass-1 label of gold.jsonl"
+    },
+    {
+      "name": "pass2-carried",
+      "status": "PASS",
+      "detail": "77 pass-2 rows equal their lines in gold-v2.jsonl"
+    },
+    {
+      "name": "no-suggestion-labels",
+      "status": "PASS",
+      "detail": "230 rows carry no suggestion field"
+    },
+    {
+      "name": "label-totals",
+      "status": "SKIP",
+      "detail": "same/different/unsure 96/131/3; no expected totals given, shown for the record"
+    },
+    {
+      "name": "strata-key",
+      "status": "PASS",
+      "detail": "230 keys: clear-non-match 76, exact-id 77, hard-common-name 77"
+    }
+  ],
+  "info": [
+    "kinds: researcher 215, work 15",
+    "reviewers: khang-nguyen",
+    "rows with a note: 1",
+    "snapshots of crossref: crossref:2026-11-07",
+    "snapshots of dblp: dblp:2026-11-05",
+    "snapshots of openalex: openalex:2026-11-07"
+  ],
+  "compare": [
+    "descriptive only, not a threshold input and not a quality score; pass 1 was made with suggestions, pass 3 is a blind re-review of the same pairs",
+    "all 153 pass-1 pairs were re-reviewed blind in pass 3; the 77 pass-2 labels are carried unchanged and are not in this comparison",
+    "the reviewer had seen every one of these pairs before, with suggestions, so agreement may partly reflect memory",
+    "exact agreement 149 of 153 (97.386%)",
+    "Cohen kappa over same/different: n 151, excluded for unsure: 2, observed 0.987, by chance 0.516, kappa 0.973",
+    "changes pass 1->pass 3: different->same 1, same->different 1, unsure->different 2",
+    "stratum clear-non-match: 76 pairs, 72 agree, 4 disagree",
+    "stratum exact-id: 77 pairs, 77 agree, 0 disagree",
+    "disagreements: 4",
+    "disagree pair:v1:5a23494f2814466c020259d1dc8486a7 first=unsure second=different",
+    "disagree pair:v1:762217eac0928935fb70a65ebf30a18c first=same second=different",
+    "disagree pair:v1:e2f2b0adbbce963774d75f7eb111f822 first=unsure second=different",
+    "disagree pair:v1:eb081006b2c33feb3924090dd1c8dc46 first=different second=same"
+  ]
+}

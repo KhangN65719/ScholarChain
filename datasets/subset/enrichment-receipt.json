@@ -1,0 +1,2959 @@
+{
+  "crossref": {
+    "dois_requested": 300,
+    "rows": 251
+  },
+  "dblp_subset_sha256": "9076e8574643fa6f64619aa912956ed0ddef60f8d0634ae4be218b0edce28c7d",
+  "distinct_dois": 3299,
+  "exact_id_dois": 354,
+  "failures": [],
+  "files": {
+    "crossref.jsonl": {
+      "bytes": 174011,
+      "rows": 251,
+      "sha256": "c403ccbfe67ad475b3788a44cae0cc292c60ef05a4f6d02b8249b25a662cd368"
+    },
+    "openalex.jsonl": {
+      "bytes": 940131,
+      "rows": 396,
+      "sha256": "fdeddfa389f0f9af861dff9d7c89b8e91e3d7b2cda96111504bf6ed8f8a062a9"
+    },
+    "orcid.jsonl": {
+      "bytes": 19675,
+      "rows": 100,
+      "sha256": "719a1cdb41069fe520bd2ab37aef5d253483d38c22e517cc714d369d91de35c5"
+    }
+  },
+  "live_requests": 0,
+  "openalex": {
+    "dois_requested": 400,
+    "rows": 396
+  },
+  "orcid": {
+    "ids_found": 4834,
+    "requested": 100,
+    "rows": 100,
+    "withheld_or_missing": 0
+  },
+  "oversize_rows_skipped": 0,
+  "request_bound": 500,
+  "responses": [
+    {
+      "bytes": 7739,
+      "retrieved_at": "2026-11-07T16:20:55Z",
+      "sha256": "e9a04c4cc1a32e02a229a2acbab163f44b2ce0fae0ab0513d39155793f97ec3e",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1002/asi.20631"
+    },
+    {
+      "bytes": 14103,
+      "retrieved_at": "2026-11-07T16:18:00Z",
+      "sha256": "0b7922ab6a73b9d1ea8f5115e179806e4766996a116d2bb22d8e1ba1d320bc36",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-0-387-77251-6_28"
+    },
+    {
+      "bytes": 18114,
+      "retrieved_at": "2026-11-07T16:20:17Z",
+      "sha256": "3f87b03cd032bec95eb2179ad4adbcba2f9f5bd8abd9a8cf8a2e7fbfb137ca22",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-3-030-59719-1_65"
+    },
+    {
+      "bytes": 10465,
+      "retrieved_at": "2026-11-07T16:20:45Z",
+      "sha256": "c1371585221b43213c810a5328da54f2e59889829628825296904f5be81bad0f",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-3-030-72084-1_5"
+    },
+    {
+      "bytes": 23012,
+      "retrieved_at": "2026-11-07T16:21:42Z",
+      "sha256": "8a3ea5c38fa8e9ebd94fcf0138bf18c0350d6249f3eff5f00f976d2b9b8e988c",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-3-031-19797-0_22"
+    },
+    {
+      "bytes": 9934,
+      "retrieved_at": "2026-11-07T16:23:27Z",
+      "sha256": "388683311ca420c681ff08fef3d01109c7fb1d3a66de750527d2d81e90ad839e",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-3-319-48354-2_16"
+    },
+    {
+      "bytes": 6398,
+      "retrieved_at": "2026-11-07T16:19:55Z",
+      "sha256": "a05a63f07c1f368b8ba663f70277219bf59268dbbf3bd7c2138271666d01d55a",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-3-319-75408-6_9"
+    },
+    {
+      "bytes": 12627,
+      "retrieved_at": "2026-11-07T16:22:59Z",
+      "sha256": "81e47493711bd785aade2740b514a92dde006e9c6c934fba0f5e102c71a202b4",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-3-319-75786-5_38"
+    },
+    {
+      "bytes": 14239,
+      "retrieved_at": "2026-11-07T16:19:40Z",
+      "sha256": "19dd02fcadd991dcfdd59785110c198c1af0c83cb432c37636f15936696211c6",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-3-319-77404-6_55"
+    },
+    {
+      "bytes": 7775,
+      "retrieved_at": "2026-11-07T16:17:07Z",
+      "sha256": "fada7d772196ad72f36d69924c1d6c1b8a56ddf4cfc01a65699649158382e3df",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-3-540-30475-3_57"
+    },
+    {
+      "bytes": 6971,
+      "retrieved_at": "2026-11-07T16:18:15Z",
+      "sha256": "3ccf74a2fad8f54eb01a300ddb81eeaae609b4bca97c43f3119d17bb4de4cb21",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-3-540-75248-6_6"
+    },
+    {
+      "bytes": 6893,
+      "retrieved_at": "2026-11-07T16:22:57Z",
+      "sha256": "d4a7ef09b9a286041ed55818935a0c88ea4f505706473631bb95884a03c0c60b",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-3-642-17313-4_24"
+    },
+    {
+      "bytes": 8585,
+      "retrieved_at": "2026-11-07T16:17:37Z",
+      "sha256": "3517b48422aed4c29832faabf1636dbf38b2177acd9f4e403715248abc7f618e",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-981-10-2260-9_4"
+    },
+    {
+      "bytes": 7244,
+      "retrieved_at": "2026-11-07T16:19:38Z",
+      "sha256": "2dd1fb83021daed522eb8a2799c1999aacb318799cc83b0b881b667f9c63d303",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-981-13-6733-5_12"
+    },
+    {
+      "bytes": 15859,
+      "retrieved_at": "2026-11-07T16:17:36Z",
+      "sha256": "f3b7a23fb0c35fbf7101a01db9b015c9503f22abdedf56116d6872834209d3d7",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-981-15-3425-6_12"
+    },
+    {
+      "bytes": 13251,
+      "retrieved_at": "2026-11-07T16:20:10Z",
+      "sha256": "a1986bc3d5cd5cfed7748c2992b16bf5833d9c8b3e09d6257e87b2be9c71c5ed",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-981-15-9129-7_50"
+    },
+    {
+      "bytes": 11743,
+      "retrieved_at": "2026-11-07T16:19:47Z",
+      "sha256": "8443565ac57910faee60ac915fa283010df566a54c635f0ce1b32fdb2facd7cd",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-981-96-0777-8_9"
+    },
+    {
+      "bytes": 16573,
+      "retrieved_at": "2026-11-07T16:19:35Z",
+      "sha256": "d156b218afe1e44d27d9108a33153372c8bc159265e325b88d5ef3c543cc8bf7",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/978-981-99-8543-2_3"
+    },
+    {
+      "bytes": 8911,
+      "retrieved_at": "2026-11-07T16:17:17Z",
+      "sha256": "c580969f5382adcbc640db7a660193a188905e6ecf0f0675ee3b44584cf4f947",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/bf02973450"
+    },
+    {
+      "bytes": 22748,
+      "retrieved_at": "2026-11-07T16:19:07Z",
+      "sha256": "9fd6017ead990be2d14d4d71495aae08162e344b60baecaa8bdc84bd552816e4",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/s00332-025-10138-7"
+    },
+    {
+      "bytes": 25292,
+      "retrieved_at": "2026-11-07T16:22:52Z",
+      "sha256": "18ac03fb54f45cad82cbf9be039cbb73233ddddd20cad695f4454cc9e88f1b7d",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/s00366-020-01032-9"
+    },
+    {
+      "bytes": 18493,
+      "retrieved_at": "2026-11-07T16:15:52Z",
+      "sha256": "ab58fc4cdbfac666cd79f86b5ea5c6e06535cd9648454c6b4ad60641d7ec66ed",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/s00530-022-00964-0"
+    },
+    {
+      "bytes": 5208,
+      "retrieved_at": "2026-11-07T16:17:22Z",
+      "sha256": "57ba5ae9132b6ed1625ef1e76fad18747cf0227763335ab6e71b715cdb7e1af2",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/s10836-006-9947-y"
+    },
+    {
+      "bytes": 16561,
+      "retrieved_at": "2026-11-07T16:19:13Z",
+      "sha256": "d4f26fb53ab0dede4b24e7bd43ebbe405c7b7523e3cbabfe2a064dbc59f51905",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/s11042-019-08606-w"
+    },
+    {
+      "bytes": 14495,
+      "retrieved_at": "2026-11-07T16:23:04Z",
+      "sha256": "04dd7c550db26e88dca5791922a2639330d1e4917ea751e427c122a72cd01d7e",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/s11227-025-07583-2"
+    },
+    {
+      "bytes": 17541,
+      "retrieved_at": "2026-11-07T16:22:47Z",
+      "sha256": "81b065d9d8d02925e1af8ebb1d434b88d25e5fd2e6c02ff9909fc441f5e851aa",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/s11432-015-0927-3"
+    },
+    {
+      "bytes": 18306,
+      "retrieved_at": "2026-11-07T16:22:08Z",
+      "sha256": "bbecb9ce926a0ce8b0b8522fb6f87df793a81414ff798f2663633dfb4970bff8",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/s11432-020-3317-2"
+    },
+    {
+      "bytes": 13217,
+      "retrieved_at": "2026-11-07T16:16:11Z",
+      "sha256": "245d9040e6f61edf35aa31d0a31a89fc2c09fb264e486fc0e6fd7393d146f378",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/s11554-024-01604-8"
+    },
+    {
+      "bytes": 8476,
+      "retrieved_at": "2026-11-07T16:20:20Z",
+      "sha256": "9f295d752f70b7a473d7913433a11531474c88dd0619c2a47ae16005c8b87bd8",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/s11704-024-31014-9"
+    },
+    {
+      "bytes": 17231,
+      "retrieved_at": "2026-11-07T16:16:01Z",
+      "sha256": "6374ce5842c36932492fb9c618deaad2abbc9090467bd01d3155d5233262a6da",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1007/s12652-018-0714-6"
+    },
+    {
+      "bytes": 18875,
+      "retrieved_at": "2026-11-07T16:16:36Z",
+      "sha256": "71062ea6d5a12b088d2dbc3e75aa427a58d64a66438c1ca96f9090ad81f02963",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.aei.2026.104609"
+    },
+    {
+      "bytes": 13498,
+      "retrieved_at": "2026-11-07T16:23:22Z",
+      "sha256": "3285bd1a58031bf9d98f912a622329e50c95253419696b2933bd65febb860a54",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.amc.2010.02.043"
+    },
+    {
+      "bytes": 13199,
+      "retrieved_at": "2026-11-07T16:22:17Z",
+      "sha256": "286ec37d9fd94350b1871c6dabcee505b7540fbba30916820ca0ca565438cb51",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.amc.2013.05.039"
+    },
+    {
+      "bytes": 16929,
+      "retrieved_at": "2026-11-07T16:21:08Z",
+      "sha256": "0546d3e2cfc4baa02519aa2c423c54e9b4f082d41a0156c3033d5f79f7af69c6",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.bspc.2026.109942"
+    },
+    {
+      "bytes": 11757,
+      "retrieved_at": "2026-11-07T16:23:35Z",
+      "sha256": "572be09d19ca5c6124fd2601ffc6ba7ad8b994fc7e4b6009c7263447418dae0e",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.cad.2017.02.001"
+    },
+    {
+      "bytes": 15326,
+      "retrieved_at": "2026-11-07T16:19:10Z",
+      "sha256": "76bf0faf257eff1f3f082cc4da429bd5297da63aa4bcfc1e87bf6fd14ab57bb1",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.cagd.2015.12.002"
+    },
+    {
+      "bytes": 20333,
+      "retrieved_at": "2026-11-07T16:15:54Z",
+      "sha256": "0872e3bd70348aa24bd93549302984a40269da9c3f05fa3fb8e908bcfd03d855",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.cam.2019.112430"
+    },
+    {
+      "bytes": 21301,
+      "retrieved_at": "2026-11-07T16:22:20Z",
+      "sha256": "a7a551ab557cc2a2bca6e0d68402b077691ba8d61bf3a1daf51626fe01ee8f1b",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.comcom.2024.05.022"
+    },
+    {
+      "bytes": 22227,
+      "retrieved_at": "2026-11-07T16:20:00Z",
+      "sha256": "d9f3de831731e508400c87c9e645b658b56063d61cca967991ecc1428b61c538",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.compbiomed.2021.104241"
+    },
+    {
+      "bytes": 16883,
+      "retrieved_at": "2026-11-07T16:18:48Z",
+      "sha256": "573484ef84b68f62b51f0be5f3925013675e7a06ed4eeba3b3edafe501b5d474",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.compbiomed.2023.107091"
+    },
+    {
+      "bytes": 12441,
+      "retrieved_at": "2026-11-07T16:23:07Z",
+      "sha256": "4cfb23c3e40d2fee21cecdc11f1b11202097379ebedf45ccb64b09bc3f354260",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.cose.2024.103841"
+    },
+    {
+      "bytes": 11360,
+      "retrieved_at": "2026-11-07T16:21:40Z",
+      "sha256": "0b8c4ef69eca2650460c243401fe497310b983cd0ad0312ef6220cbdfe5909d1",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.cpc.2016.07.005"
+    },
+    {
+      "bytes": 14312,
+      "retrieved_at": "2026-11-07T16:23:17Z",
+      "sha256": "7f73409cd1190e645c3665f9715246ff5d55af83304a1cdd9639acefc77d2842",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.dam.2026.04.037"
+    },
+    {
+      "bytes": 19119,
+      "retrieved_at": "2026-11-07T16:21:34Z",
+      "sha256": "753046be9315990866e381484811ea0a0e77ecb46d65900bf6afa326c94486e4",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.elerap.2025.101486"
+    },
+    {
+      "bytes": 26077,
+      "retrieved_at": "2026-11-07T16:23:37Z",
+      "sha256": "46abc8650093320b46229db01e5b72deab9d0438e8d092b2a2dac3f62fa802d3",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.engappai.2023.107603"
+    },
+    {
+      "bytes": 29489,
+      "retrieved_at": "2026-11-07T16:23:25Z",
+      "sha256": "8144597f6da8e8504dd17c559a8b1b3a570c716878d30b8652e0c9e604d2c94f",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.eswa.2023.120317"
+    },
+    {
+      "bytes": 14846,
+      "retrieved_at": "2026-11-07T16:21:30Z",
+      "sha256": "073c5a667f062305e5cd8d872499779fb7034ca45f2645189e275e449153b52d",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.eswa.2023.122964"
+    },
+    {
+      "bytes": 24349,
+      "retrieved_at": "2026-11-07T16:17:11Z",
+      "sha256": "bc7879bc79f06decc5d58191d4d30f2550277cd8c338947c1c4056660aa38c87",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.imavis.2014.04.013"
+    },
+    {
+      "bytes": 30479,
+      "retrieved_at": "2026-11-07T16:22:55Z",
+      "sha256": "17c5880fc69bcf7b33ccee972a12ef23857952bf737976e96a03e3012526386f",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.inffus.2023.101881"
+    },
+    {
+      "bytes": 11635,
+      "retrieved_at": "2026-11-07T16:19:48Z",
+      "sha256": "a6f327d68dcecd1faed0278b7206167c57e7ed5f06afa88ff1ac4f991bf91b72",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.ins.2010.07.021"
+    },
+    {
+      "bytes": 14900,
+      "retrieved_at": "2026-11-07T16:21:39Z",
+      "sha256": "7983824ae5176ba4ff217751fc23d10a3e66a6b9e89a727f59be0e694da6d635",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.jcp.2024.113251"
+    },
+    {
+      "bytes": 17660,
+      "retrieved_at": "2026-11-07T16:22:39Z",
+      "sha256": "8b61a0655e3e2b00ce927b9d383cedf0768aeb274571cd96bc052a8a1b2bbaa8",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.jcp.2026.115257"
+    },
+    {
+      "bytes": 14077,
+      "retrieved_at": "2026-11-07T16:20:12Z",
+      "sha256": "d8903ed87ee889b669e049e9c1ffc73c82a013d700e4de22a656c0824692e310",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.jfranklin.2018.04.004"
+    },
+    {
+      "bytes": 14355,
+      "retrieved_at": "2026-11-07T16:23:02Z",
+      "sha256": "0f9bac3e2081913502930bd90684a87d738857b75f6a99bd84e92b33d4abbcff",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.jii.2023.100469"
+    },
+    {
+      "bytes": 13961,
+      "retrieved_at": "2026-11-07T16:20:02Z",
+      "sha256": "6e57e15e3e41748bf9f1a0913d12e4b1d42efef0053c7d4adf1dc7afb3cbfcf0",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.jksuci.2024.102050"
+    },
+    {
+      "bytes": 36923,
+      "retrieved_at": "2026-11-07T16:22:33Z",
+      "sha256": "6891436feb09dbe4415c18381dc19e572849b166dcdc283638c69f62a61b34a8",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.joi.2024.101491"
+    },
+    {
+      "bytes": 13535,
+      "retrieved_at": "2026-11-07T16:18:40Z",
+      "sha256": "de45120c717704eccd586603beeb72601a4108880ca6cbc5843ec17f6cf31241",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.jpdc.2016.03.005"
+    },
+    {
+      "bytes": 26156,
+      "retrieved_at": "2026-11-07T16:19:18Z",
+      "sha256": "453901649f144df37872fdd0cb1060113afe5f954edeaf268eb0dc1c56f104cb",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.knosys.2025.113223"
+    },
+    {
+      "bytes": 16659,
+      "retrieved_at": "2026-11-07T16:16:34Z",
+      "sha256": "2f3a3b539b84b1a5072850e814d9849dd5e7d5e3af97d6069ccb781e5978ca1b",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.knosys.2025.113378"
+    },
+    {
+      "bytes": 16599,
+      "retrieved_at": "2026-11-07T16:16:39Z",
+      "sha256": "ba6e14e31897c2e30fdcc068faa483bb27c5b003fe7b10fbbf016691de7888eb",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.mejo.2025.106771"
+    },
+    {
+      "bytes": 15295,
+      "retrieved_at": "2026-11-07T16:18:35Z",
+      "sha256": "2722ee23bc6a327229fdf896e0e666b9128596fb5cafb36fd6f32739333e17db",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.mejo.2026.107149"
+    },
+    {
+      "bytes": 13592,
+      "retrieved_at": "2026-11-07T16:17:19Z",
+      "sha256": "848ad2a2263a5c874aa1cf8d63a679bc328e4a9b8f9545ac107b6e2de710c78d",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.neucom.2014.02.014"
+    },
+    {
+      "bytes": 12841,
+      "retrieved_at": "2026-11-07T16:23:40Z",
+      "sha256": "35fb9b5e6383603267712fb8fe80d5166308a863d12aa12473ee982568944a7a",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.neucom.2018.08.046"
+    },
+    {
+      "bytes": 20720,
+      "retrieved_at": "2026-11-07T16:20:50Z",
+      "sha256": "04ca2bcaf68921db5c3083b3f8663565ac07c67c040d243d0da29c97ff0a5042",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.neuroimage.2022.118937"
+    },
+    {
+      "bytes": 14730,
+      "retrieved_at": "2026-11-07T16:19:25Z",
+      "sha256": "cbd3c1fe7c625ee6d8654b7c30daadd676053c3d48b47d30ca485ce3ed45aa0e",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.phycom.2020.101101"
+    },
+    {
+      "bytes": 16735,
+      "retrieved_at": "2026-11-07T16:21:50Z",
+      "sha256": "b78282c0a785e909e1651aeb9d90d49f0413aa06efac44a086c28705f5d74f60",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.phycom.2023.102041"
+    },
+    {
+      "bytes": 13636,
+      "retrieved_at": "2026-11-07T16:16:04Z",
+      "sha256": "b92602b8320ee64cfede2c05ba1c8080bd829b644879dad996e0af3cb4b5b8b6",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.pmcj.2026.102236"
+    },
+    {
+      "bytes": 15668,
+      "retrieved_at": "2026-11-07T16:17:51Z",
+      "sha256": "53716b499f86ee279a85b4abeaf199b8d9c4f83b98924c5b5fcd4206c4ec0203",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1016/j.rcim.2026.103384"
+    },
+    {
+      "bytes": 9170,
+      "retrieved_at": "2026-11-07T16:24:04Z",
+      "sha256": "63fc43c4d8a40b2655fa0965ce8ce6cf33e87e9bca90da43c06797ffff5646d3",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1021/acs.jcim.2c01458"
+    },
+    {
+      "bytes": 19621,
+      "retrieved_at": "2026-11-07T16:17:31Z",
+      "sha256": "7ad73ff9a2c82edbe19fdaaa7994330a3b6137e320b2859f51496305efe5dea7",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1038/s43588-025-00904-8"
+    },
+    {
+      "bytes": 14420,
+      "retrieved_at": "2026-11-07T16:23:15Z",
+      "sha256": "e96f6b8662b9436a76ee83b2118be9053cfe031df4ab9d8209c7c5c894639120",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1049/ipr2.12670"
+    },
+    {
+      "bytes": 12621,
+      "retrieved_at": "2026-11-07T16:21:32Z",
+      "sha256": "70179f05e4af1a78e233076aa503d3bed069090692bf59d3b7ca4fc75b2aa016",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1049/sfw2.12013"
+    },
+    {
+      "bytes": 6288,
+      "retrieved_at": "2026-11-07T16:17:09Z",
+      "sha256": "8dab326a4c3d5efeaac5de75a60d514bd3ab9d7f9f2183241041d6f8e97c8209",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1080/03081079.2023.2296099"
+    },
+    {
+      "bytes": 5272,
+      "retrieved_at": "2026-11-07T16:17:32Z",
+      "sha256": "2f49e65af29f98836b5ab5e601a0b3612448248392906fb6e89a7978368ff43c",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1080/03610918.2015.1024856"
+    },
+    {
+      "bytes": 9742,
+      "retrieved_at": "2026-11-07T16:23:10Z",
+      "sha256": "c936339563704395f39d3502740d729ce9ef59a27c5fd6a1d490f46fe63ecaac",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1080/03610918.2021.1948573"
+    },
+    {
+      "bytes": 18423,
+      "retrieved_at": "2026-11-07T16:19:42Z",
+      "sha256": "3c462db387326a136c2ff709975970afd5ba46937249399402e3625dd4de8f2a",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1093/bioinformatics/btad772"
+    },
+    {
+      "bytes": 16730,
+      "retrieved_at": "2026-11-07T16:21:45Z",
+      "sha256": "f273ac17431bb1f071f059d772eacf2f335407d3d1a0775cbf7a8c014c730501",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1093/comjnl/bxaf099"
+    },
+    {
+      "bytes": 8839,
+      "retrieved_at": "2026-11-07T16:22:07Z",
+      "sha256": "ddc0307203ec431b5f7dede036567fe17e309e7875b34f3d04ab81287147ec18",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1093/database/baw057"
+    },
+    {
+      "bytes": 5308,
+      "retrieved_at": "2026-11-07T16:22:23Z",
+      "sha256": "3f2d23e1f555884f174cde3bce4674491df717559177daf7ca9f04842c9b8950",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/4235.974842"
+    },
+    {
+      "bytes": 4375,
+      "retrieved_at": "2026-11-07T16:18:53Z",
+      "sha256": "1d44196edf254131396fa270f125d2097127ff8f36d28845d7826efe68209de4",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/acc.2016.7526750"
+    },
+    {
+      "bytes": 9015,
+      "retrieved_at": "2026-11-07T16:19:17Z",
+      "sha256": "5ed8f0ecba664b23278f9bf5a90f2ffe802871950c99061eec5aa542f5e2d15e",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/access.2018.2865780"
+    },
+    {
+      "bytes": 28850,
+      "retrieved_at": "2026-11-07T16:20:03Z",
+      "sha256": "0a1d8cc7affc6df6bb5c20eadfe70af2cc3a61d25e2070a96002b6f8a90a781c",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/access.2019.2918139"
+    },
+    {
+      "bytes": 7736,
+      "retrieved_at": "2026-11-07T16:18:42Z",
+      "sha256": "a9daf5dfb56544a87c28f91f05a499d9c88b10bbc671069d60a5511c663fbd48",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/access.2020.2981771"
+    },
+    {
+      "bytes": 4785,
+      "retrieved_at": "2026-11-07T16:21:18Z",
+      "sha256": "903915424c260217c7bb20e44565d7730615ef3a2767b832f84c261203a9dc50",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/access.2020.3010091"
+    },
+    {
+      "bytes": 7563,
+      "retrieved_at": "2026-11-07T16:15:46Z",
+      "sha256": "0f6b6f33de10347da0ccded26a81ca17b257ec7485002cdbba0a1d0d13e90a78",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/access.2021.3086404"
+    },
+    {
+      "bytes": 9044,
+      "retrieved_at": "2026-11-07T16:18:20Z",
+      "sha256": "80574a4de6f502f09129bf9313302abb3f106e983a03d23de14eb6aa77e509a1",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/access.2022.3208108"
+    },
+    {
+      "bytes": 6828,
+      "retrieved_at": "2026-11-07T16:23:05Z",
+      "sha256": "30124e646c565a6471c01bf01bc4139234ce3fc3707353173bf00f96ff42aa75",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/access.2023.3234428"
+    },
+    {
+      "bytes": 7083,
+      "retrieved_at": "2026-11-07T16:20:36Z",
+      "sha256": "d1bcc3d6541ebdfb4c75a00b252927a3ed5d77fb8e319962bced438cfdcb34b7",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/access.2026.3665623"
+    },
+    {
+      "bytes": 5415,
+      "retrieved_at": "2026-11-07T16:16:41Z",
+      "sha256": "e734556a3aa5696090e0476d6a8c70e34189401d18ef3de9ea5760d62569a678",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/agro-geoinformatics262780.2024.10661099"
+    },
+    {
+      "bytes": 5405,
+      "retrieved_at": "2026-11-07T16:19:37Z",
+      "sha256": "3cbef3da3b54f0618b1a4979083e94001cb1be24383b8ed862f945eda7d642fb",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/aim52237.2022.9863389"
+    },
+    {
+      "bytes": 6325,
+      "retrieved_at": "2026-11-07T16:17:06Z",
+      "sha256": "aaa14b93cf53c91a2a81d2f7a02f4ac5d64dffccc306e6f0e5fe7a732d1e669f",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/apccas51387.2021.9687688"
+    },
+    {
+      "bytes": 6913,
+      "retrieved_at": "2026-11-07T16:20:27Z",
+      "sha256": "d07a69c4e655e85e7ee21e6d9a3589d18570617a214bc447602b5ed63b9bfae5",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/apsec57359.2022.00013"
+    },
+    {
+      "bytes": 7817,
+      "retrieved_at": "2026-11-07T16:18:14Z",
+      "sha256": "30a0ad7b0685d8d88b49c312186280c9aa1d00bb513854e2400bdc896d3b190b",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/bibm58861.2023.10385579"
+    },
+    {
+      "bytes": 2724,
+      "retrieved_at": "2026-11-07T16:23:53Z",
+      "sha256": "dceef48487d3dd9f166c9d4d235a9eefd6dea7df9c529a2862e7f0c8a785cfe2",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/bicta.2010.5645233"
+    },
+    {
+      "bytes": 3204,
+      "retrieved_at": "2026-11-07T16:16:26Z",
+      "sha256": "bc310090541d168d76b0dc3170ea706994b23647a59d61d17d6932ccb6684e1a",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/bife.2013.96"
+    },
+    {
+      "bytes": 4451,
+      "retrieved_at": "2026-11-07T16:18:22Z",
+      "sha256": "1504c691c0f27c745e9c8a78239d5841ffe197eb012956a53012b0d398521718",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/bigdataservice.2015.59"
+    },
+    {
+      "bytes": 5552,
+      "retrieved_at": "2026-11-07T16:19:03Z",
+      "sha256": "00d4062e6bad466de446043c49c9db9614da98342d6662abc0b9aaab222b94e0",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/cacre52464.2021.9501396"
+    },
+    {
+      "bytes": 5153,
+      "retrieved_at": "2026-11-07T16:15:47Z",
+      "sha256": "3d7ef879a5fa5672fd025ecc85c943e6f0b25416f1899e90df02dd8d7ef7627a",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/chinacom.2012.6417552"
+    },
+    {
+      "bytes": 4144,
+      "retrieved_at": "2026-11-07T16:22:50Z",
+      "sha256": "4ab67fd6a2d88cd3197cf530f4409543db799ecc91f4ad1700b54d801f65cb3f",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/cisp-bmei.2017.8302212"
+    },
+    {
+      "bytes": 2076,
+      "retrieved_at": "2026-11-07T16:21:17Z",
+      "sha256": "858fda382642ad0000daf2436544a81fc9d44b7c7eac9bd6fec3f3838c8ede56",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/cisp-bmei.2018.8633234"
+    },
+    {
+      "bytes": 4898,
+      "retrieved_at": "2026-11-07T16:21:15Z",
+      "sha256": "e3ed1cf613047223857236e7c8935649ded23e0c46c85f630f09aff69e6a7447",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/crc51253.2020.9253495"
+    },
+    {
+      "bytes": 3982,
+      "retrieved_at": "2026-11-07T16:21:57Z",
+      "sha256": "67f375fb9e1acad1fba684cdbe20752d408644c0575a00c40f0b13b26b30efbb",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/cseet62301.2024.10663029"
+    },
+    {
+      "bytes": 2438,
+      "retrieved_at": "2026-11-07T16:19:30Z",
+      "sha256": "6f4015b923c0439fcd2cb655a4fa3b99e6763aaf98632a88629310173bb7ecc8",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/csse.2008.1150"
+    },
+    {
+      "bytes": 4388,
+      "retrieved_at": "2026-11-07T16:23:29Z",
+      "sha256": "6d2afedd04a5637ef66a7ce60d6a5f82615a495c861217dcdc989cd84a62b284",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/cvpr.2005.114"
+    },
+    {
+      "bytes": 10025,
+      "retrieved_at": "2026-11-07T16:21:05Z",
+      "sha256": "248c3bf996bda5b9d03ab4c41d9cff0521efda87ff8c3d7c17029c42cfe43dfc",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/cvpr52729.2023.01137"
+    },
+    {
+      "bytes": 10213,
+      "retrieved_at": "2026-11-07T16:18:07Z",
+      "sha256": "5c2e2aa449a8e07ac0efe8dee376b01bbcc06b7c502bcc9d7f9b0637e3360117",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/cvpr52733.2024.00036"
+    },
+    {
+      "bytes": 9756,
+      "retrieved_at": "2026-11-07T16:18:25Z",
+      "sha256": "216aac1a5e8ba25a9c2381de88787d034129a406cdde3e49a8dd2c4ad46a8e97",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/cvpr52733.2024.02589"
+    },
+    {
+      "bytes": 9514,
+      "retrieved_at": "2026-11-07T16:22:00Z",
+      "sha256": "2b2f6753d321d26a086d9cac3b5ca145aef7c0ef0cba21e8776563d297280d80",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/cvpr52734.2025.00967"
+    },
+    {
+      "bytes": 2809,
+      "retrieved_at": "2026-11-07T16:16:19Z",
+      "sha256": "36bd8316290876ac8324c85ccec28f5f977cc97267f537919c5e414d76ca1f90",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/dcc.2019.00119"
+    },
+    {
+      "bytes": 2799,
+      "retrieved_at": "2026-11-07T16:22:05Z",
+      "sha256": "ecbd0b08205448bec351f1ebd5422e3b9b6212cd63a5749f9f47921db0f2ac05",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/dcc50243.2021.00063"
+    },
+    {
+      "bytes": 4113,
+      "retrieved_at": "2026-11-07T16:16:44Z",
+      "sha256": "aad0b90106d1dbd60053cdac99c12cc17360236b415a2bd23cc2da65200fefb6",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/embc.2012.6345885"
+    },
+    {
+      "bytes": 3632,
+      "retrieved_at": "2026-11-07T16:23:14Z",
+      "sha256": "45e4e17f62bca5ecf80e6c6f5bfc0ed1493a6019bc8fe3fb34f2d5726c20414a",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/espa.2012.6152456"
+    },
+    {
+      "bytes": 3752,
+      "retrieved_at": "2026-11-07T16:23:42Z",
+      "sha256": "bfe3944846cf89798e971464223745a07e1026b1ffe6344204754beeeb805ab4",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/fskd.2012.6233837"
+    },
+    {
+      "bytes": 4703,
+      "retrieved_at": "2026-11-07T16:16:17Z",
+      "sha256": "21497b9766251cd1332546fc31dd94c427134d146eaefed3bcda14a9c310c0cc",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/gcwkshp64532.2024.11100994"
+    },
+    {
+      "bytes": 5263,
+      "retrieved_at": "2026-11-07T16:16:57Z",
+      "sha256": "8f2e8537007713d0b0a33a62d40f72f4fa6412b40f9cdf6ac04cdd41b7efcbf9",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/globecom54140.2023.10437019"
+    },
+    {
+      "bytes": 2951,
+      "retrieved_at": "2026-11-07T16:19:15Z",
+      "sha256": "e79a22636c4b2188bedb6652cd92b43a2ff06ccbaf653443fb83ce85a5bbe47d",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/glocom.2009.5426090"
+    },
+    {
+      "bytes": 3682,
+      "retrieved_at": "2026-11-07T16:23:39Z",
+      "sha256": "3b0d85c81f5429460fd576146a9075fe4062e5bbda18bb6fbd257975c72377f2",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/glocom.2014.7037162"
+    },
+    {
+      "bytes": 5378,
+      "retrieved_at": "2026-11-07T16:19:45Z",
+      "sha256": "99f4fa852b65a9540d84a246319b822830eafad0b1d41f20a09841e4cb32ea28",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/greencom-ithings-cpscom.2013.95"
+    },
+    {
+      "bytes": 4952,
+      "retrieved_at": "2026-11-07T16:17:59Z",
+      "sha256": "1cd303613c7a16bf75754681c864bce7fab67b1ca1f5700071709a3e74e9efc7",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/hpcc.2014.130"
+    },
+    {
+      "bytes": 6539,
+      "retrieved_at": "2026-11-07T16:22:40Z",
+      "sha256": "0f455105540247936ddf7a4476799fe28f6ec8237f81ed90e54ab452e9895933",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/ialp54817.2021.9675271"
+    },
+    {
+      "bytes": 4561,
+      "retrieved_at": "2026-11-07T16:21:37Z",
+      "sha256": "b03832b7bfb8e61180ebc4343e23c27d4f7f41bb4e6e9f4692835ce470a60a3f",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/icassp48485.2024.10445897"
+    },
+    {
+      "bytes": 6404,
+      "retrieved_at": "2026-11-07T16:17:01Z",
+      "sha256": "1717821b3c47f2881f10d240df19ea5531eb91a0a95d83cb0a9c3eb553a84c26",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/icassp48485.2024.10446186"
+    },
+    {
+      "bytes": 3888,
+      "retrieved_at": "2026-11-07T16:23:24Z",
+      "sha256": "b1e2f6cbfc9a32afa37c6f3ef5dc000a1b85af17afb328c746a4291978d15ea3",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/iccchina.2017.8330526"
+    },
+    {
+      "bytes": 5116,
+      "retrieved_at": "2026-11-07T16:21:59Z",
+      "sha256": "cfecf6fd6752fa2cd1eca23515a2c7f61c4e1a4295f8138ab6b6384d669e0204",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/iccv.2011.6126377"
+    },
+    {
+      "bytes": 3386,
+      "retrieved_at": "2026-11-07T16:20:33Z",
+      "sha256": "f50a527625e3f06f51fa797463f1e35b8397846e60778aa39bf1ba8e885e3b8e",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/icip.2008.4711831"
+    },
+    {
+      "bytes": 5187,
+      "retrieved_at": "2026-11-07T16:20:35Z",
+      "sha256": "0b0b09fdef845b477e5538c0722e9b3352f9129d8eda3bd4b726e961e8229eaf",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/icme59968.2025.11210010"
+    },
+    {
+      "bytes": 6763,
+      "retrieved_at": "2026-11-07T16:18:02Z",
+      "sha256": "dd587b6956814f3e52f259ff380812da4359fc1d8954da46aa2b344c1ed17a17",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/icmla58977.2023.00143"
+    },
+    {
+      "bytes": 2654,
+      "retrieved_at": "2026-11-07T16:16:54Z",
+      "sha256": "b202ca363a7d23bed16f6951aaca8f4096d3ad96a373f8be065fe8ea02fa730b",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/icmlc.2012.6358994"
+    },
+    {
+      "bytes": 3213,
+      "retrieved_at": "2026-11-07T16:19:02Z",
+      "sha256": "f61336289d4d8a59adff30d7c904a6d4419c4dfa293e1237c0b4a99d36fb7835",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/icra57385.2026.11696473"
+    },
+    {
+      "bytes": 8568,
+      "retrieved_at": "2026-11-07T16:16:37Z",
+      "sha256": "77ee33d49b3b0e0e8bb7938e350063d8388b6fb6952cdceafd83d981fb86950c",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/icsai53574.2021.9664037"
+    },
+    {
+      "bytes": 7401,
+      "retrieved_at": "2026-11-07T16:19:27Z",
+      "sha256": "8745d7b4e57f629360777868ddf205d2860b368820ee9534cab99ac114e8a2ff",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/icsai53574.2021.9664063"
+    },
+    {
+      "bytes": 4249,
+      "retrieved_at": "2026-11-07T16:16:21Z",
+      "sha256": "b621ce2acbe68635f5c69574720694c2cc390be1b38d54f26d526d59b25cbdb4",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/iecon49645.2022.9968792"
+    },
+    {
+      "bytes": 4501,
+      "retrieved_at": "2026-11-07T16:18:04Z",
+      "sha256": "e7afdeecba5f34ae06ac99556c84d419a45df8b8ca68c9d9de28ef4644e61b4f",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/igarss.2016.7729989"
+    },
+    {
+      "bytes": 4013,
+      "retrieved_at": "2026-11-07T16:20:13Z",
+      "sha256": "680802de43107afbafb40e5933358770bded9057c00a33a37963ad361c7712cc",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/igarss.2019.8898550"
+    },
+    {
+      "bytes": 5615,
+      "retrieved_at": "2026-11-07T16:17:42Z",
+      "sha256": "7519488f1320c2c7d6f19b63c5a9047779204a4951d8732eadd0b54dae074f42",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/igarss53475.2024.10641207"
+    },
+    {
+      "bytes": 4956,
+      "retrieved_at": "2026-11-07T16:19:20Z",
+      "sha256": "b9b52846f5bbbf082f3c3509a3f24e4214b532e721afd6451307983ee21c8c33",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/infocom.2014.6848223"
+    },
+    {
+      "bytes": 4043,
+      "retrieved_at": "2026-11-07T16:23:44Z",
+      "sha256": "20d9f78488af621598f7f90446e17e10efad4b20e8efc2e2919046086a8b7fd1",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/iscas.2007.378242"
+    },
+    {
+      "bytes": 3192,
+      "retrieved_at": "2026-11-07T16:21:22Z",
+      "sha256": "f6aba3d2e2eaefa08cc2afce7613867d2e5d4018d4258bcc454ee93075db8f72",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/iscas.2010.5537010"
+    },
+    {
+      "bytes": 3602,
+      "retrieved_at": "2026-11-07T16:16:09Z",
+      "sha256": "3457f820863b392fa2b4e549f83e9ef62ea44dca771d802b01ba18904be41a52",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/isicir.2014.7029509"
+    },
+    {
+      "bytes": 3892,
+      "retrieved_at": "2026-11-07T16:22:32Z",
+      "sha256": "05d3c29361f4dc92fb5a70c8092b4760f01cd5a0c009e5f01270ef167bb8a68a",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/isqed.2012.6187534"
+    },
+    {
+      "bytes": 6056,
+      "retrieved_at": "2026-11-07T16:19:58Z",
+      "sha256": "12dee83f69f669acba50138b767a0991afdbf13d75587523cc85bd1805fa0407",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/iswcs56560.2022.9940360"
+    },
+    {
+      "bytes": 4023,
+      "retrieved_at": "2026-11-07T16:18:17Z",
+      "sha256": "d1334f4af0886d69ad9691459bba087847e5145c58ec350c738c76bf59dfda47",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/ivmspw.2013.6611917"
+    },
+    {
+      "bytes": 8884,
+      "retrieved_at": "2026-11-07T16:20:05Z",
+      "sha256": "a8412707581cd6a6af7c769998d09dca44e6f785bed15c8e51a60601458a5c66",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/jiot.2022.3195302"
+    },
+    {
+      "bytes": 8636,
+      "retrieved_at": "2026-11-07T16:21:25Z",
+      "sha256": "6f46187a2e572bf2d4ec8070c23ab926fd7d6fd9d2d50991ace8577f22ae3339",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/jiot.2025.3539852"
+    },
+    {
+      "bytes": 9121,
+      "retrieved_at": "2026-11-07T16:16:31Z",
+      "sha256": "6c64e966dba303cb46bc9ff12b8cfc2981104c0c4f8f49559a07344f5e1d0782",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/jiot.2025.3591635"
+    },
+    {
+      "bytes": 11253,
+      "retrieved_at": "2026-11-07T16:23:58Z",
+      "sha256": "4c05673ab73c2291149b319bf9793d43685d77717895b34d4645347079797fed",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/jsac.2025.3636844"
+    },
+    {
+      "bytes": 5687,
+      "retrieved_at": "2026-11-07T16:18:50Z",
+      "sha256": "2c129ea8d71001620420d78f5c2b715e8204d3f84ec9bf4b73ba4358ce2b1fb1",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/jstars.2013.2272633"
+    },
+    {
+      "bytes": 6711,
+      "retrieved_at": "2026-11-07T16:17:52Z",
+      "sha256": "e5c31496e9e30fa478c5ca96e8e75717a12a3be9d7c6569539220a994ce1acb3",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/jstars.2023.3314133"
+    },
+    {
+      "bytes": 7514,
+      "retrieved_at": "2026-11-07T16:20:58Z",
+      "sha256": "f6ecfb6f8c90585df14c06e4a507905c1bafa69a81c484c6e0eef5b45dd5cf2b",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/jstars.2024.3435425"
+    },
+    {
+      "bytes": 7685,
+      "retrieved_at": "2026-11-07T16:18:43Z",
+      "sha256": "00d19bd203b5a225a7f03d0f07a02ca6403cf91c1dd29039b6e9706c622a615b",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/jstars.2025.3638898"
+    },
+    {
+      "bytes": 5074,
+      "retrieved_at": "2026-11-07T16:17:56Z",
+      "sha256": "6d2f03aacd55b3a3f7d0ed5b234074121fc6b3da795dcc1882f5b73d6405d422",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/jsyst.2015.2390597"
+    },
+    {
+      "bytes": 8332,
+      "retrieved_at": "2026-11-07T16:21:07Z",
+      "sha256": "bb8e17a1abd00c92699ff36ff57fd750986e7e6ae789c91488adedd8a0669973",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/jsyst.2020.3002941"
+    },
+    {
+      "bytes": 5148,
+      "retrieved_at": "2026-11-07T16:23:47Z",
+      "sha256": "5a780eb9677afd4586614227d287373ea87b070bb22ffdc21fdfcea11fdfd0c2",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/lca.2026.3678312"
+    },
+    {
+      "bytes": 9140,
+      "retrieved_at": "2026-11-07T16:23:32Z",
+      "sha256": "048bfec87139e2a761f27118ba7b602bcbe575bb0f1ec74d19a661e31a0573fb",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/lgrs.2024.3477609"
+    },
+    {
+      "bytes": 4364,
+      "retrieved_at": "2026-11-07T16:22:25Z",
+      "sha256": "b5e1c552337dd48c57624d5b91bdafd0c745959f2c4130231157b70f37567303",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/nas.2018.8515734"
+    },
+    {
+      "bytes": 2409,
+      "retrieved_at": "2026-11-07T16:23:09Z",
+      "sha256": "382496c5220e6739a96d4555a9a277920651aa8a442f5b10fb9b49affc368b2e",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/nems.2010.5592175"
+    },
+    {
+      "bytes": 5814,
+      "retrieved_at": "2026-11-07T16:23:19Z",
+      "sha256": "a8adc3f609254d5227d298b3990073b51772ef674aa855bf6f22c3d5a13a65d4",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/nems51815.2021.9451375"
+    },
+    {
+      "bytes": 4262,
+      "retrieved_at": "2026-11-07T16:19:00Z",
+      "sha256": "fb620009ac69531720201b90877a08cd9a04621a8b19843acd28f03f21170c0c",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/scc.2015.110"
+    },
+    {
+      "bytes": 4889,
+      "retrieved_at": "2026-11-07T16:20:28Z",
+      "sha256": "afd92b58eac07b3882492c4a4dc803be6080fe68fc668fb98bb0a1e8aed682ec",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/smc.2014.6974432"
+    },
+    {
+      "bytes": 10135,
+      "retrieved_at": "2026-11-07T16:23:52Z",
+      "sha256": "e57903827591ff44de415f7a6c1233347c42cb914c1b4442cc9a91e4e6b355c7",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/taes.2025.3555247"
+    },
+    {
+      "bytes": 9971,
+      "retrieved_at": "2026-11-07T16:16:59Z",
+      "sha256": "75dda690638bf59e858ebba9f2cf08194aa121d2163b87d5546a817101d54bcc",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tcsi.2020.3031663"
+    },
+    {
+      "bytes": 9882,
+      "retrieved_at": "2026-11-07T16:22:37Z",
+      "sha256": "775f76b3b7e10a98ff3a25d3cfcc5d4ced04bf568a054b326d3a4e21c7928545",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tcsvt.2025.3577188"
+    },
+    {
+      "bytes": 11467,
+      "retrieved_at": "2026-11-07T16:18:30Z",
+      "sha256": "30ec67b7723fcda0b78c6aba8c061a38df9dd8174f0afabdb9a09d9d37e89ef9",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tcyb.2026.3668829"
+    },
+    {
+      "bytes": 9728,
+      "retrieved_at": "2026-11-07T16:20:46Z",
+      "sha256": "f87ef5cb14b2c478cbbef1d5e547fba53ddb1e10e08cf18e5bafa255160abd1b",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tdsc.2025.3577208"
+    },
+    {
+      "bytes": 5946,
+      "retrieved_at": "2026-11-07T16:16:24Z",
+      "sha256": "ed68ee003dee9b0c495332b36df227c24771e14f2d5c6fca604ddd3523376925",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tgrs.2021.3121290"
+    },
+    {
+      "bytes": 5819,
+      "retrieved_at": "2026-11-07T16:21:13Z",
+      "sha256": "c107f071ee263edad14720e86c1c69225f42ed4f44a3f5a67265e60c6141c77b",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tie.2015.2432093"
+    },
+    {
+      "bytes": 6830,
+      "retrieved_at": "2026-11-07T16:21:55Z",
+      "sha256": "015fce7aff9d0bc9bb507134de8e4197bedbabbf0e4fa6d427a1b9296d2eee06",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tie.2025.3610721"
+    },
+    {
+      "bytes": 6883,
+      "retrieved_at": "2026-11-07T16:20:38Z",
+      "sha256": "a3ad7f3ae6bbb65ded79977cd32b437eca9bc6012e015b42216ab0f49d5b7bd2",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tifs.2017.2752728"
+    },
+    {
+      "bytes": 11891,
+      "retrieved_at": "2026-11-07T16:16:12Z",
+      "sha256": "814f731a555bce2ee80b5f1a160463d6d5eb9abdace4b3388cf5c87d11b29158",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tifs.2017.2766039"
+    },
+    {
+      "bytes": 10691,
+      "retrieved_at": "2026-11-07T16:18:12Z",
+      "sha256": "a68b33e64b0865229d453896e00b1bc7dbd454f921542f9fd15527418b352a8f",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tifs.2025.3580337"
+    },
+    {
+      "bytes": 12202,
+      "retrieved_at": "2026-11-07T16:19:22Z",
+      "sha256": "6023596e9b9eb7c4d23a76fd44e017933a5ed79af8932740f9ebfc565d54049c",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tifs.2025.3583231"
+    },
+    {
+      "bytes": 8188,
+      "retrieved_at": "2026-11-07T16:20:52Z",
+      "sha256": "9ed78784878f84228c290af307772fbfde0b14001d800ee3280771f16cbba15a",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tip.2014.2317985"
+    },
+    {
+      "bytes": 6684,
+      "retrieved_at": "2026-11-07T16:21:29Z",
+      "sha256": "e0f44b5c57feb593b185629408a21516c1418721232007b71d921af8fa010a77",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tits.2017.2764095"
+    },
+    {
+      "bytes": 10279,
+      "retrieved_at": "2026-11-07T16:18:37Z",
+      "sha256": "040e0cf7baf960d8f48a5e9a6779e962c59b7423ee0fb501115ad8522d70ffe1",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tits.2019.2949005"
+    },
+    {
+      "bytes": 7206,
+      "retrieved_at": "2026-11-07T16:22:35Z",
+      "sha256": "81f085841a48d00e2c8038ebe5f74ecd8c13fae31497762f8624d83f7c0327ad",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tmc.2015.2449291"
+    },
+    {
+      "bytes": 8432,
+      "retrieved_at": "2026-11-07T16:16:16Z",
+      "sha256": "419e0fffbf6f0e53a117ac3ba0ef220a72f70c14d374e46f7a1404e219b23d97",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tmc.2022.3232543"
+    },
+    {
+      "bytes": 11211,
+      "retrieved_at": "2026-11-07T16:17:57Z",
+      "sha256": "dc7932951cf198739a4bd4550ee25aae14014ab7dbf05a11dce7f879d8edb19f",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tmm.2026.3686627"
+    },
+    {
+      "bytes": 8294,
+      "retrieved_at": "2026-11-07T16:17:34Z",
+      "sha256": "a18d7ba5a17f6e246e1031574ead488b16a5af2dea40e51044ebabf78093b604",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tnnls.2018.2797279"
+    },
+    {
+      "bytes": 14554,
+      "retrieved_at": "2026-11-07T16:21:00Z",
+      "sha256": "b04077d3209b70128d495626ddd9d5ee2e3972da153d9fc5700b6415b4e6a8a1",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tpami.2024.3365745"
+    },
+    {
+      "bytes": 8877,
+      "retrieved_at": "2026-11-07T16:20:40Z",
+      "sha256": "37e79950db92b3421e215da5babe91dd182303159376bd1ccb1bfd4e903a4547",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tsmc.2024.3371580"
+    },
+    {
+      "bytes": 4745,
+      "retrieved_at": "2026-11-07T16:19:05Z",
+      "sha256": "43f5b643b06b814747afaa3e97a6488570a9ccef85e01ef01a11e27cb38d259e",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tsmcb.2004.824521"
+    },
+    {
+      "bytes": 13189,
+      "retrieved_at": "2026-11-07T16:18:19Z",
+      "sha256": "fb7d47a0e784577f6d3c7a34962f3e113a8be884d685ed45603ec93eaf9865ed",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tvcg.2018.2865363"
+    },
+    {
+      "bytes": 8975,
+      "retrieved_at": "2026-11-07T16:18:39Z",
+      "sha256": "0c48af31f7dc1983e4ca1e141a1f36589cba685ad7bedcaa3da1859e4e1dfb46",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tvt.2015.2425218"
+    },
+    {
+      "bytes": 5378,
+      "retrieved_at": "2026-11-07T16:20:18Z",
+      "sha256": "2a644be686c708b73389f96dcf337f2659dfae48cfd183526f9961a86efbbfde",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tvt.2020.3036056"
+    },
+    {
+      "bytes": 5290,
+      "retrieved_at": "2026-11-07T16:20:43Z",
+      "sha256": "262c0e2c6c62daf3f121c1f2b23f9392c483569ecb4489469110b06e1f02ae8d",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/tvt.2025.3647959"
+    },
+    {
+      "bytes": 4980,
+      "retrieved_at": "2026-11-07T16:23:45Z",
+      "sha256": "35fbe4a55935e8fb569768ae06a4dc5e1016f648583c2a19b0f4bc4eea7c37ac",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/twc.2009.071009"
+    },
+    {
+      "bytes": 4614,
+      "retrieved_at": "2026-11-07T16:19:12Z",
+      "sha256": "09e763bfb76b659e14fad4983b4e44e209e5f67ecb233934c26b717f26717ef6",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/ur49135.2020.9144979"
+    },
+    {
+      "bytes": 3932,
+      "retrieved_at": "2026-11-07T16:18:29Z",
+      "sha256": "dd6ea3eff7f95913b1acf55b6656cddeb48283b68abd94ba25a640871633e8e2",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/vtcfall.2012.6398938"
+    },
+    {
+      "bytes": 5576,
+      "retrieved_at": "2026-11-07T16:18:05Z",
+      "sha256": "833fd69880733279cee262c9dcbbd67fd5788cd4231f87cd7a0c8c335559aa4d",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/wcnc.2011.5779410"
+    },
+    {
+      "bytes": 5476,
+      "retrieved_at": "2026-11-07T16:19:32Z",
+      "sha256": "2719379020b14a6e4d6558957d13bebc1b1cdddedadb6090757ff01180299363",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1109/wfcs63373.2025.11077646"
+    },
+    {
+      "bytes": 13467,
+      "retrieved_at": "2026-11-07T16:15:44Z",
+      "sha256": "fe82630e35e376851a345f23e9dd27a88d6e8b5f0355363b0b17c7570b7f2e80",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1111/exsy.12365"
+    },
+    {
+      "bytes": 19798,
+      "retrieved_at": "2026-11-07T16:16:06Z",
+      "sha256": "d198a06d05c439f4cbb5acd3985a2c45fdf8d3e89c97187c75fe92bb56b8bb6c",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1111/mice.13446"
+    },
+    {
+      "bytes": 7338,
+      "retrieved_at": "2026-11-07T16:22:15Z",
+      "sha256": "0cadf183c289f2bb78ebde78c8132d344ec7271e0c7337424bc314830fe610fd",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1117/1.jei.30.3.033014"
+    },
+    {
+      "bytes": 2350,
+      "retrieved_at": "2026-11-07T16:19:52Z",
+      "sha256": "71b240d0c2d325889f371b36e1fc7e1ebf4e1a0d01fa5cc4f96ace4650e61c9e",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1117/12.710090"
+    },
+    {
+      "bytes": 10212,
+      "retrieved_at": "2026-11-07T16:21:10Z",
+      "sha256": "b39a92e6aa3f6b8ec631b07efb7edb556609f7bf5b0f6796ec2f2f89a15dd2ce",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1142/s0218127426500264"
+    },
+    {
+      "bytes": 2971,
+      "retrieved_at": "2026-11-07T16:16:07Z",
+      "sha256": "d60c91c2ec449248135f4b6a0304bf5e34abe3b31a9fd8052f017a0380f7c4b5",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/1119772.1119968"
+    },
+    {
+      "bytes": 4204,
+      "retrieved_at": "2026-11-07T16:17:16Z",
+      "sha256": "1fffee41a15f6a442e2631cd4f724fbe08364975d987c757eea2c1f5c78044f9",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/1180639.1180764"
+    },
+    {
+      "bytes": 8505,
+      "retrieved_at": "2026-11-07T16:21:52Z",
+      "sha256": "6c7437a02abcf067acfe5e1ea552eb91cb2f5bb5be79d2208ede594564f4b22b",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/2505515.2505690"
+    },
+    {
+      "bytes": 4292,
+      "retrieved_at": "2026-11-07T16:21:12Z",
+      "sha256": "8989dd6590c7fe4df76a49b314b42fe8ccb434c3fda52ad20dc3f72a079b0b99",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/2505515.2505729"
+    },
+    {
+      "bytes": 8945,
+      "retrieved_at": "2026-11-07T16:19:43Z",
+      "sha256": "c675355f7a13abd4f5b8aa95e017393f2348f3af090f69fceb932c29cb088178",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/2579817"
+    },
+    {
+      "bytes": 6964,
+      "retrieved_at": "2026-11-07T16:18:47Z",
+      "sha256": "42a79557cf4f7cde1345a0c5dae7cc420c8ebb9f0a392091b2cb6b84cf9eceff",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/2939672.2939713"
+    },
+    {
+      "bytes": 8101,
+      "retrieved_at": "2026-11-07T16:15:49Z",
+      "sha256": "0f87057f36834b466f06ed03d90e93ea375aaf03f0fa9b882a6cb84c9af90b54",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/3338906.3338971"
+    },
+    {
+      "bytes": 18017,
+      "retrieved_at": "2026-11-07T16:17:39Z",
+      "sha256": "9c140cbf1e8bda194d6a8be02c166109a21da4e56778e8082ffae8af5f20e636",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/3425866"
+    },
+    {
+      "bytes": 3458,
+      "retrieved_at": "2026-11-07T16:18:45Z",
+      "sha256": "6ab467618c3e805077f027694e31a0a3458350556c3c7ae26146849c7b7cf0ce",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/3514223"
+    },
+    {
+      "bytes": 5224,
+      "retrieved_at": "2026-11-07T16:17:04Z",
+      "sha256": "9cb606181aff8381e6be43fd4a9c1c82ef27d6a0589146ae870b94f95a0acc48",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/3544109.3544154"
+    },
+    {
+      "bytes": 7631,
+      "retrieved_at": "2026-11-07T16:20:41Z",
+      "sha256": "4a57f2f8d91bb9a2be76606c727fca306caa3e890df95972e9a0616ab3c3f993",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/3573428.3573638"
+    },
+    {
+      "bytes": 7652,
+      "retrieved_at": "2026-11-07T16:23:30Z",
+      "sha256": "2dca245a73dc4f1a14954d12336f25999e8fde1e3fb077d28a60945a6c7abb04",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/3640912.3640962"
+    },
+    {
+      "bytes": 16839,
+      "retrieved_at": "2026-11-07T16:23:12Z",
+      "sha256": "3cc904efe73be5ea18986fcfdf264f281215a373fda1b83062290079ebb5cffb",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/3664647.3680817"
+    },
+    {
+      "bytes": 17705,
+      "retrieved_at": "2026-11-07T16:17:44Z",
+      "sha256": "638b6bafdee46e58ad9b5e73d40e232cf16652b1b8964e830727acd0336816ed",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/3691620.3695508"
+    },
+    {
+      "bytes": 30389,
+      "retrieved_at": "2026-11-07T16:16:14Z",
+      "sha256": "8c546f0fcb2c605a03e403ed148b1427dab2851f2202e0e59bba196ab16e0f73",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/3736756"
+    },
+    {
+      "bytes": 22419,
+      "retrieved_at": "2026-11-07T16:22:18Z",
+      "sha256": "ef788fe2a811350792a2f779c937b65e865bb5916693362ca63e64021daa9a8a",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/3770855.3817497"
+    },
+    {
+      "bytes": 20273,
+      "retrieved_at": "2026-11-07T16:16:32Z",
+      "sha256": "84b109ab8444efd9e03f8caef4303d29c2c77bb7091571490d3a0213c8659e9e",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1145/3811285"
+    },
+    {
+      "bytes": 8233,
+      "retrieved_at": "2026-11-07T16:21:47Z",
+      "sha256": "4758b7b1beea97ca582f444c2d083d528a1ae3142e860c00804d6b8dcb5195ba",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1155/2021/3031940"
+    },
+    {
+      "bytes": 10182,
+      "retrieved_at": "2026-11-07T16:23:34Z",
+      "sha256": "dbdc9ae20ade7dc88266ed273af951462c3dbf423ec68c0bd7d227beb7040289",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1177/0165551519874617"
+    },
+    {
+      "bytes": 28105,
+      "retrieved_at": "2026-11-07T16:17:26Z",
+      "sha256": "ab2a5e63510e5bf6a274259265b51c1661858856ea2cc4434b7ca038c37720b7",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1186/1471-2164-15-s1-s11"
+    },
+    {
+      "bytes": 19993,
+      "retrieved_at": "2026-11-07T16:22:03Z",
+      "sha256": "abb2d793002d150b31df2079c4a7d7c0618d57e56b3c891688539698af7bb228",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1186/s12880-025-01690-5"
+    },
+    {
+      "bytes": 16434,
+      "retrieved_at": "2026-11-07T16:22:13Z",
+      "sha256": "c9b858419ddc1003a4ef21e3ecad16347b4e154f2ded2d6767a483303af8ee47",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1186/s13638-018-1025-5"
+    },
+    {
+      "bytes": 10276,
+      "retrieved_at": "2026-11-07T16:15:57Z",
+      "sha256": "e991ce19173e8a4aa921c45366691dafb543a7a677794a202b62d54ff67636b2",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.12720/jcm.11.5.484-490"
+    },
+    {
+      "bytes": 8454,
+      "retrieved_at": "2026-11-07T16:22:12Z",
+      "sha256": "639881b282ecd801cf63206b23a51e97ecbbe751f9b2f8ab4d768f96997133a6",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1287/mnsc.2020.3718"
+    },
+    {
+      "bytes": 12150,
+      "retrieved_at": "2026-11-07T16:19:50Z",
+      "sha256": "6ce3197088bb8910e0f09db23872ae6b6469d2b92e1cdc41666468678922d6e0",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1371/journal.pcbi.1004498"
+    },
+    {
+      "bytes": 1436,
+      "retrieved_at": "2026-11-07T16:21:54Z",
+      "sha256": "3cd122d6ebb0a9b8790b8c875b74f4eca2b4d2f46a9d38a68f535a3448c81a34",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.14264/9323257"
+    },
+    {
+      "bytes": 2284,
+      "retrieved_at": "2026-11-07T16:21:44Z",
+      "sha256": "400dad6b584551f760199f0dae10480871b19c85c4e1b4348bd771c1f4f61649",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1504/ijaacs.2012.049477"
+    },
+    {
+      "bytes": 2203,
+      "retrieved_at": "2026-11-07T16:20:07Z",
+      "sha256": "0322025ce849af8039a5b0ee5f7239c3c64dcdea14ff8c5f71e2ae54786a7932",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1504/ijcat.2025.149368"
+    },
+    {
+      "bytes": 1629,
+      "retrieved_at": "2026-11-07T16:23:00Z",
+      "sha256": "e75601c6d3c38079d444cb2be7d90a25e7015af6ad210d8700452f9f79412ab5",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1504/ijmic.2011.042654"
+    },
+    {
+      "bytes": 3677,
+      "retrieved_at": "2026-11-07T16:21:23Z",
+      "sha256": "158872b6825915092f367b7109338ad88c930c54065bb36ebe0c133c78544956",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1609/aaai.v28i1.8906"
+    },
+    {
+      "bytes": 3869,
+      "retrieved_at": "2026-11-07T16:17:41Z",
+      "sha256": "1f444dae524abebe46a267fbd6fbb9e44e2edae1b8b55e1e45e6fe158a10cad5",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.1609/aaai.v36i2.20025"
+    },
+    {
+      "bytes": 2481,
+      "retrieved_at": "2026-11-07T16:22:10Z",
+      "sha256": "f349cd3964f9b65ec5d48c0114dc0e25287601c128f71e43f023eeb5418d734e",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.18653/v1/2024.acl-long.197"
+    },
+    {
+      "bytes": 2186,
+      "retrieved_at": "2026-11-07T16:22:22Z",
+      "sha256": "5629148e88bb17e26143caa2bf91bd4fdc44250bb55ee8b4ebde89db20795f3f",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.18653/v1/2024.findings-emnlp.567"
+    },
+    {
+      "bytes": 2406,
+      "retrieved_at": "2026-11-07T16:16:29Z",
+      "sha256": "dc23d02933b3b096683449069ebb2849fa0575f6ed0d3c9db3d3e27468c1dd8f",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.18653/v1/2026.findings-acl.1048"
+    },
+    {
+      "bytes": 1773,
+      "retrieved_at": "2026-11-07T16:16:02Z",
+      "sha256": "d38dc87c05b232686d035dfb6149c2551b63a2a81316e7ff27f1405f8c33a560",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.18653/v1/d17-1133"
+    },
+    {
+      "bytes": 2161,
+      "retrieved_at": "2026-11-07T16:16:27Z",
+      "sha256": "2dcad050bc8c4ab53c819d9306024e892c891e0d9190599d0a14f0c0110e6f4a",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.18653/v1/p16-1199"
+    },
+    {
+      "bytes": 1859,
+      "retrieved_at": "2026-11-07T16:21:02Z",
+      "sha256": "d7f287c8010074155a28c3dd37191708543ae4a0cff9059dc2c0ab28462e7e8d",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.21437/interspeech.2013-246"
+    },
+    {
+      "bytes": 2838,
+      "retrieved_at": "2026-11-07T16:18:34Z",
+      "sha256": "a43556ecf94f83ec71405868399832c7acd0337939a0ffb9c43cd351554bdd60",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.21437/interspeech.2026-127"
+    },
+    {
+      "bytes": 4599,
+      "retrieved_at": "2026-11-07T16:23:55Z",
+      "sha256": "0910230cd9c8572ceae5fbdbf7e9e7080eeecd7ffa0156c655d98497327965ba",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.24963/ijcai.2023/49"
+    },
+    {
+      "bytes": 18329,
+      "retrieved_at": "2026-11-07T16:20:57Z",
+      "sha256": "932a9e009f6136d0b4d8146a765eb2bb651fc61142c15b2adb70a4c57d2075dc",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.3390/ijgi5110218"
+    },
+    {
+      "bytes": 20297,
+      "retrieved_at": "2026-11-07T16:17:21Z",
+      "sha256": "9ab4633da35ccdc8f6b4a9b60be981661bcfe2856a0451f608dc55726ec685a3",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.3390/rs11232815"
+    },
+    {
+      "bytes": 6080,
+      "retrieved_at": "2026-11-07T16:16:22Z",
+      "sha256": "86bee6fe991e1b650b261ece7036ef21e22776f60c92d870b5599c70b7738bf6",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.3390/rs8090784"
+    },
+    {
+      "bytes": 43728,
+      "retrieved_at": "2026-11-07T16:21:20Z",
+      "sha256": "0e9ab11ff76bc691a753aef481c4b381bd844a611c6f0d01c4fcae64f290d1f9",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.3390/s130505406"
+    },
+    {
+      "bytes": 15659,
+      "retrieved_at": "2026-11-07T16:17:02Z",
+      "sha256": "2281b436bb27e5c42c546460e054145427fe03e7b3a59eadf2d26a33503788ba",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.3390/s17071695"
+    },
+    {
+      "bytes": 15918,
+      "retrieved_at": "2026-11-07T16:22:48Z",
+      "sha256": "cdd7273700370fcc1c6ec5c92a59919371add76c90790bc1292dd840bbc0d72e",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.3390/s18113672"
+    },
+    {
+      "bytes": 18198,
+      "retrieved_at": "2026-11-07T16:17:47Z",
+      "sha256": "9f919806b0b13f1ccf2bf1e885bb7614ce95ab85bfbc60494a6245a4c9003d0c",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.3390/s19051221"
+    },
+    {
+      "bytes": 20031,
+      "retrieved_at": "2026-11-07T16:16:51Z",
+      "sha256": "b4891fcf4e6bc772191d304adc353167d2ed66e2c81ea7e3bf7389e16acda0ca",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.3390/s19194144"
+    },
+    {
+      "bytes": 17208,
+      "retrieved_at": "2026-11-07T16:15:59Z",
+      "sha256": "57df3861e7f78344301e12daf415ad33b4a0d3826a8c61265864feceee8965a7",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.3390/s20143925"
+    },
+    {
+      "bytes": 16640,
+      "retrieved_at": "2026-11-07T16:21:27Z",
+      "sha256": "d98516c434bcc06e1c848a50d33178de50df0ac5e25acc9bc5bf53cd3cc27c41",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.3390/s24123896"
+    },
+    {
+      "bytes": 19384,
+      "retrieved_at": "2026-11-07T16:18:24Z",
+      "sha256": "fb6b66aa5233517d0e83de57bf0ff53945d815d7238ceb31ffdec58fd0a4bc38",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.3390/sym10050172"
+    },
+    {
+      "bytes": 14345,
+      "retrieved_at": "2026-11-07T16:21:03Z",
+      "sha256": "f3a8eda377af4da28c6c632a0d42c11f7fa9c4d74d7155844b2da9d75db76a75",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.3390/sym14030434"
+    },
+    {
+      "bytes": 13594,
+      "retrieved_at": "2026-11-07T16:20:22Z",
+      "sha256": "c02cda86bf0e7a915ce8cce901c9e7d094dd9f3a7a228532b98cf025415f40e3",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.3390/systems13100857"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:20:53Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.4230/lipics.itcs.2026.79"
+    },
+    {
+      "bytes": 2920,
+      "retrieved_at": "2026-11-07T16:17:24Z",
+      "sha256": "071384eed77e870bce7fe6eedbe4dca1a4ebc0ef5a4bc63ae1a34c370803fb7c",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.4304/jcp.6.5.923-930"
+    },
+    {
+      "bytes": 1771,
+      "retrieved_at": "2026-11-07T16:22:42Z",
+      "sha256": "ab5171fa824c693435925113f9a3d4de0a3ae88443af0b764ada9726b0efc421",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.4304/jcp.9.8.1983-1989"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:15:51Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.1201.0206"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:16:47Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.1507.01162"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:18:52Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.1609.05256"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:17:29Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.1611.00574"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:18:57Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.1707.07998"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:23:50Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.1710.04026"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:19:28Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.1803.00395"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:24:00Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.1806.04329"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:22:30Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.1811.05082"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:20:08Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.1811.07799"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:20:23Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.1910.03849"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:17:12Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2007.00894"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:20:15Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2007.11191"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:24:02Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2103.16372"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:19:23Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2110.02793"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:16:52Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2202.10228"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:15:56Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2304.04952"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:17:46Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2304.07372"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:17:14Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2309.05573"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:22:27Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2310.03670"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:16:56Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2310.19378"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:16:46Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2311.04464"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:20:25Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2312.10921"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:23:20Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2402.07834"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:18:09Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2405.07685"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:20:31Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2408.02484"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:19:33Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2409.00872"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:18:55Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2412.13782"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:23:57Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2412.16969"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:18:10Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2412.20340"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:22:28Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2502.02266"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:19:08Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2502.05605"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:22:45Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2503.13848"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:18:58Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2503.20232"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:20:30Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2504.11111"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:21:35Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2505.04938"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:17:27Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2507.16802"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:19:53Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2508.02694"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:17:49Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2601.01568"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:20:48Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2602.12732"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:22:54Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2603.05518"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:16:49Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2603.18462"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:18:27Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2605.22993"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:16:42Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2605.24553"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:22:43Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2606.16448"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:21:49Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2607.01742"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:18:32Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2608.16262"
+    },
+    {
+      "bytes": 0,
+      "retrieved_at": "2026-11-07T16:23:49Z",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": 404,
+      "url": "https://api.crossref.org/works/10.48550/arxiv.2608.30479"
+    },
+    {
+      "bytes": 2607,
+      "retrieved_at": "2026-11-07T16:17:54Z",
+      "sha256": "8a36def5b8ba059853ad6190752e1d33a7e21660a726fe929236f850603cf27b",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.5220/0007734404240431"
+    },
+    {
+      "bytes": 10171,
+      "retrieved_at": "2026-11-07T16:19:56Z",
+      "sha256": "cee311d1878b9f4fcae77477fc95e935f9c34e29bc88836f7760e77d2e1aeec1",
+      "status": 200,
+      "url": "https://api.crossref.org/works/10.7717/peerj-cs.2032"
+    },
+    {
+      "bytes": 192670,
+      "retrieved_at": "2026-11-07T16:15:17Z",
+      "sha256": "4d0c8dd31a04016e9d667c356a63fcc322938738a612afcc0a080fa868137ac2",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.1007%2F978-3-540-30475-3_57|10.1080%2F03081079.2023.2296099|10.1016%2Fj.imavis.2014.04.013|10.48550%2Farxiv.2007.00894|10.48550%2Farxiv.2309.05573|10.1145%2F1180639.1180764|10.1007%2Fbf02973450|10.1016%2Fj.neucom.2014.02.014|10.3390%2Frs11232815|10.1007%2Fs10836-006-9947-y|10.4304%2Fjcp.6.5.923-930|10.1186%2F1471-2164-15-s1-s11|10.48550%2Farxiv.2507.16802|10.48550%2Farxiv.1611.00574|10.1038%2Fs43588-025-00904-8|10.1080%2F03610918.2015.1024856|10.1109%2Ftnnls.2018.2797279|10.1007%2F978-981-15-3425-6_12|10.1007%2F978-981-10-2260-9_4|10.1145%2F3425866|10.1609%2Faaai.v36i2.20025|10.1109%2Figarss53475.2024.10641207|10.1145%2F3691620.3695508|10.48550%2Farxiv.2304.07372|10.3390%2Fs19051221&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 178550,
+      "retrieved_at": "2026-11-07T16:15:39Z",
+      "sha256": "e9a7a63e6c109562cd105d8a2b15b93db4a9c9b29c8fb1c4a69bb36c0e4f7401",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.1016%2Fj.caeai.2025.100473|10.1109%2Ficcchinaw.2015.7961593|10.1002%2Fjcc.27250|10.1145%2F996566.996719|10.48550%2Farxiv.2309.02411|10.1109%2Ftsg.2025.3615925|10.1109%2Ficc.2012.6363759|10.1007%2F978-981-96-0771-6_10|10.1109%2Fwcnc.2012.6214014|10.20309%2Fjdis.201621|10.1016%2Fj.ins.2016.01.101|10.1007%2Fs44443-025-00446-z|10.48550%2Farxiv.2403.14449|10.1145%2F3690624.3709342|10.48550%2Farxiv.1904.10801|10.1145%2F3132847.3132940|10.1016%2Fj.cpc.2013.03.026|10.1007%2F978-3-642-23620-4_25|10.48550%2Farxiv.2203.08355|10.1049%2Fcit2.70084|10.48550%2Farxiv.2211.00589|10.1109%2F72.857782|10.1109%2Ftim.2022.3186675|10.1109%2Ftkde.2025.3638821|10.1109%2Ftmm.2023.3239656&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 188475,
+      "retrieved_at": "2026-11-07T16:15:36Z",
+      "sha256": "8de9bae317e86de7b0286e0808922806cf88af88a5e91e8d9fc38638b1ce439d",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.1109%2Faim.2013.6584318|10.1007%2Fs00530-025-02187-5|10.1145%2F3712019|10.1109%2Ftc.2013.154|10.1109%2Fispa63168.2024.00070|10.1007%2Fs10916-018-0993-7|10.1007%2Fs00500-020-04822-x|10.1109%2Ftbc.2010.2046970|10.1016%2Fj.cnsns.2025.109113|10.1109%2Ftnnls.2019.2918984|10.1016%2Fj.sigpro.2017.02.005|10.48550%2Farxiv.2005.01234|10.48550%2Farxiv.2503.14824|10.1109%2Fcscwd61410.2024.10580193|10.1145%2F2502081.2502274|10.1109%2Fisda.2013.6920701|10.1109%2Ficde55515.2023.00337|10.48550%2Farxiv.1912.12383|10.1109%2Flgrs.2017.2743618|10.1021%2Facs.jcim.6c03067|10.3390%2Fsystems13010028|10.1109%2Ficassp40776.2020.9053058|10.1002%2Fnet.20156|10.48550%2Farxiv.2409.15049|10.3390%2Fsystems14060650&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 185392,
+      "retrieved_at": "2026-11-07T16:15:15Z",
+      "sha256": "bf2402b68e7dc980e1379e11136ce9a7d4e534a0c44932360f6d4c60505316f6",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.1109%2Fbife.2013.96|10.18653%2Fv1%2Fp16-1199|10.18653%2Fv1%2F2026.findings-acl.1048|10.1109%2Fjiot.2025.3591635|10.1145%2F3811285|10.1016%2Fj.knosys.2025.113378|10.1016%2Fj.aei.2026.104609|10.1109%2Ficsai53574.2021.9664037|10.1016%2Fj.mejo.2025.106771|10.1109%2Fagro-geoinformatics262780.2024.10661099|10.48550%2Farxiv.2605.24553|10.1109%2Fembc.2012.6345885|10.48550%2Farxiv.2311.04464|10.48550%2Farxiv.1507.01162|10.48550%2Farxiv.2603.18462|10.3390%2Fs19194144|10.48550%2Farxiv.2202.10228|10.1109%2Ficmlc.2012.6358994|10.48550%2Farxiv.2310.19378|10.1109%2Fglobecom54140.2023.10437019|10.1109%2Ftcsi.2020.3031663|10.1109%2Ficassp48485.2024.10446186|10.3390%2Fs17071695|10.1145%2F3544109.3544154|10.1109%2Fapccas51387.2021.9687688&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 152434,
+      "retrieved_at": "2026-11-07T16:15:29Z",
+      "sha256": "dff3693aa633705ebc55d70389f760edb8188805e3354a3fd70c98ecb122abd7",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.1109%2Fcisp-bmei.2018.8633234|10.1109%2Faccess.2020.3010091|10.3390%2Fs130505406|10.1109%2Fiscas.2010.5537010|10.1609%2Faaai.v28i1.8906|10.1109%2Fjiot.2025.3539852|10.3390%2Fs24123896|10.1109%2Ftits.2017.2764095|10.1016%2Fj.eswa.2023.122964|10.1049%2Fsfw2.12013|10.1016%2Fj.elerap.2025.101486|10.48550%2Farxiv.2505.04938|10.1109%2Ficassp48485.2024.10445897|10.1016%2Fj.jcp.2024.113251|10.1016%2Fj.cpc.2016.07.005|10.1007%2F978-3-031-19797-0_22|10.1504%2Fijaacs.2012.049477|10.1093%2Fcomjnl%2Fbxaf099|10.1155%2F2021%2F3031940|10.48550%2Farxiv.2607.01742|10.1016%2Fj.phycom.2023.102041|10.1145%2F2505515.2505690|10.14264%2F9323257|10.1109%2Ftie.2025.3610721|10.1109%2Fcseet62301.2024.10663029&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 170727,
+      "retrieved_at": "2026-11-07T16:15:35Z",
+      "sha256": "083f750d353c5920c557b8ac2f9e65c17b7a4e45b0c17a1d24d2d9ccc7b12e18",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.1109%2Ficcchina.2017.8330526|10.1016%2Fj.eswa.2023.120317|10.1007%2F978-3-319-48354-2_16|10.1109%2Fcvpr.2005.114|10.1145%2F3640912.3640962|10.1109%2Flgrs.2024.3477609|10.1177%2F0165551519874617|10.1016%2Fj.cad.2017.02.001|10.1016%2Fj.engappai.2023.107603|10.1109%2Fglocom.2014.7037162|10.1016%2Fj.neucom.2018.08.046|10.1109%2Ffskd.2012.6233837|10.1109%2Fiscas.2007.378242|10.1109%2Ftwc.2009.071009|10.1109%2Flca.2026.3678312|10.48550%2Farxiv.2608.30479|10.48550%2Farxiv.1710.04026|10.1109%2Ftaes.2025.3555247|10.1109%2Fbicta.2010.5645233|10.24963%2Fijcai.2023%2F49|10.48550%2Farxiv.2412.16969|10.1109%2Fjsac.2025.3636844|10.48550%2Farxiv.1806.04329|10.48550%2Farxiv.2103.16372|10.1021%2Facs.jcim.2c01458&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 161620,
+      "retrieved_at": "2026-11-07T16:15:30Z",
+      "sha256": "285041ede133a565551aec6f1abb9e201400ac0885e0abeb3bc59dc96af739d1",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.1109%2Ficcv.2011.6126377|10.1109%2Fcvpr52734.2025.00967|10.1186%2Fs12880-025-01690-5|10.1109%2Fdcc50243.2021.00063|10.1093%2Fdatabase%2Fbaw057|10.1007%2Fs11432-020-3317-2|10.18653%2Fv1%2F2024.acl-long.197|10.1287%2Fmnsc.2020.3718|10.1186%2Fs13638-018-1025-5|10.1117%2F1.jei.30.3.033014|10.1016%2Fj.amc.2013.05.039|10.1145%2F3770855.3817497|10.1016%2Fj.comcom.2024.05.022|10.18653%2Fv1%2F2024.findings-emnlp.567|10.1109%2F4235.974842|10.1109%2Fnas.2018.8515734|10.48550%2Farxiv.2310.03670|10.48550%2Farxiv.2502.02266|10.48550%2Farxiv.1811.05082|10.1109%2Fisqed.2012.6187534|10.1016%2Fj.joi.2024.101491|10.1109%2Ftmc.2015.2449291|10.1109%2Ftcsvt.2025.3577188|10.1016%2Fj.jcp.2026.115257|10.1109%2Fialp54817.2021.9675271&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 179778,
+      "retrieved_at": "2026-11-07T16:15:27Z",
+      "sha256": "98bf0dd8997c06871723624461b4fecd27da6cbe6221ca6d6a223a3c574a6097",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.1109%2Ficme59968.2025.11210010|10.1109%2Faccess.2026.3665623|10.1109%2Ftifs.2017.2752728|10.1109%2Ftsmc.2024.3371580|10.1145%2F3573428.3573638|10.1109%2Ftvt.2025.3647959|10.1007%2F978-3-030-72084-1_5|10.1109%2Ftdsc.2025.3577208|10.48550%2Farxiv.2602.12732|10.1016%2Fj.neuroimage.2022.118937|10.1109%2Ftip.2014.2317985|10.4230%2Flipics.itcs.2026.79|10.1002%2Fasi.20631|10.3390%2Fijgi5110218|10.1109%2Fjstars.2024.3435425|10.1109%2Ftpami.2024.3365745|10.21437%2Finterspeech.2013-246|10.3390%2Fsym14030434|10.1109%2Fcvpr52729.2023.01137|10.1109%2Fjsyst.2020.3002941|10.1016%2Fj.bspc.2026.109942|10.1142%2Fs0218127426500264|10.1145%2F2505515.2505729|10.1109%2Ftie.2015.2432093|10.1109%2Fcrc51253.2020.9253495&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 186489,
+      "retrieved_at": "2026-11-07T16:15:21Z",
+      "sha256": "a175850f1a636a4aec78871501c7d70932dea1de638cd6fa378fde64663ac50d",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.1109%2Ftcyb.2026.3668829|10.48550%2Farxiv.2608.16262|10.21437%2Finterspeech.2026-127|10.1016%2Fj.mejo.2026.107149|10.1109%2Ftits.2019.2949005|10.1109%2Ftvt.2015.2425218|10.1016%2Fj.jpdc.2016.03.005|10.1109%2Faccess.2020.2981771|10.1109%2Fjstars.2025.3638898|10.1145%2F3514223|10.1145%2F2939672.2939713|10.1016%2Fj.compbiomed.2023.107091|10.1109%2Fjstars.2013.2272633|10.48550%2Farxiv.1609.05256|10.1109%2Facc.2016.7526750|10.48550%2Farxiv.2412.13782|10.48550%2Farxiv.1707.07998|10.48550%2Farxiv.2503.20232|10.1109%2Fscc.2015.110|10.1109%2Ficra57385.2026.11696473|10.1109%2Fcacre52464.2021.9501396|10.1109%2Ftsmcb.2004.824521|10.1007%2Fs00332-025-10138-7|10.48550%2Farxiv.2502.05605|10.1016%2Fj.cagd.2015.12.002&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 170926,
+      "retrieved_at": "2026-11-07T16:15:23Z",
+      "sha256": "8cbacd94480144f8b41f9b75ba1be088b94e7f10749306e06fe8de1a6b7dca65",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.1109%2Fur49135.2020.9144979|10.1007%2Fs11042-019-08606-w|10.1109%2Fglocom.2009.5426090|10.1109%2Faccess.2018.2865780|10.1016%2Fj.knosys.2025.113223|10.1109%2Finfocom.2014.6848223|10.1109%2Ftifs.2025.3583231|10.48550%2Farxiv.2110.02793|10.1016%2Fj.phycom.2020.101101|10.1109%2Ficsai53574.2021.9664063|10.48550%2Farxiv.1803.00395|10.1109%2Fcsse.2008.1150|10.1109%2Fwfcs63373.2025.11077646|10.48550%2Farxiv.2409.00872|10.1007%2F978-981-99-8543-2_3|10.1109%2Faim52237.2022.9863389|10.1007%2F978-981-13-6733-5_12|10.1007%2F978-3-319-77404-6_55|10.1093%2Fbioinformatics%2Fbtad772|10.1145%2F2579817|10.1109%2Fgreencom-ithings-cpscom.2013.95|10.1007%2F978-981-96-0777-8_9|10.1016%2Fj.ins.2010.07.021|10.1371%2Fjournal.pcbi.1004498|10.1117%2F12.710090&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 158580,
+      "retrieved_at": "2026-11-07T16:15:13Z",
+      "sha256": "0948f65161787df7c0c6cc70ac3bfeadc7f0bf9a85d43140a2df3b43b459bd07",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.1111%2Fexsy.12365|10.1109%2Faccess.2021.3086404|10.1109%2Fchinacom.2012.6417552|10.1145%2F3338906.3338971|10.48550%2Farxiv.1201.0206|10.1007%2Fs00530-022-00964-0|10.1016%2Fj.cam.2019.112430|10.48550%2Farxiv.2304.04952|10.12720%2Fjcm.11.5.484-490|10.3390%2Fs20143925|10.1007%2Fs12652-018-0714-6|10.18653%2Fv1%2Fd17-1133|10.1016%2Fj.pmcj.2026.102236|10.1111%2Fmice.13446|10.1145%2F1119772.1119968|10.1109%2Fisicir.2014.7029509|10.1007%2Fs11554-024-01604-8|10.1109%2Ftifs.2017.2766039|10.1145%2F3736756|10.1109%2Ftmc.2022.3232543|10.1109%2Fgcwkshp64532.2024.11100994|10.1109%2Fdcc.2019.00119|10.1109%2Fiecon49645.2022.9968792|10.3390%2Frs8090784|10.1109%2Ftgrs.2021.3121290&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 157502,
+      "retrieved_at": "2026-11-07T16:15:40Z",
+      "sha256": "55bdb0cfa82e7821158da7a40e6a8f34877260b1cc04841b163c7b7ec5b19893",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.1142%2Fs0218127418501560|10.1109%2Fjiot.2022.3162106|10.1007%2F978-3-031-78312-8_1|10.1109%2Fisgt-asia.2017.8378354|10.1145%2F3444368|10.1007%2F978-3-319-11203-9_21|10.1016%2Fj.cageo.2009.09.006|10.48550%2Farxiv.2609.19760|10.1145%2F1989323.1989436|10.1016%2Fj.neunet.2025.107190|10.1049%2Fcmu2.12532|10.1109%2Figarss.2009.5418134|10.1145%2F3340531.3412721|10.1145%2F3578245.3584690|10.23919%2Fecc64448.2024.10590836|10.48550%2Farxiv.2508.16078|10.48550%2Farxiv.2211.12151|10.1007%2F978-3-642-34384-1_31|10.1117%2F12.2008646|10.1145%2F3582690|10.1109%2Ftip.2022.3183442|10.48550%2Farxiv.2311.16809|10.1007%2F978-3-031-72970-6_7|10.1109%2Ftgrs.2018.2888631|10.1109%2Ftcds.2022.3213944&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 175371,
+      "retrieved_at": "2026-11-07T16:15:42Z",
+      "sha256": "b6d52acb86d45c06f253109ecf89ccfe47e6eb6e6c41960fa857e4ee05863dc4",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.3390%2Frs14153698|10.1002%2Fwcm.2227|10.1016%2Fj.ress.2012.04.011|10.1109%2Ftits.2020.3008935|10.1109%2Faccess.2020.3035704|10.1007%2F978-3-642-23357-9_79|10.1109%2Fcsse.2008.872|10.1109%2Flsp.2025.3601038|10.48550%2Farxiv.2206.13255|10.1016%2Fj.ipm.2023.103630|10.48550%2Farxiv.2302.12427|10.1109%2Faspdac.2014.6742899|10.1109%2Frcar65431.2025.11139598|10.1145%2F3712285.3759801|10.48550%2Farxiv.2001.07194|10.48550%2Farxiv.2411.18078|10.48550%2Farxiv.2104.06403|10.1007%2F978-0-387-77251-6_55|10.1007%2Fs10278-009-9248-y|10.1016%2Fj.ins.2022.12.118|10.48550%2Farxiv.2501.00312|10.1007%2Fs10586-025-05164-9|10.48550%2Farxiv.2501.08197|10.48550%2Farxiv.2307.07162|10.1007%2Fs10845-022-02017-9&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 159899,
+      "retrieved_at": "2026-11-07T16:15:32Z",
+      "sha256": "7bc5f1b91786fb4dca87133f51bfa46d2600cb537e30a7ce708b5254cbab41fa",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.4304%2Fjcp.9.8.1983-1989|10.48550%2Farxiv.2606.16448|10.48550%2Farxiv.2503.13848|10.1007%2Fs11432-015-0927-3|10.3390%2Fs18113672|10.1109%2Fcisp-bmei.2017.8302212|10.1007%2Fs00366-020-01032-9|10.48550%2Farxiv.2603.05518|10.1016%2Fj.inffus.2023.101881|10.1007%2F978-3-642-17313-4_24|10.1007%2F978-3-319-75786-5_38|10.1504%2Fijmic.2011.042654|10.1016%2Fj.jii.2023.100469|10.1007%2Fs11227-025-07583-2|10.1109%2Faccess.2023.3234428|10.1016%2Fj.cose.2024.103841|10.1109%2Fnems.2010.5592175|10.1080%2F03610918.2021.1948573|10.1145%2F3664647.3680817|10.1109%2Fespa.2012.6152456|10.1049%2Fipr2.12670|10.1016%2Fj.dam.2026.04.037|10.1109%2Fnems51815.2021.9451375|10.48550%2Farxiv.2402.07834|10.1016%2Fj.amc.2010.02.043&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 158464,
+      "retrieved_at": "2026-11-07T16:15:25Z",
+      "sha256": "29f243c5008ea6011b161e61dacc7912562f8fb67ec0eda617c27f6a926e308d",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.48550%2Farxiv.2508.02694|10.1007%2F978-3-319-75408-6_9|10.7717%2Fpeerj-cs.2032|10.1109%2Fiswcs56560.2022.9940360|10.1016%2Fj.compbiomed.2021.104241|10.1016%2Fj.jksuci.2024.102050|10.1109%2Faccess.2019.2918139|10.1109%2Fjiot.2022.3195302|10.1504%2Fijcat.2025.149368|10.48550%2Farxiv.1811.07799|10.1007%2F978-981-15-9129-7_50|10.1016%2Fj.jfranklin.2018.04.004|10.1109%2Figarss.2019.8898550|10.48550%2Farxiv.2007.11191|10.1007%2F978-3-030-59719-1_65|10.1109%2Ftvt.2020.3036056|10.1007%2Fs11704-024-31014-9|10.3390%2Fsystems13100857|10.48550%2Farxiv.1910.03849|10.48550%2Farxiv.2312.10921|10.1109%2Fapsec57359.2022.00013|10.1109%2Fsmc.2014.6974432|10.48550%2Farxiv.2504.11111|10.48550%2Farxiv.2408.02484|10.1109%2Ficip.2008.4711831&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 189270,
+      "retrieved_at": "2026-11-07T16:15:19Z",
+      "sha256": "803e5b3a6f1cd84a1e08ef5aa2df4fd8e7ddaa04555deb765dfc5ab9edd8f70f",
+      "status": 200,
+      "url": "https://api.openalex.org/works?filter=doi:10.48550%2Farxiv.2601.01568|10.1016%2Fj.rcim.2026.103384|10.1109%2Fjstars.2023.3314133|10.5220%2F0007734404240431|10.1109%2Fjsyst.2015.2390597|10.1109%2Ftmm.2026.3686627|10.1109%2Fhpcc.2014.130|10.1007%2F978-0-387-77251-6_28|10.1109%2Ficmla58977.2023.00143|10.1109%2Figarss.2016.7729989|10.1109%2Fwcnc.2011.5779410|10.1109%2Fcvpr52733.2024.00036|10.48550%2Farxiv.2405.07685|10.48550%2Farxiv.2412.20340|10.1109%2Ftifs.2025.3580337|10.1109%2Fbibm58861.2023.10385579|10.1007%2F978-3-540-75248-6_6|10.1109%2Fivmspw.2013.6611917|10.1109%2Ftvcg.2018.2865363|10.1109%2Faccess.2022.3208108|10.1109%2Fbigdataservice.2015.59|10.3390%2Fsym10050172|10.1109%2Fcvpr52733.2024.02589|10.48550%2Farxiv.2605.22993|10.1109%2Fvtcfall.2012.6398938&per-page=50&select=id,doi,display_name,publication_year,type,authorships,topics,updated_date"
+    },
+    {
+      "bytes": 5535,
+      "retrieved_at": "2026-11-07T16:24:17Z",
+      "sha256": "ec3064ede644f091e095dd268f27272e41741dc038bc46322b1951549bbd93cb",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-5450-5598/person"
+    },
+    {
+      "bytes": 1449,
+      "retrieved_at": "2026-11-07T16:24:27Z",
+      "sha256": "bee5267eb816fbcd9e4a55d8ed10b52c32ec8448a2b5ea829da9241eb821e4bc",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-5838-5722/person"
+    },
+    {
+      "bytes": 5422,
+      "retrieved_at": "2026-11-07T16:26:05Z",
+      "sha256": "fc6dfc7cc864e32b8827be6010b5d6c8bc508fc33790c71c506d02291c66749e",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-6048-405X/person"
+    },
+    {
+      "bytes": 930,
+      "retrieved_at": "2026-11-07T16:24:50Z",
+      "sha256": "1d8def67083ec22ce66d412a4a939eb9d38c5b7aacc7a51a30c7a20220d19116",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-6592-1984/person"
+    },
+    {
+      "bytes": 923,
+      "retrieved_at": "2026-11-07T16:25:50Z",
+      "sha256": "53cb6cac6324dda43ebd1fc41c58611b3e008cf45205e170dd752a0d1cbd9004",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-6870-6657/person"
+    },
+    {
+      "bytes": 3780,
+      "retrieved_at": "2026-11-07T16:25:25Z",
+      "sha256": "90c1e8f73cfe7f15e2918ca530b01b35e4264cef9f14d4365ccd70e9fbf3f552",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-7013-7190/person"
+    },
+    {
+      "bytes": 1799,
+      "retrieved_at": "2026-11-07T16:26:23Z",
+      "sha256": "de30e77a62219e1c4058262d83702c9df42e4410e2667b53ca7381b3fa4971d4",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-7245-1298/person"
+    },
+    {
+      "bytes": 4382,
+      "retrieved_at": "2026-11-07T16:25:36Z",
+      "sha256": "a31cc678fba8b51b34810b3df36bfd3f658078ea4af4cc98a849eacc86ef0121",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-7277-7271/person"
+    },
+    {
+      "bytes": 6490,
+      "retrieved_at": "2026-11-07T16:24:18Z",
+      "sha256": "ea9039470e775e290abefd4e97d9d0df1a247e96fbe1bce1f1fd28d07729148a",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-7300-9215/person"
+    },
+    {
+      "bytes": 2825,
+      "retrieved_at": "2026-11-07T16:25:41Z",
+      "sha256": "1b65ac5fcc60479e4bb0b431232eea720a195a044c919dd72244f7e820136a1f",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-7560-5467/person"
+    },
+    {
+      "bytes": 1787,
+      "retrieved_at": "2026-11-07T16:24:22Z",
+      "sha256": "47998994c84161e2d14bd2dc9ebacd5ae503706c88f7b0ecddf0d6706455914b",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-8204-6448/person"
+    },
+    {
+      "bytes": 1671,
+      "retrieved_at": "2026-11-07T16:25:08Z",
+      "sha256": "fcddd48300a3b6b61da90fd47e2da03a43cbfad1eceed6d9233696513e8d46ef",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-8273-1808/person"
+    },
+    {
+      "bytes": 927,
+      "retrieved_at": "2026-11-07T16:25:17Z",
+      "sha256": "2efc08153a03b23c754970c08be0579a41cca5625af8c43cb424057b0025fa1b",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-8452-8723/person"
+    },
+    {
+      "bytes": 926,
+      "retrieved_at": "2026-11-07T16:26:30Z",
+      "sha256": "7fec72c7b1448af89ca6ea1cca538e939464fe4a8594575aba39fef6f521fc07",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-8577-7932/person"
+    },
+    {
+      "bytes": 2993,
+      "retrieved_at": "2026-11-07T16:24:55Z",
+      "sha256": "ff82bed15beb513111232140e8e1ad5e88a4fc3f7ee8628fd8a4c4d782155163",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-8746-8615/person"
+    },
+    {
+      "bytes": 2274,
+      "retrieved_at": "2026-11-07T16:25:15Z",
+      "sha256": "46df15c18650cc85641d152552df30227474f3a12dc6249384494de6c174f896",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-8788-2453/person"
+    },
+    {
+      "bytes": 925,
+      "retrieved_at": "2026-11-07T16:24:14Z",
+      "sha256": "905743f8030773b5844c1dfa13060b18cbd05c7398c0df66949447d66d5cd9b1",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-8927-4072/person"
+    },
+    {
+      "bytes": 2992,
+      "retrieved_at": "2026-11-07T16:26:33Z",
+      "sha256": "0e4cf8bc428edf2bcf5100baf3b5a9f9a76d45dff65e63115b2e0744144b4c3a",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-8971-5755/person"
+    },
+    {
+      "bytes": 927,
+      "retrieved_at": "2026-11-07T16:25:23Z",
+      "sha256": "1032831d37dd11377ded4c50b68bebc28e9a51fb67bb9c04df409bd2ca76e991",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-9336-1013/person"
+    },
+    {
+      "bytes": 1731,
+      "retrieved_at": "2026-11-07T16:25:46Z",
+      "sha256": "beadc8f473a55dbb97cd8a424c3a31563515afca8487b55efb9e425cf0c66336",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0001-9402-3366/person"
+    },
+    {
+      "bytes": 3552,
+      "retrieved_at": "2026-11-07T16:26:00Z",
+      "sha256": "7792bbc8f08db116acc03d5ecd64fa96391d4dbd3b3efe6d86e3aeffa798bed7",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-0220-8310/person"
+    },
+    {
+      "bytes": 925,
+      "retrieved_at": "2026-11-07T16:24:47Z",
+      "sha256": "623d600398597aa18e42b304498aaf2c1024539414c1f0b92804e2c7a7c66c21",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-0461-6940/person"
+    },
+    {
+      "bytes": 926,
+      "retrieved_at": "2026-11-07T16:26:25Z",
+      "sha256": "af29a0a5a511ba64858e3986a060be76c8a86f423700889961c34ec6a4a60b46",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-0717-8659/person"
+    },
+    {
+      "bytes": 3970,
+      "retrieved_at": "2026-11-07T16:25:35Z",
+      "sha256": "49b23078916536da6c794bcf5f8b924025d949790aad4255a03df80da70a088b",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-0895-8147/person"
+    },
+    {
+      "bytes": 927,
+      "retrieved_at": "2026-11-07T16:24:37Z",
+      "sha256": "5f8316a0c9b97bc1e81786d35e19efa38c8ea469973b0f7182cf803dfd6ff00a",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-1142-4496/person"
+    },
+    {
+      "bytes": 926,
+      "retrieved_at": "2026-11-07T16:25:18Z",
+      "sha256": "e4e782ef74c22b63d1a4053d477090edb7ea49523f57e90eda15d3a70c724c05",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-1231-3392/person"
+    },
+    {
+      "bytes": 3546,
+      "retrieved_at": "2026-11-07T16:26:20Z",
+      "sha256": "1662af94bf7481aadc6f98a35337c1f72ab596441afd15e177738589781bd146",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-1305-5735/person"
+    },
+    {
+      "bytes": 923,
+      "retrieved_at": "2026-11-07T16:24:20Z",
+      "sha256": "784e4746180b3365980c7520036ba617d755a2ff92114f677ea7386f43bea58c",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-1495-3545/person"
+    },
+    {
+      "bytes": 5898,
+      "retrieved_at": "2026-11-07T16:25:51Z",
+      "sha256": "aa79e6585fba731bc30396ee4c2a4e62edfd3c217228b5d360179e5e26e41f36",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-1558-960X/person"
+    },
+    {
+      "bytes": 924,
+      "retrieved_at": "2026-11-07T16:26:38Z",
+      "sha256": "aef220aaa7c383f7a7ced3b52173699962dc6d655b3e2e272267ba1bfba03bd2",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-2258-5893/person"
+    },
+    {
+      "bytes": 7874,
+      "retrieved_at": "2026-11-07T16:25:22Z",
+      "sha256": "670e69075ef8638b3c1efa3e2ef1be4163d958474ba6e86156a39eab05b53415",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-2284-3952/person"
+    },
+    {
+      "bytes": 927,
+      "retrieved_at": "2026-11-07T16:25:20Z",
+      "sha256": "998a8f4f776d6d36933fb9be4b9cd5a9bff878e7ce0763cafcba9696b6018420",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-2729-5860/person"
+    },
+    {
+      "bytes": 925,
+      "retrieved_at": "2026-11-07T16:26:26Z",
+      "sha256": "856f00a3b2d09020d63035dad4aee1e26c3690e1802efb32f1f17f02876f2799",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-2839-8693/person"
+    },
+    {
+      "bytes": 1964,
+      "retrieved_at": "2026-11-07T16:25:48Z",
+      "sha256": "69ffae715701a045dd45b6fb046bdc3860371f251ce60da3347315c29bc6f72f",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-2963-7270/person"
+    },
+    {
+      "bytes": 2046,
+      "retrieved_at": "2026-11-07T16:26:11Z",
+      "sha256": "6da67d4c9dffb306e580a9cbc1a53e3a14de6af54456fd8f7a94232b519b5064",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-3075-2161/person"
+    },
+    {
+      "bytes": 2963,
+      "retrieved_at": "2026-11-07T16:24:52Z",
+      "sha256": "b40d478c7f5e73ec68486fea262b07f4949df4a4ede82ef7f899fca46a605a4f",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-3459-7824/person"
+    },
+    {
+      "bytes": 5735,
+      "retrieved_at": "2026-11-07T16:24:15Z",
+      "sha256": "93e48004b070f79c8331fa963debe04c218dd839146352e293197fcc3db9574b",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-3462-997X/person"
+    },
+    {
+      "bytes": 9477,
+      "retrieved_at": "2026-11-07T16:26:03Z",
+      "sha256": "8174ff74825021c88feb500dbcc34110c37e1323f7e65ee2551a7119dfa545c2",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-3700-9434/person"
+    },
+    {
+      "bytes": 2033,
+      "retrieved_at": "2026-11-07T16:25:13Z",
+      "sha256": "4902bc7cb2f463ed64e6b794a59e7ee3c8220b9e14b7eb401925a9c0492fd62d",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-3768-6654/person"
+    },
+    {
+      "bytes": 928,
+      "retrieved_at": "2026-11-07T16:24:33Z",
+      "sha256": "2e34b3a6dccd8bf3e3f69a08be8b46e9a4d2817eca54177deb3ace863c0f7ba2",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-3938-5994/person"
+    },
+    {
+      "bytes": 926,
+      "retrieved_at": "2026-11-07T16:25:07Z",
+      "sha256": "9c194e203abc427a457d28e9f04149bb93b4d16ac907910d79b6cca4fdf04692",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-4761-9973/person"
+    },
+    {
+      "bytes": 1945,
+      "retrieved_at": "2026-11-07T16:26:48Z",
+      "sha256": "597b0377717a313c0719c9942ae6e401aa2f03de9b951b99d71f8de03d2535c7",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-4864-5145/person"
+    },
+    {
+      "bytes": 1542,
+      "retrieved_at": "2026-11-07T16:24:23Z",
+      "sha256": "43bcaaf37f3c12de9579c4857fb24139f43d7272c3e5fa5f643521fbf1b7e936",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-4880-8186/person"
+    },
+    {
+      "bytes": 2827,
+      "retrieved_at": "2026-11-07T16:26:15Z",
+      "sha256": "a59813cdf2df11f116942f449790aed8f58ec41e21f542feffb5643097761910",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-5145-3259/person"
+    },
+    {
+      "bytes": 1795,
+      "retrieved_at": "2026-11-07T16:24:09Z",
+      "sha256": "abf8225f28c762640d7b44e66f5e37975a1f89338c7ddc3ae400fc46529eb898",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-5215-1316/person"
+    },
+    {
+      "bytes": 928,
+      "retrieved_at": "2026-11-07T16:25:10Z",
+      "sha256": "2eee25b068a3c91550815e5978d18a3743b38ddf1a93327f8607040dfd05ca05",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-6049-4458/person"
+    },
+    {
+      "bytes": 2485,
+      "retrieved_at": "2026-11-07T16:26:46Z",
+      "sha256": "82fe1f96fdf02760b11a684939948f2936433c712b80df259bb6778ae2b91934",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-6164-1253/person"
+    },
+    {
+      "bytes": 1793,
+      "retrieved_at": "2026-11-07T16:25:33Z",
+      "sha256": "88b4fe38789c71073aa5aedbe4f049122608af9ea6dde606c20f681b88b0ed39",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-6172-2598/person"
+    },
+    {
+      "bytes": 9362,
+      "retrieved_at": "2026-11-07T16:25:40Z",
+      "sha256": "7a29240cff0e4ef4ed2a981d285e9410938e6fc1755e2c1cb6188ef97f2d80a6",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-6389-8941/person"
+    },
+    {
+      "bytes": 2302,
+      "retrieved_at": "2026-11-07T16:26:08Z",
+      "sha256": "c177e13059b66315de7b0cca4a95591edaa7a874b47b1862effb5b9fa8b811c5",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-6695-8209/person"
+    },
+    {
+      "bytes": 1455,
+      "retrieved_at": "2026-11-07T16:26:41Z",
+      "sha256": "f5a5da0daeffad8e9dc19f567bda37456944c1071ab0c41e80fd9f831e3335d4",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-6776-2910/person"
+    },
+    {
+      "bytes": 925,
+      "retrieved_at": "2026-11-07T16:24:45Z",
+      "sha256": "c66be7a3546fda8c631e4897bd81ed136569469b7f42a90cd868d7b640e5007d",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-7110-059X/person"
+    },
+    {
+      "bytes": 4421,
+      "retrieved_at": "2026-11-07T16:26:18Z",
+      "sha256": "e3ee8cf7cf1855d33cad9ed6c62adcf4ba4a884b40edc70e6b89544d133f4eeb",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-7207-0716/person"
+    },
+    {
+      "bytes": 4125,
+      "retrieved_at": "2026-11-07T16:26:01Z",
+      "sha256": "fd975b759d2712fa62458e3617e0c77a1da1a3e327a27b7c30d915bae17e69d5",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-7384-0735/person"
+    },
+    {
+      "bytes": 923,
+      "retrieved_at": "2026-11-07T16:24:12Z",
+      "sha256": "023447802ceb69f589cd363d649f1070f6fc5c59b32b66330e1ded1133252f5e",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-7385-1426/person"
+    },
+    {
+      "bytes": 925,
+      "retrieved_at": "2026-11-07T16:24:43Z",
+      "sha256": "f7990aca7fb37f988c1777e116cd8dda10c823e524d76783680c17f26ad10b0b",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-7395-3780/person"
+    },
+    {
+      "bytes": 926,
+      "retrieved_at": "2026-11-07T16:24:57Z",
+      "sha256": "c52d10df404b7bc6e1e7c894bf99b929b46258c78be0ff21ef890862d71e6cff",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-7701-6364/person"
+    },
+    {
+      "bytes": 1791,
+      "retrieved_at": "2026-11-07T16:26:21Z",
+      "sha256": "0452fbc27cc57a4cddfab68a85ca6dce12eab2bc887db0012c9e674de68dfc81",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-7908-8484/person"
+    },
+    {
+      "bytes": 5036,
+      "retrieved_at": "2026-11-07T16:25:00Z",
+      "sha256": "24e60c82c5bb62c5d6e127151513d2d1982e577e01a6dbde9287984a04541424",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-8044-2284/person"
+    },
+    {
+      "bytes": 4462,
+      "retrieved_at": "2026-11-07T16:24:53Z",
+      "sha256": "e2af1108e67e2819f7569dcf20ae7b8ca629d2ba0bcf3670182030f88c81ca54",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-8054-7449/person"
+    },
+    {
+      "bytes": 923,
+      "retrieved_at": "2026-11-07T16:24:40Z",
+      "sha256": "b5d54b56ae0e5f31feb2766a7a09e95a700f25eabc5fd83572f07c9646dfa6d4",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-8561-2481/person"
+    },
+    {
+      "bytes": 932,
+      "retrieved_at": "2026-11-07T16:24:32Z",
+      "sha256": "92dd379524e1487ffe3de6dd1e84c27af4f2ab9ce4f03078f820235705cf8615",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-8605-8240/person"
+    },
+    {
+      "bytes": 925,
+      "retrieved_at": "2026-11-07T16:25:38Z",
+      "sha256": "272ce449c1ba24dbe81f7dc2b8c65cfdaf9c621da132fd5f3fb5d8032be0dac6",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-8898-8396/person"
+    },
+    {
+      "bytes": 924,
+      "retrieved_at": "2026-11-07T16:25:26Z",
+      "sha256": "3ae168f311f9ccb54fb7204322ac6dd06d35bb90da1a11e97365edeef53c1dbc",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-8951-4969/person"
+    },
+    {
+      "bytes": 2619,
+      "retrieved_at": "2026-11-07T16:25:03Z",
+      "sha256": "68839db2e47418c631200c1ca5bbdbf702fbd7445194459d051ffa3cab3ea1ec",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-9427-5659/person"
+    },
+    {
+      "bytes": 929,
+      "retrieved_at": "2026-11-07T16:26:43Z",
+      "sha256": "5355ad4a96ac3aedda4c244144fe199826e91d735dda9a4925ec0322f4e493fe",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-9755-0687/person"
+    },
+    {
+      "bytes": 1892,
+      "retrieved_at": "2026-11-07T16:26:13Z",
+      "sha256": "28fbd032a421658e35a7374bb684ddae22c2e6f5ba12fdfe28e73b4236240c61",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-9777-9676/person"
+    },
+    {
+      "bytes": 923,
+      "retrieved_at": "2026-11-07T16:26:44Z",
+      "sha256": "808af1bb82552e072d8a14c0bf939e3e64aea495ae704efcd69c08a4dfb1f77b",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-9863-8955/person"
+    },
+    {
+      "bytes": 4397,
+      "retrieved_at": "2026-11-07T16:25:45Z",
+      "sha256": "c2b9f8e4c38c4fbf11ed25f916cb073225afd71b62be3f3f042d1cef402c332e",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0002-9886-3570/person"
+    },
+    {
+      "bytes": 1787,
+      "retrieved_at": "2026-11-07T16:25:58Z",
+      "sha256": "edc91467c8085cbe8217a2bbeb246eab855936bc4f133b4a4aa2f42b044d1711",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-0107-8099/person"
+    },
+    {
+      "bytes": 924,
+      "retrieved_at": "2026-11-07T16:26:10Z",
+      "sha256": "f4a6c1782a9ae92557cf4a6495433c06526e42d1d7ca9aef0bea2646b7815a19",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-0127-4030/person"
+    },
+    {
+      "bytes": 923,
+      "retrieved_at": "2026-11-07T16:26:35Z",
+      "sha256": "308c182e99d4ca8e291345a583f1257bc141faae4caaff584971607412879f70",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-0145-615X/person"
+    },
+    {
+      "bytes": 1789,
+      "retrieved_at": "2026-11-07T16:25:30Z",
+      "sha256": "bf85e07e8b26fbb3d2990546584cbee589dd504b65fc830cccbdda9bc7bd2e0f",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-0464-8800/person"
+    },
+    {
+      "bytes": 1649,
+      "retrieved_at": "2026-11-07T16:26:49Z",
+      "sha256": "3bd1a9d88a582c31efc5c01a3b43897a0a5d57164b4351977f8ff657ac6e9e84",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-0576-3181/person"
+    },
+    {
+      "bytes": 3264,
+      "retrieved_at": "2026-11-07T16:26:16Z",
+      "sha256": "14a476400a27a7ef860e2f70c86695f4b8d869d3894659a373f3c4ef2dbbff83",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-0691-5386/person"
+    },
+    {
+      "bytes": 1786,
+      "retrieved_at": "2026-11-07T16:25:53Z",
+      "sha256": "46936b52dfc05872ba6365658de850105f9f961ebc226d6dd232a154b0a5ee83",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-0780-8267/person"
+    },
+    {
+      "bytes": 934,
+      "retrieved_at": "2026-11-07T16:24:42Z",
+      "sha256": "57d02fea0be6b2adebefb90ae66a79833fb75028cfa804ddb8df0ec7e05ebde7",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-0813-0101/person"
+    },
+    {
+      "bytes": 1784,
+      "retrieved_at": "2026-11-07T16:25:28Z",
+      "sha256": "f12b4c8bfa9b1b826e9ff19ac3012c612617680ba5346e2fde7b5c82b987761f",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-0991-1970/person"
+    },
+    {
+      "bytes": 2561,
+      "retrieved_at": "2026-11-07T16:25:55Z",
+      "sha256": "bbe682d49596aec6bdf8d8058250395c4294a047b042aa6309cfe6be329e9487",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-1447-6256/person"
+    },
+    {
+      "bytes": 1533,
+      "retrieved_at": "2026-11-07T16:26:31Z",
+      "sha256": "5f34c9e1e8455f00f7993a9ec967ade37fc0c70f9b5c928047d60876e837ece5",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-1476-7213/person"
+    },
+    {
+      "bytes": 5817,
+      "retrieved_at": "2026-11-07T16:24:30Z",
+      "sha256": "ac219223fbdc79a4c3dd56c29cec0443faf575433f56c312f4eb88dffb5b5022",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-1829-2083/person"
+    },
+    {
+      "bytes": 928,
+      "retrieved_at": "2026-11-07T16:24:48Z",
+      "sha256": "bb13c50101099a617751fe4974e94d9c97a3a962beb186a4fe96ac2582ba29ce",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-1991-290X/person"
+    },
+    {
+      "bytes": 924,
+      "retrieved_at": "2026-11-07T16:25:31Z",
+      "sha256": "3107028518c6599e0758a392e788246601b2312ec5eb173c5ad90755fc3bda92",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-2035-7093/person"
+    },
+    {
+      "bytes": 3703,
+      "retrieved_at": "2026-11-07T16:26:40Z",
+      "sha256": "e227f3e4943586a01aec9830265c6969c5dda95cd11b532a787274d586b85f1b",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-2067-2763/person"
+    },
+    {
+      "bytes": 4296,
+      "retrieved_at": "2026-11-07T16:24:58Z",
+      "sha256": "5086df71558979571abf7d2a127c330323bc63a185d038661b1198402a1cb4ff",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-2587-1702/person"
+    },
+    {
+      "bytes": 2331,
+      "retrieved_at": "2026-11-07T16:24:07Z",
+      "sha256": "adfa724a8d29af060318383c879a63ce535523ff8fdf3f60c260e20308d97486",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-2644-5756/person"
+    },
+    {
+      "bytes": 5409,
+      "retrieved_at": "2026-11-07T16:25:43Z",
+      "sha256": "c7872f1ec733a6921f4a85094472407663e6582030a5f2e955d239056df20b5b",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-3133-7119/person"
+    },
+    {
+      "bytes": 4508,
+      "retrieved_at": "2026-11-07T16:25:12Z",
+      "sha256": "125c30fd2c4a88d7c4ca9e41bc609f87d4e4c08d11c664de13c9c48ed7f80fb7",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-3628-9777/person"
+    },
+    {
+      "bytes": 4615,
+      "retrieved_at": "2026-11-07T16:25:56Z",
+      "sha256": "dfebd18fe90bddf61198026acb4b5e7e72370152b734bbaba11a8fe38177c948",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-3884-2185/person"
+    },
+    {
+      "bytes": 4723,
+      "retrieved_at": "2026-11-07T16:25:02Z",
+      "sha256": "59a23189342cd31fc68d2b677192784fe9898d3ddb1b3c1e207b76b2e67906d4",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-3948-5845/person"
+    },
+    {
+      "bytes": 1507,
+      "retrieved_at": "2026-11-07T16:26:06Z",
+      "sha256": "40aa71e7e97d03565cc1fbd888e9c270ad561a51e49384fbc3b5edab920560fc",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-4010-2936/person"
+    },
+    {
+      "bytes": 924,
+      "retrieved_at": "2026-11-07T16:24:10Z",
+      "sha256": "c5936e1a6aac7a774a33c3ecec64cbc6b1bcd50f6b8fda4b4fc548f9350733f5",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-4045-0551/person"
+    },
+    {
+      "bytes": 924,
+      "retrieved_at": "2026-11-07T16:24:05Z",
+      "sha256": "8aaf3e00be3e32b3776877542e473e40469510c1ea28a6decc4e74dadc257e7b",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-4420-6679/person"
+    },
+    {
+      "bytes": 928,
+      "retrieved_at": "2026-11-07T16:24:25Z",
+      "sha256": "3813c3097f4e52c9d6a539d0079dadfbfceba268f4a9f8b5307be398c0017411",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0000-0003-4879-1748/person"
+    },
+    {
+      "bytes": 921,
+      "retrieved_at": "2026-11-07T16:26:28Z",
+      "sha256": "42ad963fd4c1a67247bc71b0b0143df88d924f442b7fe10181c1d056b569c09e",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0009-0000-2138-0741/person"
+    },
+    {
+      "bytes": 4515,
+      "retrieved_at": "2026-11-07T16:24:28Z",
+      "sha256": "c1f6719fd08164bca6996beabc3a1276f8e8099aff41a2716411b15406bc268d",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0009-0001-4734-3233/person"
+    },
+    {
+      "bytes": 926,
+      "retrieved_at": "2026-11-07T16:24:35Z",
+      "sha256": "6995d14b8935cdaf18c76f1989ddb67c1e2c9624370e11843a0bfcbac4072ff6",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0009-0003-9212-8879/person"
+    },
+    {
+      "bytes": 926,
+      "retrieved_at": "2026-11-07T16:26:36Z",
+      "sha256": "c9a5c9b9e4812d954d8852c9b8b50c8bdb4591a6769c2d422aaf934f45c0dc92",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0009-0004-0308-5609/person"
+    },
+    {
+      "bytes": 924,
+      "retrieved_at": "2026-11-07T16:24:38Z",
+      "sha256": "16e1ac4b6d3278dbc2e3f104ffe15055dc81dca39860f53df1b562ee58d33f18",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0009-0005-4941-9237/person"
+    },
+    {
+      "bytes": 924,
+      "retrieved_at": "2026-11-07T16:25:05Z",
+      "sha256": "c23970e9a60710686869b5a909d1b2e645d4029550a91d0dd3c9f05bdf0fda1c",
+      "status": 200,
+      "url": "https://pub.orcid.org/v3.0/0009-0005-9216-6212/person"
+    }
+  ],
+  "retrieval_date": "2026-11-07",
+  "spec_sha256": "3731c8f92db22adbd5b433531a81b44e598ccceb211768e6f293ff72a1778692",
+  "stopped": null,
+  "works_in_subset": 3472,
+  "works_with_doi": 3299
+}

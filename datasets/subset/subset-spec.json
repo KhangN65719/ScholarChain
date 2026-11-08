@@ -1,0 +1,25 @@
+{
+  "spec_version": 1,
+  "purpose": "Phase 5 bounded DBLP subset: works of common-name seed authors plus one hop of their coauthors, extracted from a local official dump. OpenAlex, Crossref and ORCID only enrich; they never filter DBLP works.",
+  "salt": "scholarchain-phase5-subset-v1",
+  "per_seed_name_definition": "caps.per_seed_name bounds, for each seed name, the works in the subset file that mention that name (homonym suffix ignored). A work with two seed names counts once for each; coauthor-pass works mention no seed name and count for none. The extractor admits works in smallest SHA-256(salt|key) order, skipping any that would push a name over the cap; the receipt and the validator count with the same function.",
+  "seeds": ["Wei Wang", "Li Zhang", "Jun Wang", "Yang Liu", "Jing Li",
+            "Xin Li", "Yan Zhang", "Hui Li", "Lei Zhang", "Ying Zhang"],
+  "caps": {
+    "total_works": 3500,
+    "per_seed_name": 200,
+    "coauthor_works": 1500,
+    "max_coauthor_names": 4000,
+    "max_team_size": 25,
+    "max_dblp_bytes": 8388608
+  },
+  "scan": {"max_decompressed_bytes": 12884901888, "max_records": 12000000},
+  "enrichment": {
+    "max_requests": 500,
+    "openalex_dois": 400,
+    "crossref_dois": 300,
+    "orcid_ids": 100,
+    "max_record_bytes": 20480,
+    "max_file_bytes": 4194304
+  }
+}

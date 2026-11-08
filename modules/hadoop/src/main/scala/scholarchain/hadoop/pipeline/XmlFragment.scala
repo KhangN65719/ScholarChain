@@ -12,9 +12,10 @@ import org.xml.sax.{ErrorHandler, SAXParseException}
   * Security posture, which matters because the parser runs on untrusted dump
   * bytes inside every map task: DOCTYPE declarations are refused outright, so
   * no named entity, parameter entity or billion-laughs expansion is reachable,
-  * and no external resource of any kind is resolved. The pinned DBLP fixture
-  * omits the DTD for exactly this reason (`datasets/schemas/dblp.md`), so a
-  * record carrying an entity reference is a reject here rather than a fetch.
+  * and no external resource of any kind is resolved. DBLP's published named
+  * entities (`&uuml;` and the rest of the HTML 4 set) are rewritten to numeric
+  * character references by [[DblpEntities]] before parsing, so no DTD is
+  * loaded. Any other entity name is undeclared and is a reject, not a fetch.
   *
   * A `DocumentBuilderFactory` is created per parse. It is not thread-safe, and
   * sharing one across tasks would be the mutable shared state the job
@@ -67,7 +68,9 @@ object XmlFragment:
         )
       )
       val document =
-        builder.parse(new ByteArrayInputStream(xml.getBytes(UTF_8)))
+        builder.parse(
+          new ByteArrayInputStream(DblpEntities.resolve(xml).getBytes(UTF_8))
+        )
       Option(document.getDocumentElement)
         .toRight("Record has no document element")
     catch

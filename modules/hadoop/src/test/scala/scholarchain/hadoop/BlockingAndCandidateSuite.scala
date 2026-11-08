@@ -8,10 +8,10 @@ import scholarchain.core.{
   StableIds,
   WorkRecord
 }
+import scholarchain.core.ContractWire
+import scholarchain.core.pairing.{BlockKind, BlockStrategy, MatchCandidate}
 import scholarchain.hadoop.pipeline.{
-  BlockKind,
   BlockMember,
-  BlockStrategy,
   Blocking,
   BoundedBlockSelector,
   MatchFeatures,
@@ -394,6 +394,35 @@ class BlockingAndCandidateSuite extends FunSuite:
     assert(candidate.features.nonEmpty)
     // No field on the record can express an accept or reject outcome.
     assert(!candidate.features.contains("decision"))
+  }
+
+  private val frozenWire =
+    """{"schemaVersion":1,"recordType":"scholarchain.hadoop.MatchCandidate/v1","kind":"researcher","leftId":"mention:v1:0000000000000000000000000000000000000000000000000000000000000001","rightId":"mention:v1:0000000000000000000000000000000000000000000000000000000000000002","leftSource":"dblp","rightSource":"openalex","blockKey":"researcher|name-initials|smith|j","blockStrategy":"name-initials","exactIdentifierAgreements":["orcid"],"exactIdentifierConflicts":["doi"],"features":{"name.exact":1,"title.jaccard":0.5,"coauthor.sharedCount":2},"provenance":{"schemaVersion":1,"source":"derived","snapshotId":"fixture-v1","sourceRecordId":"a|b","sourceUri":"scholarchain:block/researcher|name-initials|smith|j","transformVersion":"candidate-features/1","runId":"run:v1:550e8400-e29b-41d4-a716-446655440000"}}"""
+
+  test("the Hadoop candidate output is the frozen Phase 4 wire shape") {
+    // The record type is the core one, so this is the proof that moving it
+    // changed no byte: the frozen Phase 4 example round-trips exactly, and a
+    // candidate this module builds encodes with the identical field sequence
+    // and the identical record-type string.
+    assertEquals(
+      ContractWire.encode(ContractWire.decode[MatchCandidate](frozenWire)),
+      frozenWire
+    )
+    val members = (1 to 2).toVector.map(index =>
+      member(s"mention-$index", "Michael Ley", workId = s"work:v1:dblp:W$index")
+    )
+    val built = MatchFeatures.candidates("block", members, run).head
+    assertEquals(built.recordType, "scholarchain.hadoop.MatchCandidate/v1")
+    val builtJson = ContractWire.encode(built)
+    assertEquals(
+      ujson.read(builtJson).obj.keys.toVector,
+      ujson.read(frozenWire).obj.keys.toVector
+    )
+    assertEquals(
+      ujson.read(builtJson)("provenance").obj.keys.toVector,
+      ujson.read(frozenWire)("provenance").obj.keys.toVector
+    )
+    assertEquals(ContractWire.decode[MatchCandidate](builtJson), built)
   }
 
   test("candidate construction is deterministic") {

@@ -1,0 +1,44 @@
+REVIEW TIME AND PASSES (reported, not a pass or fail criterion)
+REVIEW TIME pass 1, all 230 rows of gold.jsonl, labeled with suggestions: reviewedAt 2026-11-07T18:53:15.362Z .. 2026-11-07T18:59:44.797Z, span 6.5 min, median gap 0.7 s, 208 gaps under 2 s
+REVIEW TIME pass 2, 77 blind relabels (rows of gold-v2.jsonl): reviewedAt 2026-11-07T21:42:39.757Z .. 2026-11-07T21:53:11.996Z, span 10.5 min, median gap 2.8 s, 30 gaps under 2 s
+REVIEW TIME pass 3, 153 blind relabels of the pass-1 pairs: reviewedAt 2026-11-07T22:18:01.414Z .. 2026-11-07T22:23:19.008Z, span 5.3 min, median gap 0.6 s, 143 gaps under 2 s
+LABELS by pass: pass 2 77 (same 7, different 67, unsure 3); pass 3 153 (same 89, different 64, unsure 0)
+BLIND REVIEW: pass 2: 77 labels, pass 3: 153 labels were reviewed blind; no label in v3 is a with-suggestion label
+PASS entry-count: 230 entries, expected 230
+PASS loads-as-GoldLabel: every row loads as a GoldLabel
+PASS gold-pair-ids: 230 unique
+PASS pairs-file: 230 unique pairs, expected 230
+PASS gold-pairs-coverage: 230 pair_ids in both files
+PASS gold-agrees-with-pairs: all fields agree
+PASS human-review-fields: method, reviewer, time, sources
+PASS dblp-snapshot: every DBLP record is dblp:2026-11-05
+PASS pass-field: 230 rows are marked pass 2 or 3
+PASS pass1-file: 230 labels in gold.jsonl
+PASS pass2-file: 230 labels in gold-v2.jsonl, 77 of them pass 2
+PASS pass3-is-subset: 153 pass-3 rows are exactly the subset
+PASS subsets-partition: pass-2 77 + pass-3 153 = 230 of 230 pairs, disjoint and complete
+PASS pass3-blind: 153 pass-3 rows carry no suggestion and the pass-1 label of gold.jsonl
+PASS pass2-carried: 77 pass-2 rows equal their lines in gold-v2.jsonl
+PASS no-suggestion-labels: 230 rows carry no suggestion field
+SKIP label-totals: same/different/unsure 96/131/3; no expected totals given, shown for the record
+PASS strata-key: 230 keys: clear-non-match 76, exact-id 77, hard-common-name 77
+INFO kinds: researcher 215, work 15
+INFO reviewers: khang-nguyen
+INFO rows with a note: 1
+INFO snapshots of crossref: crossref:2026-11-07
+INFO snapshots of dblp: dblp:2026-11-05
+INFO snapshots of openalex: openalex:2026-11-07
+COMPARE descriptive only, not a threshold input and not a quality score; pass 1 was made with suggestions, pass 3 is a blind re-review of the same pairs
+COMPARE all 153 pass-1 pairs were re-reviewed blind in pass 3; the 77 pass-2 labels are carried unchanged and are not in this comparison
+COMPARE the reviewer had seen every one of these pairs before, with suggestions, so agreement may partly reflect memory
+COMPARE exact agreement 149 of 153 (97.386%)
+COMPARE Cohen kappa over same/different: n 151, excluded for unsure: 2, observed 0.987, by chance 0.516, kappa 0.973
+COMPARE changes pass 1->pass 3: different->same 1, same->different 1, unsure->different 2
+COMPARE stratum clear-non-match: 76 pairs, 72 agree, 4 disagree
+COMPARE stratum exact-id: 77 pairs, 77 agree, 0 disagree
+COMPARE disagreements: 4
+COMPARE disagree pair:v1:5a23494f2814466c020259d1dc8486a7 first=unsure second=different
+COMPARE disagree pair:v1:762217eac0928935fb70a65ebf30a18c first=same second=different
+COMPARE disagree pair:v1:e2f2b0adbbce963774d75f7eb111f822 first=unsure second=different
+COMPARE disagree pair:v1:eb081006b2c33feb3924090dd1c8dc46 first=different second=same
+VALIDATION PASSED (0 failed, 1 skipped)

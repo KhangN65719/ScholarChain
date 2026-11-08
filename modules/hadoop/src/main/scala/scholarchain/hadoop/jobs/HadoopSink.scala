@@ -8,6 +8,7 @@ import scholarchain.hadoop.pipeline.{
   Artifact,
   PipelineCounter,
   RejectRecord,
+  StreamCounter,
   StreamKey,
   TaskSink
 }
@@ -93,6 +94,7 @@ final class ArtifactSink[KEYIN, VALUEIN](
       outValue,
       s"${artifact.segment}/$schemaSegment/part"
     )
+    context.getCounter(StreamCounter.group, label).increment(1L)
 
   def reject(record: RejectRecord): Unit =
     count(PipelineCounter.RejectedRecords)

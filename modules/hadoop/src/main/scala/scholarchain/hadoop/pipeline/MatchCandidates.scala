@@ -1,50 +1,7 @@
 package scholarchain.hadoop.pipeline
 
-import scholarchain.core.{ContractSchema, Provenance, SourceType}
-import upickle.default.ReadWriter
-
-/** A candidate pair of records to be adjudicated, with its deterministic
-  * features.
-  *
-  * This record deliberately carries **no decision and no score**. The
-  * accept/reject policy, the thresholds and the resulting `MatchDecision`
-  * belong to the entity-resolution module; this job's obligation is to publish
-  * the evidence as data, not to bury a guess in a log line.
-  *
-  * Contract-ownership note: `modules/core` defines `MatchDecision` but no
-  * `MatchCandidate`, so this type is declared in the Hadoop module and
-  * exchanged as a versioned JSON artifact. It is **not** a compile-time
-  * dependency for any other module. Promoting it into a core contract is a
-  * domain-engineer change and is reported as a blocker, not performed here.
-  */
-final case class MatchCandidate(
-    schemaVersion: ContractSchema.Version,
-    recordType: String,
-    kind: BlockKind,
-    leftId: String,
-    rightId: String,
-    leftSource: SourceType,
-    rightSource: SourceType,
-    blockKey: String,
-    blockStrategy: BlockStrategy,
-    exactIdentifierAgreements: Vector[String],
-    exactIdentifierConflicts: Vector[String],
-    features: Map[String, Double],
-    provenance: Provenance
-) derives ReadWriter:
-  require(
-    schemaVersion == ContractSchema.currentVersion,
-    "Unsupported match candidate schema version"
-  )
-  require(
-    leftId < rightId,
-    "A candidate's endpoints must be distinct and in ascending ID order"
-  )
-  require(features.values.forall(_.isFinite), "Features must be finite")
-  require(provenance != null, "A candidate must carry provenance")
-
-object MatchCandidate:
-  val recordTypeName = "scholarchain.hadoop.MatchCandidate/v1"
+import scholarchain.core.{ContractSchema, SourceType}
+import scholarchain.core.pairing.{BlockKind, BlockStrategy, MatchCandidate}
 
 /** Job 5: candidate feature construction.
   *

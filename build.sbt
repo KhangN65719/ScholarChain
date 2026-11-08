@@ -61,7 +61,13 @@ lazy val root = project
   // hadoop is a batch job module: a compile or runtime edge would pull it into
   // the runtime graph, which the module boundaries forbid, so the edge maps
   // test->compile and appears in no Compile, Runtime or packaged classpath.
-  .dependsOn(core % "test->compile", hadoop % "test->compile")
+  // entityResolution is a batch job module and gets the same treatment, so
+  // independent tests under tests/ can reach it without a runtime edge.
+  .dependsOn(
+    core % "test->compile",
+    hadoop % "test->compile",
+    entityResolution % "test->compile"
+  )
   .settings(
     name := "scholarchain",
     publish / skip := true,

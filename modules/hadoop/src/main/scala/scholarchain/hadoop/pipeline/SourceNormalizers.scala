@@ -421,8 +421,9 @@ object SourceNormalizers:
                   .toVector ++ family
                   .map("crossref-family" -> _)
                   .toVector).toMap,
-                affiliations = objectsOf(arrayField(author, "affiliation"))
-                  .flatMap(stringField(_, "name")),
+                // Crossref free-text affiliation names are excluded by the
+                // dataset manifest's privacy note, so they are never read.
+                affiliations = Vector.empty,
                 provenance = provenance
               )
             }
@@ -541,6 +542,22 @@ object SourceNormalizers:
     "openalex" -> openAlex,
     "orcid" -> orcid,
     "crossref" -> crossref
+  )
+
+  /** The artifacts a dataset's normalization must write for the run to be
+    * meaningful, defined once and shared by the driver and the tests.
+    *
+    * Only the dataset's defining artifact is listed. Enrichments such as
+    * topics, institutions, venues and ORCID-bearing researchers depend on the
+    * data (a Crossref slice with no ORCID authors writes no researchers), so
+    * the driver reads them only when the job's own stream counters show they
+    * were written. A listed artifact that was not written fails the run at the
+    * driver instead of being skipped.
+    */
+  val expectedOutputs: Map[String, Set[Artifact]] = Map(
+    "openalex" -> Set(Artifact.NormalizedWorks),
+    "crossref" -> Set(Artifact.NormalizedWorks),
+    "orcid" -> Set(Artifact.NormalizedResearchers)
   )
 
   val stageOf: Map[String, String] = Map(

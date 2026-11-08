@@ -500,8 +500,11 @@ class MapReduceEndToEndSuite extends FunSuite:
     val good =
       """<article key="repair/good"><author>Ann</author><title>Good</title></article>"""
     val conflict = good.replace("Good", "Different")
+    // A name that folds to nothing is still a schema failure. A CJK name used
+    // to be the example, but non-Latin names now fold to a non-empty key (F2)
+    // and are accepted; a lone combining mark is the remaining empty-key case.
     val unicode =
-      """<article key="repair/unicode"><author>李明</author><title>Good</title></article>"""
+      "<article key=\"repair/unicode\"><author>́</author><title>Good</title></article>"
     val quoted =
       """<article key="repair/quoted" note="a>b"><title>Quoted</title></article>"""
     val invalid =

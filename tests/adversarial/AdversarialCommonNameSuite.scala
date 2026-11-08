@@ -2,9 +2,8 @@ package scholarchain.tests.adversarial
 
 import munit.FunSuite
 import scholarchain.core.SourceType
-import scholarchain.hadoop.pipeline.BlockKind
+import scholarchain.core.pairing.{BlockKind, BlockStrategy}
 import scholarchain.hadoop.pipeline.BlockMember
-import scholarchain.hadoop.pipeline.BlockStrategy
 import scholarchain.hadoop.pipeline.Blocking
 import scholarchain.hadoop.pipeline.BoundedBlockSelector
 import scholarchain.hadoop.pipeline.RecordingSink

@@ -1,0 +1,40 @@
+REVIEW TIME AND PASSES (reported, not a pass or fail criterion)
+REVIEW TIME pass 1, all 230 rows of gold.jsonl, labeled with suggestions: reviewedAt 2026-11-07T18:53:15.362Z .. 2026-11-07T18:59:44.797Z, span 6.5 min, median gap 0.7 s, 208 gaps under 2 s
+REVIEW TIME pass 2, 77 blind relabels: reviewedAt 2026-11-07T21:42:39.757Z .. 2026-11-07T21:53:11.996Z, span 10.5 min, median gap 2.8 s, 30 gaps under 2 s
+LABELS by pass: pass 1 153 (same 89, different 62, unsure 2); pass 2 77 (same 7, different 67, unsure 3)
+NOT RE-REVIEWED: 153 pairs carry first-pass labels made with suggestions; only 77 pairs were reviewed blind
+PASS entry-count: 230 entries, expected 230
+PASS loads-as-GoldLabel: every row loads as a GoldLabel
+PASS gold-pair-ids: 230 unique
+PASS pairs-file: 230 unique pairs, expected 230
+PASS gold-pairs-coverage: 230 pair_ids in both files
+PASS gold-agrees-with-pairs: all fields agree
+PASS human-review-fields: method, reviewer, time, sources
+PASS dblp-snapshot: every DBLP record is dblp:2026-11-05
+PASS pass-field: 230 rows are marked pass 1 or 2
+PASS pass1-file: 230 labels in gold.jsonl
+PASS pass2-is-subset: 77 pass-2 rows are exactly the subset
+PASS subset-recomputed: recomputed 77 pairs, subset file 77
+PASS pass2-blind: 77 pass-2 rows carry no suggestion
+PASS pass1-carried: 153 pass-1 rows equal their lines in gold.jsonl
+SKIP label-totals: same/different/unsure 96/129/5; no expected totals given, shown for the record
+PASS strata-key: 230 keys: clear-non-match 76, exact-id 77, hard-common-name 77
+INFO kinds: researcher 215, work 15
+INFO reviewers: khang-nguyen
+INFO rows with a note: 1
+INFO snapshots of crossref: crossref:2026-11-07
+INFO snapshots of dblp: dblp:2026-11-05
+INFO snapshots of openalex: openalex:2026-11-07
+COMPARE descriptive only: not a threshold input and not a quality score; pass 1 was made with suggestions, pass 2 without
+COMPARE only 77 subset pairs were re-reviewed blind; 153 pairs were NOT re-reviewed and carry their pass-1 labels
+COMPARE exact agreement 72 of 77 (93.506%)
+COMPARE Cohen kappa over same/different: n 72, excluded for unsure: 5, observed 1.000, by chance 0.847, kappa 1.000
+COMPARE changes pass 1->pass 2: different->unsure 3, unsure->different 1, unsure->same 1
+COMPARE stratum hard-common-name: 77 pairs, 72 agree, 5 disagree
+COMPARE disagreements: 5
+COMPARE disagree pair:v1:14eb1bd6deba2520edc14350acf96a7a first=unsure second=different
+COMPARE disagree pair:v1:2603773206be8c600886af93213b1063 first=different second=unsure
+COMPARE disagree pair:v1:35516eb7dfe37fb59d3a4a5adb73c9e3 first=unsure second=same
+COMPARE disagree pair:v1:394ff8b12192948a1f9f3ff936524f09 first=different second=unsure
+COMPARE disagree pair:v1:65622c4eec3b7e74109adf6a22ab3010 first=different second=unsure
+VALIDATION PASSED (0 failed, 1 skipped)

@@ -1,0 +1,210 @@
+[info] welcome to sbt 1.11.7 (Eclipse Adoptium Java 21.0.13)
+[info] loading settings for project scholarchain-build-build from build.sbt...
+[info] loading project definition from /Users/winnguyen/ScholarChain/project/project
+[info] loading settings for project scholarchain-build from plugins.sbt...
+[info] loading project definition from /Users/winnguyen/ScholarChain/project
+[info] loading settings for project root from build.sbt...
+[info] set current project to scholarchain (in build file:/Users/winnguyen/ScholarChain/)
+[info] running scholarchain.er.eval.assess.EvaluationRun --pairs /Users/winnguyen/scholarchain-data/gold/phase5/pairs.jsonl --gold /Users/winnguyen/scholarchain-data/gold/phase5/gold-v3.jsonl --records /Users/winnguyen/scholarchain-data/phase4-out/subset-v5/run=run-v1-d4722bc7-0d02-42da-bdb6-088ee508a143/snapshot=8e1be6626420/stage=graph-export/works/v1 --strata-key /Users/winnguyen/scholarchain-data/gold/phase5/private/strata-key.jsonl --out /Users/winnguyen/scholarchain-data/gold/phase5/eval-v3-r3 --compare-with /Users/winnguyen/scholarchain-data/gold/phase5/eval-v3-r2/evaluation-report.json --compare-decisions /Users/winnguyen/scholarchain-data/gold/phase5/eval-v3-r2/decisions.jsonl
+decided 230 of 230 pairs
+ScholarChain entity-resolution gold evaluation
+policy scholarchain.er.policy/1.4.0: accept 0.95, reject 0.35, adjudication band [0.7, 0.95)
+thresholds are the shipped provisional values, not tuned on this set
+input gold: 6e5342ddd62c7e0904020a2fb6be37ca5fda6bf985db255ee65ce538e06d2a96
+input pairs: be3aea1b754a10ce71bdbeeec0050cba168a19f0a6d9893c754ff10df15e3050
+input records (directory digest): 646dbc6981903932cb01c97d840eca8b0107db953c384f0b241c2d55bb534608
+input strata-key: 7a9bcd25ce6deabf2fc2e0c97eecb0327cf813a500305de6bc320d7c3cae3199
+
+WARNINGS
+  3 pairs labeled unsure were excluded from precision and recall
+  researcher: only 0 false positives available, fewer than 10
+  work: only 0 false positives available, fewer than 10
+  work: only 0 false negatives available, fewer than 10
+
+== pooled over researcher and work (gold rows include unsure)
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same              77        14           4         1        0
+  different          0       109          14         8        0
+  unsure             0         1           2         0        0
+  precision 1.000 [0.952, 1.000]
+  recall    0.802 [0.711, 0.869]
+  F1        0.890
+
+== by pass (every label in this file is blind: pass 2 relabeled and pass 3 re-reviewed; none was made with a suggestion visible)
+-- pass 2: 77 blind (relabeled BLIND, no suggestion, no stratum)
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0         3           4         0        0
+  different          0        54          13         0        0
+  unsure             0         1           2         0        0
+  precision n/a
+  recall    0.000 [0.000, 0.354]
+  F1        n/a
+-- pass 3: 153 blind re-review of pass-1 pairs (BLIND, no suggestion, no stratum)
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same              77        11           0         1        0
+  different          0        55           1         8        0
+  unsure             0         0           0         0        0
+  precision 1.000 [0.952, 1.000]
+  recall    0.865 [0.779, 0.921]
+  F1        0.928
+
+== separate by kind (unsure excluded)
+-- researcher: 212 scored, 3 unsure excluded (rows are gold, unsure not shown)
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same              62        14           4         1        0
+  different          0       109          14         8        0
+  precision 1.000  recall 0.765  F1 0.867  decided-recall 0.816
+  coverage 0.873  unresolved-rate 0.085  conflict-rate 0.042
+  path exact-id: accepted 62 (TP 62, FP 0) precision 1.000; rejected 0 (TN 0, FN 0) NPV n/a
+  path deterministic-bibliographic: accepted 0 (TP 0, FP 0) precision n/a; rejected 18 (TN 9, FN 9) NPV 0.500
+  path probabilistic: accepted 0 (TP 0, FP 0) precision n/a; rejected 105 (TN 100, FN 5) NPV 0.952
+  path llm-adjudicated: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+-- work: 15 scored, 0 unsure excluded (rows are gold, unsure not shown)
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same              15         0           0         0        0
+  different          0         0           0         0        0
+  precision 1.000  recall 1.000  F1 1.000  decided-recall 1.000
+  coverage 1.000  unresolved-rate 0.000  conflict-rate 0.000
+  path exact-id: accepted 15 (TP 15, FP 0) precision 1.000; rejected 0 (TN 0, FN 0) NPV n/a
+  path deterministic-bibliographic: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+  path probabilistic: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+  path llm-adjudicated: accepted 0 (TP 0, FP 0) precision n/a; rejected 0 (TN 0, FN 0) NPV n/a
+
+== by stratum (private key, report only)
+-- clear-non-match: 76 pairs
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0        11           0         1        0
+  different          0        55           1         8        0
+  unsure             0         0           0         0        0
+  precision n/a
+  recall    0.000 [0.000, 0.243]
+  F1        n/a
+-- exact-id: 77 pairs
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same              77         0           0         0        0
+  different          0         0           0         0        0
+  unsure             0         0           0         0        0
+  precision 1.000 [0.952, 1.000]
+  recall    1.000 [0.952, 1.000]
+  F1        1.000
+-- hard-common-name: 77 pairs
+             ACCEPTED  REJECTED  UNRESOLVED  CONFLICT  MISSING
+  same               0         3           4         0        0
+  different          0        54          13         0        0
+  unsure             0         1           2         0        0
+  precision n/a
+  recall    0.000 [0.000, 0.354]
+  F1        n/a
+
+== adjudication band, never auto-labeled
+  UNRESOLVED in band by gold: same 4, different 7, unsure 0
+  eligible for adjudication 11, abstained by offline-stub/abstain-1: 11, model calls 11
+
+== errors by pair_id, false accepts first
+  2-false-reject pair:v1:35516eb7dfe37fb59d3a4a5adb73c9e3 researcher hard-common-name gold=match REJECTED probabilistic score=0.231 [Jing Li | Jing Li] 10.1145/2505515.2505729 10.1109/ivmspw.2013.6611917 rejected.score-below-reject
+  2-false-reject pair:v1:2b5d2c7acee0163b9b52ab1239727854 researcher hard-common-name gold=match REJECTED probabilistic score=0.182 [Yang Liu | Yang Liu] 10.3390/s24123896 10.1186/s13638-018-1025-5 rejected.score-below-reject
+  2-false-reject pair:v1:ca212858abe4d14d4ce641df1d651503 researcher hard-common-name gold=match REJECTED probabilistic score=0.182 [Lei Zhang | Lei Zhang] 10.1109/jiot.2025.3539852 10.1080/03610918.2021.1948573 rejected.score-below-reject
+  2-false-reject pair:v1:05c6330738dfc4f523c0ce2304dcd497 researcher clear-non-match gold=match REJECTED deterministic-bibliographic score=0.020 [Rong Yu | Siming Wang] 10.1109/iccchina.2017.8330526 W2795757787 rejected.family-name-mismatch
+  2-false-reject pair:v1:06755b8ca8d4ca92eee6616a9a117c24 researcher clear-non-match gold=match REJECTED deterministic-bibliographic score=0.020 [Chenyang Zhou | Yice Cao] W4408951617 10.1109/taes.2025.3555247 rejected.same-doi-distinct-position
+  2-false-reject pair:v1:28f6b156e4d694c4cb793cdc89921743 researcher clear-non-match gold=match REJECTED deterministic-bibliographic score=0.020 [Xin Li 0110 | Liang He 0001] journals/corr/abs-2603-01145 journals/corr/abs-2303-03595 rejected.family-name-mismatch
+  2-false-reject pair:v1:480545b62bc2b67520e9e0db7c71226c researcher clear-non-match gold=match REJECTED deterministic-bibliographic score=0.020 [Xuemin Lin 0001 | Lu Qin 0001] journals/corr/abs-2011-08399 journals/corr/WenQLZC17 rejected.family-name-mismatch
+  2-false-reject pair:v1:605df74e7dad02bbe77f6ebbfa15036b researcher clear-non-match gold=match REJECTED deterministic-bibliographic score=0.020 [Zhangyong Tang | Hui Li 0037] journals/corr/abs-2508-13000 journals/inffus/TangXLWZK23 rejected.family-name-mismatch
+  2-false-reject pair:v1:67778fa30fa4483d2e81c4c32e72f5a0 researcher clear-non-match gold=match REJECTED deterministic-bibliographic score=0.020 [Peng Li | Yang Xu] 10.1145/1119772.1119968 W2080073390 rejected.family-name-mismatch
+  2-false-reject pair:v1:8de930a16bd2d4017feb5d6d129ceede researcher clear-non-match gold=match REJECTED deterministic-bibliographic score=0.020 [Wei Wang 0169 | Wangmeng Zuo] conf/embc/WangSWYZ12 W2165384011 rejected.same-doi-distinct-position
+  2-false-reject pair:v1:adcec88cc2041c4fc1f3526bfae1f82b researcher clear-non-match gold=match REJECTED deterministic-bibliographic score=0.020 [Zhengyuan Yang | Lei Zhang] journals/corr/abs-2603-05518 W7134253765 rejected.same-arxiv-distinct-position
+  2-false-reject pair:v1:e97c4bab886f838f489a21e4e420eb26 researcher clear-non-match gold=match REJECTED deterministic-bibliographic score=0.020 [Rakesh Tamrakar | Wenhong Chen] W2734803512 conf/iccchina/ZhangSGCLTC15 rejected.same-doi-distinct-position
+  2-false-reject pair:v1:576d0cd7481bc63b3500ce95fb6026e9 researcher clear-non-match gold=match REJECTED probabilistic score=0.016 [Jinsheng Yang | Jigang Yang] journals/sensors/ChenSHYGW20 journals/bmcmi/FengQYRZQWWZY22 rejected.score-below-reject
+  2-false-reject pair:v1:d88236f5592c69fc7940636b45995409 researcher clear-non-match gold=match REJECTED probabilistic score=0.016 [Yiteng Huang | Yanru Huang] conf/interspeech/YangHXWSLFYSLSM26 10.1109/jstars.2024.3435425 rejected.score-below-reject
+  3-same-left-conflict pair:v1:eb081006b2c33feb3924090dd1c8dc46 researcher clear-non-match gold=match CONFLICT exact-id score=0.005 [Kuai Yu | Mingkai Chen] W4416203810 conf/sc/ChenH0LYDY000025 conflict.id:orcid,feature.missing:affiliation.compat,feature.missing:citation.shared
+  3-same-left-unresolved pair:v1:472d4d8e7c1b76689d26d6228399acae researcher hard-common-name gold=match UNRESOLVED probabilistic score=0.881 [Ying Zhang | Ying Zhang] journals/jossac/ZhangZX10 conf/icnc/XuZZ08 unresolved.score-between-thresholds,feature.missing:affiliation.compat,feature.missing:citation.shared,llm.abstained,llm.insufficient-evidence
+  3-same-left-unresolved pair:v1:7a47ade0a1b7eb74cb1057229e70341f researcher hard-common-name gold=match UNRESOLVED probabilistic score=0.802 [Wei Wang 0009 | Wei Wang 0009] conf/icde/WangXHZWZS08 conf/waim/WangWS08 unresolved.score-between-thresholds,feature.missing:affiliation.compat,feature.missing:citation.shared,llm.abstained,llm.insufficient-evidence
+  3-same-left-unresolved pair:v1:ae5e206334b7dd81f743e63370600868 researcher hard-common-name gold=match UNRESOLVED probabilistic score=0.802 [Xin Li 0056 | Xin Li 0056] journals/corr/abs-2010-12405 conf/acl/ZhouLHBCSM22 unresolved.score-between-thresholds,feature.missing:affiliation.compat,feature.missing:citation.shared,llm.abstained,llm.insufficient-evidence
+  3-same-left-unresolved pair:v1:d6abb3d2c94eda4419f5eb3b670fd837 researcher hard-common-name gold=match UNRESOLVED probabilistic score=0.802 [Hui Li 0048 | Hui Li 0048] conf/cscwd/PengLLLYZ18 conf/ispa/LianHCLL20 unresolved.score-between-thresholds,feature.missing:affiliation.compat,feature.missing:citation.shared,llm.abstained,llm.insufficient-evidence
+  4-different-flagged-conflict pair:v1:31c287f1212787b80b737d748f3355fa researcher clear-non-match gold=non-match CONFLICT exact-id score=0.711 [Yan Liu | Yang Liu 0014] conf/www/ZhaoHSLLLXSYJW26 journals/tog/XuWPLTXTKW26 conflict.id:orcid,feature.missing:affiliation.compat,feature.missing:citation.shared
+  4-different-flagged-conflict pair:v1:7c8078df1bd83423e8cfbef10043764e researcher clear-non-match gold=non-match CONFLICT exact-id score=0.214 [Ying Zhang 0063 | Ying Zhang 0001] journals/tgrs/LiangZZLPK23 conf/kdd/YuWW00ZLZ23 conflict.id:orcid,feature.missing:affiliation.compat,feature.missing:citation.shared
+  4-different-flagged-conflict pair:v1:7efd62aa71f893f966c1f12afa003684 researcher clear-non-match gold=non-match CONFLICT exact-id score=0.015 [Xianglong Liu | Xiaoyang Liu] W4413147641 conf/siggraph/ShiYLLXHLCS26 conflict.id:orcid,feature.missing:affiliation.compat,feature.missing:citation.shared
+  4-different-flagged-conflict pair:v1:612f756ee03df7bc195a372275a663ba researcher clear-non-match gold=non-match CONFLICT exact-id score=0.001 [Jielin Jiang | Lei Zhang 0006] W2150427434 journals/tip/JiangZY14 conflict.id:orcid,feature.missing:affiliation.compat,feature.missing:citation.shared
+  4-different-flagged-conflict pair:v1:fca4edc286657165084df2d9600fd8b9 researcher clear-non-match gold=non-match CONFLICT exact-id score=0.001 [Jianhui Wang 0001 | Jun Wang] journals/tsg/ZhangWK20 W3082441107 conflict.id:orcid,feature.missing:affiliation.compat,feature.missing:citation.shared
+  4-different-flagged-conflict pair:v1:e04799511ecfe251655c8ad26cb81e8f researcher clear-non-match gold=non-match CONFLICT exact-id score=0.001 [Jing Li | Jiaxin Li 0002] 10.1016/j.rcim.2026.103384 journals/tgrs/LiZLLG24 conflict.id:orcid,feature.missing:affiliation.compat,feature.missing:citation.shared
+  4-different-flagged-conflict pair:v1:762217eac0928935fb70a65ebf30a18c researcher clear-non-match gold=non-match CONFLICT exact-id score=0.001 [Shuo Li 0001 | Shaohui Li] journals/isci/GuSSZL18 W4416338112 conflict.id:orcid,feature.missing:affiliation.compat,feature.missing:citation.shared
+  4-different-flagged-conflict pair:v1:78ef46bc4fe5a3a55032e76121503321 researcher clear-non-match gold=non-match CONFLICT exact-id score=0.000 [Shangfei Wang | Yu Li 0006] W2028251274 journals/patterns/FengLLYZCLZW25 conflict.id:orcid,feature.missing:affiliation.compat,feature.missing:citation.shared
+  5-gold-unsure pair:v1:394ff8b12192948a1f9f3ff936524f09 researcher hard-common-name gold=unsure UNRESOLVED probabilistic score=0.401 [Xiaochun Cao | Xiaochun Cao] journals/corr/abs-2504-12204 journals/corr/abs-2503-00429 unresolved.score-between-thresholds,feature.missing:affiliation.compat,feature.missing:citation.shared
+  5-gold-unsure pair:v1:65622c4eec3b7e74109adf6a22ab3010 researcher hard-common-name gold=unsure UNRESOLVED probabilistic score=0.401 [Hui Li | Hui Li 0089] journals/corr/abs-2410-07718 journals/corr/abs-2503-00429 unresolved.score-between-thresholds,feature.missing:affiliation.compat,feature.missing:citation.shared
+  5-gold-unsure pair:v1:2603773206be8c600886af93213b1063 researcher hard-common-name gold=unsure REJECTED probabilistic score=0.198 [Yang Liu | Yang Liu] W4411086174 10.1504/ijcat.2025.149368 rejected.score-below-reject
+
+== threshold sensitivity
+-- sweep, researcher, reject fixed at 0.35
+  accept 0.9 reject 0.35: accepted 62 precision 1.000 recall 0.765 F1 0.867 unresolved 0.085
+  accept 0.92 reject 0.35: accepted 62 precision 1.000 recall 0.765 F1 0.867 unresolved 0.085
+  accept 0.94 reject 0.35: accepted 62 precision 1.000 recall 0.765 F1 0.867 unresolved 0.085
+  accept 0.95 reject 0.35: accepted 62 precision 1.000 recall 0.765 F1 0.867 unresolved 0.085  <- policy
+  accept 0.96 reject 0.35: accepted 62 precision 1.000 recall 0.765 F1 0.867 unresolved 0.085
+  accept 0.98 reject 0.35: accepted 62 precision 1.000 recall 0.765 F1 0.867 unresolved 0.085
+-- sweep, researcher, accept fixed at 0.95
+  accept 0.95 reject 0.2: accepted 62 precision 1.000 recall 0.765 F1 0.867 unresolved 0.212
+  accept 0.95 reject 0.25: accepted 62 precision 1.000 recall 0.765 F1 0.867 unresolved 0.108
+  accept 0.95 reject 0.3: accepted 62 precision 1.000 recall 0.765 F1 0.867 unresolved 0.104
+  accept 0.95 reject 0.35: accepted 62 precision 1.000 recall 0.765 F1 0.867 unresolved 0.085  <- policy
+  accept 0.95 reject 0.4: accepted 62 precision 1.000 recall 0.765 F1 0.867 unresolved 0.080
+  accept 0.95 reject 0.45: accepted 62 precision 1.000 recall 0.765 F1 0.867 unresolved 0.071
+  accept 0.95 reject 0.5: accepted 62 precision 1.000 recall 0.765 F1 0.867 unresolved 0.071
+-- sweep, work, reject fixed at 0.35
+  accept 0.9 reject 0.35: accepted 15 precision 1.000 recall 1.000 F1 1.000 unresolved 0.000
+  accept 0.92 reject 0.35: accepted 15 precision 1.000 recall 1.000 F1 1.000 unresolved 0.000
+  accept 0.94 reject 0.35: accepted 15 precision 1.000 recall 1.000 F1 1.000 unresolved 0.000
+  accept 0.95 reject 0.35: accepted 15 precision 1.000 recall 1.000 F1 1.000 unresolved 0.000  <- policy
+  accept 0.96 reject 0.35: accepted 15 precision 1.000 recall 1.000 F1 1.000 unresolved 0.000
+  accept 0.98 reject 0.35: accepted 15 precision 1.000 recall 1.000 F1 1.000 unresolved 0.000
+-- sweep, work, accept fixed at 0.95
+  accept 0.95 reject 0.2: accepted 15 precision 1.000 recall 1.000 F1 1.000 unresolved 0.000
+  accept 0.95 reject 0.25: accepted 15 precision 1.000 recall 1.000 F1 1.000 unresolved 0.000
+  accept 0.95 reject 0.3: accepted 15 precision 1.000 recall 1.000 F1 1.000 unresolved 0.000
+  accept 0.95 reject 0.35: accepted 15 precision 1.000 recall 1.000 F1 1.000 unresolved 0.000  <- policy
+  accept 0.95 reject 0.4: accepted 15 precision 1.000 recall 1.000 F1 1.000 unresolved 0.000
+  accept 0.95 reject 0.45: accepted 15 precision 1.000 recall 1.000 F1 1.000 unresolved 0.000
+  accept 0.95 reject 0.5: accepted 15 precision 1.000 recall 1.000 F1 1.000 unresolved 0.000
+
+== uncertainty
+  n = 230 labeled pairs, 3 labeled unsure and excluded from precision and recall; the metrics rest on that small sample.
+  The sample is stratified by design (exact-id, hard-common-name, clear-non-match, about a third each), not random, so these are not population rates. Pooled precision and recall depend on the mix.
+  Pooled precision does not measure the probabilistic path when the export left out pairs whose context agrees (includeAgreeingContext false), and the exact-id stratum is selected by the same shared identifier rule the exact-id path accepts on, so its accepts agree with it by construction. A high pooled precision therefore says nothing about the probabilistic or deterministic-bibliographic accept paths.
+  Intervals are Wilson 95% intervals for a simple binomial, which ignores the stratification and the clustering of pairs by author.
+  Recall is measured over candidate pairs only. Matches that blocking never proposed are not in the sample, so true recall is lower or equal.
+  Gold labels come from one reviewer. No label in this file was made with a suggestion visible, so there is no suggestion to agree with.
+  DBLP names carry numeric homonym suffixes, so many DBLP-DBLP labels are decided by DBLP's own disambiguation. Scores against those labels measure agreement with DBLP, not independent truth.
+  Thresholds are provisional and hand-set. The sweep reads them off this sample only; a change chosen from it would be tuned to the evaluation set and needs a separate sample.
+  Export manifest: includeAgreeingContext false; 5766 same-name agreeing-context pairs were excluded from the sample.
+  This gold file has no with-suggestion label: 77 labels were reviewed blind in pass 2 and 153 in pass 3, a blind re-review of the pass-1 pairs. The pooled and per-stratum numbers mix the two passes; read the by-pass section. The reviewer had seen every pair before, with suggestions, so memory may still anchor the labels.
+
+== comparison with evaluation-report.json (sha256 b4876fcb9d7528d43439fce84162a3e26e13bc9d9fa9ab0a2c639335d2775987)
+descriptive only: never used to alter a threshold, a rule or a label
+note: the v2 label of a pass-3 pair is its pass-1 label (gold-v2 carried the pass-1 labels unchanged); the earlier gold file itself is not read here
+WARNING: the policy version differs: scholarchain.er.policy/1.3.0 against scholarchain.er.policy/1.4.0
+-- pooled, earlier report against this one
+  pairs earlier 230  this 230
+  precision earlier 1.000  this 1.000
+  recall earlier 0.802  this 0.802
+  F1 earlier 0.890  this 0.890
+  same earlier accepted 77, rejected 14, unresolved 4, conflict 1
+  same this    accepted 77, rejected 14, unresolved 4, conflict 1
+  different earlier accepted 0, rejected 109, unresolved 14, conflict 8
+  different this    accepted 0, rejected 109, unresolved 14, conflict 8
+  unsure earlier accepted 0, rejected 1, unresolved 2, conflict 0
+  unsure this    accepted 0, rejected 1, unresolved 2, conflict 0
+-- labels that changed
+gold labels changed between the files: 4 of 153 pass-3 pairs (different->same 1, same->different 1, unsure->different 2)
+pass-3 pairs listed in the earlier report's error section: 20 of 153; labels changed among them: 2
+pass-3 pairs not listed there: 133; labels changed among them: 2
+  change pair:v1:5a23494f2814466c020259d1dc8486a7 researcher clear-non-match unsure->different matcher=UNRESOLVED probabilistic score=0.711 listed in the earlier report: no unresolved.score-between-thresholds,feature.missing:affiliation.compat,feature.missing:citation.shared,llm.abstained,llm.insufficient-evidence
+  change pair:v1:762217eac0928935fb70a65ebf30a18c researcher clear-non-match same->different matcher=CONFLICT exact-id score=0.001 listed in the earlier report: yes conflict.id:orcid,feature.missing:affiliation.compat,feature.missing:citation.shared
+  change pair:v1:e2f2b0adbbce963774d75f7eb111f822 researcher clear-non-match unsure->different matcher=REJECTED probabilistic score=0.001 listed in the earlier report: no rejected.score-below-reject
+  change pair:v1:eb081006b2c33feb3924090dd1c8dc46 researcher clear-non-match different->same matcher=CONFLICT exact-id score=0.005 listed in the earlier report: yes conflict.id:orcid,feature.missing:affiliation.compat,feature.missing:citation.shared
+
+== matcher decisions compared with decisions.jsonl (sha256 05726ed4e299a5ecedb845ebceab430a478ac1c4090933e8c00e0cc714a09bbf)
+descriptive only: never used to alter a threshold, a rule or a label
+pairs earlier 230, this run 230, in both 230, only earlier 0, only this run 0
+decisions changed (outcome, path, score or reasons): 0 of 230
+by outcome: none
+by gold label: none
+Wrote /Users/winnguyen/scholarchain-data/gold/phase5/eval-v3-r3/decisions.jsonl, /Users/winnguyen/scholarchain-data/gold/phase5/eval-v3-r3/evaluation-report.txt and /Users/winnguyen/scholarchain-data/gold/phase5/eval-v3-r3/evaluation-report.json
+[success] Total time: 1 s, completed Nov 7, 2026, 5:56:34 PM

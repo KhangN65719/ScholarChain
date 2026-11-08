@@ -1,0 +1,56 @@
+[info] welcome to sbt 1.11.7 (Eclipse Adoptium Java 21.0.13)
+[info] loading settings for project scholarchain-build-build from build.sbt...
+[info] loading project definition from /Users/winnguyen/ScholarChain/project/project
+[info] loading settings for project scholarchain-build from plugins.sbt...
+[info] loading project definition from /Users/winnguyen/ScholarChain/project
+[info] loading settings for project root from build.sbt...
+[info] set current project to scholarchain (in build file:/Users/winnguyen/ScholarChain/)
+[info] running scholarchain.er.eval.validation.GoldValidator --pairs /Users/winnguyen/scholarchain-data/gold/phase5/pairs.jsonl --gold /Users/winnguyen/scholarchain-data/gold/phase5/gold-v2.jsonl --mode v2 --pass1 /Users/winnguyen/scholarchain-data/gold/phase5/gold.jsonl --subset /Users/winnguyen/scholarchain-data/gold/phase5/pass2-subset.txt --strata-key /Users/winnguyen/scholarchain-data/gold/phase5/private/strata-key.jsonl --suggestions /Users/winnguyen/scholarchain-codex-suggestions.csv --reviewer khang-nguyen --out /Users/winnguyen/scholarchain-data/gold/phase5/eval-v2
+sha256 be3aea1b754a10ce71bdbeeec0050cba168a19f0a6d9893c754ff10df15e3050  /Users/winnguyen/scholarchain-data/gold/phase5/pairs.jsonl
+sha256 927c7623216288c72ac2c71e361214181d18963c1447058b9a334d6bbd7da613  /Users/winnguyen/scholarchain-data/gold/phase5/gold-v2.jsonl
+sha256 e65f1a411dd461553c9855a3da279d770a02efa724cb53c0cdd510ae9faa1b0b  /Users/winnguyen/scholarchain-codex-suggestions.csv
+sha256 7a9bcd25ce6deabf2fc2e0c97eecb0327cf813a500305de6bc320d7c3cae3199  /Users/winnguyen/scholarchain-data/gold/phase5/private/strata-key.jsonl
+sha256 1cbbbf15d885080dfad03fe14baee165ac8dc6997607edf7d807b0e767f087e9  /Users/winnguyen/scholarchain-data/gold/phase5/gold.jsonl
+sha256 560aeb35f6eaaf4a727dcc69d2d767c929fd659455dbf008f1cdd78785419414  /Users/winnguyen/scholarchain-data/gold/phase5/pass2-subset.txt
+REVIEW TIME AND PASSES (reported, not a pass or fail criterion)
+REVIEW TIME pass 1, all 230 rows of gold.jsonl, labeled with suggestions: reviewedAt 2026-11-07T18:53:15.362Z .. 2026-11-07T18:59:44.797Z, span 6.5 min, median gap 0.7 s, 208 gaps under 2 s
+REVIEW TIME pass 2, 77 blind relabels: reviewedAt 2026-11-07T21:42:39.757Z .. 2026-11-07T21:53:11.996Z, span 10.5 min, median gap 2.8 s, 30 gaps under 2 s
+LABELS by pass: pass 1 153 (same 89, different 62, unsure 2); pass 2 77 (same 7, different 67, unsure 3)
+NOT RE-REVIEWED: 153 pairs carry first-pass labels made with suggestions; only 77 pairs were reviewed blind
+PASS entry-count: 230 entries, expected 230
+PASS loads-as-GoldLabel: every row loads as a GoldLabel
+PASS gold-pair-ids: 230 unique
+PASS pairs-file: 230 unique pairs, expected 230
+PASS gold-pairs-coverage: 230 pair_ids in both files
+PASS gold-agrees-with-pairs: all fields agree
+PASS human-review-fields: method, reviewer, time, sources
+PASS dblp-snapshot: every DBLP record is dblp:2026-11-05
+PASS pass-field: 230 rows are marked pass 1 or 2
+PASS pass1-file: 230 labels in gold.jsonl
+PASS pass2-is-subset: 77 pass-2 rows are exactly the subset
+PASS subset-recomputed: recomputed 77 pairs, subset file 77
+PASS pass2-blind: 77 pass-2 rows carry no suggestion
+PASS pass1-carried: 153 pass-1 rows equal their lines in gold.jsonl
+SKIP label-totals: same/different/unsure 96/129/5; no expected totals given, shown for the record
+PASS strata-key: 230 keys: clear-non-match 76, exact-id 77, hard-common-name 77
+INFO kinds: researcher 215, work 15
+INFO reviewers: khang-nguyen
+INFO rows with a note: 1
+INFO snapshots of crossref: crossref:2026-11-07
+INFO snapshots of dblp: dblp:2026-11-05
+INFO snapshots of openalex: openalex:2026-11-07
+COMPARE descriptive only: not a threshold input and not a quality score; pass 1 was made with suggestions, pass 2 without
+COMPARE only 77 subset pairs were re-reviewed blind; 153 pairs were NOT re-reviewed and carry their pass-1 labels
+COMPARE exact agreement 72 of 77 (93.506%)
+COMPARE Cohen kappa over same/different: n 72, excluded for unsure: 5, observed 1.000, by chance 0.847, kappa 1.000
+COMPARE changes pass 1->pass 2: different->unsure 3, unsure->different 1, unsure->same 1
+COMPARE stratum hard-common-name: 77 pairs, 72 agree, 5 disagree
+COMPARE disagreements: 5
+COMPARE disagree pair:v1:14eb1bd6deba2520edc14350acf96a7a first=unsure second=different
+COMPARE disagree pair:v1:2603773206be8c600886af93213b1063 first=different second=unsure
+COMPARE disagree pair:v1:35516eb7dfe37fb59d3a4a5adb73c9e3 first=unsure second=same
+COMPARE disagree pair:v1:394ff8b12192948a1f9f3ff936524f09 first=different second=unsure
+COMPARE disagree pair:v1:65622c4eec3b7e74109adf6a22ab3010 first=different second=unsure
+VALIDATION PASSED (0 failed, 1 skipped)
+Wrote /Users/winnguyen/scholarchain-data/gold/phase5/eval-v2/gold-validation.txt and /Users/winnguyen/scholarchain-data/gold/phase5/eval-v2/gold-validation.json
+[success] Total time: 1 s, completed Nov 7, 2026, 3:53:33 PM

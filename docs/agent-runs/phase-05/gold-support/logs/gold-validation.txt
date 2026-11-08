@@ -1,0 +1,38 @@
+[info] welcome to sbt 1.11.7 (Eclipse Adoptium Java 21.0.13)
+[info] loading settings for project scholarchain-build-build from build.sbt...
+[info] loading project definition from /Users/winnguyen/ScholarChain/project/project
+[info] loading settings for project scholarchain-build from plugins.sbt...
+[info] loading project definition from /Users/winnguyen/ScholarChain/project
+[info] loading settings for project root from build.sbt...
+[info] set current project to scholarchain (in build file:/Users/winnguyen/ScholarChain/)
+[info] running scholarchain.er.eval.validation.GoldValidator --pairs /Users/winnguyen/scholarchain-data/gold/phase5/pairs.jsonl --gold /Users/winnguyen/scholarchain-data/gold/phase5/gold.jsonl --suggestions /Users/winnguyen/scholarchain-codex-suggestions.csv --strata-key /Users/winnguyen/scholarchain-data/gold/phase5/private/strata-key.jsonl --manifest /Users/winnguyen/scholarchain-data/gold/phase5/private/export-manifest.json --reviewer khang-nguyen --out /Users/winnguyen/scholarchain-data/gold/phase5/eval
+sha256 be3aea1b754a10ce71bdbeeec0050cba168a19f0a6d9893c754ff10df15e3050  /Users/winnguyen/scholarchain-data/gold/phase5/pairs.jsonl
+sha256 1cbbbf15d885080dfad03fe14baee165ac8dc6997607edf7d807b0e767f087e9  /Users/winnguyen/scholarchain-data/gold/phase5/gold.jsonl
+sha256 e65f1a411dd461553c9855a3da279d770a02efa724cb53c0cdd510ae9faa1b0b  /Users/winnguyen/scholarchain-codex-suggestions.csv
+sha256 7a9bcd25ce6deabf2fc2e0c97eecb0327cf813a500305de6bc320d7c3cae3199  /Users/winnguyen/scholarchain-data/gold/phase5/private/strata-key.jsonl
+sha256 4a2a706d63d7264b4c1486994899ed2abaac12e7e7d547fd30e61d2870fffd43  /Users/winnguyen/scholarchain-data/gold/phase5/private/export-manifest.json
+PASS entry-count: 230 entries, expected 230
+PASS loads-as-GoldLabel: every row loads as a GoldLabel
+PASS gold-pair-ids: 230 unique
+PASS pairs-file: 230 unique pairs, expected 230
+PASS gold-pairs-coverage: 230 pair_ids in both files
+PASS gold-agrees-with-pairs: all fields agree
+PASS human-review-fields: method, reviewer, time, sources
+PASS dblp-snapshot: every DBLP record is dblp:2026-11-05
+PASS label-totals: same/different/unsure 95/131/4, expected 95/131/4
+PASS suggestion-on-every-row: 230 rows have one
+PASS suggestion-source: scholarchain-codex-suggestions.csv e65f1a411dd461553c9855a3da279d770a02efa724cb53c0cdd510ae9faa1b0b
+PASS suggestions-csv: scholarchain-codex-suggestions.csv sha256 e65f1a411dd461553c9855a3da279d770a02efa724cb53c0cdd510ae9faa1b0b matches every row
+PASS changed-from-suggestion: recomputed 64 changed (expected 64); 0 stored flags disagree
+PASS strata-key: 230 keys: clear-non-match 76, exact-id 77, hard-common-name 77
+INFO kinds: researcher 215, work 15
+INFO reviewers: khang-nguyen
+INFO suggestion->final: different->different 84, different->same 12, different->unsure 3, same->different 1, same->same 81, unsure->different 46, unsure->same 2, unsure->unsure 1
+INFO reviewedAt 2026-11-07T18:53:15.362Z .. 2026-11-07T18:59:44.797Z, span 6.5 min, median gap 0.7 s, 208 gaps under 2 s
+INFO rows with a note: 0
+INFO snapshots of crossref: crossref:2026-11-07
+INFO snapshots of dblp: dblp:2026-11-05
+INFO snapshots of openalex: openalex:2026-11-07
+VALIDATION PASSED (0 failed, 0 skipped)
+Wrote /Users/winnguyen/scholarchain-data/gold/phase5/eval/gold-validation.txt and /Users/winnguyen/scholarchain-data/gold/phase5/eval/gold-validation.json
+[success] Total time: 1 s, completed Nov 7, 2026, 1:31:47 PM

@@ -162,15 +162,12 @@ class AdversarialXmlSuite extends FunSuite:
     assertEquals(publication.work.normalizedTitle, "deep")
   }
 
-  test("an undeclared named entity makes a real DBLP record unreadable") {
-    // The dataset policy omits the DTD and the parser refuses a DOCTYPE, so
-    // `&eacute;` resolves against nothing and the record is a reject. The
-    // published DBLP dump uses these entities throughout, so this is the
-    // reject class a full-snapshot run should expect to dominate. Recorded
-    // for the owner and for whoever sizes the reject output; it is a
-    // consequence of a deliberate security choice, not a coding defect.
+  test("an unknown named entity is still a counted MalformedXml reject") {
+    // R6 repair resolves only DBLP's fixed HTML 4 table. A name outside it
+    // has no declaration and must still reject with a non-empty detail, so
+    // the reject is counted rather than silently dropped.
     val xml =
-      """<article key="e/1"><author>A B</author><title>Caf&eacute;.</title></article>"""
+      """<article key="e/1"><author>A B</author><title>Caf&notarealentity;.</title></article>"""
     val result = DblpParser.parse(xml, run)
     assertEquals(
       result.left.toOption.map(_._1),
@@ -179,27 +176,38 @@ class AdversarialXmlSuite extends FunSuite:
     assert(result.left.toOption.exists(_._2.nonEmpty))
   }
 
-  test("a named DBLP entity resolves instead of rejecting the record".fail) {
-    // R6 `.fail` TWIN. New in final-review.md, not among my thirteen -- I
-    // had classified this as category 2, correct and deliberate, flagging
-    // only reject-output sizing. The reviewer disagreed that nothing is
-    // owed, and I accept the correction: the real DBLP dump uses named HTML
-    // entities extensively, so on a full snapshot this rejects a large
-    // fraction of records, makes the accepted/rejected ratio meaningless and
-    // starves the graph.
-    //
-    // The security posture at `XmlFragment.factory():27-30` is right and is
-    // NOT what this twin asks to change. The remedy recorded in
-    // decisions.md section 4 is to pre-resolve DBLP's fixed, published
-    // entity set before parsing, with a counter -- never to enable the DTD.
-    // Owner `hadoop-engineer`, with `dataset-engineer` supplying the list.
-    // Phase 5 blocker and a condition on the first full-snapshot run.
+  test("an external entity declaration is rejected and never resolved") {
     val xml =
-      """<article key="e/1"><author>A B</author><title>Caf&eacute;.</title></article>"""
+      """<!DOCTYPE article [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>""" +
+        """<article key="e/3"><author>A B</author><title>&xxe;</title></article>"""
+    val result = DblpParser.parse(xml, run)
+    assertEquals(
+      result.left.toOption.map(_._1),
+      Some(RejectReason.MalformedXml)
+    )
+  }
+
+  test("a DOCTYPE redefining a DBLP entity name is rejected, not honored") {
+    val xml =
+      """<!DOCTYPE article [<!ENTITY eacute "EVIL">]>""" +
+        """<article key="e/4"><author>A B</author><title>Caf&eacute;.</title></article>"""
+    val result = DblpParser.parse(xml, run)
+    assertEquals(
+      result.left.toOption.map(_._1),
+      Some(RejectReason.MalformedXml)
+    )
+  }
+
+  test("a named DBLP entity resolves to its Unicode character") {
+    // R6 repaired; supersedes the former `.fail` twin. Stored text keeps the
+    // original characters (F2 decision), only the normalized form folds.
+    val xml =
+      """<article key="e/1"><author>J&ouml;rg M&uuml;ller</author><title>Caf&eacute;.</title></article>"""
     val parsed = DblpParser.parse(xml, run)
     val publication = parsed.getOrElse(fail(s"parse failed: $parsed"))
     assertEquals(publication.work.title, "Café.")
     assertEquals(publication.work.normalizedTitle, "cafe")
+    assertEquals(publication.work.authors.head.name, "Jörg Müller")
   }
 
   test("the five predefined entities still decode") {

@@ -9,6 +9,7 @@ import scholarchain.core.{
   SourceType,
   WorkRecord
 }
+import scholarchain.core.pairing.MatchCandidate
 import scholarchain.hadoop.pipeline.*
 
 /** The bounded local integration run.

@@ -1,0 +1,49 @@
+{
+  "exportVersion": "scholarchain.er.pairs-export/1.0.0",
+  "seed": "scholarchain-er-phase5-v1",
+  "requestedTotal": 230,
+  "includeAgreeingContext": false,
+  "candidatesInput": "/Users/winnguyen/scholarchain-data/phase4-out/subset-v5/run=run-v1-d4722bc7-0d02-42da-bdb6-088ee508a143/snapshot=8e1be6626420/stage=candidate-features/match-candidates/v1",
+  "candidatesSha256": "de88d2155ab218a814745234f5c2c1812c5d4db7d0ae295b18f80e19341f139d",
+  "recordsInput": "/Users/winnguyen/scholarchain-data/phase4-out/subset-v5/run=run-v1-d4722bc7-0d02-42da-bdb6-088ee508a143/snapshot=8e1be6626420/stage=graph-export/works/v1",
+  "recordsSha256": "646dbc6981903932cb01c97d840eca8b0107db953c384f0b241c2d55bb534608",
+  "candidateRunIds": [
+    "run:v1:d4722bc7-0d02-42da-bdb6-088ee508a143"
+  ],
+  "candidatesRead": 362905,
+  "distinctPairs": 311249,
+  "excluded": {
+    "unclassified": 4358,
+    "same-name-agreeing-context": 5766
+  },
+  "strata": [
+    {
+      "stratum": "exact-id",
+      "target": 77,
+      "eligible": 3332,
+      "selected": 77,
+      "shortfall": 0
+    },
+    {
+      "stratum": "hard-common-name",
+      "target": 77,
+      "eligible": 57214,
+      "selected": 77,
+      "shortfall": 0
+    },
+    {
+      "stratum": "clear-non-match",
+      "target": 76,
+      "eligible": 240579,
+      "selected": 76,
+      "shortfall": 0
+    }
+  ],
+  "selectedByKind": {
+    "researcher": 215,
+    "work": 15
+  },
+  "totalSelected": 230,
+  "totalShortfall": 0,
+  "recordsIndexed": 25686
+}

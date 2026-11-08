@@ -2,7 +2,6 @@ package scholarchain.tests.adversarial
 
 import munit.FunSuite
 import scholarchain.hadoop.pipeline.DblpParser
-import scholarchain.hadoop.pipeline.RejectReason
 import scholarchain.hadoop.pipeline.TextNormalizer
 
 /** Adversarial Unicode: normalization forms, combining marks, supplementary
@@ -31,16 +30,32 @@ class AdversarialUnicodeSuite extends FunSuite:
   private val mathematicalBoldCapitalM = "𝐌"
   private val grinningFace = "😀"
 
-  test("every non-Latin script folds to the empty key") {
-    assertEquals(TextNormalizer.fold("李明"), "")
-    assertEquals(TextNormalizer.fold("Ανάλυση"), "")
-    assertEquals(TextNormalizer.fold("محمد"), "")
-    assertEquals(TextNormalizer.fold("Владимир"), "")
-    assertEquals(TextNormalizer.nameKey("李明"), "")
-    assertEquals(TextNormalizer.titleKey("日本語の論文"), "")
+  test("every non-Latin script folds to a non-empty deterministic key") {
+    assertEquals(TextNormalizer.fold("李明"), "李明")
+    assertEquals(TextNormalizer.fold("Ανάλυση"), "αναλυση")
+    assertEquals(TextNormalizer.fold("محمد"), "محمد")
+    assertEquals(TextNormalizer.fold("Владимир"), "владимир")
+    assertEquals(TextNormalizer.nameKey("李明"), "李明")
+    assertEquals(TextNormalizer.titleKey("日本語の論文"), "日本語の論文")
+    assertEquals(TextNormalizer.fold("李明"), TextNormalizer.fold("李明"))
   }
 
-  test("an author name in a non-Latin script is rejected, not thrown") {
+  test("different non-Latin names do not collapse into one block") {
+    val keys = Vector("李明", "王伟", "محمد", "Владимир", "김민수")
+      .map(TextNormalizer.nameKey)
+    assert(keys.forall(_.nonEmpty))
+    assertEquals(keys.distinct.size, keys.size)
+    assertNotEquals(
+      TextNormalizer.nameBlockKey("李明"),
+      TextNormalizer.nameBlockKey("王伟")
+    )
+  }
+
+  test("Japanese dakuten is kept, so か and が stay distinct") {
+    assertNotEquals(TextNormalizer.fold("か"), TextNormalizer.fold("が"))
+  }
+
+  test("an author name in a non-Latin script is accepted with its original") {
     // F1 CONVERTED from a pin of the defect to an assertion of the repair,
     // landing in the same cycle as `hadoop-engineer`'s fix. Corrected
     // assertion exactly as specified in final-review.md.
@@ -56,22 +71,23 @@ class AdversarialUnicodeSuite extends FunSuite:
     // killed job 1.
     val xml =
       """<article key="cjk/1"><author>李明</author><title>A Paper.</title></article>"""
-    assertEquals(
-      DblpParser.parse(xml, run).left.toOption.map(_._1),
-      Some(RejectReason.MissingRequiredField)
-    )
+    val parsed = DblpParser.parse(xml, run)
+    val publication = parsed.getOrElse(fail(s"rejected: $parsed"))
+    val author = publication.work.authors.head
+    assertEquals(author.name, "李明")
+    assertEquals(author.normalizedName, "李明")
   }
 
-  test("a title in a non-Latin script is rejected, not thrown") {
+  test("a title in a non-Latin script is accepted with its original") {
     // F1 CONVERTED, same repair. This half threw from `WorkRecord`'s
     // nonblank normalized-title assertion (`Contracts.scala:104`, reached at
     // `DblpParser.scala:170`), with no guard at all, dead or otherwise.
     val xml =
       """<article key="cjk/2"><author>A B</author><title>日本語の論文</title></article>"""
-    assertEquals(
-      DblpParser.parse(xml, run).left.toOption.map(_._1),
-      Some(RejectReason.MissingRequiredField)
-    )
+    val parsed = DblpParser.parse(xml, run)
+    val publication = parsed.getOrElse(fail(s"rejected: $parsed"))
+    assert(publication.work.title.contains("日本語の論文"))
+    assertEquals(publication.work.normalizedTitle, "日本語の論文")
   }
 
   test("a Latin letter with no decomposition becomes a word break") {
@@ -86,22 +102,26 @@ class AdversarialUnicodeSuite extends FunSuite:
     // blocking keys -- so this pin stays as a pin and deliberately carries
     // no `.fail` twin: a twin would assert a key shape that does not exist
     // yet. Convert both cases when the remedy lands.
-    assertEquals(TextNormalizer.nameKey("Bjørn Ødegård"), "bj rn degard")
-    assertEquals(TextNormalizer.nameKey("Lech Wałęsa"), "lech wa esa")
-    assertEquals(TextNormalizer.nameKey("Işık"), "is k")
-    assertEquals(TextNormalizer.nameKey("Straße"), "stra e")
+    assertEquals(TextNormalizer.nameKey("Bjørn Ødegård"), "bjorn odegard")
+    assertEquals(TextNormalizer.nameKey("Lech Wałęsa"), "lech walesa")
+    assertEquals(TextNormalizer.nameKey("Işık"), "isik")
+    assertEquals(TextNormalizer.nameKey("Straße"), "strasse")
+    assertEquals(
+      TextNormalizer.nameKey("Bjørn Ødegård"),
+      TextNormalizer.nameKey("Bjorn Odegard")
+    )
   }
 
   test("the resulting block key names the wrong family and initials") {
     // The consequence of the case above, stated where it does the damage.
     // `nameBlockKey` takes the last token as the family name, so a name
     // split by a dropped letter blocks under a fragment.
-    assertEquals(TextNormalizer.nameBlockKey("Bjørn Ødegård"), "degard|br")
-    assertEquals(TextNormalizer.nameBlockKey("Lech Wałęsa"), "esa|lw")
-    assertEquals(TextNormalizer.familyToken("Bjørn Ødegård"), "degard")
+    assertEquals(TextNormalizer.nameBlockKey("Bjørn Ødegård"), "odegard|b")
+    assertEquals(TextNormalizer.nameBlockKey("Lech Wałęsa"), "walesa|l")
+    assertEquals(TextNormalizer.familyToken("Bjørn Ødegård"), "odegard")
     // `initials` runs over every token and `nameBlockKey` over all but the
     // last, so the dropped letter corrupts both, differently.
-    assertEquals(TextNormalizer.initials("Bjørn Ødegård"), "brd")
+    assertEquals(TextNormalizer.initials("Bjørn Ødegård"), "bo")
     assertEquals(TextNormalizer.initials("Michael Ley"), "ml")
   }
 
@@ -109,8 +129,9 @@ class AdversarialUnicodeSuite extends FunSuite:
     // German sharp s against its uppercase expansion. One name, two keys,
     // so the two spellings never meet in a block.
     assertEquals(TextNormalizer.nameKey("Strasse"), "strasse")
-    assert(
-      TextNormalizer.nameKey("Straße") != TextNormalizer.nameKey("Strasse")
+    assertEquals(
+      TextNormalizer.nameKey("Straße"),
+      TextNormalizer.nameKey("Strasse")
     )
   }
 
@@ -119,7 +140,7 @@ class AdversarialUnicodeSuite extends FunSuite:
     // removes, so the capital form folds correctly. U+0131 has no
     // decomposition, so it becomes a word break in the same name.
     assertEquals(TextNormalizer.nameKey("İlkay"), "ilkay")
-    assertEquals(TextNormalizer.nameKey("İlkay Altıntaş"), "ilkay alt ntas")
+    assertEquals(TextNormalizer.nameKey("İlkay Altıntaş"), "ilkay altintas")
   }
 
   test("a Cyrillic homoglyph silently redirects a name to another block") {
@@ -130,9 +151,12 @@ class AdversarialUnicodeSuite extends FunSuite:
     // Required: a mixed-script name is reported, in a counter or a reject,
     // rather than folded into a different identity.
     val spoofed = s"${cyrillicCapitalA}nn Lee"
-    assertEquals(TextNormalizer.nameKey(spoofed), "nn lee")
+    // The initial is no longer deleted. It survives as the Cyrillic letter,
+    // so the spoof is visible as a different key, but the mixed-script name
+    // is still neither reported nor unified with the Latin spelling.
+    assertEquals(TextNormalizer.nameKey(spoofed), "аnn lee")
     assertEquals(TextNormalizer.nameKey("Ann Lee"), "ann lee")
-    assertEquals(TextNormalizer.nameBlockKey(spoofed), "lee|n")
+    assertEquals(TextNormalizer.nameBlockKey(spoofed), "lee|а")
     assertEquals(TextNormalizer.nameBlockKey("Ann Lee"), "lee|a")
   }
 

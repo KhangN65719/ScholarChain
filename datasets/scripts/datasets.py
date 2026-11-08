@@ -194,6 +194,14 @@ def validate():
         datasets[dataset_id] = entry
     if "dblp" not in datasets or len(datasets) < 4:
         raise ValueError("manifest requires DBLP plus at least three enrichment datasets")
+    # A registered slice is checked strictly. The key is optional only until
+    # `slicetool.py register` has run once; `slicetool.py replay` requires it.
+    if "subsets" in manifest:
+        import subsettool
+        subsettool.validate_subsets(manifest, sys.modules[__name__])
+    elif "slices" in manifest:
+        import slicetool
+        slicetool.validate_slices(manifest, sys.modules[__name__])
     return datasets
 
 

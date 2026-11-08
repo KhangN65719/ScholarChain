@@ -1,0 +1,23 @@
+PASS entry-count: 230 entries, expected 230
+PASS loads-as-GoldLabel: every row loads as a GoldLabel
+PASS gold-pair-ids: 230 unique
+PASS pairs-file: 230 unique pairs, expected 230
+PASS gold-pairs-coverage: 230 pair_ids in both files
+PASS gold-agrees-with-pairs: all fields agree
+PASS human-review-fields: method, reviewer, time, sources
+PASS dblp-snapshot: every DBLP record is dblp:2026-11-05
+PASS label-totals: same/different/unsure 95/131/4, expected 95/131/4
+PASS suggestion-on-every-row: 230 rows have one
+PASS suggestion-source: scholarchain-codex-suggestions.csv e65f1a411dd461553c9855a3da279d770a02efa724cb53c0cdd510ae9faa1b0b
+PASS suggestions-csv: scholarchain-codex-suggestions.csv sha256 e65f1a411dd461553c9855a3da279d770a02efa724cb53c0cdd510ae9faa1b0b matches every row
+PASS changed-from-suggestion: recomputed 64 changed (expected 64); 0 stored flags disagree
+PASS strata-key: 230 keys: clear-non-match 76, exact-id 77, hard-common-name 77
+INFO kinds: researcher 215, work 15
+INFO reviewers: khang-nguyen
+INFO suggestion->final: different->different 84, different->same 12, different->unsure 3, same->different 1, same->same 81, unsure->different 46, unsure->same 2, unsure->unsure 1
+INFO reviewedAt 2026-11-07T18:53:15.362Z .. 2026-11-07T18:59:44.797Z, span 6.5 min, median gap 0.7 s, 208 gaps under 2 s
+INFO rows with a note: 0
+INFO snapshots of crossref: crossref:2026-11-07
+INFO snapshots of dblp: dblp:2026-11-05
+INFO snapshots of openalex: openalex:2026-11-07
+VALIDATION PASSED (0 failed, 0 skipped)

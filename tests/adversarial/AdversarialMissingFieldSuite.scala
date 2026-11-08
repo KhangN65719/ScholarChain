@@ -2,7 +2,7 @@ package scholarchain.tests.adversarial
 
 import munit.FunSuite
 import scholarchain.core.SourceType
-import scholarchain.hadoop.pipeline.BlockStrategy
+import scholarchain.core.pairing.BlockStrategy
 import scholarchain.hadoop.pipeline.Blocking
 import scholarchain.hadoop.pipeline.DblpParser
 import scholarchain.hadoop.pipeline.IdNamespace
