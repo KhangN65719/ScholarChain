@@ -57,7 +57,7 @@ READ_GIT = {"status", "diff", "log", "show", "ls-files", "rev-parse", "branch"}
 # form and accepts if any one matches, so this table's order carries no meaning: do not introduce a
 # break-on-first-prefix-match without also making the order explicit and tested.
 REVIEW_GIT = (("diff", "--stat"), ("log", "--oneline"), ("show", "--stat"), ("diff",))
-CHECK_SBT = {"check", "Test/compile"}
+CHECK_SBT = {"check", "Test/compile", "quick"}
 SCRIPT_ROOTS = {
     "dataset-engineer": ("datasets/scripts/",),
     "infra-engineer": ("scripts/validation/",),

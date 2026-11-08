@@ -56,7 +56,7 @@ def expect(name, condition):
 
 
 def test_settings():
-    """P1 is closed by `sandbox.excludedCommands`: exactly `sbt check` and `sbt Test/compile` run
+    """P1 is closed by `sandbox.excludedCommands`: exactly `sbt check`, `sbt Test/compile` and `sbt quick` run
     outside the sandbox, so an agent can complete the check itself. The settings still grant no
     sandbox write surface at all, and no unsandboxing switch or deny list moved. Asserts file content
     only: the effective OS boundary must be observed live in Claude Code, not inferred from this
@@ -101,10 +101,10 @@ def test_settings():
         },
     )
     # Exact list, exact order, no wildcard. These entries are exact-match patterns, so any `*`, `:*`
-    # suffix or third entry would silently widen what leaves the sandbox and must fail the suite.
+    # suffix or further entry would silently widen what leaves the sandbox and must fail the suite.
     expect(
-        "P1 the sandbox exclusion is exactly the two check commands, with no wildcard",
-        sandbox["excludedCommands"] == ["sbt check", "sbt Test/compile"]
+        "P1 the sandbox exclusion is exactly the three bare sbt commands, with no wildcard",
+        sandbox["excludedCommands"] == ["sbt check", "sbt Test/compile", "sbt quick"]
         and not any("*" in entry for entry in sandbox["excludedCommands"]),
     )
     # Derived tie to the guard's own set, so editing CHECK_SBT or the exclusion alone fails the suite.
@@ -142,7 +142,7 @@ def test_settings():
             "Bash(.claude/hooks/validate-agent-files.sh)",
         ],
     )
-    # The guard permits an implementing role to request both excluded commands. Guard permission is
+    # The guard permits an implementing role to request the excluded commands. Guard permission is
     # not completion: these probes say nothing about whether the run succeeds, only about the fence.
     # Both directions:
     guard("P1 guard permits an implementing role to request sbt check", "Bash", 0, "domain-engineer", command="sbt check")
@@ -150,6 +150,19 @@ def test_settings():
     guard("P1 sbt check still refused to deploy-engineer", "Bash", 2, "deploy-engineer", command="sbt check")
     guard("P1 sbt Test/compile still refused to incident-responder", "Bash", 2, "incident-responder", command="sbt Test/compile")
     guard("P1 sbt is still limited to the check tasks", "Bash", 2, "domain-engineer", command="sbt publish")
+    # `sbt quick` (build.sbt alias for root / quickRun) joins the permitted set. It skips only the
+    # slowSuites list and is designed to write the Stop-gate marker after the quick set passes; those
+    # properties belong to build.sbt and are not observable here. These probes pin only the guard's fence.
+    guard("P1 guard permits an implementing role to request sbt quick", "Bash", 0, "domain-engineer", command="sbt quick")
+    guard("P1 guard permits sbt quick for the orchestrator (no agent_type)", "Bash", 0, None, command="sbt quick")
+    guard("P1 sbt quick refused to deploy-engineer", "Bash", 2, "deploy-engineer", command="sbt quick")
+    guard("P1 sbt quick refused to incident-responder", "Bash", 2, "incident-responder", command="sbt quick")
+    guard("P1 sbt quick refused to code-reviewer (no shell authority)", "Bash", 2, "code-reviewer", command="sbt quick")
+    for command in (
+        "sbt quickRun", "sbt quickTest", "sbt quick --foo", "sbt -batch quick", "sbt clean quick",
+        "sbt quick check", "sbt root/quickRun", "sbt quick Test/compile",
+    ):
+        guard(f"P1 near miss still refused by the guard: {command}", "Bash", 2, "domain-engineer", command=command)
     # Near misses. The exclusion is exact-match, so these never leave the sandbox; the guard refuses
     # them first, which is the stronger of the two fences. Each probe therefore records the guard's
     # refusal, not a sandbox observation.
@@ -166,12 +179,17 @@ def test_settings():
     guard('P1 guard permits quoted near miss that the sandbox does not exclude: sbt "check"', "Bash", 0, "domain-engineer", command='sbt "check"')
     guard("P1 guard permits quoted near miss that the sandbox does not exclude: sbt 'Test/compile' (inferred)", "Bash", 0, "domain-engineer", command="sbt 'Test/compile'")
     guard("P1 guard permits extra-whitespace near miss that the sandbox does not exclude: sbt  check (inferred)", "Bash", 0, "domain-engineer", command="sbt  check")
+    # Same asymmetry for the new entry. Neither form was measured live: both outcomes are inferred
+    # from the shlex normalization and the exact-match rule.
+    guard('P1 guard permits quoted near miss that the sandbox does not exclude: sbt "quick" (inferred)', "Bash", 0, "domain-engineer", command='sbt "quick"')
+    guard("P1 guard permits extra-whitespace near miss that the sandbox does not exclude: sbt  quick (inferred)", "Bash", 0, "domain-engineer", command="sbt  quick")
     # The exclusion opened no chaining, redirection or expansion hole: a compound call keeps the whole
     # command sandboxed per the documented matching rule, and the guard refuses it outright anyway.
     for command in (
         "sbt check && rm -rf target", "sbt check; ls", "sbt check | tee out.txt",
         "sbt check > out.txt", "sbt Test/compile && sbt publish", "sbt $(echo check)",
         "sbt check `whoami`", "cd modules && sbt check",
+        "sbt quick && rm -rf target", "sbt quick; ls", "sbt quick > out.txt", "sbt $(echo quick)",
     ):
         guard(f"P1 compound or expanded form still refused: {command}", "Bash", 2, "domain-engineer", command=command)
     # A non-permitted bare command and a shell write to a constitutional path are unchanged.

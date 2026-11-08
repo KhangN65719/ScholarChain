@@ -72,7 +72,8 @@
     "allowUnsandboxedCommands": false,
     "excludedCommands": [
       "sbt check",
-      "sbt Test/compile"
+      "sbt Test/compile",
+      "sbt quick"
     ],
     "filesystem": {
       "denyRead": [

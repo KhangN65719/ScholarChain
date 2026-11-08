@@ -9,6 +9,24 @@ ThisBuild / libraryDependencies +=
 
 lazy val markTestRun =
   taskKey[Unit]("Check the build and record a successful test run.")
+// The one marker-writing step, shared by markTestRun (check) and quickRun
+// (quick). Each runs it last, so the marker exists only after every earlier
+// step passed. Because quickRun skips slowSuites, a marker from `quick` means
+// "the quick set passed on these sources", not "every test passed"; only
+// `check` covers every suite.
+lazy val writeTestMarker = Def.task {
+  val marker = (baseDirectory.value / ".claude" / ".last-test-run").toPath
+  val pending = Files.createTempFile(marker.getParent, ".test-run-", ".tmp")
+  try
+    Files.move(
+      pending,
+      marker,
+      StandardCopyOption.ATOMIC_MOVE,
+      StandardCopyOption.REPLACE_EXISTING
+    )
+  finally Files.deleteIfExists(pending)
+  ()
+}
 lazy val allProjects = ScopeFilter(inAnyProject)
 lazy val scalaSources =
   ScopeFilter(inAnyProject, inConfigurations(Compile, Test))
@@ -64,6 +82,51 @@ lazy val sparkJvmOptions = Seq(
 def isSparkSuite(name: String): Boolean =
   name.contains("Spark") || name.contains(".spark.")
 
+// Suites the `quick` alias skips, by fully qualified class name. `check` still
+// runs every one of them. Timings come from the human's clean check on
+// 2026-11-08 (phase-06-clean-check-4.log); a suite is listed only when its
+// measured time is dominated by starting a local Spark session or a Hadoop job.
+lazy val slowSuites: Set[String] = Set(
+  // Root Spark integration suites. Each one drives the real pipeline over the
+  // hand-built worlds in tests/integration (Runs.a, a3, c1, c2); a single run
+  // takes about a minute under local[2], and the suites share those runs.
+  "scholarchain.tests.analytics.SparkCoauthorshipSuite",
+  "scholarchain.tests.analytics.SparkDegenerateInputsSuite",
+  "scholarchain.tests.analytics.SparkGraphMeasuresSuite",
+  "scholarchain.tests.analytics.SparkOutputsSuite",
+  "scholarchain.tests.analytics.SparkPathEvidenceSuite",
+  "scholarchain.tests.analytics.SparkReproducibilitySuite",
+  "scholarchain.tests.analytics.SparkSummariesSuite",
+  "scholarchain.tests.analytics.SparkTemporalWindowsSuite",
+  // modules/spark suites that run the whole pipeline: 79 to 88 s per test.
+  "scholarchain.spark.CollaborationPipelineSuite",
+  "scholarchain.spark.ConflictingKeysSuite",
+  // modules/hadoop suites that execute real MapReduce jobs on LocalJobRunner:
+  // several seconds per job, 10 s for the seven-stage driver run.
+  "scholarchain.hadoop.MapReduceEndToEndSuite",
+  "scholarchain.hadoop.PipelineDriverOutputsSuite",
+  "scholarchain.hadoop.PipelineDriverUnknownDatasetSuite"
+)
+
+// quick runs only the suites not named in slowSuites. It goes through testOnly,
+// so each project keeps its own grouping and fork settings (the root Spark
+// group, modules/spark Test / fork). It is a separate task, so Test / test and
+// check are untouched.
+lazy val quickTest =
+  taskKey[Unit]("Run every test suite except the named slow suites.")
+lazy val quickRun =
+  taskKey[Unit]("Check formatting, compile and run the quick tests.")
+// Every project must include quickSettings: one that omits it is skipped by
+// quick's quickTest.all(allProjects) while check still runs its tests.
+lazy val quickSettings = Seq(
+  quickTest := Def.taskDyn {
+    val names =
+      (Test / definedTests).value.map(_.name).filterNot(slowSuites).sorted
+    if (names.isEmpty) Def.task(())
+    else (Test / testOnly).toTask(names.mkString(" ", " ", ""))
+  }.value
+)
+
 def jobPackagingSettings(useProvidedScalaLibrary: Boolean = false) = Seq(
   stageJob := {
     val output = target.value / "job"
@@ -107,7 +170,17 @@ lazy val root = project
     // sparkAnalytics is a batch job module, so it gets the same Test-only edge.
     sparkAnalytics % "test->compile"
   )
+  .settings(quickSettings)
   .settings(
+    quickRun := Def
+      .sequential(
+        scalafmtCheck.all(scalaSources),
+        Compile / scalafmtSbtCheck,
+        (Compile / compile).all(allProjects),
+        quickTest.all(allProjects),
+        writeTestMarker
+      )
+      .value,
     // Provided is not carried across a project edge, so Spark is declared here
     // at Test for tests under tests/ that reach modules/spark code.
     libraryDependencies += "org.apache.spark" % "spark-sql_2.13" % DependencyVersions.spark % Test,
@@ -175,27 +248,14 @@ lazy val root = project
         Compile / scalafmtSbtCheck,
         (Compile / compile).all(allProjects),
         (Test / test).all(allProjects),
-        Def.task {
-          val marker =
-            (baseDirectory.value / ".claude" / ".last-test-run").toPath
-          val pending =
-            Files.createTempFile(marker.getParent, ".test-run-", ".tmp")
-          try
-            Files.move(
-              pending,
-              marker,
-              StandardCopyOption.ATOMIC_MOVE,
-              StandardCopyOption.REPLACE_EXISTING
-            )
-          finally Files.deleteIfExists(pending)
-          ()
-        }
+        writeTestMarker
       )
       .value
   )
 
 lazy val core = project
   .in(file("modules/core"))
+  .settings(quickSettings)
   .settings(
     libraryDependencies += "com.lihaoyi" %% "upickle" % DependencyVersions.upickle
   )
@@ -203,6 +263,7 @@ lazy val hadoop = project
   .in(file("modules/hadoop"))
   .dependsOn(core)
   .settings(jobPackagingSettings())
+  .settings(quickSettings)
   .settings(
     libraryDependencies += "org.apache.hadoop" % "hadoop-client-api" % DependencyVersions.hadoop % Provided,
     // A cluster supplies the shaded runtime, so production keeps it off the
@@ -222,10 +283,12 @@ lazy val entityResolution =
     .in(file("modules/entity-resolution"))
     .dependsOn(core)
     .settings(jobPackagingSettings())
+    .settings(quickSettings)
 lazy val sparkAnalytics = project
   .in(file("modules/spark"))
   .dependsOn(core)
   .settings(jobPackagingSettings(useProvidedScalaLibrary = true))
+  .settings(quickSettings)
   .settings(
     libraryDependencies += "org.apache.spark" % "spark-sql_2.13" % DependencyVersions.spark % Provided,
     // run and runMain use the Runtime classpath, which omits Provided, so a
@@ -247,12 +310,19 @@ lazy val sparkAnalytics = project
     Test / fork := true,
     Test / javaOptions ++= sparkJvmOptions
   )
-lazy val storage = project.in(file("modules/storage")).dependsOn(core)
-lazy val rag = project.in(file("modules/rag")).dependsOn(core, storage)
+lazy val storage = project
+  .in(file("modules/storage"))
+  .dependsOn(core)
+  .settings(quickSettings)
+lazy val rag = project
+  .in(file("modules/rag"))
+  .dependsOn(core, storage)
+  .settings(quickSettings)
 lazy val services =
   project
     .in(file("modules/services"))
     .dependsOn(core, storage, rag)
+    .settings(quickSettings)
     .settings(
       libraryDependencies ++= Seq(
         "org.slf4j" % "slf4j-api" % DependencyVersions.slf4j,
@@ -262,6 +332,7 @@ lazy val services =
 
 addCommandAlias("fmt", ";root / scalafmtAll;root / scalafmtSbt")
 addCommandAlias("check", "root / markTestRun")
+addCommandAlias("quick", "root / quickRun")
 addCommandAlias(
   "packageJobs",
   ";hadoop / stageJob;entityResolution / stageJob;sparkAnalytics / stageJob"
