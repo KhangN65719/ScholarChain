@@ -27,6 +27,43 @@ lazy val slf4jTestBinding = Seq(
   "org.slf4j" % "slf4j-simple" % DependencyVersions.slf4j % Test
 )
 
+// Spark 4 on Java 21 needs the java.base packages opened to its unnamed module
+// (the list is Spark's own JavaModuleOptions) plus two reflection switches.
+// IgnoreUnrecognizedVMOptions keeps the same list valid on other JDKs. The
+// heap is capped at 2g: local[2] over hand-checkable fixtures and bounded
+// local runs fit well inside it, and a cap makes an accidental full-graph
+// collect fail fast instead of swallowing the machine. The UI is off so no run
+// needs port 4040, and driver host and bind address are pinned to loopback so a
+// local session does not depend on hostname resolution or a network.
+lazy val sparkJvmOptions = Seq(
+  "-Xmx2g",
+  "-XX:+IgnoreUnrecognizedVMOptions",
+  "--add-opens=java.base/java.lang=ALL-UNNAMED",
+  "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+  "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+  "--add-opens=java.base/java.io=ALL-UNNAMED",
+  "--add-opens=java.base/java.net=ALL-UNNAMED",
+  "--add-opens=java.base/java.nio=ALL-UNNAMED",
+  "--add-opens=java.base/java.util=ALL-UNNAMED",
+  "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
+  "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
+  "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+  "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+  "--add-opens=java.base/sun.security.action=ALL-UNNAMED",
+  "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
+  "--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED",
+  "-Djdk.reflect.useDirectMethodHandle=false",
+  "-Dio.netty.tryReflectionSetAccessible=true",
+  "-Dspark.ui.enabled=false",
+  "-Dspark.driver.host=127.0.0.1",
+  "-Dspark.driver.bindAddress=127.0.0.1"
+)
+
+// A root suite is a Spark suite when its class name contains "Spark" or it
+// lives in a package segment named spark. Only those suites fork.
+def isSparkSuite(name: String): Boolean =
+  name.contains("Spark") || name.contains(".spark.")
+
 def jobPackagingSettings(useProvidedScalaLibrary: Boolean = false) = Seq(
   stageJob := {
     val output = target.value / "job"
@@ -66,9 +103,31 @@ lazy val root = project
   .dependsOn(
     core % "test->compile",
     hadoop % "test->compile",
-    entityResolution % "test->compile"
+    entityResolution % "test->compile",
+    // sparkAnalytics is a batch job module, so it gets the same Test-only edge.
+    sparkAnalytics % "test->compile"
   )
   .settings(
+    // Provided is not carried across a project edge, so Spark is declared here
+    // at Test for tests under tests/ that reach modules/spark code.
+    libraryDependencies += "org.apache.spark" % "spark-sql_2.13" % DependencyVersions.spark % Test,
+    // Root tests run in-process, and --add-opens cannot be applied to a running
+    // JVM. Forking the whole root run would change every root test, so only the
+    // Spark suites go to a forked group with the Spark flags; every other suite
+    // stays in the in-process default group.
+    Test / testGrouping := {
+      val all = (Test / definedTests).value
+      val spark = all.filter(t => isSparkSuite(t.name))
+      val other = all.filterNot(t => isSparkSuite(t.name))
+      val forkOptions = ForkOptions()
+        .withWorkingDirectory(Some(baseDirectory.value))
+        .withRunJVMOptions(sparkJvmOptions.toVector)
+      val sparkPolicy = Tests.SubProcess(forkOptions)
+      val sparkGroups =
+        if (spark.isEmpty) Nil
+        else Seq(new Tests.Group("spark", spark, sparkPolicy))
+      Seq(new Tests.Group("default", other, Tests.InProcess)) ++ sparkGroups
+    },
     name := "scholarchain",
     publish / skip := true,
     Test / scalaSource := baseDirectory.value / "tests" / "src" / "test" / "scala",
@@ -168,7 +227,25 @@ lazy val sparkAnalytics = project
   .dependsOn(core)
   .settings(jobPackagingSettings(useProvidedScalaLibrary = true))
   .settings(
-    libraryDependencies += "org.apache.spark" % "spark-sql_2.13" % DependencyVersions.spark % Provided
+    libraryDependencies += "org.apache.spark" % "spark-sql_2.13" % DependencyVersions.spark % Provided,
+    // run and runMain use the Runtime classpath, which omits Provided, so a
+    // local run would fail with NoClassDefFoundError. Compile's full classpath
+    // includes Provided. Neither this nor the packaging below changes: stageJob
+    // reads the Runtime classpath, so Spark is still not shipped.
+    Compile / run := Defaults
+      .runTask(
+        Compile / fullClasspath,
+        Compile / run / mainClass,
+        Compile / run / runner
+      )
+      .evaluated,
+    Compile / runMain := Defaults
+      .runMainTask(Compile / fullClasspath, Compile / run / runner)
+      .evaluated,
+    Compile / run / fork := true,
+    Compile / run / javaOptions ++= sparkJvmOptions,
+    Test / fork := true,
+    Test / javaOptions ++= sparkJvmOptions
   )
 lazy val storage = project.in(file("modules/storage")).dependsOn(core)
 lazy val rag = project.in(file("modules/rag")).dependsOn(core, storage)
