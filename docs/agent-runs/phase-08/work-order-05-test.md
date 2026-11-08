@@ -1,0 +1,22 @@
+# Work order 05: test-engineer, independent Phase 8 tests and fixtures
+
+Owner: test-engineer (tests/**). Phase 8. LOCAL ONLY, no AWS, no new dependency. Work from this SPECIFICATION and the README gate, not from the implementers' tests: do not copy or import the owners' test fixtures; write your own adversarial fixtures under `tests/`. You may reference production code through the root Test edges (`storage % test->compile`, `rag % test->compile`). Do not edit production code or module-owned tests; report defects as `BLOCKED-ON <owner>` with evidence, never patch.
+
+## Specification (what must hold)
+1. `HashEmbedder` (`hash-embed-v1`, 384): SHA-256 of the UTF-8 feature; first 8 bytes as unsigned big-endian integer mod 384 is the bucket; low bit of byte 8 is the sign (0 is +1, 1 is -1); features are NFKC-lowercased word unigrams and adjacent bigrams split on `[^\p{L}\p{N}]+`; weight 1+ln(count); L2-normalised; featureless text refused. Write an independent reference implementation in the test and compare to production on a corpus including Unicode, mixed case, punctuation runs, repeated words, very long text, text that is only punctuation.
+2. Same key, different text: refused, never overwritten, stored vector and S3 text unchanged. Same text and same model: skipped with zero writes. Changed model version: refused or new index, never silent. A duplicate key with different content in one batch: first kept, second rejected and reported.
+3. `textRef` round trip: every vector written by ingest resolves to a stored document whose sha256 equals the vector's `textHash`; a tampered, deleted, swapped or misdirected document is detected.
+4. Compact metadata: no long text or prose in any vector's metadata, size under the service limit, `textHash`, `embeddingModel`, `runId`, `documentType` present, no graph-metric key (publicationCount, distinctCoauthorCount, weightedDegree, bridgeScore, coreness, componentId...) in vector metadata or in the semantic-context format; `topic` and `institution` never invented.
+5. Indexes: all five exist (`researcher-profile-v1`, `collaboration-community-v1`, `paper-abstract-v1`, `collaboration-path-v1`, `topic-institution-summary-v1`); topic-institution is empty when Spark has no such summaries.
+6. Resume and failure: an interrupted ingest continues without rewriting finished batches; a failing batch is recorded in the RunLedger with retry counts and the run ends FAILED or COMPLETED_WITH_REJECTS; transient failures retry with bounded attempts.
+7. Export integrity: JSONL export with a wrong sha256, wrong row count, missing `_SUCCESS`, edited part file, truncated line, path-escape name, or unknown table is refused.
+8. rag: templates are deterministic (including under a different default Locale and shuffled map order) and never introduce a number or ID absent from the row; chunking never loses or splits text; the semantic-context format enforces its caps and refuses unknown or metric fields; `IngestMain` is re-runnable with identical `ingest-report.json`.
+9. Cross-module end to end: build a small Spark-shaped export (hand-written JSONL with the report-01 shape, including nulls, Unicode names, 64-hex-length real-style IDs, a work with no year, a path summary with an unreachable pair), run the real `IngestMain` path into a temp dir, then query via storage with each filter (researcher, year window, source, community, documentType) and assert expected neighbours and that `fetchText` yields the template text.
+10. Retrieval smoke with known neighbours in YOUR fixture (distinct vocabularies), including a query whose words appear in no document (must return a result list that does not claim relevance beyond distance ordering; no exception).
+11. Gate check by structure: nothing in rag or storage answers exact counts, shortest paths, components or bridge metrics from vector similarity (assert the public API surface of retrieval and context returns only keys, distances, metadata and text).
+
+## Process
+Before writing tests, list which test proves each item above (put the list first in your report). Run `sbt quick`; never two sbt commands at once; do not run `sbt check`. Report exact pass and fail counts (name which module totals you could read and which you could not). If a suite you add starts Spark it is slow: name it for build-engineer. Do not weaken, delete or skip any existing test.
+
+## Report
+Role-file contract. Orchestrator archives it as `report-05-test.md`.

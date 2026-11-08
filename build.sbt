@@ -171,7 +171,12 @@ lazy val root = project
     sparkAnalytics % "test->compile",
     // storage is already a runtime module; this Test-only edge adds no runtime
     // edge and lets independent tests under tests/ reference its contracts.
-    storage % "test->compile"
+    storage % "test->compile",
+    // rag is a runtime module; this Test-only edge adds no Compile, Runtime or
+    // packaged-classpath edge and lets independent tests under tests/ reference
+    // its contracts. No cycle: rag depends on core and storage, and nothing
+    // depends on root.
+    rag % "test->compile"
   )
   .settings(quickSettings)
   .settings(

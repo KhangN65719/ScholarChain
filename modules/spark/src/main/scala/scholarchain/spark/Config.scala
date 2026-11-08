@@ -193,7 +193,10 @@ object OutputPolicy:
       .flatten
       .find(p => Files.exists(p.resolve(".git")))
 
-  private def resolved(path: Path): Path =
+  /** The real path of `path`; when it does not exist yet, its nearest existing
+    * ancestor is resolved and the missing names are appended.
+    */
+  def resolved(path: Path): Path =
     val absolute = path.toAbsolutePath.normalize
     val existing = Iterator
       .iterate(Option(absolute))(_.flatMap(p => Option(p.getParent)))
@@ -208,7 +211,9 @@ object OutputPolicy:
   def check(out: Path, repository: Option[Path]): Either[String, Path] =
     val absolute = out.toAbsolutePath.normalize
     val real = resolved(absolute)
-    val inTarget = absolute.iterator.asScala.exists(_.toString == "target")
+    val inTarget = Vector(absolute, real).exists(
+      _.iterator.asScala.exists(_.toString == "target")
+    )
     val inRepo = repository.exists(root => real.startsWith(root.toRealPath()))
     if absolute.getParent == null then Left("Refusing the filesystem root")
     else if inTarget then

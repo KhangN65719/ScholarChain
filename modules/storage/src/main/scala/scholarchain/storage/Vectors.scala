@@ -120,8 +120,21 @@ object VectorMetadata:
     "source",
     "topic",
     "institution",
-    "communityId"
+    "communityId",
+    // Phase 8: SHA-256 of the rendered document text (64 lowercase hex) and
+    // the version of the template that rendered it.
+    "textHash",
+    "templateVersion"
   )
+
+  /** What the Phase 8 write path (`EmbeddingIngest`) requires on every vector.
+    * `textHash` is not in the global `Required` set so that the Phase 7 loader
+    * and its tests, which predate it, stay valid; the ingest path enforces it.
+    */
+  val RequiredForIngest: Set[String] =
+    Required ++ Set("textHash", "embeddingModel", "documentType")
+
+  private val hexDigest = "[0-9a-f]{64}"
 
   /** Facet keys whose value shape is fixed. */
   private val stringKeys = Set("documentType", "communityId")
@@ -161,6 +174,10 @@ object VectorMetadata:
             v.isWhole && v >= Limits.S3Vectors.MinYear &&
             v <= Limits.S3Vectors.MaxYear
           case _ => false
+      else if key == "textHash" then
+        value match
+          case MetaValue.Str(v) => v.matches(hexDigest)
+          case _                => false
       else if stringKeys.contains(key) then value.isInstanceOf[MetaValue.Str]
       else if listKeys.contains(key) then value.isInstanceOf[MetaValue.Strs]
       else true
@@ -219,6 +236,17 @@ object VectorMetadata:
       ErrorCode.MetadataInvalid,
       s"Metadata is $size bytes, filterable limit is " +
         s"${Limits.S3Vectors.MaxFilterableMetadataBytes}"
+    )
+
+object VectorMetadataIngest:
+  /** `VectorMetadata.validate` plus the keys the Phase 8 path requires. */
+  def validate(metadata: Map[String, MetaValue]): Unit =
+    VectorMetadata.validate(metadata)
+    val missing = VectorMetadata.RequiredForIngest.diff(metadata.keySet)
+    Fail.unless(
+      missing.isEmpty,
+      ErrorCode.MetadataInvalid,
+      s"Missing ingest metadata keys: ${missing.toVector.sorted.mkString(",")}"
     )
 
 final case class RejectedVector(
@@ -836,13 +864,31 @@ object SemanticVectorLoader:
   ): VectorRecord =
     val summaryId = Rows.str(row, "summaryId")
     val text = Rows.str(row, "summaryText")
+    VectorRecord(
+      VectorKeys.stable(summaryId),
+      embedder.embed(text),
+      metadataFor(
+        row,
+        embedder.modelVersion,
+        s"$textRefBase#$summaryId",
+        facets
+      )
+    )
+
+  /** The compact metadata of one summary row. `textRef` is stored as given. */
+  private[storage] def metadataFor(
+      row: Row,
+      modelVersion: String,
+      textRef: String,
+      facets: SummaryFacets
+  ): Map[String, MetaValue] =
     val workIds = Rows.strList(row, "evidenceWorkIds")
     val base = Map(
       "summaryType" -> MetaValue.Str(Rows.str(row, "summaryType")),
       "subjectId" -> MetaValue.Str(Rows.str(row, "subjectId")),
-      "textRef" -> MetaValue.Str(s"$textRefBase#$summaryId"),
+      "textRef" -> MetaValue.Str(textRef),
       "runId" -> MetaValue.Str(Rows.provenance(row).runId),
-      "embeddingModel" -> MetaValue.Str(embedder.modelVersion),
+      "embeddingModel" -> MetaValue.Str(modelVersion),
       "storageTransformVersion" ->
         MetaValue.Str(StorageProvenance.TransformVersion),
       "sparkTransformVersion" ->
@@ -862,11 +908,7 @@ object SemanticVectorLoader:
         .optLong(row, "windowEnd")
         .map(v => "windowEnd" -> MetaValue.Num(v.toDouble))
     ).flatten
-    VectorRecord(
-      VectorKeys.stable(summaryId),
-      embedder.embed(text),
-      base ++ optional ++ facetEntries(row, workIds, facets)
-    )
+    base ++ optional ++ facetEntries(row, workIds, facets)
 
   /** The filter facets. A facet is set only when a Spark column backs it. Topic
     * and institution are never set: no Phase 6 table links a work to a topic or

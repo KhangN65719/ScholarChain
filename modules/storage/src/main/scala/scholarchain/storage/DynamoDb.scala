@@ -297,9 +297,11 @@ object RunLedger:
       runId: String,
       kind: String,
       transformVersion: String,
-      startedAt: String
+      startedAt: String,
+      extra: Item = Map.empty
   ): WriteOutcome =
-    val item = runItem(runId, kind, "STARTED", transformVersion, startedAt, 1L)
+    val item =
+      runItem(runId, kind, "STARTED", transformVersion, startedAt, 1L) ++ extra
     try
       table.putIfAbsent(item)
       WriteOutcome.Created

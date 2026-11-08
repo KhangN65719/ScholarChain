@@ -1,0 +1,9 @@
+# Work order 09: test-engineer, follow-up to repair round 1 (rag L5)
+
+Owner: test-engineer (tests/**). Same rules as work order 07.
+
+The rag-engineer's L5 repair (consistent semantic-context caps, review.md L5) makes this root test fail, and `sbt quick` exits 1 on it: `tests/adversarial/Phase8RagSuite.scala` around line 389, "the total snippet bytes cap is enforced" (it asserted the OLD behaviour, where 17 long documents are refused by `SemanticContext.fromHits`). The specification now: the item count and per-item snippet budget are consistent with the 24 KiB total cap, so a context built at the maximum item count from long documents is accepted without exceeding the total cap, and anything that would exceed a cap is still refused (never silently exceeded). Read `modules/rag/src/main/scala/scholarchain/rag/SemanticContext.scala` and `SemanticRetrieval.scala` as repaired, derive the new caps from them, and rewrite the test to assert the specified behaviour faithfully: long documents at the maximum item count are accepted and total snippet bytes stay at or under the cap; an input that does exceed a cap is refused with the existing error code; the cap constants in the format's documentation and code agree. Do not delete coverage. Also check whether any other root test depends on the old `topK`/item-count/snippet constants or on the old chunking error message for a whitespace run (rag L1, L7, L10 also changed) and update only assertions that encoded the old defect, citing the review finding in a comment-free test name.
+
+If the repaired production behaviour contradicts the specification above, report `BLOCKED-ON rag-engineer` with evidence instead of changing the test.
+
+Test-to-item list first. Run `sbt quick` (never two sbt commands at once; no `sbt check`). Put the COMPLETE report in your final message text and give the gate status after it. Orchestrator archives it as `report-09-test-repair2.md`.

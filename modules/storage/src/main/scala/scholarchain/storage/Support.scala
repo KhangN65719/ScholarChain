@@ -42,6 +42,10 @@ enum ErrorCode:
   case InvalidFilter
   case InvalidQuery
   case DeferredAdapter
+  case RowCountMismatch
+  case MissingText
+  case TextHashMismatch
+  case ExecutionInputChanged
 
 final class StorageException(val code: ErrorCode, message: String)
     extends RuntimeException(s"${code}: ${message}")
