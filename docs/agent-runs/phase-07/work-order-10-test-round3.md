@@ -1,0 +1,11 @@
+# Work order 10: test-engineer round 3 (fixtures and one assertion after storage repair 2)
+
+Evidence: storage-engineer report for work order 09 (28 tests/** failures after reviewer-driven fixes; storage module 84/0).
+
+Cause A (26 tests; Phase7NeptuneSuite 24-25, Phase7RunLoadSuite 2): the new, correct B1 check refuses an edge whose cited supporting work was not authored by both endpoints (`MissingEvidence: Edge ... cites work ... which not both endpoints authored`). Your fixtures lack the AUTHORED rows. Fix `tests/adversarial/Phase7StorageFixtures.scala` (and any per-test fixture) by adding `edges-authored` rows (counted in metrics) for every endpoint and work cited in `edge-support`, mention endpoints included. This is a fixture correction, not a weakened assertion. Keep every negative test negative: also add tests proving the new rules refuse (support row naming other endpoints than its edge; another window; an endpoint that did not author a cited work, incl. a mention endpoint; an AUTHORED row not counted in metrics cannot support a pair; edge `window` text differing from its years; tab/newline/NUL inside an ID is refused rather than rewritten).
+
+Cause B (1 test): Phase7VectorSuite.scala:519 "rejected vectors persist once, deterministically, under logs/" expects a StorageException when a different reject list is persisted for the same run and index. Reviewer item 2 changed the contract: the log key now carries a content digest, so a different list gets its own key and an identical repeat is a no-op. Change the assertion to the new contract with equal or greater strength (identical repeat: no new object, same bytes; different list: new distinct key, original untouched).
+
+Also add tests (new, independent): path-evidence (validate edge ID shape, node kinds, supporting work IDs, hop membership) and provenance distinctness on DynamoDB/vector records (`storageTransformVersion` vs `sparkTransformVersion`) from the spec in review.md.
+
+Rules: tests/** only. Run `sbt quick` once (never two at once); report exact per-suite counts from the log (defined tests, not estimates) and any production defect with minimal repro and owner. Do not weaken, delete or ignore. Read-only git. No commit.

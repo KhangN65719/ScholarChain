@@ -51,7 +51,17 @@ private object ContractValidation:
       "Undirected endpoints must be distinct and in ascending ID order"
     )
 
+private object NodeValidation:
+  def nodePair(left: String, right: String): Unit =
+    StableIds.requireCoauthorNode(left)
+    StableIds.requireCoauthorNode(right)
+    require(
+      left < right,
+      "Undirected endpoints must be distinct and in ascending ID order"
+    )
+
 import ContractValidation.*
+import NodeValidation.nodePair
 import StableIds.requireKind
 
 final case class YearWindow(startYear: Int, endYear: Int) derives ReadWriter:
@@ -214,10 +224,12 @@ final case class CoauthorEdge(
     provenance: Provenance
 ) derives ReadWriter:
   record(schemaVersion, provenance)
-  pair(researcherA, researcherB, "researcher")
+  // Endpoints are canonical researchers or unresolved author mentions. The
+  // field names predate the mention form and are kept for wire stability.
+  nodePair(researcherA, researcherB)
   require(
     edgeId == StableIds
-      .coauthorEdge(researcherA, researcherB, window, policyVersion),
+      .coauthorEdgeFor(researcherA, researcherB, window, policyVersion),
     "Coauthor edge ID does not match its key"
   )
   require(
@@ -256,7 +268,8 @@ final case class ResearcherMetrics(
     provenance: Provenance
 ) derives ReadWriter:
   record(schemaVersion, provenance)
-  requireKind("researcher", researcherId)
+  // A metrics row describes a graph node: a researcher or an unresolved mention.
+  StableIds.requireCoauthorNode(researcherId)
   require(window != null, "Metrics time window is required")
   require(
     Vector(
@@ -368,7 +381,7 @@ final case class GraphEdge(
   record(schemaVersion, provenance)
   require(edgeType != null, "Graph edge type is required")
   if edgeType == GraphEdgeType.CoauthoredWith then
-    pair(fromId, toId, "researcher")
+    nodePair(fromId, toId)
     require(
       coauthorship.exists(edge =>
         edge.researcherA == fromId && edge.researcherB == toId && edge.policyVersion == policyVersion

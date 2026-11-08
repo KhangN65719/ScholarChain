@@ -64,6 +64,57 @@ object StableIds:
       policyVersion
     )
 
+  /** True for a graph node that can be a coauthor endpoint: a canonical
+    * researcher or an unresolved author mention. The mention ID is its own node
+    * ID (`StableIds.mention`); no second form exists.
+    */
+  def isCoauthorNode(value: String): Boolean =
+    isKind("researcher", value) || isKind("mention", value)
+
+  private[core] def requireCoauthorNode(value: String): Unit =
+    if !isKind("mention", value) then requireKind("researcher", value)
+
+  /** Edge ID for an edge with at least one unresolved-mention endpoint. The
+    * `mention-coauthor` kind keeps it apart from `coauthor:` IDs of resolved
+    * researcher pairs. The other endpoint may be a researcher or a mention.
+    */
+  def mentionCoauthorEdge(
+      left: String,
+      right: String,
+      window: YearWindow,
+      policyVersion: String
+  ): String =
+    requireCoauthorNode(left)
+    requireCoauthorNode(right)
+    require(
+      isKind("mention", left) || isKind("mention", right),
+      "A mention coauthor edge requires an unresolved mention endpoint"
+    )
+    val (a, b) = orderedPair(left, right)
+    digestId(
+      "mention-coauthor",
+      a,
+      b,
+      window.startYear.toString,
+      window.endYear.toString,
+      policyVersion
+    )
+
+  /** The edge ID for any coauthor endpoint pair: the researcher-pair ID when
+    * both endpoints are resolved, otherwise the mention form.
+    */
+  def coauthorEdgeFor(
+      left: String,
+      right: String,
+      window: YearWindow,
+      policyVersion: String
+  ): String =
+    requireCoauthorNode(left)
+    requireCoauthorNode(right)
+    if isKind("mention", left) || isKind("mention", right) then
+      mentionCoauthorEdge(left, right, window, policyVersion)
+    else coauthorEdge(left, right, window, policyVersion)
+
   def chunk(
       entityId: String,
       sourceVersion: String,

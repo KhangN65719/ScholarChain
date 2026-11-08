@@ -351,10 +351,44 @@ class SparkCoauthorshipSuite extends SparkBase:
     val flags =
       Vector(row.flag("endpointAUnresolved"), row.flag("endpointBUnresolved"))
     assertEquals(flags.count(identity), 1)
-    assert(row.text("edgeId").startsWith("coauthor:v1:"))
+    // An unresolved (mention) endpoint takes the core mention-coauthor ID, the
+    // value StableIds.coauthorEdgeFor derives from the row's own endpoints,
+    // window and policy; the retired Spark-local coauthor:v1 form is refused.
+    val id = row.text("edgeId")
+    assert(id.matches("mention-coauthor:v1:[0-9a-f]{64}"), id)
+    assert(!id.startsWith("coauthor:v1:"), id)
+    val expected = StableIds.coauthorEdgeFor(
+      row.text("researcherA"),
+      row.text("researcherB"),
+      scholarchain.core.YearWindow(
+        row.long("windowStart").toInt,
+        row.long("windowEnd").toInt
+      ),
+      row.text("policyVersion")
+    )
+    assertEquals(id, expected)
+    assert(
+      row.text("researcherA").startsWith("mention:") ||
+        row.text("researcherB").startsWith("mention:")
+    )
     val plain = edge("2000-2004", "Rep", "X")
     assert(
       !plain.flag("endpointAUnresolved") && !plain.flag("endpointBUnresolved")
+    )
+    // A resolved pair keeps the researcher-pair form and its derived ID.
+    val plainId = plain.text("edgeId")
+    assert(plainId.matches("coauthor:v1:[0-9a-f]{64}"), plainId)
+    assertEquals(
+      plainId,
+      StableIds.coauthorEdgeFor(
+        plain.text("researcherA"),
+        plain.text("researcherB"),
+        scholarchain.core.YearWindow(
+          plain.long("windowStart").toInt,
+          plain.long("windowEnd").toInt
+        ),
+        plain.text("policyVersion")
+      )
     )
   }
 

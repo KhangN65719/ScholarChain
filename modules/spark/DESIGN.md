@@ -16,7 +16,7 @@ note), so no claim about cluster behaviour is made.
   row fails the run. The run ID is derived from the digests of every input directory, the ER
   manifest, the configuration, the transform version and the SHA-256 digest of the module's main
   sources (`RunContext.seed`), so the same inputs under the same code give the same ID and a
-  changed source file gives a new one. `transformVersion` (`spark-analytics/1.0.0`) is bumped by
+  changed source file gives a new one. `transformVersion` (`spark-analytics/1.1.0`) is bumped by
   hand only when the output contract (table names, columns, meaning) changes; it does not track
   every code change, the sources digest does. Outside a git checkout the digest is `unavailable`,
   and then the run ID does not change with code: only the transform version separates code
@@ -282,14 +282,32 @@ components, component-summary, community-membership, communities, community-cros
 coreness, path-evidence, path-length-estimates, temporal-comparison, temporal-window-summary,
 semantic-summaries, unresolved-mentions, integrity-violations. Every row has `provenance` with the core
 `Provenance` fields (source `derived`, snapshot `hadoop-snapshot:<id>`, record key, `scholarchain:spark-analytics/<table>`,
-`spark-analytics/1.0.0`, run ID).
+`spark-analytics/1.1.0`, run ID).
 
-The core `CoauthorEdge` cannot hold an unresolved mention as an endpoint (its endpoints must be
-researcher IDs). Between two canonical researchers `edgeId` is the core `StableIds.coauthorEdge`
-value, so the row maps to a core `CoauthorEdge`; an edge with an unresolved endpoint gets a
-Spark-local `coauthor:v1:` ID and has no core counterpart. The local ID is used only when an
-endpoint starts with `mention:`; any other failure of the core function (a malformed canonical
-researcher ID) fails the run instead of being replaced by a local ID.
+The core contracts `CoauthorEdge`, `GraphEdge` (COAUTHORED_WITH) and `ResearcherMetrics` accept
+an unresolved author mention (`mention:v1:<hex>`) as an endpoint. `edgeId` is always the core
+`StableIds.coauthorEdgeFor` value: `coauthor:v1:<hex>` between two canonical researchers and
+`mention-coauthor:v1:<hex>` when either endpoint is a mention, so every `edges-coauthored` row maps
+to a core `CoauthorEdge` (the `CoauthorshipSuite` round-trip test builds one for each row). Spark
+holds no local ID form; a malformed endpoint ID fails the run.
+
+Spark-local columns with no core form: `nodeKind` (`canonical` or `unresolved-mention`),
+`unresolvedCoauthorOccurrences`, `distinctUnresolvedCoauthorCount`, and the edge flags
+`endpointAUnresolved` and `endpointBUnresolved`. Core `ResearcherMetrics` carries none of them.
+
+Version. `spark-analytics/1.1.0` is the first transform version that emits the core
+`mention-coauthor:v1:` edge IDs. Runs with `transformVersion` `spark-analytics/1.0.0` carry legacy
+Spark-local `coauthor:v1:` IDs on mention-endpoint edges. A minor bump was chosen: columns and
+tables are unchanged, only the value of one ID column changed for mention edges. A loader can
+separate the two generations by the version in `provenance.transformVersion`.
+
+Run compatibility. Runs on disk written before this change (Phase 6, including run
+`312ea79b-637c-440b-85f7-5c0640c3609c`) carry the old Spark-local `coauthor:v1:` ID on every
+mention-endpoint edge, and `path-evidence.edgeId` and `edge-support.edgeId` repeat it. Those IDs do
+not validate as core `CoauthorEdge` IDs. Phase 7 loaders must read only runs produced after this
+change. The change alters the main sources, so the sources digest and therefore the run ID differ
+for any new run, and `transformVersion` is now 1.1.0, so a loader can also reject runs by version.
+The real-data pipeline was not rerun here; a rerun is recommended before any load.
 
 ## Failure and invariants
 

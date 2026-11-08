@@ -1,18 +1,17 @@
 package scholarchain.spark
 
-import java.security.MessageDigest
-import java.util.HexFormat
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.api.java.UDF4
 import org.apache.spark.sql.types.{DataTypes, StructType}
 import scala.jdk.CollectionConverters.*
 import scholarchain.core.{StableIds, YearWindow}
 
-/** Stable ID of a coauthor edge. Between two canonical researchers the ID is
-  * the core `StableIds.coauthorEdge` value, so it equals the ID of the core
-  * `CoauthorEdge` for the same pair and window. The core contract cannot hold
-  * an unresolved mention as an endpoint, so an edge with such an endpoint gets
-  * a Spark-local ID of the same `coauthor:v1:` shape.
+/** Stable ID of a coauthor edge: always the core `StableIds.coauthorEdgeFor`
+  * value, so it equals the ID of the core `CoauthorEdge` for the same
+  * endpoints, window and policy. Between two canonical researchers that is
+  * `coauthor:v1:<hex>`; an edge with an unresolved-mention endpoint gets
+  * `mention-coauthor:v1:<hex>`. A malformed endpoint is a data error and
+  * propagates as `IllegalArgumentException`; nothing is replaced by a local ID.
   */
 object EdgeIds:
   val policyVersion = "scholarchain.spark.coauthor-policy/1"
@@ -22,21 +21,8 @@ object EdgeIds:
 
   def isMention(id: String): Boolean = id.startsWith(mentionPrefix)
 
-  /** The local form only for an edge with a mention endpoint. Any other failure
-    * (a malformed canonical researcher ID) is a data error and propagates
-    * instead of being hidden behind a local ID.
-    */
   def edgeId(a: String, b: String, first: Int, last: Int): String =
-    if isMention(a) || isMention(b) then local(a, b, first, last)
-    else StableIds.coauthorEdge(a, b, YearWindow(first, last), policyVersion)
-
-  private def local(a: String, b: String, first: Int, last: Int): String =
-    val text = Vector(a, b, first.toString, last.toString, policyVersion)
-      .mkString("\u001f")
-    val digest = MessageDigest
-      .getInstance("SHA-256")
-      .digest(text.getBytes(java.nio.charset.StandardCharsets.UTF_8))
-    s"coauthor:v1:${HexFormat.of().formatHex(digest)}"
+    StableIds.coauthorEdgeFor(a, b, YearWindow(first, last), policyVersion)
 
   def register(session: SparkSession): Unit =
     session.udf.register(

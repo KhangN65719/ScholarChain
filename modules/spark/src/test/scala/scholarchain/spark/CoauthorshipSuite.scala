@@ -1,7 +1,17 @@
 package scholarchain.spark
 
 import org.apache.spark.sql.Row
-import scholarchain.core.{CoauthorEdge, ContractSchema, StableIds, YearWindow}
+import scholarchain.core.{
+  CoauthorEdge,
+  ContractSchema,
+  EvidenceType,
+  GraphEdge,
+  GraphEdgeType,
+  ResearcherMetrics,
+  SourceType,
+  StableIds,
+  YearWindow
+}
 import scholarchain.spark.Fixtures.{label, string, strings}
 
 class CoauthorshipSuite extends SparkSuite:
@@ -117,27 +127,136 @@ class CoauthorshipSuite extends SparkSuite:
     assertEquals(stats.getAs[Long]("distinctPairs"), 2L)
   }
 
-  test("an edge ID is the core ID, local only for a mention endpoint") {
+  test("an edge ID is always the core ID, mention-coauthor for a mention") {
     val a = SyntheticRun.researcherIds("A")
     val b = SyntheticRun.researcherIds("B")
     val mention = SyntheticRun.mentionId("W3", 3)
+    val window = YearWindow(2000, 2004)
     assertEquals(
       EdgeIds.edgeId(a, b, 2000, 2004),
-      StableIds.coauthorEdge(
-        a,
-        b,
-        YearWindow(2000, 2004),
-        EdgeIds.policyVersion
-      )
+      StableIds.coauthorEdge(a, b, window, EdgeIds.policyVersion)
     )
-    val local = EdgeIds.edgeId(a, mention, 2000, 2004)
-    assert(local.startsWith("coauthor:v1:"), local)
-    assertNotEquals(local, EdgeIds.edgeId(b, mention, 2000, 2004))
-    assertEquals(local, EdgeIds.edgeId(a, mention, 2000, 2004))
-    // A malformed canonical ID is a data error, not a reason for a local ID.
+    assert(EdgeIds.edgeId(a, b, 2000, 2004).startsWith("coauthor:v1:"))
+    val id = EdgeIds.edgeId(a, mention, 2000, 2004)
+    assert(id.matches("mention-coauthor:v1:[0-9a-f]{64}"), id)
+    assertEquals(
+      id,
+      StableIds.coauthorEdgeFor(a, mention, window, EdgeIds.policyVersion)
+    )
+    assertEquals(
+      id,
+      StableIds.mentionCoauthorEdge(mention, a, window, EdgeIds.policyVersion)
+    )
+    assertNotEquals(id, EdgeIds.edgeId(b, mention, 2000, 2004))
+    assertNotEquals(id, EdgeIds.edgeId(a, mention, 2000, 2003))
+    assertEquals(id, EdgeIds.edgeId(a, mention, 2000, 2004))
+    // Two mentions give the mention form too.
+    val other = SyntheticRun.mentionId("W6", 2)
+    assert(
+      EdgeIds
+        .edgeId(mention, other, 2000, 2004)
+        .startsWith("mention-coauthor:v1:")
+    )
+    // A malformed endpoint is a data error, never a reason for a local ID.
     intercept[IllegalArgumentException](
       EdgeIds.edgeId("not-a-researcher", b, 2000, 2004)
     )
+    intercept[IllegalArgumentException](
+      EdgeIds.edgeId("mention:not-valid", b, 2000, 2004)
+    )
+  }
+
+  test("every emitted edge ID round-trips through the core contracts") {
+    val edges = rows(graph.edges)
+    assertEquals(edges.size, 14)
+    var mentionEdges = 0
+    edges.foreach { r =>
+      val window =
+        YearWindow(r.getAs[Int]("windowStart"), r.getAs[Int]("windowEnd"))
+      val a = string(r, "researcherA")
+      val b = string(r, "researcherB")
+      val id = string(r, "edgeId")
+      val unresolved = a.startsWith("mention:") || b.startsWith("mention:")
+      if unresolved then mentionEdges += 1
+      assert(
+        id.startsWith(
+          if unresolved then "mention-coauthor:v1:" else "coauthor:v1:"
+        ),
+        id
+      )
+      val core = CoauthorEdge(
+        ContractSchema.currentVersion,
+        id,
+        a,
+        b,
+        window,
+        string(r, "policyVersion"),
+        r.getAs[Long]("jointPublicationCount"),
+        r.getAs[Int]("firstCollaborationYear"),
+        r.getAs[Int]("lastCollaborationYear"),
+        strings(r, "representativeWorkIds"),
+        Fixtures.context.validated("edges-coauthored")
+      )
+      assertEquals(core.edgeId, id)
+      val evidence = StableIds.evidence(
+        SourceType.Derived,
+        "v1",
+        id,
+        EvidenceType.GraphPath,
+        "edge"
+      )
+      val graphEdge = GraphEdge(
+        ContractSchema.currentVersion,
+        StableIds.graphEdge(
+          GraphEdgeType.CoauthoredWith,
+          a,
+          b,
+          core.policyVersion,
+          Vector(evidence)
+        ),
+        a,
+        GraphEdgeType.CoauthoredWith,
+        b,
+        Map.empty,
+        core.policyVersion,
+        Vector(evidence),
+        Some(core),
+        Fixtures.context.validated("edges-coauthored")
+      )
+      assertEquals(graphEdge.coauthorship.map(_.edgeId), Some(id))
+    }
+    assertEquals(mentionEdges, 4)
+    assertEquals(edges.map(string(_, "edgeId")).toSet.size, edges.size)
+  }
+
+  test(
+    "every metrics row, mention nodes included, is a core ResearcherMetrics"
+  ) {
+    val metrics = rows(graph.metrics)
+    val mentionRows =
+      metrics.filter(r => string(r, "researcherId").startsWith("mention:"))
+    assert(mentionRows.nonEmpty)
+    metrics.foreach { r =>
+      val core = ResearcherMetrics(
+        ContractSchema.currentVersion,
+        string(r, "researcherId"),
+        YearWindow(r.getAs[Int]("windowStart"), r.getAs[Int]("windowEnd")),
+        r.getAs[Long]("publicationCount"),
+        r.getAs[Long]("distinctCoauthorCount"),
+        r.getAs[Long]("totalCoauthorOccurrences"),
+        r.getAs[Double]("averageCoauthorsPerPaper"),
+        r.getAs[Long]("maximumCoauthorsOnOnePaper"),
+        strings(r, "maximumTeamWorkIds"),
+        r.getAs[Double]("weightedDegree"),
+        "component-placeholder",
+        1L,
+        None,
+        None,
+        None,
+        Fixtures.context.validated("researcher-metrics")
+      )
+      assertEquals(core.researcherId, string(r, "researcherId"))
+    }
   }
 
   test("pair order is canonical") {

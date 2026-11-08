@@ -1,0 +1,11 @@
+# Work order 17: test-engineer (D13 rulings 1 and 2, independent tests)
+
+Authority: tests/** only. Do not weaken, delete or ignore any test; production fixes go to the owner via BLOCKED-ON. Read-only git, no commit, no AWS.
+
+Context: work order 16 (storage-engineer, see `docs/agent-runs/phase-07/work-order-16-storage-d13.md`) added (1) an S3 Vectors query port with filters on researcher, year window, source, topic, institution, community, document type, plus compact metadata keys; (2) Neptune `GraphScope.Extended` (RESOLVES_TO from edges-authored mention rows, DERIVED_FROM to a DatasetSnapshot vertex) and made it the DEFAULT of `SparkGraphProjector`, per the human ruling. AFFILIATED_WITH, HAS_TOPIC, SUPPORTED_BY are deliberately not loaded (modules/storage/DESIGN.md).
+
+Task:
+1. Read `modules/storage/DESIGN.md`, `Vectors.scala`, `Neptune.scala`, and the module suites VectorQuerySuite and GraphScopeSuite. Update `tests/adversarial/Phase7NeptuneSuite.scala` pinned counts (previously 8 vertices, 11 edges, 19 inserted) to the Extended default. Recompute from the fixture rather than copying numbers blindly; every assertion must stay at least as strong. Add a case that the explicit Base scope still gives the old counts.
+2. Add independent adversarial tests (from the specification, not the module suites): vector query filters on every key and combinations, year-window containment, topK bound, unknown/malformed filter refusal, determinism of ties, absent optional keys never matching, no long text in metadata, D7 still holds; Neptune RESOLVES_TO/DERIVED_FROM endpoint validation, `edge:v1:` core IDs, rerun stability, idempotent reload, refusal of a mention ID that is not a core mention ID, legacy `coauthor:v1:` mention-endpoint refusal still intact.
+3. Update any other test in tests/** that pinned the Base default (read Phase7RunLoadSuite, Phase7StorageFixtures and the integration suites that touch storage).
+4. Run `sbt quick` once (never two sbt at once; the storage-engineer is finished and is not running sbt). Report exact pass/fail counts per group, files read and changed, and a test-per-item list. If a test exposes a production defect, report BLOCKED-ON with the owner and evidence; do not work around it.

@@ -168,7 +168,10 @@ lazy val root = project
     hadoop % "test->compile",
     entityResolution % "test->compile",
     // sparkAnalytics is a batch job module, so it gets the same Test-only edge.
-    sparkAnalytics % "test->compile"
+    sparkAnalytics % "test->compile",
+    // storage is already a runtime module; this Test-only edge adds no runtime
+    // edge and lets independent tests under tests/ reference its contracts.
+    storage % "test->compile"
   )
   .settings(quickSettings)
   .settings(

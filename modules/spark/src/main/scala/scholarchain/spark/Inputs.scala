@@ -93,7 +93,7 @@ object RunContext:
     * source file is covered separately: the sources digest is part of the run
     * ID seed.
     */
-  val transformVersion = "spark-analytics/1.0.0"
+  val transformVersion = "spark-analytics/1.1.0"
 
   /** The text a run ID is derived from: input digests, the ER manifest, the
     * configuration, the transform version and the digest of the module's main

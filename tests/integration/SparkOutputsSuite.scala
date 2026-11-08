@@ -212,7 +212,8 @@ class SparkOutputsSuite extends SparkBase:
         )
         assertEquals(
           p.getAs[String]("transformVersion"),
-          "spark-analytics/1.0.0"
+          scholarchain.spark.RunContext.transformVersion,
+          clue
         )
         assertEquals(p.getAs[String]("runId"), run.runId, clue)
         assert(p.getAs[String]("sourceRecordId").trim.nonEmpty, clue)

@@ -1,0 +1,20 @@
+# Work order 03: storage-engineer (ports, adapters, loaders, local fakes)
+
+Owner: storage-engineer. Output: modules/storage/** only (including its own module tests). Do not edit tests/** (test-engineer), build.sbt/project/** (build-engineer), core, spark, Terraform, CLAUDE.md, docs/agents.md, .claude/**. Local only: no AWS calls, credentials, Terraform, live operations.
+
+Read first: CLAUDE.md, docs/agents.md, .claude/agents/storage-engineer.md, docs/agent-runs/phase-07/prompt.md (Phase 7 paraphrase; NON-VERBATIM), service-limits.md (cite limits as named constants), report-01-domain.md, report-02-spark.md, modules/spark/DESIGN.md, modules/core contracts, the existing modules/storage state, and the Phase 6 output layout under /Users/winnguyen/scholarchain-data/phase6-out/spark/ (read-only; final run is run=run-v1-fc4bbd1a-...; those runs carry LEGACY mention-edge IDs, see decisions.md D4).
+
+## Build
+1. S3: ports + local-filesystem fake for raw/curated/graph/semantic-context/reports/logs prefixes; versioned keys; run manifests; content hashes; source references; loaders refuse a run directory without `_SUCCESS`.
+2. Neptune: bulk-loader CSV/manifest writer for core node classes and the relationship types the graph model needs; coauthor edges carry joint-publication count, first/last year, window, evidence pointer; node/edge IDs equal Spark output IDs (core IDs); validation of endpoints and evidence (every coauthor edge traces to supporting works, via edge-support); legacy `coauthor:v1:` IDs on mention endpoints are REJECTED with a clear error; no null characters; read-only runtime query port with parameterized openCypher (no string interpolation); local fake. Spark-only columns (nodeKind, unresolved counts, endpoint flags) carry as optional properties.
+3. DynamoDB: RunLedger, EntityLinkCache, QuerySession, EvidenceBundle, ArtifactRegistry, optional ResearcherMetricCache; explicit keys documented against access patterns; conditional writes for idempotency; TTL only on disposable data (QuerySession, cache); item <= 400 KB check; local fake with ConditionalCheckFailed semantics.
+4. S3 Vectors: bucket/index abstractions for the five indexes (researcher-profile-v1, collaboration-community-v1, paper-abstract-v1, collaboration-path-v1, topic-institution-summary-v1); stable vector keys (<=1,024 chars); compact filterable metadata (<=2 KB, <=50 keys, no long text, references only); batches <=500 with bounded retry/backoff; rejected-vector records; duplicate-key handling; local fake. Real AWS SDK clients: do NOT add dependencies; define the port and a clearly-marked adapter seam, and mark the AWS-backed implementation DEFERRED behind an explicit profile (build-engineer owns dependency pins; report the exact SDK need as BLOCKED-ON if you consider it necessary).
+5. Skip OpenSearch.
+6. Every transformation records source and transformation provenance. No secrets; no endpoints hardcoded.
+
+## Required tests (module-owned; list test per gate item BEFORE implementing)
+Serialization round-trips; idempotent reload (twice = same state); missing/malformed metadata; duplicate vector keys; Neptune endpoint+evidence validation; DynamoDB conditional-write behavior; loader refusal without `_SUCCESS`; legacy-ID rejection; Neptune IDs match Spark fixture output; no long text in vector metadata. The bounded AWS integration suite: create a skipped/ignored suite or doc stub gated behind an explicit profile, recorded as DEFERRED; it must not run in `sbt quick` or `check`.
+Gate items: no long text in vector metadata; Neptune IDs match Spark output; coauthor edges trace to supporting works; DynamoDB keys support stated access patterns; loaders idempotent.
+
+## Rules
+Run `sbt quick` only; never two sbt commands at once. If the module is not wired in build.sbt or needs deps, report BLOCKED-ON build-engineer with exact needs and finish everything possible without them. Do not weaken or delete tests. Read-only git. No commit. Report exact counts and the test-per-gate-item list.

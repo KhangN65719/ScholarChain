@@ -1,0 +1,7 @@
+# Report 07: storage-engineer repair round 1 (condensed as received)
+
+Status: COMPLETE. `sbt quick` [success] 67 s at 03:56. Root default group (includes tests/adversarial Phase7 suites): Total 415, Failed 0 (was Failed 7). Forked Spark 44/0. Storage module 70 passed (S3Suite 11, NeptuneSuite 23, DynamoSuite 10, VectorSuite 14, DeferredAdapterSuite 2, RepairSuite 10 new, AwsIntegrationSuite 0 run/4 ignored). Core, hadoop and ER group totals not read. No test weakened; tests/** untouched.
+
+Fixes: (1) Rows.provenance null/missing gives MalformedRow; (2) metricsFrom window inside guard; (3) changed vector content under an existing key refused (`ErrorCode.ChangedVectorContent`; writer reads existing keys via getVectors in batches of 100; identical rewrite is a no-op) (D7); (4) RetryPolicy.delayAfter overflow-safe; (5) S3 byte bound uses max(declared, actual); (6) ObjectKeys refuses empty segments/trailing slash; (7) new `PathEvidence.read` (legacy ID refusal `LegacyEdgeId`, `InvalidEdgeId`, `MissingEvidence`, carries `unreachableReason` only on `unreachable-within-bound` rows with `different-component`/`beyond-hop-limit`); 7b nodeKind already reaches vector metadata.
+
+Open: path-evidence column names assumed from Phase 6 dynamodb.json (no real Parquet read); edge ID form checked by prefix only (no policyVersion column); no storage module doc exists; Parquet reader / AWS SDK blockers unchanged. `sbt check` not run by the agent.
