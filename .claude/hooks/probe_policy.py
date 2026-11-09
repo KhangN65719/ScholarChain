@@ -10,6 +10,7 @@ from policy import CHECK_SBT, ROOT
 
 
 PASSES = []
+LAST_STDERR = [""]
 
 
 def record(name, detail=""):
@@ -31,6 +32,7 @@ def probe(name, script, expected, *, root=ROOT, env=None, **payload):
     if result.returncode != expected:
         raise SystemExit(f"FAIL: {name}: expected {expected}, got {result.returncode}\n{result.stderr}")
     record(name, f" (exit {expected})")
+    LAST_STDERR[0] = result.stderr
     return result.stdout
 
 
@@ -357,17 +359,90 @@ def test_lifecycle():
         # Substitute an inert fixture for sbt to verify invocation without building any application code.
         (root / "build.sbt").touch()
         fake_sbt = root / "sbt"
-        fake_sbt.write_text('#!/usr/bin/env bash\nset -eu\ntest "$1" = fmt\n')
-        fake_sbt.chmod(0o700)
-        probe("Scala formatter invokes sbt fmt", "format-scala.sh", 0, root=root,
-              env={**env, "PATH": f"{root}:{env['PATH']}"},
-              tool_name="Edit", tool_input={"file_path": "Probe.scala"})
+        fake_env = {**env, "PATH": f"{root}:{env['PATH']}"}
+        # Inert stand-in for sbt. It records its exact argv, fails on anything but a single
+        # `root / scalafmtOnly <absolute files>` command, and "formats" only the files named there by
+        # appending a marker.
+        # A second, misformatted Scala file exists before the hook runs, standing for another agent's file.
         other_source = root / "Other.scala"
-        other_source.write_text("object Other\n")
+        other_source.write_bytes(b"object   Other{val x=1}\n")
+        other_before = other_source.read_bytes()
+        args_log = root / "sbt.args"
+        fake_sbt.write_text(
+            '#!/usr/bin/env bash\nset -eu\nprintf "%s\\n" "$@" > sbt.args\n'
+            'test "$#" = 1\ncase "$1" in "root / scalafmtOnly "*) ;; *) exit 64 ;; esac\n'
+            'for file in ${1#"root / scalafmtOnly "}; do printf "// formatted\\n" >> "$file"; done\n'
+        )
+        fake_sbt.chmod(0o700)
+        probe("Scala formatter invokes sbt scalafmtOnly for the edited file", "format-scala.sh", 0, root=root,
+              env=fake_env, tool_name="Edit", tool_input={"file_path": "Probe.scala"})
+        expect("P5 the hook passed sbt exactly one command naming only the edited file, never fmt",
+               args_log.read_text() == f"root / scalafmtOnly {root}/Probe.scala\n")
+        expect("P5 the edited file was formatted",
+               source.read_text().endswith("// formatted\n"))
+        expect("P5 another agent's misformatted Scala file stays byte-identical",
+               other_source.read_bytes() == other_before)
+        # An absolute path from the tool call resolves to the same single repository-relative target.
+        args_log.unlink()
+        probe("P5 absolute edited path formats only that file", "format-scala.sh", 0, root=root,
+              env=fake_env, tool_name="Write", tool_input={"file_path": str(source)})
+        expect("P5 absolute path produced the same single-file command",
+               args_log.read_text() == f"root / scalafmtOnly {root}/Probe.scala\n"
+               and other_source.read_bytes() == other_before)
+        # Editing the second file formats it alone and leaves the first untouched.
+        probe_before = source.read_bytes()
+        probe("P5 editing the other file formats only that file", "format-scala.sh", 0, root=root,
+              env=fake_env, tool_name="Edit", tool_input={"file_path": "Other.scala"})
+        expect("P5 the other file was formatted and Probe.scala stayed byte-identical",
+               other_source.read_bytes() == other_before + b"// formatted\n" and source.read_bytes() == probe_before)
+        # One apply_patch over two Scala files names both in a single sbt command, in sorted order.
+        first, second = root / "A.scala", root / "B.scala"
+        first.write_text("object A\n")
+        second.write_text("object B\n")
+        args_log.unlink()
+        probe("P5 an apply_patch over two Scala files formats both", "format-scala.sh", 0, root=root,
+              env=fake_env, tool_name="apply_patch",
+              tool_input={"command": "*** Begin Patch\n*** Update File: B.scala\n*** Update File: A.scala\n*** End Patch\n"})
+        expect("P5 one sbt command named both files, sorted, and nothing else",
+               args_log.read_text() == f"root / scalafmtOnly {root}/A.scala {root}/B.scala\n"
+               and first.read_text().endswith("// formatted\n") and second.read_text().endswith("// formatted\n")
+               and other_source.read_bytes() == other_before + b"// formatted\n")
+        # A deleted file, and the old side of a move, are listed by git but cannot be formatted: no sbt call.
+        gone = root / "Gone.scala"
+        gone.write_text("object Gone\n")
+        git(root, "add", "Gone.scala")
+        git(root, "-c", "user.name=ScholarChain probe", "-c", "user.email=probe@example.invalid",
+            "commit", "--no-gpg-sign", "-qm", "Track Gone")
+        gone.unlink()
+        args_log.unlink()
+        probe("P5 a deleted Scala file is not passed to sbt", "format-scala.sh", 0, root=root,
+              env=fake_env, tool_name="apply_patch",
+              tool_input={"command": "*** Begin Patch\n*** Delete File: Gone.scala\n*** End Patch\n"})
+        expect("P5 no sbt invocation happened for the deleted file", not args_log.exists())
+        # A path outside [A-Za-z0-9._/-] or starting with - cannot be passed safely as one sbt command.
+        # Each probe asserts the guard's own message and that sbt never ran, so a later collateral
+        # check cannot make a missing guard look like a pass.
+        for label, name in (("whitespace", "Has Space.scala"), ("semicolon", "a;b.scala"),
+                            ("leading dash", "-x.scala"), ("quote", "q'x.scala")):
+            odd = root / name
+            odd.write_text("object Odd\n")
+            args_log.unlink(missing_ok=True)
+            probe(f"P5 a Scala path with {label} is refused, not split", "format-scala.sh", 2, root=root,
+                  env=fake_env, tool_name="Edit", tool_input={"file_path": name})
+            expect(f"P5 the {label} refusal came from the path allowlist and sbt never ran",
+                   "[A-Za-z0-9._/-]" in LAST_STDERR[0] and not args_log.exists())
+            odd.unlink()
+        # Collateral-change detection is kept: a formatter that touches any other file still fails.
         fake_sbt.write_text('#!/usr/bin/env bash\nprintf "\\n" >> Other.scala\n')
         probe("Scala formatter flags collateral changes", "format-scala.sh", 2, root=root,
-              env={**env, "PATH": f"{root}:{env['PATH']}"},
-              tool_name="Edit", tool_input={"file_path": "Probe.scala"})
+              env=fake_env, tool_name="Edit", tool_input={"file_path": "Probe.scala"})
+        # The old project-wide behavior is also caught: a formatter run that reformats everything
+        # (what `sbt fmt` did) trips the same detection instead of passing silently.
+        fake_sbt.write_text(
+            '#!/usr/bin/env bash\nfor file in *.scala; do printf "// all\\n" >> "$file"; done\n'
+        )
+        probe("P5 a project-wide formatter run is flagged as collateral", "format-scala.sh", 2, root=root,
+              env=fake_env, tool_name="Edit", tool_input={"file_path": "Probe.scala"})
 
         launcher = root / "scripts/deploy/example.sh"
         launcher.parent.mkdir(parents=True)

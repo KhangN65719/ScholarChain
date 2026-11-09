@@ -30,7 +30,7 @@ APPROVED_OWNERSHIP = {
     'entity-resolution-engineer': 'modules/entity-resolution/**',
     'spark-engineer': 'modules/spark/**',
     'storage-engineer': 'modules/storage/**',
-    'rag-engineer': 'modules/rag/**',
+    'rag-engineer': 'modules/rag/**; prompts/**',
     'service-engineer': 'modules/services/**',
     'test-engineer': 'tests/**',
     'code-reviewer': 'Review verdict delivered to the orchestrator',

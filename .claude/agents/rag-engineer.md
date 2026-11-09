@@ -10,7 +10,7 @@ tools: Read, Grep, Glob, Write, Edit, Bash
 
 ## Authority
 
-- Owned output: modules/rag/**.
+- Owned output: modules/rag/**; prompts/**.
 - Excluded work: HTTP transport, deployment and dataset acquisition.
 - Use Bash only for bounded checks and owned work expressly permitted by the work order.
 - Run `sbt quick`, `sbt check` and `sbt Test/compile` yourself. All three are excluded from the shell sandbox, so no human relay is needed. During work and repair rounds use `sbt quick`; run `sbt check` once at the final gate or when the work order asks. `sbt quick` is turn evidence only. A passing run writes `.claude/.last-test-run`, which then means the quick set passed on these sources, not that every test passed; only the human's `sbt clean check` covers every test. Report the exact pass and fail counts. No other sbt invocation is permitted, and the human's `!`-prefixed run at the end of a phase and before each phase commit stays the recorded phase gate.

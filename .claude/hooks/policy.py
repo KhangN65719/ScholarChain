@@ -225,17 +225,30 @@ def format_scala(payload):
     tool = payload["tool_name"]
     cwd = Path(payload.get("cwd", str(ROOT)))
     candidates = {resolved_path(value, cwd) for value in paths(tool, payload["tool_input"])}
-    scala = {ROOT / item for item in changed_paths() if item.suffix == ".scala"}
-    if not scala.intersection(candidates):
+    # is_file() drops deleted files and the old side of a move, which changed_paths() still lists.
+    scala = {ROOT / item for item in changed_paths() if item.suffix == ".scala" and (ROOT / item).is_file()}
+    edited = sorted(scala.intersection(candidates))
+    if not edited:
         return 0
     if not (ROOT / "build.sbt").is_file():
-        return deny("Scala formatting needs the Phase 2 sbt build. Run sbt fmt once it exists.")
+        return deny("Scala formatting needs the Phase 2 sbt build. Run sbt scalafmtOnly once it exists.")
+    names = [item.relative_to(ROOT).as_posix() for item in edited]
+    # Allowlist, not denylist: the whole argument is one sbt command line, so ";" and a leading "-"
+    # would otherwise split it into more sbt commands or turn a path into an option.
+    safe = re.compile(r"[A-Za-z0-9._/-]+")
+    if any(not safe.fullmatch(name) or name.startswith("-") or not safe.fullmatch(str(ROOT / name)) for name in names):
+        return deny("A Scala path outside [A-Za-z0-9._/-] or starting with - cannot be formatted file by file. Rename it.")
+    # Format only the file(s) this tool call edited, never the project, so parallel agents never
+    # reformat each other's files. The snapshot below still detects any collateral change.
+    # Absolute paths with the root project, matching the root / scalafmtAll alias: the root aggregates
+    # every module, and a relative path could resolve against a module's baseDirectory. Unverified
+    # against real sbt until a fresh-session probe.
     before = formatting_snapshot(candidates)
-    result = subprocess.run(["sbt", "fmt"], cwd=ROOT)
+    result = subprocess.run(["sbt", "root / scalafmtOnly " + " ".join(str(ROOT / name) for name in names)], cwd=ROOT)
     if formatting_snapshot(candidates) != before:
-        return deny("sbt fmt touched files outside this edit. Stop and route the formatting diff through the orchestrator.")
+        return deny("sbt scalafmtOnly touched files outside this edit. Stop and route the formatting diff through the orchestrator.")
     if result.returncode:
-        return deny("sbt fmt failed. Fix formatting before proceeding.")
+        return deny("sbt scalafmtOnly failed. Fix formatting before proceeding.")
     return 0
 
 
