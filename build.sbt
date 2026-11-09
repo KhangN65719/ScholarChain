@@ -50,11 +50,15 @@ lazy val slf4jTestBinding = Seq(
 // IgnoreUnrecognizedVMOptions keeps the same list valid on other JDKs. The
 // heap is capped at 2g: local[2] over hand-checkable fixtures and bounded
 // local runs fit well inside it, and a cap makes an accidental full-graph
-// collect fail fast instead of swallowing the machine. The UI is off so no run
-// needs port 4040, and driver host and bind address are pinned to loopback so a
-// local session does not depend on hostname resolution or a network.
+// collect fail fast instead of swallowing the machine. ExitOnOutOfMemoryError
+// completes that intent: without it an OutOfMemoryError can leave the forked
+// JVM stuck while sbt waits, so the JVM exits at the first one and the run
+// fails with a stack trace. The UI is off so no run needs port 4040, and driver
+// host and bind address are pinned to loopback so a local session does not
+// depend on hostname resolution or a network.
 lazy val sparkJvmOptions = Seq(
   "-Xmx2g",
+  "-XX:+ExitOnOutOfMemoryError",
   "-XX:+IgnoreUnrecognizedVMOptions",
   "--add-opens=java.base/java.lang=ALL-UNNAMED",
   "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
@@ -176,7 +180,12 @@ lazy val root = project
     // packaged-classpath edge and lets independent tests under tests/ reference
     // its contracts. No cycle: rag depends on core and storage, and nothing
     // depends on root.
-    rag % "test->compile"
+    rag % "test->compile",
+    // services is a runtime module; this Test-only edge adds no Compile,
+    // Runtime or packaged-classpath edge and lets the black-box tests under
+    // tests/ start the service runtime. No cycle: services depends on core,
+    // storage and rag, and nothing depends on root.
+    services % "test->compile"
   )
   .settings(quickSettings)
   .settings(
