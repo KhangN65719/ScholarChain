@@ -481,8 +481,8 @@ final class ClaimVerificationAgent:
             VerificationVerdict.Unsupported,
             "an abstention must state its reason"
           )
-      case other =>
-        Check.Bad(VerificationVerdict.Unsupported, s"unknown claim kind $other")
+      case _ =>
+        Check.Bad(VerificationVerdict.Unsupported, "unknown claim kind")
 
   private def pathCheck(s: Subject, a: ujson.Value): Check =
     val src = Facts.s(a, "source")
@@ -668,7 +668,7 @@ final class ClaimVerificationAgent:
                   chunks.exists(c =>
                     bad.exists(n => c.text.exists(_.contains(n)))
                   )
-                reasons += s"number(s) ${bad.mkString(", ")} are not in the asserted value or any cited deterministic fact" +
+                reasons += s"${bad.size} number(s) in the claim wording are not in the asserted value or any cited deterministic fact" +
                   (if inSnippet then
                      "; they appear only in semantic context, which cannot support a number (F1)"
                    else "")
@@ -724,6 +724,7 @@ final class ClaimVerificationAgent:
     val definitions = mutable.ArrayBuffer.empty[String]
     val changes = mutable.ArrayBuffer.empty[ClaimChange]
     var removed = 0
+    var substantive = 0
     checked.foreach { c =>
       val d = c.draft
       val reason = c.reasons.mkString("; ")
@@ -763,6 +764,7 @@ final class ClaimVerificationAgent:
               provenance(d.claimId)
             )
             lines += wording
+            substantive += 1
         case VerificationVerdict.PartiallySupported =>
           val weakenable =
             !NonFactual.contains(d.kind) && d.kind != "semantic"
@@ -783,6 +785,7 @@ final class ClaimVerificationAgent:
                 provenance(d.claimId)
               )
               lines += s"(Partly supported) $weak"
+              substantive += 1
             case _ =>
               removed += 1
               changes += ClaimChange(
@@ -799,7 +802,10 @@ final class ClaimVerificationAgent:
             s"${c.verdict.wire}: $reason"
           )
     }
-    val abstained = lines.isEmpty
+    // An abstention claim says that something is missing; it answers nothing.
+    // With no other claim kept the answer abstains, and the workflow records
+    // the system-written reason code for it.
+    val abstained = substantive == 0
     // The visible analysis is fixed system text. A model paragraph is never
     // shown, so a replacement is recorded whenever the model wrote another.
     val modelAnalysis = output.analysis.trim

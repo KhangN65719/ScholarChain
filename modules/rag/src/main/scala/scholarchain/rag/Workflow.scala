@@ -519,7 +519,12 @@ final class CollaborationWorkflow(
         )
         contexts.foreach(builder.semantic)
         problems.foreach(builder.note)
-        stage("semantic", s"${contexts.map(_.items.size).sum} item(s)")
+        val items = s"${contexts.map(_.items.size).sum} item(s)"
+        stage(
+          "semantic",
+          if problems.isEmpty then items
+          else s"degraded: ${problems.size} index read(s) failed, $items"
+        )
       }
 
     private def writeAudit(

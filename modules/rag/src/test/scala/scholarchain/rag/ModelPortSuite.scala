@@ -64,8 +64,8 @@ class ModelPortSuite extends munit.FunSuite:
         "40c6597d381abb03df6a26a4b2b2984a5f95df5eb507a26041361d1de7cba7c7",
       "schema scholarchain.rag.plan-output/1" ->
         "b55d8e903f6f2084079c9c7cb66d5bd78623ea1293d534e03a05818ba354503a",
-      "schema scholarchain.rag.synthesis-output/2" ->
-        "f510dce62095778c1e54ce347e29e72941d7ba86246047c57f087c413d9046b9",
+      "schema scholarchain.rag.synthesis-output/3" ->
+        "3ff03e974a310c6399465499474c70c1242bed7520e9db8f45b42129bbb89226",
       "schema scholarchain.rag.verifier-report/1" ->
         "e3272063134813c56e480d638e8490ec3e7d34c556c82d8610ce1c6cb0a5e00a"
     )

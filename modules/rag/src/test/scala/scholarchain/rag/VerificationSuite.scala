@@ -167,7 +167,8 @@ class VerificationSuite extends munit.FunSuite:
     val kept = fin.claims.head
     assertEquals(kept.verificationStatus, VerificationStatus.Uncertain)
     assert(!kept.text.contains("99"))
-    assert(kept.uncertainty.exists(_.contains("99")))
+    assert(!kept.uncertainty.exists(_.contains("99")))
+    assert(kept.uncertainty.exists(_.contains("1 number(s)")))
     assert(fin.text.contains("(Partly supported)"))
     assertEquals(fin.report.changes.map(_.action), Vector("weakened"))
   }

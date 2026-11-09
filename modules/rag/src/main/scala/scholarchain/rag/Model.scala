@@ -78,7 +78,7 @@ object Prompts:
   */
 object Schemas:
   val PlanOutputId = "scholarchain.rag.plan-output/1"
-  val SynthesisOutputId = "scholarchain.rag.synthesis-output/2"
+  val SynthesisOutputId = "scholarchain.rag.synthesis-output/3"
   val VerifierReportId = "scholarchain.rag.verifier-report/1"
 
   val ClaimKinds: Vector[String] = Vector(
@@ -265,7 +265,6 @@ object Schemas:
     "oneOf" -> ujson.Arr.from(ClaimKinds.map { kind =>
       record(
         Seq(
-          "claimId",
           "text",
           "kind",
           "evidenceIds",
@@ -273,7 +272,9 @@ object Schemas:
           "uncertainty"
         ),
         Seq(
-          "claimId" -> text(1, 40),
+          // Optional and ignored: claim IDs are assigned by the system
+          // (`ClaimDraft.systemId`), never copied from model output.
+          "claimId" -> ujson.Obj("type" -> "string"),
           "text" -> text(1, 600),
           "kind" -> only(kind),
           "evidenceIds" -> ujson.Obj(

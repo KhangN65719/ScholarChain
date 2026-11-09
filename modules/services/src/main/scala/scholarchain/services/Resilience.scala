@@ -10,6 +10,8 @@ import java.util.concurrent.{
   TimeUnit,
   TimeoutException
 }
+import org.slf4j.LoggerFactory
+import scala.util.control.NonFatal
 
 /** The time one request may still spend. Every downstream call takes the
   * remaining budget, so a request never waits longer than its service deadline
@@ -109,7 +111,20 @@ final class Downstream(
           Some(
             pool.submit(
               new Callable[A]:
-                def call(): A = task()
+                // A fatal Error becomes a typed 503 for the caller, but it is
+                // not silent: its class is logged, then it is rethrown.
+                def call(): A =
+                  try task()
+                  catch
+                    case t: Throwable
+                        if !NonFatal(t) && !t
+                          .isInstanceOf[InterruptedException] =>
+                      Downstream.log.error(
+                        "fatal failure port={} type={}",
+                        name,
+                        t.getClass.getName
+                      )
+                      throw t
             )
           )
         catch case _: RejectedExecutionException => None
@@ -202,3 +217,7 @@ final class Downstream(
             )
 
     go(1)
+
+object Downstream:
+  private[services] val log =
+    LoggerFactory.getLogger("scholarchain.services.downstream")

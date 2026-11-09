@@ -157,7 +157,6 @@ class Phase10ApiContractSuite extends P10Suite:
     val slow = launch(Faults.workflow(Faults.Slow))
     val accepted = slow.askAsync(clean)
     val jobId = Json.firstString(accepted.json, "jobId").getOrElse("job-x")
-    val big = ujson.write(ujson.Obj("question" -> ("q" * (3 * 1024 * 1024))))
     val cases: Vector[(String, Int, () => Resp, Api)] = Vector(
       ("400", 400, () => api.post("/v1/query", "{"), api),
       ("401", 401, () => api.anonymous(readRoutes(2)), api),
@@ -188,7 +187,6 @@ class Phase10ApiContractSuite extends P10Suite:
         api
       ),
       ("409", 409, () => slow.get(s"/v1/jobs/$jobId/result"), slow),
-      ("413", 413, () => api.post("/v1/query", big), api),
       (
         "415",
         415,
@@ -202,9 +200,20 @@ class Phase10ApiContractSuite extends P10Suite:
         api
       )
     )
+    // 413 may be answered and then the connection closed under the client's
+    // write; the helper accepts that only with the replay and log proof.
+    val code413 = assertOversizedRefused(
+      api,
+      "/v1/query",
+      "M1MARK-" + java.util.UUID.randomUUID(),
+      3 * 1024 * 1024,
+      Some(api.queryToken),
+      413,
+      "413"
+    )
     val codes = cases.map { (label, status, call, target) =>
       label -> assertTypedError(call(), status, target, label)
-    }
+    } :+ ("413" -> code413)
     val byStatus = codes.map((l, c) => l.take(3) -> c).toMap
     assertEquals(
       byStatus.values.toSet.size,

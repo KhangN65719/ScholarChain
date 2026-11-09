@@ -266,9 +266,11 @@ class RepairRound1Suite extends munit.FunSuite:
     )
     val uncertainty = partial.claims.head.uncertainty.get
     assert(!uncertainty.contains("hostile note"))
+    // n1: the unsupported figure is counted, never repeated.
+    assert(!uncertainty.contains("99"))
     assert(
-      uncertainty.contains("99"),
-      "the verifier names the unsupported figure"
+      uncertainty.contains("1 number(s)"),
+      "the verifier counts the unsupported figure"
     )
   }
 

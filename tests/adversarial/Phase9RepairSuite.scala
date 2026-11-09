@@ -26,6 +26,28 @@ class Phase9RepairSuite extends FunSuite:
   private def changeOf(r: WorkflowResult, claim: String) =
     r.verification.toVector.flatMap(_.changes).find(_.claimId == claim)
 
+  // Phase 11 (m5): claim IDs are system-assigned (`claim-N-kind-12hex`). A
+  // steered claim is found by position (steered claims are appended last).
+  private val SystemId = "claim-[1-9][0-9]*-[a-z-]+-[0-9a-f]{12}".r
+
+  private def added(r: WorkflowResult): ClaimVerification =
+    val all = r.verification.toVector.flatMap(_.claims)
+    assert(all.nonEmpty, "no claims in the report")
+    all.last
+
+  private def assertSystemId(
+      c: ClaimVerification,
+      modelId: String,
+      kind: String
+  ): Unit =
+    assert(SystemId.matches(c.claimId), s"not a system ID: ${c.claimId}")
+    assert(c.claimId.contains(s"-$kind-"), s"${c.claimId} lacks kind $kind")
+    assert(!c.claimId.contains(modelId), s"model ID leaked: ${c.claimId}")
+    assertEquals(c.kind, kind)
+
+  private def keptFor(r: WorkflowResult, c: ClaimVerification) =
+    r.response.claims.filter(_.claimId == c.claimId)
+
   private def code(body: => Any): ErrorCode =
     intercept[StorageException](body).code
 
@@ -79,16 +101,21 @@ class Phase9RepairSuite extends FunSuite:
     assert(!r.abstained, r.response.answer)
     assertAbsent(r, "main bridge between the communities")
     assertAbsent(r, "are direct coauthors and")
-    assertNotEquals(verdictOf(r, "b1a"), Some(VerificationVerdict.Verified))
+    val x = added(r)
+    assertSystemId(x, "b1a", "semantic")
+    assertNotEquals(x.verdict, VerificationVerdict.Verified)
     // any trace of the claim is the system's wording, never the model's
-    r.response.claims.filter(_.claimId == "b1a").foreach { c =>
+    keptFor(r, x).foreach { c =>
       assertEquals(c.text, Rendering.SemanticText)
     }
     assert(
-      changeOf(r, "b1a").isDefined,
+      changeOf(r, x.claimId).isDefined,
       "the removal or rewording is unrecorded"
     )
-    assert(recordedInAudit(r, "b1a"), "the change is missing from the audit")
+    assert(
+      recordedInAudit(r, x.claimId),
+      "the change is missing from the audit"
+    )
     assertEquals(r.verdict.contains(VerificationVerdict.Verified), false)
     assertEquals(evidenceViolations(r), Vector.empty)
   }
@@ -106,9 +133,12 @@ class Phase9RepairSuite extends FunSuite:
       val r = world.ask(jensenQ, semanticSteer(id, text))
       Vector("ninety-nine", "one hundred", "thirty").foreach(assertAbsent(r, _))
       assert(!r.response.answer.contains("99"), r.response.answer)
-      assertNotEquals(verdictOf(r, id), Some(VerificationVerdict.Verified))
-      assert(changeOf(r, id).isDefined, id)
-      r.response.claims.filter(_.claimId == id).foreach { c =>
+      val x = added(r)
+      assertSystemId(x, id, "semantic")
+      assertNotEquals(x.verdict, VerificationVerdict.Verified)
+      assert(changeOf(r, x.claimId).isDefined, id)
+      assert(recordedInAudit(r, x.claimId), id)
+      keptFor(r, x).foreach { c =>
         assertEquals(c.text, Rendering.SemanticText)
       }
     }
@@ -137,11 +167,9 @@ class Phase9RepairSuite extends FunSuite:
         }
         val r = world.ask(jensenQ, model)
         assertAbsent(r, spelled)
-        assertNotEquals(
-          verdictOf(r, "b1b-metric"),
-          Some(VerificationVerdict.Verified),
-          spelled
-        )
+        val x = added(r)
+        assertSystemId(x, "b1b-metric", "metric")
+        assertNotEquals(x.verdict, VerificationVerdict.Verified, spelled)
         assert(r.response.claims.forall(!_.text.contains(spelled)), spelled)
     }
   }
@@ -167,14 +195,16 @@ class Phase9RepairSuite extends FunSuite:
     assertAbsent(r, "sole bridge researcher")
     assertAbsent(r, "works with everyone")
     assertAbsent(r, "zorblax")
-    r.response.claims.filter(_.claimId == "b1c").foreach { c =>
+    val x = added(r)
+    assertSystemId(x, "b1c", "abstention")
+    keptFor(r, x).foreach { c =>
       assertEquals(c.text, Rendering.AbstentionText)
       assertEquals(
         c.verificationStatus,
         scholarchain.core.VerificationStatus.Uncertain
       )
     }
-    val change = changeOf(r, "b1c")
+    val change = changeOf(r, x.claimId)
     assert(change.isDefined, "the abstention claim left no record")
     assert(change.get.reason.toLowerCase.contains("replaced"), change.toString)
   }
@@ -264,11 +294,9 @@ class Phase9RepairSuite extends FunSuite:
       }
       val r = world.ask(carlaQ, model)
       assert(!r.abstained, r.response.answer)
-      assertNotEquals(
-        verdictOf(r, id),
-        Some(VerificationVerdict.Verified),
-        why
-      )
+      val x = added(r)
+      assertSystemId(x, id, "metric")
+      assertNotEquals(x.verdict, VerificationVerdict.Verified, why)
       assert(!r.response.answer.contains(phrase), s"$why: ${r.response.answer}")
       assert(r.response.claims.forall(!_.text.contains(phrase)), why)
       // the asserted value is what the answer states
@@ -276,7 +304,7 @@ class Phase9RepairSuite extends FunSuite:
         r.response.answer.contains("3 distinct coauthors"),
         r.response.answer
       )
-      r.response.claims.filter(_.claimId == id).foreach { c =>
+      keptFor(r, x).foreach { c =>
         assertNotEquals(
           c.verificationStatus,
           scholarchain.core.VerificationStatus.Verified
@@ -299,11 +327,23 @@ class Phase9RepairSuite extends FunSuite:
         )
       )
     }
+    val clean = world.ask(carlaQ)
     val r = world.ask(carlaQ, model)
+    val x = added(r)
+    // the steered claim was appended: one more claim than the clean run, and
+    // the last claim is not one the clean run already had
     assertEquals(
-      verdictOf(r, "m1-honest"),
-      Some(VerificationVerdict.Verified)
+      r.verification.toVector.flatMap(_.claims).size,
+      clean.verification.toVector.flatMap(_.claims).size + 1
     )
+    assert(
+      !clean.verification.toVector
+        .flatMap(_.claims)
+        .exists(_.claimId == x.claimId),
+      s"the last claim ${x.claimId} existed in the clean run"
+    )
+    assertSystemId(x, "m1-honest", "metric")
+    assertEquals(x.verdict, VerificationVerdict.Verified)
   }
 
   // M2: data strings are untrusted in the model input ---------------------------
@@ -574,8 +614,8 @@ class Phase9RepairSuite extends FunSuite:
   private val pinnedSchemas: Map[String, String] = Map(
     "scholarchain.rag.plan-output/1" ->
       "b55d8e903f6f2084079c9c7cb66d5bd78623ea1293d534e03a05818ba354503a",
-    "scholarchain.rag.synthesis-output/2" ->
-      "f510dce62095778c1e54ce347e29e72941d7ba86246047c57f087c413d9046b9",
+    "scholarchain.rag.synthesis-output/3" ->
+      "3ff03e974a310c6399465499474c70c1242bed7520e9db8f45b42129bbb89226",
     "scholarchain.rag.verifier-report/1" ->
       "e3272063134813c56e480d638e8490ec3e7d34c556c82d8610ce1c6cb0a5e00a"
   )
@@ -587,6 +627,23 @@ class Phase9RepairSuite extends FunSuite:
       Prompts.all.map(p => (p.id, p.version) -> p.hash).toMap
     assertEquals(seenPrompts, pinnedPrompts)
     assertEquals(Schemas.hashes, pinnedSchemas)
+  }
+
+  test("m2 (Phase 11): the pinned literals equal an independent sha256") {
+    def sha(text: String): String =
+      java.security.MessageDigest
+        .getInstance("SHA-256")
+        .digest(text.getBytes("UTF-8"))
+        .map(b => f"${b & 0xff}%02x")
+        .mkString
+    // recomputed here with the JDK, not with the production hashing helper
+    val recomputed = Schemas.byId.map((id, s) => id -> sha(ujson.write(s)))
+    assertEquals(recomputed, pinnedSchemas)
+    Prompts.all.foreach(p =>
+      assertEquals(pinnedPrompts((p.id, p.version)), sha(p.text), p.id)
+    )
+    // the old /2 schema is gone
+    assert(!Schemas.byId.contains("scholarchain.rag.synthesis-output/2"))
   }
 
   test("m2: the synthesis prompt and schema moved past the round-0 versions") {

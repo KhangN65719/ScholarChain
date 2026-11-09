@@ -1,6 +1,7 @@
 package scholarchain.rag
 
 import scholarchain.core.CollaborationMetric
+import scholarchain.storage.Hashing
 
 /** A claim as the synthesis stage proposes it. `assertion` is the structured
   * statement the verifier checks against the cited facts; `text` is the prose.
@@ -16,13 +17,34 @@ final case class ClaimDraft(
 )
 
 object ClaimDraft:
-  def fromJson(value: ujson.Value): ClaimDraft =
+  /** The claim ID is assigned here and never read from the model. It is the
+    * 1-based position, the kind and a digest of the kind, the cited evidence
+    * IDs and the structured assertion, so it is unique within an answer (the
+    * position differs), identical across identical replays, and unchanged by
+    * the model's `claimId`, `text` or `uncertainty`. A `claimId` the model
+    * still sends is ignored.
+    */
+  def systemId(
+      position: Int,
+      kind: String,
+      evidenceIds: Vector[String],
+      assertion: ujson.Value
+  ): String =
+    val digest = Hashing.sha256(
+      kind + "\n" + evidenceIds.mkString(",") + "\n" + ujson.write(assertion)
+    )
+    s"claim-$position-$kind-${digest.take(12)}"
+
+  def fromJson(value: ujson.Value, position: Int): ClaimDraft =
+    val kind = Facts.s(value, "kind").get
+    val evidenceIds = Facts.list(value, "evidenceIds").map(_.str)
+    val assertion = ujson.Obj.from(value("assertion").obj.toSeq)
     ClaimDraft(
-      Facts.s(value, "claimId").get,
+      systemId(position, kind, evidenceIds, assertion),
       Facts.s(value, "text").get,
-      Facts.s(value, "kind").get,
-      Facts.list(value, "evidenceIds").map(_.str),
-      ujson.Obj.from(value("assertion").obj.toSeq),
+      kind,
+      evidenceIds,
+      assertion,
       Facts.s(value, "uncertainty")
     )
 

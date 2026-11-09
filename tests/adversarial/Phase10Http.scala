@@ -240,11 +240,32 @@ object Json:
           s"$at is ${a.getClass.getSimpleName}, example is ${e.getClass.getSimpleName}"
         )
 
-/** Captures what the process writes to stdout and stderr while it is open. */
+/** The one process-wide lock for swapping System.out and System.err. A binary
+  * semaphore, not a reentrant lock, because a tap may be closed on another
+  * thread than the one that opened it. Acquisition times out loudly so a tap
+  * that is never closed fails the next suite instead of hanging it.
+  */
+object StreamSwapLock:
+  private val permit = new java.util.concurrent.Semaphore(1, true)
+
+  def acquire(): Unit =
+    if !permit.tryAcquire(120, java.util.concurrent.TimeUnit.SECONDS) then
+      throw new AssertionError(
+        "System.out/System.err are held by another LogTap (never closed, or nested)"
+      )
+
+  def release(): Unit = permit.release()
+
+/** Captures what the process writes to stdout and stderr while it is open. It
+  * holds `StreamSwapLock` from construction to `close()`, so taps in tests/
+  * suites cannot nest or overlap.
+  */
 final class LogTap:
+  StreamSwapLock.acquire()
   private val sink = new java.io.ByteArrayOutputStream
   private val oldOut = System.out
   private val oldErr = System.err
+  private val closed = new java.util.concurrent.atomic.AtomicBoolean(false)
 
   private def tee(old: PrintStream): PrintStream =
     val out = new OutputStream:
@@ -259,8 +280,11 @@ final class LogTap:
   def text: String = sink.synchronized(sink.toString("UTF-8"))
 
   def close(): Unit =
-    System.setOut(oldOut)
-    System.setErr(oldErr)
+    if closed.compareAndSet(false, true) then
+      try
+        System.setOut(oldOut)
+        System.setErr(oldErr)
+      finally StreamSwapLock.release()
 
 object Http:
   private val client = HttpClient
@@ -448,6 +472,158 @@ abstract class P10Suite extends FunSuite:
 
   protected def tokensOf(a: Api): Vector[String] =
     Vector(a.queryToken, a.readToken)
+
+  private def causeChain(e: Throwable): Vector[Throwable] =
+    Iterator
+      .iterate(e)(_.getCause)
+      .takeWhile(_ != null)
+      .take(8)
+      .toVector
+
+  /** True only for a connection the server closed while the client was still
+    * writing the body: an IOException that is neither a connect failure nor a
+    * timeout, and whose chain says so. Anything else is not a refusal.
+    */
+  protected def isEarlyClose(e: Throwable): Boolean =
+    val chain = causeChain(e)
+    e.isInstanceOf[java.io.IOException] &&
+    !chain.exists(c =>
+      c.isInstanceOf[java.net.http.HttpTimeoutException] ||
+        c.isInstanceOf[java.net.ConnectException] ||
+        c.isInstanceOf[java.net.SocketTimeoutException]
+    ) &&
+    chain.exists { c =>
+      val m = Option(c.getMessage).getOrElse("").toLowerCase
+      m.contains("broken pipe") || m.contains("connection reset") ||
+      m.contains("fixed content-length") || m.contains("eof") ||
+      m.contains("closed")
+    }
+
+  /** The server's answer to the same request head with a tiny body: a raw
+    * socket, because a client library cannot be made to stop writing.
+    */
+  private def rawHeadAnswer(
+      a: Api,
+      path: String,
+      declared: Int,
+      token: Option[String]
+  ): (String, String) =
+    val uri = URI.create(a.url(path))
+    val socket = new java.net.Socket
+    try
+      socket.connect(
+        new java.net.InetSocketAddress(uri.getHost, uri.getPort),
+        5000
+      )
+      socket.setSoTimeout(5000)
+      val head = Vector(
+        s"POST $path HTTP/1.1",
+        s"Host: ${uri.getAuthority}",
+        "Content-Type: application/json",
+        s"Content-Length: $declared",
+        "Connection: close"
+      ) ++ token.map(t => s"Authorization: Bearer $t")
+      val out = socket.getOutputStream
+      out.write((head.mkString("\r\n") + "\r\n\r\n").getBytes("US-ASCII"))
+      out.write(Array.fill(2048)('x'.toByte))
+      out.flush()
+      // The server may keep the connection open while the body is unread, so
+      // read the framed response (status, headers, one body) instead of to EOF.
+      val in = new java.io.BufferedReader(
+        new java.io.InputStreamReader(socket.getInputStream, "UTF-8")
+      )
+      val text =
+        try
+          val statusLine = in.readLine()
+          val hs = Iterator
+            .continually(in.readLine())
+            .takeWhile(l => l != null && l.nonEmpty)
+            .toVector
+          val length = hs
+            .find(_.toLowerCase.startsWith("content-length:"))
+            .map(_.split(":", 2)(1).trim.toInt)
+          val chunked =
+            hs.exists(_.toLowerCase.startsWith("transfer-encoding:"))
+          val body =
+            if length.isDefined then
+              val buf = new Array[Char](length.get)
+              var n = 0
+              while n < buf.length do
+                val k = in.read(buf, n, buf.length - n)
+                if k < 0 then n = buf.length else n += k
+              new String(buf)
+            else if chunked then
+              val size = Integer.parseInt(in.readLine().trim, 16)
+              val buf = new Array[Char](size)
+              var n = 0
+              while n < size do
+                val k = in.read(buf, n, size - n)
+                if k < 0 then n = size else n += k
+              new String(buf)
+            else ""
+          statusLine + "\r\n" + hs.mkString("\r\n") + "\r\n\r\n" + body
+        catch
+          case _: java.net.SocketTimeoutException =>
+            fail("no refusal within 5000 ms on the replayed head: it hangs")
+      (text.linesIterator.nextOption.getOrElse(""), text)
+    finally socket.close()
+
+  /** POST an oversized body that the server must refuse with `status` before
+    * reading it, and return the typed error code. Two outcomes count as the
+    * refusal: the typed `status` answer, or a connection the server closed
+    * while the client was still writing (a race the client library reports as a
+    * broken pipe). Any other exception, status or error shape fails. In the
+    * closed case the same head replayed with a tiny body must yield the typed
+    * `status` answer, and in both cases the body marker must be absent from the
+    * logs (the body was never read or logged) and the service must still be
+    * healthy.
+    */
+  protected def assertOversizedRefused(
+      a: Api,
+      path: String,
+      marker: String,
+      sizeBytes: Int,
+      token: Option[String],
+      status: Int,
+      label: String
+  ): String =
+    val body = ujson.write(
+      ujson.Obj("question" -> (marker + ("q" * sizeBytes)))
+    )
+    val headers =
+      Map("Content-Type" -> "application/json") ++
+        token.map(t => "Authorization" -> s"Bearer $t")
+    val started = System.nanoTime()
+    val code =
+      try
+        val r = Http.send("POST", a.url(path), Some(body), headers)
+        assertTypedError(r, status, a, label)
+      catch
+        case e: java.io.IOException if isEarlyClose(e) =>
+          val (line, text) =
+            rawHeadAnswer(a, path, body.getBytes(UTF_8).length, token)
+          assert(
+            line.startsWith(s"HTTP/1.1 $status"),
+            s"$label: the connection closed early ($e) and the replayed head got: $line"
+          )
+          val from = text.indexOf('{')
+          val to = text.lastIndexOf('}')
+          assert(from >= 0 && to > from, s"$label: no JSON body in: $text")
+          val j = ujson.read(text.substring(from, to + 1))
+          assertEquals(j.obj.keySet.toSet, Set("error"), label)
+          j("error")("code").str
+    val millis = (System.nanoTime() - started) / 1000000
+    assert(millis < 10000, s"$label: the refusal took $millis ms")
+    assert(
+      !tap.text.contains(marker),
+      s"$label: the oversized body reached a log line"
+    )
+    assertEquals(
+      Http.send("GET", a.rt.fastUrl + "/healthz", None, Map.empty).status,
+      200,
+      s"$label: the service is unhealthy afterwards"
+    )
+    code
 
   protected def assertClean(r: Resp, a: Api, label: String): Unit =
     val headerText = r.headers

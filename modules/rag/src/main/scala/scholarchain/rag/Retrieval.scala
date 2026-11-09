@@ -22,6 +22,7 @@ import scholarchain.storage.{
   ResearcherMetricCache,
   Rows,
   StorageException,
+  TransientStorageException,
   VectorFilter,
   VectorIndexes,
   WindowLabels
@@ -258,10 +259,17 @@ final class SemanticContextAgent(
         val hits = retrieval.search(index, text, topK, filter)
         Right(retrieval.context(text, hits))
       catch
-        case e: StorageException =>
-          Left(s"semantic read of $index failed: ${e.code}")
+        case _: StorageException | _: TransientStorageException =>
+          Left(SemanticContextAgent.degradedNote(index))
     }
     (
       results.collect { case Right(c) if c.items.nonEmpty => c },
       results.collect { case Left(note) => note }
     )
+
+object SemanticContextAgent:
+  /** The known gap for a failed vector read. Fixed text plus the system's own
+    * index name: no exception message, class or code is echoed.
+    */
+  def degradedNote(index: String): String =
+    s"Semantic context from index $index was unavailable (the vector read failed), so none is shown; deterministic evidence is unaffected."

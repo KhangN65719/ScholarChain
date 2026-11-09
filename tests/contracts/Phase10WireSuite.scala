@@ -53,7 +53,7 @@ class Phase10WireSuite extends P10Suite:
   )
 
   private val nodeExample = ujson.read(
-    s"""{"nodeId":"researcher:v1:x","nodeType":"researcher","displayName":"n","nodeKind":"k","orcid":null,"linkStatus":null,"idRule":null,"memberCount":1,"mentionCount":1,"sharesOrcidWith":null,"provenance":$provenance}"""
+    s"""{"nodeId":"researcher:v1:x","nodeType":"researcher","displayName":"n","nodeKind":"k","orcid":null,"linkStatus":null,"idRule":null,"memberCount":1,"mentionCount":1,"sharesOrcidWith":0,"provenance":$provenance}"""
   )
 
   private val neighborsExample = ujson.read(
@@ -214,6 +214,10 @@ class Phase10WireSuite extends P10Suite:
     val node = api.get(s"/v1/graph/nodes/${api.enc(id)}")
     assertEquals(node.status, 200, node.body)
     assertConforms(nodeExample, node.json, node.body)
+    // Phase 11: sharesOrcidWith is a count (0 when no other node shares the
+    // ORCID), never null
+    assert(node.json("sharesOrcidWith").numOpt.isDefined, node.body)
+    assert(node.json("sharesOrcidWith").num >= 0, node.body)
     assertEquals(node.json("nodeId").str, id)
     assertEquals(page.status, 200, page.body)
     assertConforms(neighborsExample, page.json, page.body)

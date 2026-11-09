@@ -76,14 +76,11 @@ final class AnswerSynthesisAgent(
     )
 
   private def checks(json: ujson.Value): Vector[String] =
-    val ids = Facts.list(json, "claims").flatMap(c => Facts.s(c, "claimId"))
     val badEvidence = Facts
       .list(json, "claims")
       .flatMap(c => Facts.list(c, "evidenceIds"))
       .exists(e => !e.str.startsWith("evidence:v1:"))
     Vector(
-      if ids.distinct.size != ids.size then Some("claimId values repeat")
-      else None,
       if badEvidence then Some("an evidence ID is malformed") else None
     ).flatten
 
@@ -104,7 +101,10 @@ final class AnswerSynthesisAgent(
         SynthesisResult.Done(
           SynthesisOutput(
             Facts.s(json, "analysis").getOrElse(""),
-            Facts.list(json, "claims").map(ClaimDraft.fromJson),
+            Facts
+              .list(json, "claims")
+              .zipWithIndex
+              .map((c, i) => ClaimDraft.fromJson(c, i + 1)),
             Facts.list(json, "missingEvidence").map(_.str),
             Facts.s(json, "uncertainty")
           ),

@@ -570,31 +570,30 @@ class WorkflowSuite extends munit.FunSuite:
     val world = DemoWorld.build(model = hijacked())
     val r = ask(world, "Who is Ada Quillfeather in 2000-2009?")
     val report = r.verification.get
+    // Claim IDs are system-assigned (m5), so the three appended claims are
+    // found by position: they are the last three the model wrote.
+    val evil = report.claims.takeRight(3)
+    assertEquals(evil.size, 3)
+    assert(evil.forall(c => !c.claimId.startsWith("evil")))
     assertEquals(
-      report.verdictOf("evil-1"),
-      Some(VerificationVerdict.Conflicting)
+      evil.map(_.verdict),
+      Vector(
+        VerificationVerdict.Conflicting,
+        VerificationVerdict.Unsupported,
+        VerificationVerdict.Unsupported
+      )
     )
-    assertEquals(
-      report.verdictOf("evil-2"),
-      Some(VerificationVerdict.Unsupported)
-    )
-    assertEquals(
-      report.verdictOf("evil-3"),
-      Some(VerificationVerdict.Unsupported)
-    )
-    assert(
-      report.claims
-        .find(_.claimId == "evil-2")
-        .get
-        .reasons
-        .exists(_.contains("F1"))
-    )
+    assert(evil(1).reasons.exists(_.contains("F1")))
     assertEquals(report.overall, Some(VerificationVerdict.Conflicting))
     assert(!r.response.answer.contains("99"))
     assert(!r.response.answer.contains("12 publication"))
-    assert(!r.response.claims.exists(_.claimId.startsWith("evil")))
+    assert(
+      !r.response.claims.exists(c => evil.exists(_.claimId == c.claimId))
+    )
     assertEquals(
-      report.changes.filter(_.claimId.startsWith("evil")).map(_.action),
+      report.changes
+        .filter(c => evil.exists(_.claimId == c.claimId))
+        .map(_.action),
       Vector("removed", "removed", "removed")
     )
     assert(r.response.answer.contains("3 claim(s) were withheld"))
@@ -603,7 +602,7 @@ class WorkflowSuite extends munit.FunSuite:
       r.audit
         .payload("verification")("changes")
         .arr
-        .exists(_("claimId").str == "evil-1")
+        .exists(_("claimId").str == evil.head.claimId)
     )
   }
 

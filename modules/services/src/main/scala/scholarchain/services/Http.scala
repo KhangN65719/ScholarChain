@@ -154,11 +154,24 @@ final class Router(routes: Vector[Route], auth: Authenticator):
         route.handler(request, params)
 
 object Threads:
+  private[services] val log =
+    LoggerFactory.getLogger("scholarchain.services.threads")
+
+  // Decision M-1/m-1 (repair 1): a Throwable that ends a worker thread would
+  // reach the JDK default handler, which prints its message and stack to
+  // stderr unredacted. This handler logs the thread name and the class only.
   def daemon(prefix: String): java.util.concurrent.ThreadFactory =
     val counter = new java.util.concurrent.atomic.AtomicInteger
     (task: Runnable) =>
       val thread = new Thread(task, s"$prefix-${counter.incrementAndGet()}")
       thread.setDaemon(true)
+      thread.setUncaughtExceptionHandler((t, e) =>
+        log.error(
+          "uncaught throwable thread={} type={}",
+          t.getName,
+          e.getClass.getName
+        )
+      )
       thread
 
   // A pool with a fixed number of threads and a bounded queue. A task that

@@ -1,0 +1,42 @@
+# Phase 11 decisions
+
+Recorded by the orchestrator, 2026-11-08. The human is asleep and the run is unattended. Decisions that need the human take the most conservative option and are marked PENDING-HUMAN.
+
+| # | Decision | Basis | Why |
+|---|---|---|---|
+| D1 | No AWS, credentials, paid APIs, Terraform or deploys. The "bounded AWS integration tests under the approved profile" item is not run. | Standing instruction | Local only. |
+| D2 | Dispatch is sequential, one agent editing at a time and one sbt command at a time. | Standing instruction, Phase 9 P9 and Phase 10 D12 | Shared working tree. |
+| D3 | Carried defects go to their owners, not to test-engineer: m5 and n1 to rag-engineer, idempotency release and 4-digit year to service-engineer. The Phase10WireSuite.scala:56 fix goes to test-engineer. | docs/agents.md ownership | One writer per artifact. |
+
+| D4 | Async idempotency keys are not released when an async job dies fatally. The key holds the stored 202 job reference and the job shows Failed with 409 JOB_FAILED on /result. Taken as the service-engineer's conservative choice (report-02). | Service-engineer decision, accepted | Releasing would couple JobService to the idempotency port. |
+| D5 | The year parse accepts only 1900 to 2100 after a cue. "in 1850" is not read as a year. Accepted as is. | Service-engineer report-02 | Work order range. |
+
+| D6 | Review round 1 M-1 ruling: with a structured window, a question year the planner would read differently is refused with 422 UNSUPPORTED_CONSTRAINT, never reinterpreted. This supersedes D5 (the 1900 to 2100 range). | Orchestrator, conservative, from reviewer M-1 | A window is applied or refused, and the echo must equal what was applied. |
+| D7 | Services keep a copy of the planner's window reader because `Planner.windowsOf` is `private[rag]`. A public reader in rag would remove the copy. Not done in this phase. The drift is covered by an end-to-end agreement test in tests/ (work order 08). | Service-engineer report-06 | Cross-module change out of the repair round. |
+| D8 | m-2 (a TransientStorageException from Neptune or metric reads gives a typed 503, not an abstention) is not fixed. Named residual risk. | Reviewer, acceptable for the gate | Typed, no leak, key released. |
+| D9 | Process deviation: during repair round 1 the service-engineer started a second `sbt quick` while the first was still finishing. No harm observed (final run exit 0). Recorded, not repeated. | Service-engineer report-06 | Rule: never two sbt at once. |
+
+| D10 | Repair round 2 (the last): N-1 fixed by zero-padding the appended window clause (service-engineer, report-08). N-2 left residual: the services-side System.err lock cannot be shared with tests/. R-1 and R-2 (round 3) left open because the repair budget of 2 rounds is used. | Orchestrator, per the standing limit | At most 2 batched repair rounds. |
+| D11 | The four carried `.fail` defects pinned in earlier phases (AdversarialDuplicateIdSuite.scala:271 and :290, AdversarialMissingFieldSuite.scala:211, AdversarialXmlSuite.scala:69) are not repaired in Phase 11. The test-engineer assigned them to hadoop-engineer by location; the owner is unconfirmed. | Not in the Phase 11 scope note; named by the reviewer as acceptable residual | They were pinned open in earlier accepted phases. Production fixes need an owner ruling. |
+| D12 | Bounded AWS integration tests under the approved profile were not run. | D1 | Local only. |
+| D13 | The human's `sbt clean check` failed one test: Phase10RepairSuite "m1: a 5 MiB body from an unauthenticated client library is refused" (IOException fixed content-length 187, bytes received 0, Broken pipe; Phase10RepairSuite.scala:287, Phase10Http.scala:311). Not repaired: the repair budget of 2 rounds is used and the run is unattended. The gate is recorded as OPEN. | Orchestrator, per the standing limit | A repair needs a human go-ahead past the cap. |
+| D14 | Human approved a third repair round (past the cap of 2) for the D13 failure, 2026-11-09. test-engineer classifies it. A race fix may accept a 413 or an early connection close only if it still proves the server never processed the body. A product defect goes to service-engineer. Work order 13. | Human, in chat | Explicit approval of the extension. |
+| D15 | Round 3 result (report-10): D13 is a test-side race, not a product defect. test-engineer made the test accept a typed refusal or an early connection close, with a raw-socket replay, log-marker and healthz checks. The "server never processed the body" proof is indirect (no job or idempotency observer exists). The round 3 change has no independent review; the budget cap was already extended once by the human. | test-engineer report-10 | Recorded as received. |
+| D16 | Review round 4 of repair round 3: REQUEST_CHANGES (F1 to F6, review-round-4.md). No further repair is made without a human direction. The human's second clean check (phase-11-clean-check-2.log) was started while the review ran and decides the gate. | Orchestrator | The human extended the budget once, for the m1 failure only. |
+| D17 | Second human clean check (2026-11-09, pipefail): Total 81 passed; Total 1072, Failed 0, Errors 0; `[success]`, sbt exit 0. The D13 gate failure is closed. P-8 is resolved by D14/D15; P-9 and P-10 stay open as hardening. | Human's run, read by the orchestrator | Gate evidence. |
+
+## PENDING-HUMAN
+
+- P-10 (from D16): decide whether test-engineer repairs F1 to F6 (F1 and F2 matter most: prove the refusal precedes body consumption on the oversized attempt itself, and run the replay through `assertTypedError`), or accepts them as recorded. A service-side observer is needed only if direct proof that no handler ran is wanted (service-engineer). If the second clean check is green, the findings are hardening, not gate blockers.
+
+- P-9 (from D15): the m1 proof that the body was not processed is indirect. Decide whether to add a service-side observer (service-engineer) or accept it. The round 3 change (Phase10Http.scala, Phase10RepairSuite.scala, Phase10ApiContractSuite.scala, new Phase10EarlyCloseSuite.scala) has not been re-reviewed; a fresh code-reviewer pass over those four files is available on request.
+
+- P-8 (from D13): approve a third repair round for test-engineer to classify the m1 failure (test-side race or product defect) and fix it. Hypothesis, unconfirmed: the server rejects the oversized unauthenticated body and closes while the client is still writing, so the client sees a broken pipe instead of the 4xx response; the test should accept that outcome or the rig should drain. If it is a product defect, service-engineer owns it. The earlier one-off flake in an agent `sbt quick` was the same test. Rerun `sbt clean check` after the fix; the Phase 11 commit waits for it.
+
+- P-1 (from D4): whether async idempotency keys should be released when a job dies fatally, so a replay re-runs instead of returning the Failed job reference. Current behavior is the conservative one.
+- P-2 (superseded by D6): "in 1850" with a structured window is now 422, so the year-range question only matters when no window is supplied, where the planner reads any 4-digit year after a cue. No action needed unless the human wants a policy.
+- P-4 (D11): confirm the owner and whether to repair the four `.fail` defects now (comment and CDATA XML records read as live; zero-author works increment SingleAuthorWorks; a shared ORCID not reported as a conflict; pair consolidation depends on arrival order). Likely hadoop-engineer for the XML and counter items and entity-resolution-engineer or hadoop-engineer for the other two.
+- P-5 (D10): open residuals N-2 (System.err swap overlap, low probability), R-1 (120 s tap-lock timeout could error a queued P10 suite on a slow machine) and R-2 (matching-window edge rows not forced to 200). Fix owners: test-engineer for R-1, R-2 and the sentinel check; service-engineer or build-engineer (fork services tests) for N-2.
+- P-6 (D12): bounded AWS integration tests were not run; they need an approved profile and cost bound.
+- P-7: no change to CLAUDE.md, docs/agents.md or .claude/** was needed for factory-engineer. One related item: `prompts/` still has no owner (Phase 9 P1); the rag prompts live in modules/rag.
+- P-3 (from D7, D8): whether a rag-owned public window reader should replace the services copy, and whether TransientStorageException should degrade or abstain in the Neptune and metric stages (rag-engineer or storage-engineer). Both are deferred to Phase 12.

@@ -14,6 +14,7 @@ import java.util.concurrent.{
   TimeUnit,
   TimeoutException
 }
+import org.slf4j.LoggerFactory
 import scala.util.control.NonFatal
 import scholarchain.core.{AnswerResponse, YearWindow}
 import scholarchain.rag.{RagRuntime, Session}
@@ -208,24 +209,129 @@ object QueryRequests:
     )
 
   private val yearToken = "(?<![0-9])[0-9]{4}(?![0-9])".r
+  private val yearRange =
+    "(?i)(?<![0-9])([0-9]{4})\\s*(?:-|–|—|to|through)\\s*([0-9]{4})(?![0-9])".r
+  private val yearCue = ("(?i)\\b(?:since|in|from|before|after|until|till|" +
+    "between|during|and|year|for|of)\\s*$").r
+  private val countCueBefore = ("(?i)\\b(?:top|first|most|best|at least|" +
+    "at most|up to|last|limit(?:\\s+of|\\s+to)?)\\s*$").r
+  private val countNounAfter = ("(?i)^\\s*(?:co-?authors?|collaborators?|" +
+    "papers?|publications?|researchers?|authors?|articles?|results?|people|" +
+    "scholars?|citations?|works|items?|nodes?|links?|edges?|names?|entries|" +
+    "records?)\\b").r
 
-  // The workflow takes its window from the question text. A structured window
-  // is added as a fixed clause when the question names no year, and passes
-  // unchanged when the years in the question are exactly its two bounds. A
-  // question whose years differ from the window, or one the clause would make
-  // too long, cannot take the window: the request is refused (422), never
-  // answered with the window dropped.
+  // Test-only (N-4). Production code does not call this: `compose` decides
+  // with `planWindows` and `strayYears`. It is a coarser, older heuristic
+  // (years 1900 to 2100 in a year context) kept so its tests still pin that
+  // behavior. It is not the planner's reading and must not gate a request.
+  def years(question: String): Set[Int] =
+    val inRange = yearRange
+      .findAllMatchIn(question)
+      .flatMap(m => Vector(m.start(1), m.start(2)))
+      .toSet
+    yearToken
+      .findAllMatchIn(question)
+      .filter { m =>
+        val n = m.matched.toInt
+        val before = question.substring(0, m.start)
+        val after = question.substring(m.end)
+        n >= 1900 && n <= 2100 &&
+        countCueBefore.findFirstIn(before).isEmpty &&
+        countNounAfter.findFirstIn(after).isEmpty &&
+        (inRange.contains(m.start) || yearCue.findFirstIn(before).isDefined)
+      }
+      .map(_.matched.toInt)
+      .toSet
+
+  // Repair 1 (M-1). `Planner.windowsOf` is private[rag], so services keep an
+  // equivalent: the same five patterns, the same priority and the same span
+  // overlap rule, run after the planner's own removal of researcher IDs. If
+  // the planner changes its window reading, this copy must change with it.
+  private val planBetween = "(?i)between\\s+(\\d{4})\\s+and\\s+(\\d{4})".r
+  private val planDash =
+    "(?i)\\b(\\d{4})\\s*(?:-|–|—|to|through)\\s*(\\d{4})\\b".r
+  private val planSince = "(?i)since\\s+(\\d{4})".r
+  private val planOne = "(?i)\\b(?:in|during|for|of|year)\\s+(\\d{4})\\b".r
+  private val planAllTime =
+    "(?i)all time|overall|all years|entire period|full period".r
+  private val planIds =
+    "(?:researcher|mention):v1:[A-Za-z0-9_\\-]+(?::[A-Za-z0-9_\\-]+)?".r
+
+  // The windows the planner reads, with their spans, in text order.
+  private def planWindows(text: String): Vector[(Int, Int, (Int, Int))] =
+    def pair(r: scala.util.matching.Regex) =
+      r.findAllMatchIn(text)
+        .map(m => (m.start, m.end, (m.group(1).toInt, m.group(2).toInt)))
+        .toVector
+    def one(r: scala.util.matching.Regex, hi: Option[Int]) =
+      r.findAllMatchIn(text)
+        .map { m =>
+          val y = m.group(1).toInt
+          (m.start, m.end, (y, hi.getOrElse(y)))
+        }
+        .toVector
+    val candidates = pair(planBetween) ++ pair(planDash) ++
+      one(planSince, Some(9999)) ++ one(planOne, None) ++
+      planAllTime
+        .findAllMatchIn(text)
+        .map(m => (m.start, m.end, (1, 9999)))
+        .toVector
+    candidates
+      .foldLeft(Vector.empty[(Int, Int, (Int, Int))]) { (kept, next) =>
+        if kept.exists(k => next._1 < k._2 && k._1 < next._2) then kept
+        else kept :+ next
+      }
+      .sortBy(_._1)
+
+  // A 4-digit number from 1000 to 9999 outside every window span, that is not
+  // a count. "top 1000" and "2015 coauthors" are counts, but "in 2015
+  // publications" is a year because a year cue precedes it.
+  private def strayYears(
+      text: String,
+      spans: Vector[(Int, Int, (Int, Int))]
+  ): Vector[Int] =
+    yearToken
+      .findAllMatchIn(text)
+      .filter { m =>
+        val n = m.matched.toInt
+        val before = text.substring(0, m.start)
+        val after = text.substring(m.end)
+        val counted = countCueBefore.findFirstIn(before).isDefined ||
+          (countNounAfter.findFirstIn(after).isDefined &&
+            yearCue.findFirstIn(before).isEmpty)
+        n >= 1000 && !counted &&
+        !spans.exists(s => m.start >= s._1 && m.end <= s._2)
+      }
+      .map(_.matched.toInt)
+      .toVector
+
+  // The workflow takes its window from the question text, so the services must
+  // know what the planner will read. A structured window is added as a fixed
+  // four-digit clause only when the planner reads no window and the question
+  // holds no other year. The question passes unchanged only when the planner reads
+  // exactly one window, equal to the structured one. Anything else is refused
+  // (422), never reinterpreted: "since 2015", "in 2005 and 2009", "in 1850",
+  // "in 2015 publications" and "overall" all conflict. Counts such as "top
+  // 1000 coauthors" are not years. The echo of the window always equals the
+  // window the planner applies, or the request is refused.
   def compose(question: String, window: Option[YearWindow]): String =
     window match
       case None    => question
       case Some(w) =>
-        val years = yearToken.findAllIn(question).map(_.toInt).toSet
-        if years.isEmpty then
-          val text = s"$question from ${w.startYear}-${w.endYear}"
+        val bare = planIds.replaceAllIn(question, " ")
+        val spans = planWindows(bare)
+        val stray = strayYears(bare, spans)
+        if spans.isEmpty && stray.isEmpty then
+          // Four digits each: the planner reads only `\d{4}` years, and
+          // "0001-2009" reads as exactly (1, 2009) for every year 1 to 9999.
+          val text = f"$question from ${w.startYear}%04d-${w.endYear}%04d"
           if text.length > RagRuntime.MaxQuestionChars then
             throw unsupported("The window does not fit in the question")
           text
-        else if years == Set(w.startYear, w.endYear) then question
+        else if stray.isEmpty && spans.map(_._3) == Vector(
+            (w.startYear, w.endYear)
+          )
+        then question
         else
           throw unsupported(
             "The window conflicts with the years named in the question"
@@ -419,6 +525,31 @@ final class QueryService(
                 future.completeExceptionally(e)
                 idempotency.release(k, future)
                 throw e
+              // Decision P11-S1: a fatal Throwable (an Error, an interrupt)
+              // also settles and releases the reservation, so a replay of the
+              // key neither waits for a future nobody will complete (a
+              // permanent 504) nor finds a stale record. Callers already
+              // waiting on the future get a typed 500; a later replay finds the
+              // key free and runs the query again. Nothing partial is stored.
+              // The Throwable is logged by class only and rethrown, so the
+              // HTTP layer still answers 500 with the trace ID and rethrows it.
+              case t: Throwable =>
+                try
+                  future.completeExceptionally(
+                    new ApiException(
+                      ErrorCode.Internal,
+                      "The request could not be completed"
+                    )
+                  )
+                finally
+                  idempotency.release(k, future)
+                  QueryService.log
+                    .error("query failed fatally type={}", t.getClass.getName)
+                throw t
+
+object QueryService:
+  private[services] val log =
+    LoggerFactory.getLogger("scholarchain.services.query")
 
 object JobViews:
   def status(job: Job): ujson.Value =
@@ -488,6 +619,18 @@ final class JobService(
       case e: ApiException => fail(jobId, e.code, e.getMessage)
       case NonFatal(_)     =>
         fail(jobId, ErrorCode.Internal, "The query failed unexpectedly")
+      // Decision P11-S1: a fatal Throwable ends the job as Failed too, never
+      // leaving it Running. An interrupt (a shutdown) only restores the flag;
+      // any other fatal Throwable is logged by class and rethrown.
+      case e: InterruptedException =>
+        Thread.currentThread().interrupt()
+        fail(jobId, ErrorCode.Internal, "The query was interrupted")
+      case t: Throwable =>
+        try fail(jobId, ErrorCode.Internal, "The query failed unexpectedly")
+        finally
+          QueryService.log
+            .error("job failed fatally type={}", t.getClass.getName)
+        throw t
 
   def submit(
       request: QueryRequest,

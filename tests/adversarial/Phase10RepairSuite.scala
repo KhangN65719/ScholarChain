@@ -278,20 +278,21 @@ class Phase10RepairSuite extends P10Suite:
   }
 
   test("m1: a 5 MiB body from an unauthenticated client library is refused") {
-    val big = ujson.write(ujson.Obj("question" -> ("q" * (5 * 1024 * 1024))))
-    val started = System.nanoTime()
-    val r = Http.send(
-      "POST",
-      api.url("/v1/query"),
-      Some(big),
-      Map("Content-Type" -> "application/json")
-    )
-    val millis = (System.nanoTime() - started) / 1000000
+    // The server may answer 401 and close while the client is still writing:
+    // the client then reports a broken pipe. Both outcomes are the refusal; the
+    // helper proves the body was never read (see assertOversizedRefused).
     assertEquals(
-      assertTypedError(r, 401, api, "oversized anonymous"),
+      assertOversizedRefused(
+        api,
+        "/v1/query",
+        "M1MARK-" + java.util.UUID.randomUUID(),
+        5 * 1024 * 1024,
+        None,
+        401,
+        "oversized anonymous"
+      ),
       "UNAUTHORIZED"
     )
-    assert(millis < 10000, s"the refusal took $millis ms")
     // The server is still serving afterwards.
     assertEquals(api.get(s"/v1/evidence/$missingEvidence").status, 404)
   }

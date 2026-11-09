@@ -40,6 +40,45 @@ class Phase9ModelSuite extends FunSuite:
   private def changeOf(r: WorkflowResult, claim: String) =
     r.verification.toVector.flatMap(_.changes).find(_.claimId == claim)
 
+  // Phase 11 (m5): claim IDs are system-assigned (`claim-N-kind-12hex`), so a
+  // model-steered claim is found by position (the steered claims are appended
+  // last), never by the ID the model wrote.
+  private val SystemId = "claim-[1-9][0-9]*-[a-z-]+-[0-9a-f]{12}".r
+
+  /** The last `n` verified claims: the ones a steered model appended. */
+  private def added(r: WorkflowResult, n: Int): Vector[ClaimVerification] =
+    val all = r.verification.toVector.flatMap(_.claims)
+    assert(all.size >= n, s"fewer than $n claims in the report")
+    all.takeRight(n)
+
+  /** Every ID is system-shaped, carries the kind, and none holds model text. */
+  private def assertSystemId(
+      c: ClaimVerification,
+      modelId: String,
+      kind: String
+  ): Unit =
+    assert(SystemId.matches(c.claimId), s"not a system ID: ${c.claimId}")
+    assert(c.claimId.contains(s"-$kind-"), s"${c.claimId} lacks kind $kind")
+    assert(!c.claimId.contains(modelId), s"model ID leaked: ${c.claimId}")
+    assertEquals(c.kind, kind)
+
+  private def assertNoModelId(r: WorkflowResult, modelIds: String*): Unit =
+    val surfaces = Vector(
+      ujson.write(r.verification.get.toJson),
+      ujson.write(r.audit.payload),
+      ujson.write(upickle.default.writeJs(r.response.claims)),
+      r.response.answer
+    )
+    modelIds.foreach(id =>
+      surfaces.foreach(s => assert(!s.contains(id), s"$id leaked into $s"))
+    )
+
+  private def changeFor(r: WorkflowResult, c: ClaimVerification) =
+    changeOf(r, c.claimId)
+
+  private def keptFor(r: WorkflowResult, c: ClaimVerification) =
+    r.response.claims.find(_.claimId == c.claimId)
+
   // (d) F1: a number only in a vector snippet is not Verified -------------------
 
   private def jensenMetricId(input: ujson.Value): String =
@@ -83,9 +122,12 @@ class Phase9ModelSuite extends FunSuite:
       )
     }
     val r = world.ask(jensenQ, model)
-    assertEquals(verdictOf(r, "x-f1a"), Some(VerificationVerdict.Unsupported))
-    assertEquals(changeOf(r, "x-f1a").map(_.action), Some("removed"))
-    assert(r.response.claims.forall(_.claimId != "x-f1a"))
+    val x = added(r, 1).head
+    assertSystemId(x, "x-f1a", "metric")
+    assertNoModelId(r, "x-f1a")
+    assertEquals(x.verdict, VerificationVerdict.Unsupported)
+    assertEquals(changeFor(r, x).map(_.action), Some("removed"))
+    assert(r.response.claims.forall(_.claimId != x.claimId))
     assert(!r.response.answer.contains("99"), r.response.answer)
     assert(r.response.answer.contains("withheld"), r.response.answer)
     assert(r.verdict.exists(_ != VerificationVerdict.Verified))
@@ -111,16 +153,25 @@ class Phase9ModelSuite extends FunSuite:
       )
     }
     val r = world.ask(jensenQ, model)
-    assertEquals(
-      verdictOf(r, "x-f1b"),
-      Some(VerificationVerdict.PartiallySupported)
-    )
-    assertEquals(changeOf(r, "x-f1b").map(_.action), Some("weakened"))
-    val kept = r.response.claims.find(_.claimId == "x-f1b").get
+    val x = added(r, 1).head
+    assertSystemId(x, "x-f1b", "metric")
+    assertNoModelId(r, "x-f1b")
+    assertEquals(x.verdict, VerificationVerdict.PartiallySupported)
+    assertEquals(changeFor(r, x).map(_.action), Some("weakened"))
+    val kept = keptFor(r, x).get
     assertEquals(kept.verificationStatus, VerificationStatus.Uncertain)
     assert(!kept.text.contains("99"), kept.text)
     assert(kept.text.contains("3"), kept.text)
-    assert(kept.uncertainty.exists(_.contains("99")), kept.uncertainty.toString)
+    // Phase 11 (n1 number echo): the weakened claim no longer echoes the
+    // model's number; it says how many numbers were unsupported.
+    assert(
+      !kept.uncertainty.exists(_.contains("99")),
+      kept.uncertainty.toString
+    )
+    assert(
+      kept.uncertainty.exists(_.contains("1 number(s)")),
+      kept.uncertainty.toString
+    )
     assert(!r.response.answer.contains("99"), r.response.answer)
     assertEquals(r.verdict, Some(VerificationVerdict.PartiallySupported))
   }
@@ -145,9 +196,11 @@ class Phase9ModelSuite extends FunSuite:
       )
     }
     val r = world.ask(jensenQ, model)
-    assertEquals(verdictOf(r, "x-f1c"), Some(VerificationVerdict.Conflicting))
+    val x = added(r, 1).head
+    assertSystemId(x, "x-f1c", "metric")
+    assertEquals(x.verdict, VerificationVerdict.Conflicting)
     assertEquals(r.verdict, Some(VerificationVerdict.Conflicting))
-    assert(r.response.claims.forall(_.claimId != "x-f1c"))
+    assert(r.response.claims.forall(_.claimId != x.claimId))
     assert(!r.response.answer.contains("99"), r.response.answer)
     assert(
       r.response.answer.contains("3"),
@@ -170,7 +223,9 @@ class Phase9ModelSuite extends FunSuite:
       )
     }
     val r = world.ask(jensenQ, model)
-    assertNotEquals(verdictOf(r, "x-f1d"), Some(VerificationVerdict.Verified))
+    val x = added(r, 1).head
+    assertSystemId(x, "x-f1d", "semantic")
+    assertNotEquals(x.verdict, VerificationVerdict.Verified)
     assert(!r.response.answer.contains("500"), r.response.answer)
     assert(r.response.claims.forall(c => !c.text.contains("500")))
   }
@@ -207,9 +262,15 @@ class Phase9ModelSuite extends FunSuite:
       )
     }
     val r = world.ask(jensenQ, model)
-    assertEquals(verdictOf(r, "x-path"), Some(VerificationVerdict.Unsupported))
-    assertEquals(verdictOf(r, "x-comp"), Some(VerificationVerdict.Unsupported))
-    assert(r.response.claims.forall(c => !Set("x-path", "x-comp")(c.claimId)))
+    val Vector(path, comp) = added(r, 2): @unchecked
+    assertSystemId(path, "x-path", "path")
+    assertSystemId(comp, "x-comp", "component")
+    assertNotEquals(path.claimId, comp.claimId)
+    assertEquals(path.verdict, VerificationVerdict.Unsupported)
+    assertEquals(comp.verdict, VerificationVerdict.Unsupported)
+    assert(
+      r.response.claims.forall(c => !Set(path.claimId, comp.claimId)(c.claimId))
+    )
   }
 
   // (g) CONFLICTING and PARTIALLY_SUPPORTED -----------------------------------
@@ -245,18 +306,14 @@ class Phase9ModelSuite extends FunSuite:
     }
     val r = world.ask(clean, model)
     assert(!r.abstained)
-    assertEquals(
-      verdictOf(r, "x-conflict"),
-      Some(VerificationVerdict.Conflicting)
-    )
+    val x = added(r, 1).head
+    assertSystemId(x, "x-conflict", "metric")
+    assertNoModelId(r, "x-conflict")
+    assertEquals(x.verdict, VerificationVerdict.Conflicting)
     assertEquals(r.verdict, Some(VerificationVerdict.Conflicting))
-    assertEquals(changeOf(r, "x-conflict").map(_.action), Some("removed"))
-    assert(
-      r.verification.get.claims
-        .find(_.claimId == "x-conflict")
-        .exists(_.reasons.exists(_.contains("differs")))
-    )
-    assert(r.response.claims.forall(_.claimId != "x-conflict"))
+    assertEquals(changeFor(r, x).map(_.action), Some("removed"))
+    assert(x.reasons.exists(_.contains("differs")))
+    assert(r.response.claims.forall(_.claimId != x.claimId))
     assert(r.response.answer.contains(s"${o2.distinctCount("al")}"))
     assert(!r.response.answer.contains("has 5 distinct"), r.response.answer)
   }
@@ -275,15 +332,22 @@ class Phase9ModelSuite extends FunSuite:
       )
     }
     val r = world.ask(clean, model)
-    assertEquals(
-      verdictOf(r, "x-partial"),
-      Some(VerificationVerdict.PartiallySupported)
-    )
+    val x = added(r, 1).head
+    assertSystemId(x, "x-partial", "metric")
+    assertEquals(x.verdict, VerificationVerdict.PartiallySupported)
     assertEquals(r.verdict, Some(VerificationVerdict.PartiallySupported))
-    val kept = r.response.claims.find(_.claimId == "x-partial").get
+    val kept = keptFor(r, x).get
     assertEquals(kept.verificationStatus, VerificationStatus.Uncertain)
     assert(!kept.text.contains("17"), kept.text)
-    assert(kept.uncertainty.exists(_.contains("17")))
+    // Phase 11: the unsupported number is counted, not echoed
+    assert(
+      !kept.uncertainty.exists(_.contains("17")),
+      kept.uncertainty.toString
+    )
+    assert(
+      kept.uncertainty.exists(_.contains("1 number(s)")),
+      kept.uncertainty.toString
+    )
     assert(!r.response.answer.contains("17"), r.response.answer)
   }
 
@@ -312,9 +376,12 @@ class Phase9ModelSuite extends FunSuite:
       )
     }
     val r = world.ask(clean, model)
-    Vector("x-nocite", "x-ghost").foreach { id =>
-      assertEquals(verdictOf(r, id), Some(VerificationVerdict.Unsupported), id)
-      assert(r.response.claims.forall(_.claimId != id), id)
+    val steered = added(r, 2)
+    assertEquals(steered.map(_.claimId).distinct.size, 2)
+    steered.zip(Vector("x-nocite", "x-ghost")).foreach { (c, id) =>
+      assertSystemId(c, id, "metric")
+      assertEquals(c.verdict, VerificationVerdict.Unsupported, id)
+      assert(r.response.claims.forall(_.claimId != c.claimId), id)
     }
     assert(
       r.response.claims.forall(
@@ -354,9 +421,10 @@ class Phase9ModelSuite extends FunSuite:
       )
     }
     val r = world.ask(clean, model)
-    Vector("x-who", "x-window").foreach { id =>
-      assertNotEquals(verdictOf(r, id), Some(VerificationVerdict.Verified), id)
-      assert(r.response.claims.forall(_.claimId != id), id)
+    added(r, 2).zip(Vector("x-who", "x-window")).foreach { (c, id) =>
+      assertSystemId(c, id, "metric")
+      assertNotEquals(c.verdict, VerificationVerdict.Verified, id)
+      assert(r.response.claims.forall(_.claimId != c.claimId), id)
     }
   }
 
@@ -384,10 +452,9 @@ class Phase9ModelSuite extends FunSuite:
       s"What is the shortest path between Bruno Basu and Ines Iyer in $W2s?",
       steered("br", "in", "x-beyond")
     )
-    assertEquals(
-      verdictOf(beyond, "x-beyond"),
-      Some(VerificationVerdict.Conflicting)
-    )
+    val xb = added(beyond, 1).head
+    assertSystemId(xb, "x-beyond", "path-status")
+    assertEquals(xb.verdict, VerificationVerdict.Conflicting)
     assert(
       "(?i)\\bno (collaboration )?path\\b".r
         .findFirstIn(beyond.response.answer)
@@ -398,10 +465,9 @@ class Phase9ModelSuite extends FunSuite:
       s"What is the shortest path between Bruno Basu and Hiro Hayashi in $W2s?",
       steered("br", "hi", "x-legacy")
     )
-    assertEquals(
-      verdictOf(legacy, "x-legacy"),
-      Some(VerificationVerdict.Unsupported)
-    )
+    val xl = added(legacy, 1).head
+    assertSystemId(xl, "x-legacy", "path-status")
+    assertEquals(xl.verdict, VerificationVerdict.Unsupported)
     assert(
       "(?i)\\bno (collaboration )?path\\b".r
         .findFirstIn(legacy.response.answer)
@@ -460,11 +526,16 @@ class Phase9ModelSuite extends FunSuite:
     )
     assertEquals(dirtyW.paths.log.size, cleanW.paths.log.size)
     // the model obeyed and proposed a false claim; the verifier refused it
+    val bogus = added(rd, 1).head
+    assertSystemId(bogus, "x-bogus", "metric")
+    assertNoModelId(rd, "x-bogus")
+    assertEquals(bogus.verdict, VerificationVerdict.Conflicting)
+    // the clean run never obeyed: it holds exactly one claim fewer
     assertEquals(
-      verdictOf(rd, "x-bogus"),
-      Some(VerificationVerdict.Conflicting)
+      rd.verification.get.claims.size,
+      rc.verification.get.claims.size + 1
     )
-    assertEquals(verdictOf(rc, "x-bogus"), None)
+    assert(rc.verification.get.claims.forall(_.claimId != bogus.claimId))
     assert(!rd.response.answer.contains("500"), rd.response.answer)
     assert(rd.response.claims.forall(c => !c.text.contains("500")))
     // every honest claim keeps its verdict
@@ -472,6 +543,10 @@ class Phase9ModelSuite extends FunSuite:
     honest.foreach { id =>
       assertEquals(verdictOf(rd, id), verdictOf(rc, id), id)
     }
+    assertEquals(
+      rd.verification.get.claims.dropRight(1).map(c => (c.kind, c.verdict)),
+      rc.verification.get.claims.map(c => (c.kind, c.verdict))
+    )
     assertEquals(
       rd.response.claims.map(c => (c.claimId, c.text)),
       rc.response.claims.map(c => (c.claimId, c.text))
@@ -506,20 +581,27 @@ class Phase9ModelSuite extends FunSuite:
       "the injected name never reached the model input"
     )
     // the obedient model's false claim is refused; honest claims keep verdicts
-    assertNotEquals(
-      verdictOf(rd, "x-bogus"),
-      Some(VerificationVerdict.Verified)
+    val bogus = added(rd, 1).head
+    assertSystemId(bogus, "x-bogus", "metric")
+    assertNoModelId(rd, "x-bogus")
+    assertNotEquals(bogus.verdict, VerificationVerdict.Verified)
+    assert(rd.response.claims.forall(_.claimId != bogus.claimId))
+    assertEquals(
+      rd.verification.get.claims.size,
+      rc.verification.get.claims.size + 1
     )
-    assert(rd.response.claims.forall(_.claimId != "x-bogus"))
     val shown = rd.response.answer.replace(InjectedName, person("hi").name)
     assert(!shown.contains("500"), shown)
     assertEquals(
       rd.response.claims.map(_.text.replace(InjectedName, person("hi").name)),
       rc.response.claims.map(_.text)
     )
-    rc.response.claims.map(_.claimId).foreach { id =>
-      assertEquals(verdictOf(rd, id), verdictOf(rc, id), id)
-    }
+    // the injected name changes fact content, so IDs may differ: compare by
+    // position and kind
+    assertEquals(
+      rd.verification.get.claims.dropRight(1).map(c => (c.kind, c.verdict)),
+      rc.verification.get.claims.map(c => (c.kind, c.verdict))
+    )
   }
 
   test("injection in the question text changes no plan, tool or answer") {
@@ -532,11 +614,11 @@ class Phase9ModelSuite extends FunSuite:
       rec
     )
     assertEquals(planKey(injected), planKey(base))
-    assertEquals(
-      verdictOf(injected, "x-bogus"),
-      Some(VerificationVerdict.Conflicting)
-    )
-    assert(injected.response.claims.forall(_.claimId != "x-bogus"))
+    val bogus = added(injected, 1).head
+    assertSystemId(bogus, "x-bogus", "metric")
+    assertNoModelId(injected, "x-bogus")
+    assertEquals(bogus.verdict, VerificationVerdict.Conflicting)
+    assert(injected.response.claims.forall(_.claimId != bogus.claimId))
     assertEquals(
       injected.response.claims.map(c => (c.claimId, c.text)),
       base.response.claims.map(c => (c.claimId, c.text))
