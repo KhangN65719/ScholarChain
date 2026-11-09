@@ -15,7 +15,11 @@ final case class PathEvidenceRow(
     edgeId: Option[String],
     jointPublicationCount: Option[Long],
     supportingWorkIds: Vector[String],
-    provenance: Provenance
+    provenance: Provenance,
+    pathLength: Option[Int] = None,
+    hopLimit: Option[Int] = None,
+    firstCollaborationYear: Option[Int] = None,
+    lastCollaborationYear: Option[Int] = None
 )
 
 /** Reader and validator for the Spark `path-evidence` table.
@@ -47,7 +51,11 @@ object PathEvidence:
       Rows.optStr(row, "edgeId"),
       Rows.optLong(row, "jointPublicationCount"),
       Rows.strList(row, "supportingWorkIds"),
-      Rows.provenance(row)
+      Rows.provenance(row),
+      Rows.optLong(row, "pathLength").map(_.toInt),
+      Rows.optLong(row, "hopLimit").map(_.toInt),
+      Rows.optLong(row, "firstCollaborationYear").map(_.toInt),
+      Rows.optLong(row, "lastCollaborationYear").map(_.toInt)
     )
 
   private val hex64 = "[0-9a-f]{64}"

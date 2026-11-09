@@ -46,6 +46,7 @@ enum ErrorCode:
   case MissingText
   case TextHashMismatch
   case ExecutionInputChanged
+  case AmbiguousRun
 
 final class StorageException(val code: ErrorCode, message: String)
     extends RuntimeException(s"${code}: ${message}")

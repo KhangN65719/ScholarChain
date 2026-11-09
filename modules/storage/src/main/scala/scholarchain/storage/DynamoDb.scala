@@ -447,6 +447,49 @@ object QuerySession:
       ) ++ Attr.provenance(s"query-session:$sessionId", None)
     )
 
+  private val turnPrefix = "TURN#"
+
+  private def decode(item: Item): StoredTurn =
+    val sk = Attr.optS(item, "sk").getOrElse("")
+    val ordinal = sk.stripPrefix(turnPrefix)
+    Fail.unless(
+      sk.startsWith(turnPrefix) && ordinal.matches("[0-9]{6}"),
+      ErrorCode.MalformedRow,
+      s"Session turn has a bad sort key: $sk"
+    )
+    StoredTurn(
+      ordinal.toInt,
+      Attr
+        .optS(item, "payloadJson")
+        .getOrElse(Fail(ErrorCode.MalformedRow, s"Turn $sk has no payload")),
+      Attr.optS(item, "sourceRef")
+    )
+
+  /** C2: one turn. */
+  def turn(
+      table: DynamoTable,
+      sessionId: String,
+      ordinal: Int
+  ): Option[StoredTurn] =
+    table.get(s"SESSION#$sessionId", f"$turnPrefix$ordinal%06d").map(decode)
+
+  /** C1: the turns of a session in ordinal order, at most `limit`. */
+  def turns(
+      table: DynamoTable,
+      sessionId: String,
+      limit: Int
+  ): Vector[StoredTurn] =
+    val bound = ReadLimits.bounded(limit, ReadLimits.MaxPage, "limit")
+    table
+      .query(s"SESSION#$sessionId", Some(turnPrefix), bound)
+      .map(decode)
+
+final case class StoredTurn(
+    ordinal: Int,
+    payloadJson: String,
+    sourceRef: Option[String]
+)
+
 /** EvidenceBundle (never expires: answers must stay reproducible). Access
   * patterns D1: a bundle by ID; D2: the bundles of a query (index
   * `query-index`).
@@ -609,6 +652,117 @@ object ResearcherMetricCache:
       Some(metrics.provenance.transformVersion)
     )
     Idempotent.put(table, extras ++ base)
+
+  private val keyPrefix = "RESEARCHER#"
+
+  private def decode(item: Item): CachedMetrics =
+    def attr(name: String): String =
+      Attr
+        .optS(item, name)
+        .getOrElse(
+          Fail(ErrorCode.MalformedRow, s"Metric cache item has no $name")
+        )
+    val runId = attr("runId")
+    val metrics =
+      try upickle.default.read[ResearcherMetrics](attr("metricsJson"))
+      catch
+        case error: Exception =>
+          Fail(
+            ErrorCode.MalformedRow,
+            s"Invalid cached metrics: ${error.getMessage}"
+          )
+    Fail.unless(
+      attr("pk") == s"$keyPrefix${metrics.researcherId}",
+      ErrorCode.MalformedRow,
+      s"Cached metrics of ${metrics.researcherId} sit under another key"
+    )
+    Fail.unless(
+      attr("sk") == sortKey(metrics.window, runId),
+      ErrorCode.MalformedRow,
+      s"Cached metrics of ${metrics.researcherId} sit under another window"
+    )
+    Fail.unless(
+      metrics.provenance.runId == runId,
+      ErrorCode.MalformedRow,
+      s"Cached metrics of ${metrics.researcherId}: provenance run " +
+        s"${metrics.provenance.runId} differs from item run $runId"
+    )
+    CachedMetrics(
+      metrics,
+      runId,
+      metrics.provenance.transformVersion,
+      Attr.optS(item, "storageTransformVersion"),
+      Attr.optS(item, "sourceRef")
+    )
+
+  private def page(items: Vector[Item], limit: Int): MetricPage =
+    MetricPage(items.take(limit).map(decode), items.size > limit)
+
+  /** F1: all cached runs of one researcher in one window, ordered by run
+    * segment. More than `limit` runs set `truncated`.
+    */
+  def find(
+      table: DynamoTable,
+      researcherId: String,
+      window: YearWindow,
+      limit: Int
+  ): MetricPage =
+    val bound = ReadLimits.bounded(limit, ReadLimits.MaxMetricRows, "limit")
+    val prefix = s"WINDOW#${window.startYear}-${window.endYear}#"
+    page(
+      table.query(s"$keyPrefix$researcherId", Some(prefix), bound + 1),
+      bound
+    )
+
+  /** F1: the metrics of one researcher in one window. With a run ID the lookup
+    * is exact. Without one, a single cached run is returned and several runs
+    * fail with `AmbiguousRun`, because a metric must name the run it came from.
+    * Absent is `None`, never a default.
+    */
+  def get(
+      table: DynamoTable,
+      researcherId: String,
+      window: YearWindow,
+      runId: Option[String] = None
+  ): Option[CachedMetrics] =
+    runId match
+      case Some(run) =>
+        table
+          .get(s"$keyPrefix$researcherId", sortKey(window, run))
+          .map(decode)
+      case None =>
+        find(table, researcherId, window, 2).items match
+          case Vector()       => None
+          case Vector(single) => Some(single)
+          case many           =>
+            Fail(
+              ErrorCode.AmbiguousRun,
+              s"$researcherId has metrics for ${window.startYear}-" +
+                s"${window.endYear} from ${many.size} runs; name the run"
+            )
+
+  /** F2: every cached window (of every cached run) of one researcher. */
+  def windows(
+      table: DynamoTable,
+      researcherId: String,
+      limit: Int
+  ): MetricPage =
+    val bound = ReadLimits.bounded(limit, ReadLimits.MaxMetricRows, "limit")
+    page(
+      table.query(s"$keyPrefix$researcherId", Some("WINDOW#"), bound + 1),
+      bound
+    )
+
+/** One cached `ResearcherMetrics` with the run it came from. */
+final case class CachedMetrics(
+    metrics: ResearcherMetrics,
+    runId: String,
+    sparkTransformVersion: String,
+    storageTransformVersion: Option[String],
+    sourceRef: Option[String]
+)
+
+final case class MetricPage(items: Vector[CachedMetrics], truncated: Boolean)
 
 final case class DynamoLoadReport(
     ledgerCreated: Int,
