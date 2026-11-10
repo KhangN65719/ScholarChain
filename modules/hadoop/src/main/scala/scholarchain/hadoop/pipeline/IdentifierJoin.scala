@@ -75,16 +75,22 @@ object IdentifierJoin:
       case SourceType.Arxiv           => Some(IdNamespace.Arxiv)
       case _                          => None
     ).map(_ -> work.sourceRecordId).toVector
-    val authorOrcids = work.authors.flatMap(
-      _.externalIds.get(IdNamespace.Orcid.wire).map(IdNamespace.Orcid -> _)
-    )
-    val authorOpenAlex = work.authors.flatMap(
-      _.externalIds
-        .get(IdNamespace.OpenAlexAuthor.wire)
-        .map(IdNamespace.OpenAlexAuthor -> _)
-    )
-    (structural ++ nativeKey ++ extra ++ authorOrcids ++ authorOpenAlex).distinct
-      .flatMap { case (namespace, raw) =>
+    // Each author-carried identifier keeps the mention that carries it. A
+    // single claim per `(namespace, value)` would silently merge two authors of
+    // one work that carry the same value; one claim per mention keeps both, so
+    // the reducer can report the disagreement.
+    val authorScoped = work.authors.flatMap { mention =>
+      Vector(IdNamespace.Orcid, IdNamespace.OpenAlexAuthor).flatMap(namespace =>
+        mention.externalIds
+          .get(namespace.wire)
+          .map(raw => (namespace, raw, Some(mention.mentionId)))
+      )
+    }
+    val workLevel = (structural ++ nativeKey ++ extra).distinct.map {
+      case (namespace, raw) => (namespace, raw, None)
+    }
+    (workLevel ++ authorScoped)
+      .flatMap { case (namespace, raw, carrier) =>
         ExactIdentifiers.normalize(namespace, raw).map { canonical =>
           ExactIdentifiers.joinKey(namespace, canonical) ->
             IdentifierClaim(
@@ -96,11 +102,14 @@ object IdentifierJoin:
               // like a claim about the publication.
               entityId =
                 if namespace.scope == IdScope.Person then
-                  work.authors
-                    .find(
-                      _.externalIds.get(namespace.wire).contains(canonical)
+                  carrier
+                    .orElse(
+                      work.authors
+                        .find(
+                          _.externalIds.get(namespace.wire).contains(canonical)
+                        )
+                        .map(_.mentionId)
                     )
-                    .map(_.mentionId)
                     .getOrElse(work.workId)
                 else work.workId,
               source = work.source,
@@ -110,6 +119,7 @@ object IdentifierJoin:
             )
         }
       }
+      .distinctBy { case (key, claim) => (key, claim.entityId) }
 
   def emit(
       work: WorkRecord,
@@ -180,7 +190,79 @@ object IdentifierJoin:
           duplicates,
           // Disagreements, not disagreeing values: three titles that differ are
           // two conflicts, not three. One title is zero.
-          math.max(0L, conflictingTitles.size.toLong - 1L)
+          math.max(0L, conflictingTitles.size.toLong - 1L) +
+            sharedPersonConflictCount(namespace, distinct)
         )
       }
     }
+
+  /** Person-scoped identifier claimed by more than one mention of the same
+    * source record. One person identifier cannot belong to two author positions
+    * of one work, so the claims disagree; the same identifier on mentions of
+    * different works is the normal case and is not a conflict.
+    *
+    * Returns, per offending source record, its distinct mention IDs in
+    * ascending order. This reports the disagreement only; whether the mentions
+    * are the same person is entity resolution's decision.
+    */
+  def sharedPersonClaims(
+      namespace: IdNamespace,
+      claimed: Vector[IdentifierClaim]
+  ): Vector[((String, String), Vector[String])] =
+    if namespace.scope != IdScope.Person then Vector.empty
+    else
+      claimed
+        .groupBy(claim => (claim.source.wire, claim.sourceRecordId))
+        .toVector
+        .map { case (record, group) =>
+          record -> group.map(_.entityId).distinct.sorted
+        }
+        .filter(_._2.size > 1)
+        .sortBy(_._1)
+
+  private def sharedPersonConflictCount(
+      namespace: IdNamespace,
+      claimed: Vector[IdentifierClaim]
+  ): Long =
+    sharedPersonClaims(namespace, claimed).map(_._2.size.toLong - 1L).sum
+
+  /** The reject that accompanies a nonzero conflict count, built once so the
+    * local runner and the Hadoop reducer cannot word it differently. It carries
+    * the join record's provenance and names every conflicting title and
+    * mention.
+    */
+  def conflictReject(
+      stage: String,
+      joinKey: String,
+      claimed: Vector[IdentifierClaim],
+      record: IdentifierJoinKey
+  ): RejectRecord =
+    val shared = ExactIdentifiers
+      .parseJoinKey(joinKey)
+      .toVector
+      .flatMap { case (namespace, _) =>
+        sharedPersonClaims(namespace, claimed.distinct)
+      }
+    val titleDetail =
+      if record.conflictingTitles.size > 1 then
+        Some(
+          s"claimed with ${record.conflictingTitles.size} distinct normalized titles"
+        )
+      else None
+    val sharedDetail =
+      if shared.nonEmpty then
+        Some(
+          s"claimed by ${shared.map(_._2.size).sum} mentions across ${shared.size} source record(s) where one record can hold it only once"
+        )
+      else None
+    RejectRecord(
+      stage = stage,
+      reason = RejectReason.IdentifierConflict,
+      detail =
+        s"Identifier $joinKey is ${Vector(titleDetail, sharedDetail).flatten.mkString(" and ")}",
+      sourceRecordId = joinKey,
+      payload = (record.conflictingTitles ++ shared.map { case (rec, ids) =>
+        s"${rec._1}/${rec._2}: ${ids.mkString(",")}"
+      }).mkString(" || "),
+      provenance = record.provenance
+    )

@@ -297,6 +297,60 @@ class Phase10RepairSuite extends P10Suite:
     assertEquals(api.get(s"/v1/evidence/$missingEvidence").status, 404)
   }
 
+  // F1 (round 4): the body is not consumed ---------------------------------------
+
+  private val streamedDeclared = 64L * 1024 * 1024
+
+  test("m1: a streamed 64 MiB body to an anonymous /v1/query is not consumed") {
+    // Fails if the server reads the body before answering, answers and then
+    // reads, or answers something other than the typed 401.
+    val s =
+      RawHttp.streamOversized(api.url("/v1/query"), streamedDeclared, None)
+    assertTypedErrorWith(s.resp, 401, tokensOf(api), "streamed anonymous")
+    assertBodyNotConsumed(s, "streamed anonymous")
+    assertEquals(
+      Http.send("GET", api.rt.fastUrl + "/healthz", None, Map.empty).status,
+      200
+    )
+  }
+
+  test("m1: a streamed 64 MiB body from a wrong-scope caller is not consumed") {
+    val s = RawHttp.streamOversized(
+      api.url("/v1/query"),
+      streamedDeclared,
+      Some(api.readToken)
+    )
+    assertTypedErrorWith(s.resp, 403, tokensOf(api), "streamed wrong scope")
+    assertBodyNotConsumed(s, "streamed wrong scope")
+  }
+
+  // F2, F5 (round 4): the replayed head end to end against the real service -------
+
+  test("m1: the replayed head gets the full typed 401, 403 and 413 answers") {
+    val url = api.url("/v1/query")
+    val toks = tokensOf(api)
+    val c401 =
+      assertReplayRefused(url, streamedDeclared, None, 401, toks, "401")
+    val c403 =
+      assertReplayRefused(
+        url,
+        streamedDeclared,
+        Some(api.readToken),
+        403,
+        toks,
+        "403"
+      )
+    val c413 = assertReplayRefused(
+      url,
+      streamedDeclared,
+      Some(api.queryToken),
+      413,
+      toks,
+      "413"
+    )
+    assertEquals(Set(c401, c403, c413).size, 3, s"$c401 $c403 $c413")
+  }
+
   // m2: a request in flight at close() ------------------------------------------
 
   test(

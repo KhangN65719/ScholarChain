@@ -34,8 +34,8 @@ class AdversarialMissingFieldSuite extends FunSuite:
 
   test("a record with no author element at all is accepted") {
     // A publication with no authors is a graph node that can never carry an
-    // edge. It is accepted silently: no counter separates it from a record
-    // that simply has not been parsed yet.
+    // edge. It is accepted without a reject, and the ZeroAuthorWorks counter
+    // now separates it from a single-author work (see the next test).
     val xml =
       """<article key="noauthor/1"><title>Anonymous.</title></article>"""
     val parsed = DblpParser.parse(xml, run)
@@ -47,19 +47,18 @@ class AdversarialMissingFieldSuite extends FunSuite:
     assertEquals(expanded.expectedPairCount, 0L)
   }
 
-  test("a zero-author work is counted as a single-author work") {
-    // Minor defect, owner hadoop-engineer. `TeamExpansion.emit` counts
-    // SingleAuthorWorks whenever the team holds fewer than two mentions, so
-    // the counter the report quotes for "papers that can carry no edge"
-    // conflates none with one. Required: count them apart, or rename the
-    // counter to what it measures.
+  test("a zero-author work is counted apart from a single-author work") {
+    // Formerly pinned the conflation of none with one under SingleAuthorWorks.
+    // The work now increments ZeroAuthorWorks and not SingleAuthorWorks, and
+    // still emits its empty team with no pair, no authorship and no reject.
     val xml =
       """<article key="noauthor/2"><title>Anonymous.</title></article>"""
     val parsed = DblpParser.parse(xml, run)
     val publication = parsed.getOrElse(fail(s"parse failed: $parsed"))
     val sink = new RecordingSink
     TeamExpansion.emit(publication.work, sink, run)
-    assertEquals(sink.counterValue(PipelineCounter.SingleAuthorWorks), 1L)
+    assertEquals(sink.counterValue(PipelineCounter.SingleAuthorWorks), 0L)
+    assertEquals(sink.counterValue(PipelineCounter.ZeroAuthorWorks), 1L)
     assertEquals(sink.recordsLabelled(TaskSink.teams).size, 1)
     assertEquals(sink.recordsLabelled(TaskSink.authorPapers).size, 0)
     assertEquals(sink.rejects, Vector.empty)
@@ -208,7 +207,7 @@ class AdversarialMissingFieldSuite extends FunSuite:
     )
   }
 
-  test("zero-author works do not increment SingleAuthorWorks".fail) {
+  test("zero-author works do not increment SingleAuthorWorks") {
     val subject = AdversarialFixtures.work("noauthor/3", Vector.empty)
     val sink = new RecordingSink
     TeamExpansion.emit(subject, sink, run)

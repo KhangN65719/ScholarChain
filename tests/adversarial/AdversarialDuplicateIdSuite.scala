@@ -213,12 +213,10 @@ class AdversarialDuplicateIdSuite extends FunSuite:
     assertEquals(record.value, "10.1000/a|b")
   }
 
-  test("one ORCID on two mentions of one work collapses to the first") {
-    // Minor defect, owner hadoop-engineer. Two authors of one paper sharing
-    // an ORCID is a source error. The duplicate is removed by `.distinct`
-    // over `(namespace, value)` pairs and the claim is attributed to
-    // whichever mention comes first, with no counter and no reject, so the
-    // second author's identity claim disappears without a trace.
+  test("one ORCID on two mentions of one work keeps a claim per mention") {
+    // Formerly pinned the collapse to the first mention. Two authors of one
+    // paper sharing an ORCID is a source error; each mention now keeps its own
+    // claim so the reducer can report the disagreement.
     val base = AdversarialFixtures.work("dup/1", Vector("A One", "B Two"))
     val shared = "0000-0001-7580-4351"
     val authors =
@@ -226,23 +224,20 @@ class AdversarialDuplicateIdSuite extends FunSuite:
     val subject = base.copy(authors = authors)
     val claims = IdentifierJoin.claims(subject, Vector.empty)
     val orcidClaims = claims.filter(_._2.namespace == "orcid")
-    assertEquals(orcidClaims.size, 1)
-    assertEquals(orcidClaims.head._2.entityId, authors.head.mentionId)
-    assert(orcidClaims.head._2.entityId != authors(1).mentionId)
+    assertEquals(orcidClaims.size, 2)
+    assertEquals(
+      orcidClaims.map(_._2.entityId).toSet,
+      authors.map(_.mentionId).toSet
+    )
   }
 
   test(
-    "pair consolidation is decided by arrival order when the tiebreak ties"
+    "pair consolidation keeps the lowest run ID whatever the arrival order"
   ) {
-    // DEFECT, owner hadoop-engineer. `TeamExpansion.consolidate` groups by
-    // work ID and keeps the lowest `provenance.sourceRecordId`. For two
-    // records of one work that source record ID is identical, so the sort
-    // ties and the stable sort keeps whichever the shuffle delivered first.
-    // The retained record's provenance then depends on arrival order, which
-    // contradicts the method's own comment and the gate item "repeated runs
-    // with the same input produce equivalent logical output".
-    // Required: a total order over the candidates, for example by run ID or
-    // transform version, so the retained record is a function of content.
+    // Formerly pinned the order dependence: for two records of one work the
+    // source record ID tied and the first-delivered record was kept. The
+    // retention order now breaks the tie on run ID, so both arrival orders
+    // retain the same record, the one from the lower run ID.
     val subject = AdversarialFixtures.work("pair/1", Vector("A One", "B Two"))
     val pair = TeamExpansion.expand(subject, run).pairs.head
     val replayRun =
@@ -261,14 +256,11 @@ class AdversarialDuplicateIdSuite extends FunSuite:
     assertEquals(forward.size, 1)
     assertEquals(reversed.size, 1)
     assertEquals(forward.head.provenance.runId, AdversarialFixtures.runId)
-    assertEquals(
-      reversed.head.provenance.runId,
-      AdversarialFixtures.secondRunId
-    )
-    assert(forward != reversed, "the retained record must not depend on order")
+    assertEquals(reversed.head.provenance.runId, AdversarialFixtures.runId)
+    assertEquals(forward, reversed)
   }
 
-  test("pair consolidation is independent of replay arrival order".fail) {
+  test("pair consolidation is independent of replay arrival order") {
     val subject = AdversarialFixtures.work("pair/1", Vector("A One", "B Two"))
     val pair = TeamExpansion.expand(subject, run).pairs.head
     val replayRun =
@@ -287,7 +279,7 @@ class AdversarialDuplicateIdSuite extends FunSuite:
     )
   }
 
-  test("shared ORCID on two authors is reported as a conflict".fail) {
+  test("shared ORCID on two authors is reported as a conflict") {
     val base = AdversarialFixtures.work("dup/1", Vector("A One", "B Two"))
     val authors = base.authors.map(
       _.copy(externalIds = Map("orcid" -> "0000-0001-7580-4351"))

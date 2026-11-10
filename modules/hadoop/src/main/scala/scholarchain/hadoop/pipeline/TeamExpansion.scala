@@ -108,7 +108,11 @@ object TeamExpansion:
     expanded.authorPapers.foreach { authorship =>
       sink.emitRecord(TaskSink.authorPapers, authorship.mentionId, authorship)
     }
-    if work.authors.size < 2 then sink.count(PipelineCounter.SingleAuthorWorks)
+    // Zero authors is a different quality finding from one author, so the two
+    // must not share a counter.
+    if work.authors.isEmpty then sink.count(PipelineCounter.ZeroAuthorWorks)
+    else if work.authors.size == 1 then
+      sink.count(PipelineCounter.SingleAuthorWorks)
     if expanded.oversize then
       sink.count(PipelineCounter.OversizeAuthorTeams)
       sink.reject(
@@ -150,8 +154,12 @@ object TeamExpansion:
   /** Reduce side: consolidate duplicate pair records for one mention pair.
     *
     * Duplicates arise when the same work reaches the reducer more than once,
-    * for example through a reingest. The retained record is the one with the
-    * lowest work ID, which makes consolidation independent of arrival order.
+    * for example through a reingest. One record is kept per work and the result
+    * is ordered by work ID. Within a work the retained record is the minimum
+    * under [[retentionOrder]], a total order over the candidate's content, so
+    * the result is a function of the set of candidates and not of the order the
+    * shuffle delivered them in. The duplicate count is the number of candidates
+    * dropped.
     */
   def consolidate(
       pairKey: String,
@@ -161,5 +169,24 @@ object TeamExpansion:
       .groupBy(_.workId)
       .toVector
       .sortBy(_._1)
-      .map { case (_, group) => group.sortBy(_.provenance.sourceRecordId).head }
+      .map { case (_, group) => group.min(using retentionOrder) }
     (byWork, (candidates.size - byWork.size).toLong)
+
+  /** Lowest run ID first, then source record ID, then every remaining
+    * provenance field and the pair's own fields, so two distinct candidates
+    * never tie.
+    */
+  val retentionOrder: Ordering[CoauthorPairCandidate] =
+    Ordering.by { candidate =>
+      val provenance = candidate.provenance
+      (
+        (provenance.runId, provenance.sourceRecordId, provenance.source.wire),
+        (
+          provenance.snapshotId,
+          provenance.sourceUri,
+          provenance.transformVersion
+        ),
+        (candidate.mentionA, candidate.mentionB),
+        (candidate.authorPositionA, candidate.authorPositionB, candidate.year)
+      )
+    }

@@ -80,8 +80,13 @@ class DblpXmlRecordReader extends RecordReader[LongWritable, Text]:
     val fileSystem = path.getFileSystem(configuration)
     val raw = fileSystem.open(path)
     val codec = new CompressionCodecFactory(configuration).getCodec(path)
+    // The scan begins before the split so the reader learns whether the split
+    // starts inside a comment or CDATA section; see `XmlRecordStream`.
+    val scanStart =
+      if codec == null then math.max(0L, start - XmlRecordStream.lookbackBytes)
+      else 0L
     input = if codec == null then
-      raw.seek(start)
+      raw.seek(scanStart)
       raw
     else
       // A compressed file is not split by `isSplitable`, so the single split
@@ -91,6 +96,7 @@ class DblpXmlRecordReader extends RecordReader[LongWritable, Text]:
     stream = new XmlRecordStream(
       input,
       DblpXmlInputFormat.recordTags(configuration),
+      scanStart,
       start,
       end
     )
@@ -113,9 +119,12 @@ class DblpXmlRecordReader extends RecordReader[LongWritable, Text]:
   override def getProgress: Float =
     if end <= start then 0.0f
     else
-      math.min(
-        1.0f,
-        ((stream.currentPosition - start).toFloat / (end - start).toFloat)
+      math.max(
+        0.0f,
+        math.min(
+          1.0f,
+          (stream.currentPosition - start).toFloat / (end - start).toFloat
+        )
       )
 
   override def close(): Unit =

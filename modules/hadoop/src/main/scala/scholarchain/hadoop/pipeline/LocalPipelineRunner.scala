@@ -283,15 +283,8 @@ object LocalPipelineRunner:
             if conflicts > 0 then
               reduceSink.count(PipelineCounter.ConflictRecords, conflicts)
               reduceSink.reject(
-                RejectRecord(
-                  stage = Stage.identifierJoin,
-                  reason = RejectReason.IdentifierConflict,
-                  detail =
-                    s"Identifier $key is claimed with ${record.conflictingTitles.size} distinct normalized titles",
-                  sourceRecordId = key,
-                  payload = record.conflictingTitles.mkString(" || "),
-                  provenance = record.provenance
-                )
+                IdentifierJoin
+                  .conflictReject(Stage.identifierJoin, key, claimed, record)
               )
             reduceSink.emit(
               TaskSink.identifierKeys,

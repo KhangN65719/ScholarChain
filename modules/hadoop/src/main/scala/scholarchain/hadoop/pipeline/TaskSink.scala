@@ -38,6 +38,12 @@ enum PipelineCounter(val group: String):
   case SchemaFailureRecords extends PipelineCounter("scholarchain.quality")
   case SingleAuthorWorks extends PipelineCounter("scholarchain.pairs")
 
+  /** Works that carry no author mention at all. Such a work yields a team with
+    * no members and no pairs; it is reported apart from [[SingleAuthorWorks]],
+    * which are real one-author publications.
+    */
+  case ZeroAuthorWorks extends PipelineCounter("scholarchain.quality")
+
   /** Accepted map-output records before consolidation; reducers do not count
     * this again. Final pairs have the separate `EmittedPairs` counter.
     */

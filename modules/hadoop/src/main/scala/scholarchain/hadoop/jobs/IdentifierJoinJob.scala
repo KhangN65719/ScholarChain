@@ -108,15 +108,7 @@ object IdentifierJoinJob:
           if conflicts > 0 then
             sink.count(PipelineCounter.ConflictRecords, conflicts)
             sink.reject(
-              RejectRecord(
-                stage = stage,
-                reason = RejectReason.IdentifierConflict,
-                detail =
-                  s"Identifier $logical is claimed with ${record.conflictingTitles.size} distinct normalized titles",
-                sourceRecordId = logical,
-                payload = record.conflictingTitles.mkString(" || "),
-                provenance = record.provenance
-              )
+              IdentifierJoin.conflictReject(stage, logical, claimed, record)
             )
           // `emit`, not `emitRecord`: the mapper already counted its claims
           // under `EmittedRecords`, and one Hadoop counter spans both phases.

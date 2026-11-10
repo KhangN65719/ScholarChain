@@ -317,6 +317,291 @@ object Http:
       .collect { case (k, v) if !v.isEmpty => k.toLowerCase -> v.get(0) }
     Resp(response.statusCode(), hs, response.body())
 
+/** Raw-socket HTTP/1.1 for the cases a client library cannot produce: a head
+  * that declares far more body than is sent, and a body streamed by a writer
+  * thread while the main thread watches for the answer. Failures are
+  * `AssertionError`s with a message, never a bare socket exception.
+  */
+object RawHttp:
+  import java.io.{BufferedInputStream, ByteArrayOutputStream, IOException}
+  import java.io.InputStream
+  import java.net.{InetSocketAddress, Socket, SocketTimeoutException}
+  import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
+
+  private val statusRe = "HTTP/1\\.[01] (\\d{3})(?: .*)?".r
+
+  private def bad(msg: String): Nothing = throw new AssertionError(msg)
+
+  private def readLine(in: InputStream): Option[String] =
+    val sb = new ByteArrayOutputStream
+    var b = in.read()
+    if b < 0 then None
+    else
+      while b >= 0 && b != 10 do
+        sb.write(b)
+        b = in.read()
+      if b < 0 then bad("EOF inside a protocol line")
+      Some(sb.toString("ISO-8859-1").stripSuffix("\r"))
+
+  private def readFully(in: InputStream, n: Int): Array[Byte] =
+    if n > (1 << 20) then bad(s"a $n byte response body is not a typed error")
+    val buf = new Array[Byte](n)
+    var off = 0
+    while off < n do
+      val k = in.read(buf, off, n - off)
+      if k < 0 then bad(s"EOF after $off of $n body bytes")
+      off += k
+    buf
+
+  private def readToEof(in: InputStream): Array[Byte] =
+    val sink = new ByteArrayOutputStream
+    val buf = new Array[Byte](4096)
+    var k = in.read(buf)
+    while k >= 0 do
+      sink.write(buf, 0, k)
+      if sink.size > (1 << 20) then bad("a response body over 1 MiB")
+      k = in.read(buf)
+    sink.toByteArray
+
+  /** One framed response: Content-Length counts bytes, `Transfer-Encoding`
+    * counts as chunked only when its last coding is `chunked`, chunk extensions
+    * are ignored, every chunk and the trailer are consumed, and a response with
+    * neither framing is read to EOF.
+    */
+  def readResponse(in: InputStream): Resp =
+    val statusLine =
+      readLine(in).getOrElse(bad("the connection closed before a status line"))
+    val status = statusLine match
+      case statusRe(code) => code.toInt
+      case _              => bad(s"not an HTTP/1.x status line: $statusLine")
+    val pairs = Vector.newBuilder[(String, String)]
+    var line = readLine(in).getOrElse(bad("EOF inside the headers"))
+    while line.nonEmpty do
+      val i = line.indexOf(':')
+      if i > 0 then
+        pairs += line.substring(0, i).trim.toLowerCase -> line
+          .substring(i + 1)
+          .trim
+      line = readLine(in).getOrElse(bad("EOF inside the headers"))
+    val hs = pairs.result()
+    val length = hs.collectFirst { case ("content-length", v) => v }
+    val codings = hs
+      .collect { case ("transfer-encoding", v) => v }
+      .flatMap(_.split(",").toVector)
+      .map(_.trim.toLowerCase)
+      .filter(_.nonEmpty)
+    val chunked = codings.lastOption.contains("chunked")
+    val bytes =
+      if chunked then
+        val sink = new ByteArrayOutputStream
+        var size = -1
+        while size != 0 do
+          val sizeLine =
+            readLine(in).getOrElse(bad("EOF before a chunk size line"))
+          size =
+            try Integer.parseInt(sizeLine.takeWhile(_ != ';').trim, 16)
+            catch
+              case _: NumberFormatException =>
+                bad(s"bad chunk size line: $sizeLine")
+          if size > 0 then
+            sink.write(readFully(in, size))
+            val end = readLine(in).getOrElse(bad("EOF after a chunk"))
+            if end.nonEmpty then bad(s"no CRLF after a chunk: $end")
+        var trailer = readLine(in).getOrElse("")
+        while trailer.nonEmpty do trailer = readLine(in).getOrElse("")
+        sink.toByteArray
+      else if length.isDefined then
+        val n =
+          try length.get.toInt
+          catch
+            case _: NumberFormatException =>
+              bad(s"bad Content-Length: ${length.get}")
+        readFully(in, n)
+      else readToEof(in)
+    val headers = hs.reverse.toMap
+    Resp(status, headers, new String(bytes, UTF_8))
+
+  private def headBytes(
+      target: String,
+      authority: String,
+      declared: Long,
+      token: Option[String]
+  ): Array[Byte] =
+    val lines = Vector(
+      s"POST $target HTTP/1.1",
+      s"Host: $authority",
+      "Content-Type: application/json",
+      s"Content-Length: $declared",
+      "Connection: close"
+    ) ++ token.map(t => s"Authorization: Bearer $t")
+    (lines.mkString("\r\n") + "\r\n\r\n").getBytes("US-ASCII")
+
+  private def targetOf(uri: URI): String =
+    Option(uri.getRawPath).filter(_.nonEmpty).getOrElse("/") +
+      Option(uri.getRawQuery).fold("")("?" + _)
+
+  /** The server's answer to a request head that declares `declared` bytes but
+    * sends 2048: a raw socket, because a client library cannot be made to stop
+    * writing. 5 s connect and read timeouts, closed in `finally`. A hang, a
+    * reset or a malformed answer fails with a message naming it.
+    */
+  def rawHeadAnswer(
+      url: String,
+      declared: Long,
+      token: Option[String],
+      timeoutMillis: Int = 5000
+  ): Resp =
+    val uri = URI.create(url)
+    val socket = new Socket
+    try
+      try
+        socket.connect(
+          new InetSocketAddress(uri.getHost, uri.getPort),
+          timeoutMillis
+        )
+        socket.setSoTimeout(timeoutMillis)
+        val out = socket.getOutputStream
+        out.write(headBytes(targetOf(uri), uri.getAuthority, declared, token))
+        out.write(Array.fill(2048)('x'.toByte))
+        out.flush()
+        readResponse(new BufferedInputStream(socket.getInputStream))
+      catch
+        case _: SocketTimeoutException =>
+          bad(
+            s"no refusal within $timeoutMillis ms on the replayed head: it hangs"
+          )
+        case e: IOException =>
+          bad(s"the connection failed on the replayed head: $e")
+    finally socket.close()
+
+  /** What a streamed oversized body did: bytes the writer had handed to the
+    * kernel when the answer arrived (`atAnswer`) and after a grace period
+    * (`afterGrace`), and the writer's failure, if any.
+    */
+  final case class Streamed(
+      resp: Resp,
+      declared: Long,
+      atAnswer: Long,
+      afterGrace: Long,
+      writerError: Option[Throwable]
+  )
+
+  /** Declare `declared` bytes and stream them in chunks from a writer thread
+    * while the calling thread reads the answer. A writer failure is kept, and
+    * is tolerated only because the answer was read: if no answer arrives, the
+    * failure is part of the assertion message.
+    */
+  def streamOversized(
+      url: String,
+      declared: Long,
+      token: Option[String],
+      graceMillis: Int = 500,
+      timeoutMillis: Int = 5000,
+      chunkBytes: Int = 64 * 1024
+  ): Streamed =
+    val uri = URI.create(url)
+    val socket = new Socket
+    val written = new AtomicLong
+    val failure = new AtomicReference[Throwable]
+    var writer: Thread = null
+    try
+      socket.connect(
+        new InetSocketAddress(uri.getHost, uri.getPort),
+        timeoutMillis
+      )
+      socket.setSoTimeout(timeoutMillis)
+      val out = socket.getOutputStream
+      out.write(headBytes(targetOf(uri), uri.getAuthority, declared, token))
+      out.flush()
+      writer = new Thread(() =>
+        try
+          val chunk = Array.fill(chunkBytes)('x'.toByte)
+          var left = declared
+          while left > 0 do
+            val n = math.min(left, chunk.length.toLong).toInt
+            out.write(chunk, 0, n)
+            written.addAndGet(n.toLong)
+            left -= n
+          out.flush()
+        catch case e: Throwable => failure.set(e)
+      )
+      writer.setDaemon(true)
+      writer.start()
+      def state =
+        s"the writer had sent ${written.get} bytes, failure ${failure.get}"
+      val resp =
+        try readResponse(new BufferedInputStream(socket.getInputStream))
+        catch
+          case _: SocketTimeoutException =>
+            bad(s"no answer within $timeoutMillis ms: it hangs; $state")
+          case e: IOException =>
+            bad(s"no answer, the connection failed: $e; $state")
+          case e: AssertionError =>
+            throw new AssertionError(s"${e.getMessage}; $state", e)
+      val atAnswer = written.get
+      Thread.sleep(graceMillis.toLong)
+      Streamed(resp, declared, atAnswer, written.get, Option(failure.get))
+    finally
+      socket.close()
+      if writer != null then writer.join(2000)
+
+/** The bytes the loopback buffers take from a 64 MiB streamed body when the
+  * server answers 401 at once and then holds the socket open without reading a
+  * single body byte (it only sleeps until the socket is closed). Measured once
+  * per JVM against a fake server, so the body-consumed limit follows the
+  * machine's buffer sizes instead of assuming them. Because the fake never
+  * reads, the baseline is only what the OS buffers swallow and does not depend
+  * on how fast any read loop runs.
+  */
+object BodyBaseline:
+  val margin: Long = 2L * 1024 * 1024
+
+  def limitAtAnswer(declared: Long): Long =
+    math.min(measured.atAnswer + margin, declared / 4)
+
+  def limitAfterGrace(declared: Long): Long =
+    math.min(measured.afterGrace + margin, declared / 4)
+
+  lazy val measured: RawHttp.Streamed =
+    import java.net.{InetAddress, ServerSocket}
+    val server = new ServerSocket(0, 5, InetAddress.getLoopbackAddress)
+    val held = new java.util.concurrent.ConcurrentLinkedQueue[java.net.Socket]
+    val acceptor = new Thread(() =>
+      try
+        val s = server.accept()
+        held.add(s)
+        val in = s.getInputStream
+        val sb = new java.lang.StringBuilder
+        while !sb.toString.endsWith("\r\n\r\n") do
+          val b = in.read()
+          if b < 0 then throw new java.io.EOFException("no head")
+          sb.append(b.toChar)
+        s.getOutputStream.write(
+          "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            .getBytes("US-ASCII")
+        )
+        s.getOutputStream.flush()
+        var n = 0
+        while !s.isClosed && n < 300 do
+          Thread.sleep(100)
+          n += 1
+      catch case _: java.io.IOException => ()
+    )
+    acceptor.setDaemon(true)
+    acceptor.start()
+    try
+      val url =
+        s"http://${InetAddress.getLoopbackAddress.getHostAddress}:${server.getLocalPort}/v1/query"
+      val r = RawHttp.streamOversized(url, 64L * 1024 * 1024, None)
+      assert(
+        r.resp.status == 401,
+        s"the calibration server answered ${r.resp.status}"
+      )
+      r
+    finally
+      server.close()
+      held.forEach(s => Try(s.close()))
+
 /** One running local runtime seen over HTTP. Query and job paths go to the slow
   * service and everything else to the fast service.
   */
@@ -473,7 +758,7 @@ abstract class P10Suite extends FunSuite:
   protected def tokensOf(a: Api): Vector[String] =
     Vector(a.queryToken, a.readToken)
 
-  private def causeChain(e: Throwable): Vector[Throwable] =
+  protected def causeChain(e: Throwable): Vector[Throwable] =
     Iterator
       .iterate(e)(_.getCause)
       .takeWhile(_ != null)
@@ -495,88 +780,121 @@ abstract class P10Suite extends FunSuite:
     chain.exists { c =>
       val m = Option(c.getMessage).getOrElse("").toLowerCase
       m.contains("broken pipe") || m.contains("connection reset") ||
-      m.contains("fixed content-length") || m.contains("eof") ||
-      m.contains("closed")
+      m.contains("fixed content-length")
     }
 
-  /** The server's answer to the same request head with a tiny body: a raw
-    * socket, because a client library cannot be made to stop writing.
-    */
-  private def rawHeadAnswer(
-      a: Api,
-      path: String,
-      declared: Int,
-      token: Option[String]
-  ): (String, String) =
-    val uri = URI.create(a.url(path))
-    val socket = new java.net.Socket
-    try
-      socket.connect(
-        new java.net.InetSocketAddress(uri.getHost, uri.getPort),
-        5000
-      )
-      socket.setSoTimeout(5000)
-      val head = Vector(
-        s"POST $path HTTP/1.1",
-        s"Host: ${uri.getAuthority}",
-        "Content-Type: application/json",
-        s"Content-Length: $declared",
-        "Connection: close"
-      ) ++ token.map(t => s"Authorization: Bearer $t")
-      val out = socket.getOutputStream
-      out.write((head.mkString("\r\n") + "\r\n\r\n").getBytes("US-ASCII"))
-      out.write(Array.fill(2048)('x'.toByte))
-      out.flush()
-      // The server may keep the connection open while the body is unread, so
-      // read the framed response (status, headers, one body) instead of to EOF.
-      val in = new java.io.BufferedReader(
-        new java.io.InputStreamReader(socket.getInputStream, "UTF-8")
-      )
-      val text =
-        try
-          val statusLine = in.readLine()
-          val hs = Iterator
-            .continually(in.readLine())
-            .takeWhile(l => l != null && l.nonEmpty)
-            .toVector
-          val length = hs
-            .find(_.toLowerCase.startsWith("content-length:"))
-            .map(_.split(":", 2)(1).trim.toInt)
-          val chunked =
-            hs.exists(_.toLowerCase.startsWith("transfer-encoding:"))
-          val body =
-            if length.isDefined then
-              val buf = new Array[Char](length.get)
-              var n = 0
-              while n < buf.length do
-                val k = in.read(buf, n, buf.length - n)
-                if k < 0 then n = buf.length else n += k
-              new String(buf)
-            else if chunked then
-              val size = Integer.parseInt(in.readLine().trim, 16)
-              val buf = new Array[Char](size)
-              var n = 0
-              while n < size do
-                val k = in.read(buf, n, size - n)
-                if k < 0 then n = size else n += k
-              new String(buf)
-            else ""
-          statusLine + "\r\n" + hs.mkString("\r\n") + "\r\n\r\n" + body
-        catch
-          case _: java.net.SocketTimeoutException =>
-            fail("no refusal within 5000 ms on the replayed head: it hangs")
-      (text.linesIterator.nextOption.getOrElse(""), text)
-    finally socket.close()
+  private val headTimeRefusals = Set(401, 403)
 
-  /** POST an oversized body that the server must refuse with `status` before
-    * reading it, and return the typed error code. Two outcomes count as the
-    * refusal: the typed `status` answer, or a connection the server closed
-    * while the client was still writing (a race the client library reports as a
-    * broken pipe). Any other exception, status or error shape fails. In the
-    * closed case the same head replayed with a tiny body must yield the typed
-    * `status` answer, and in both cases the body marker must be absent from the
-    * logs (the body was never read or logged) and the service must still be
-    * healthy.
+  /** The replayed head: the same request head with a tiny body, answered over a
+    * raw socket. It must check as much as the normal path, so the answer goes
+    * through `assertTypedErrorWith` (content type, X-Request-Id, X-Trace-Id,
+    * message, traceId, requestId, details and the leak checks). Returns the
+    * error code.
+    */
+  protected def assertReplayRefused(
+      url: String,
+      declared: Long,
+      token: Option[String],
+      status: Int,
+      tokens: Vector[String],
+      label: String,
+      timeoutMillis: Int = 5000
+  ): String =
+    val r = RawHttp.rawHeadAnswer(url, declared, token, timeoutMillis)
+    assertTypedErrorWith(r, status, tokens, s"$label (replayed head)")
+
+  /** POST `body` with the client library and require the typed `status`. The
+    * one tolerated exception is a connection the server closed while the client
+    * was still writing, and only for a head-time refusal (401 or 403): the
+    * server answers from the head and never reads the body, so a client library
+    * may see a broken pipe. Then the same head is replayed with a tiny body and
+    * must yield the full typed `status` answer. A 413 gets no such fallback:
+    * for an authorized caller the server reads and discards up to
+    * `oversizeDrain` (4 MiB) before answering, so the client finishes writing
+    * and a closed connection would be a defect, and a replay declaring about 3
+    * MiB while sending 2048 bytes would only wait for the rest.
+    */
+  protected def postOversized(
+      url: String,
+      body: String,
+      token: Option[String],
+      status: Int,
+      tokens: Vector[String],
+      label: String,
+      replayTimeoutMillis: Int = 5000
+  ): String =
+    val headers =
+      Map("Content-Type" -> "application/json") ++
+        token.map(t => "Authorization" -> s"Bearer $t")
+    try
+      val r = Http.send("POST", url, Some(body), headers)
+      assertTypedErrorWith(r, status, tokens, label)
+    catch
+      case e: java.io.IOException
+          if headTimeRefusals.contains(status) && isEarlyClose(e) =>
+        println(s"EARLY-CLOSE-REPLAY $label: $e")
+        assertReplayRefused(
+          url,
+          body.getBytes(UTF_8).length.toLong,
+          token,
+          status,
+          tokens,
+          label,
+          replayTimeoutMillis
+        )
+
+  /** The body was not consumed. The limit is calibrated on this machine: a fake
+    * server that answers 401 and never reads (`BodyBaseline`) shows how many
+    * bytes the loopback buffers swallow with no reader, and the real service
+    * may exceed that by at most `BodyBaseline.margin` (2 MiB), both when the
+    * answer arrived and after the grace period. The real 4 MiB `oversizeDrain`
+    * read is therefore detected, since a server that reads 4 MiB moves about 4
+    * MiB more than the baseline (the negative control in
+    * Phase10EarlyCloseSuite); a server that answers and then reads 4 MiB is
+    * caught only by the after-grace check (control N2). `declared / 4` (16 MiB)
+    * stays as a hard upper bound on the limit, derived from the buffers a
+    * never-reading server can leave in flight (macOS about 0.5 MiB; Linux
+    * autotuning at most about 4 MiB send plus 6 MiB receive, plus the 64 KiB
+    * the JDK HttpServer drains), so a Linux baseline can never loosen the check
+    * past 16 MiB. A server that reads the whole body, before or after
+    * answering, moves 64 MiB within the grace period and exceeds both. The
+    * measured values are printed on a `BODY-NOT-CONSUMED` line.
+    */
+  protected def assertBodyNotConsumed(
+      s: RawHttp.Streamed,
+      label: String
+  ): Unit =
+    val base = BodyBaseline.measured
+    val limitAnswer = BodyBaseline.limitAtAnswer(s.declared)
+    val limitGrace = BodyBaseline.limitAfterGrace(s.declared)
+    val line =
+      s"BODY-NOT-CONSUMED $label atAnswer=${s.atAnswer} afterGrace=${s.afterGrace} " +
+        s"baselineAtAnswer=${base.atAnswer} baselineAfterGrace=${base.afterGrace} " +
+        s"limitAtAnswer=$limitAnswer limitAfterGrace=$limitGrace"
+    println(line)
+    val _ = Try {
+      val file = java.nio.file.Paths.get("target/phase10-body-measurements.txt")
+      java.nio.file.Files.writeString(
+        file,
+        line + "\n",
+        java.nio.file.StandardOpenOption.CREATE,
+        java.nio.file.StandardOpenOption.APPEND
+      )
+    }
+    assert(
+      s.atAnswer < limitAnswer,
+      s"$label: ${s.atAnswer} of ${s.declared} bytes were written when the answer arrived (limit $limitAnswer)"
+    )
+    assert(
+      s.afterGrace < limitGrace,
+      s"$label: ${s.afterGrace} of ${s.declared} bytes were written after the grace period (limit $limitGrace): the body is being consumed"
+    )
+
+  /** POST an oversized body that the server must refuse with `status`, and
+    * return the typed error code. See `postOversized` for the tolerated early
+    * close. In every case the body marker must be absent from the logs and the
+    * service must still be healthy. (That the body is never read is proven
+    * separately by `assertBodyNotConsumed`; the service logs no question text.)
     */
   protected def assertOversizedRefused(
       a: Api,
@@ -590,28 +908,9 @@ abstract class P10Suite extends FunSuite:
     val body = ujson.write(
       ujson.Obj("question" -> (marker + ("q" * sizeBytes)))
     )
-    val headers =
-      Map("Content-Type" -> "application/json") ++
-        token.map(t => "Authorization" -> s"Bearer $t")
     val started = System.nanoTime()
     val code =
-      try
-        val r = Http.send("POST", a.url(path), Some(body), headers)
-        assertTypedError(r, status, a, label)
-      catch
-        case e: java.io.IOException if isEarlyClose(e) =>
-          val (line, text) =
-            rawHeadAnswer(a, path, body.getBytes(UTF_8).length, token)
-          assert(
-            line.startsWith(s"HTTP/1.1 $status"),
-            s"$label: the connection closed early ($e) and the replayed head got: $line"
-          )
-          val from = text.indexOf('{')
-          val to = text.lastIndexOf('}')
-          assert(from >= 0 && to > from, s"$label: no JSON body in: $text")
-          val j = ujson.read(text.substring(from, to + 1))
-          assertEquals(j.obj.keySet.toSet, Set("error"), label)
-          j("error")("code").str
+      postOversized(a.url(path), body, token, status, tokensOf(a), label)
     val millis = (System.nanoTime() - started) / 1000000
     assert(millis < 10000, s"$label: the refusal took $millis ms")
     assert(
@@ -626,16 +925,23 @@ abstract class P10Suite extends FunSuite:
     code
 
   protected def assertClean(r: Resp, a: Api, label: String): Unit =
+    assertCleanWith(r, tokensOf(a), label)
+
+  protected def assertCleanWith(
+      r: Resp,
+      tokens: Vector[String],
+      label: String
+  ): Unit =
     val headerText = r.headers
       .filterNot(_._1 == "www-authenticate")
       .map((k, v) => s"$k: $v")
       .mkString("\n")
-    val found = leaks(r.body + "\n" + headerText, tokensOf(a))
+    val found = leaks(r.body + "\n" + headerText, tokens)
     assertEquals(found, Vector.empty[String], s"$label leaks")
     assert(
       !r.headers
         .get("www-authenticate")
-        .exists(h => tokensOf(a).exists(h.contains)),
+        .exists(h => tokens.exists(h.contains)),
       s"$label: WWW-Authenticate carries a token"
     )
 
@@ -648,6 +954,13 @@ abstract class P10Suite extends FunSuite:
       r: Resp,
       status: Int,
       a: Api,
+      label: String
+  ): String = assertTypedErrorWith(r, status, tokensOf(a), label)
+
+  protected def assertTypedErrorWith(
+      r: Resp,
+      status: Int,
+      tokens: Vector[String],
       label: String
   ): String =
     assertEquals(r.status, status, s"$label: ${r.body}")
@@ -672,5 +985,5 @@ abstract class P10Suite extends FunSuite:
     assertEquals(Some(e("traceId").str), r.header("x-trace-id"), label)
     assertEquals(Some(e("requestId").str), r.header("x-request-id"), label)
     assert(e("details").isInstanceOf[ujson.Arr], s"$label: details")
-    assertClean(r, a, label)
+    assertCleanWith(r, tokens, label)
     code

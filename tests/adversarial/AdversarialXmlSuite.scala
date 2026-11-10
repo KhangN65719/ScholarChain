@@ -49,34 +49,31 @@ class AdversarialXmlSuite extends FunSuite:
     )
     reader.iterator.map(_._2).toVector.head
 
-  test("a record tag inside an XML comment is read as a live record") {
-    // DEFECT, owner hadoop-engineer. `XmlRecordStream.seekRecordStart` claims
-    // in its own comment that "any other byte, including `<` inside a comment
-    // or CDATA, is skipped". It is not. The name scan after `<!--` yields
-    // `!--`, which matches no tag, and scanning then resumes and finds the
-    // `<article` inside the comment. The commented-out record is emitted and
-    // the parser accepts it as a publication.
-    // Required: a commented-out region contributes no record, or the reader
-    // states that it does not track comments and the parser rejects it.
-    val records = readAll(commentedRecord)
+  test("a record tag inside an XML comment is not read as a record") {
+    // Formerly the DEFECT pin: the reader emitted the `<article` inside the
+    // comment and the parser accepted it as publication `ghost/1`. The skip
+    // region fix means a commented-out record yields nothing to parse. A live
+    // record that follows the comment must still be read, so the fix cannot
+    // pass by dropping everything after a comment.
+    assertEquals(readAll(commentedRecord), Vector.empty[String])
+    val withLive =
+      """<dblp><!-- <article key="ghost/1"><title>Ghost.</title></article> --><article key="live/1"><title>Live.</title></article></dblp>"""
+    val records = readAll(withLive)
     assertEquals(records.size, 1)
     val parsed = DblpParser.parse(records.head, run)
     val publication = parsed.getOrElse(fail(s"parse failed: $parsed"))
-    assertEquals(publication.work.sourceRecordId, "ghost/1")
-    assertEquals(publication.work.title, "Ghost.")
+    assertEquals(publication.work.sourceRecordId, "live/1")
+    assertEquals(publication.work.title, "Live.")
   }
 
-  test("a commented-out region contributes no record".fail) {
-    // F8 `.fail` TWIN, for the skip-region half, which is carried forward
-    // open per final-review.md. The body asserts the CORRECT behavior, so
-    // munit's `.fail` keeps it green while the defect stands and turns it
-    // red the instant the skip-region fix lands -- at which point delete the
-    // `.fail` tag and the paired pins above.
+  test("a commented-out region contributes no record") {
+    // F8 twin, flipped in Phase 12 when the skip-region fix landed: only the
+    // `.fail` tag was removed, the assertions are the original ones. It fails
+    // if a comment or CDATA region leaks a record, in either comment style.
     //
     // No twin for F8's other half: the false comment at
-    // `XmlRecordStream.scala:87-90` is being corrected this cycle (the
-    // review made it mandatory, calling it "the third false comment this
-    // phase has produced"), and a comment is not observable from a test.
+    // `XmlRecordStream.scala:87-90` is a comment, and a comment is not
+    // observable from a test.
     assertEquals(readAll(commentedRecord).size, 0)
     assertEquals(readAll(tightlyCommentedRecord).size, 0)
     val cdata =
@@ -84,23 +81,22 @@ class AdversarialXmlSuite extends FunSuite:
     assertEquals(readAll(cdata).size, 0)
   }
 
-  test("whether a commented-out record is ingested turns on one space") {
-    // `<!--<article` is skipped, because the name scan runs straight through
-    // the second `<` and produces `!--<article`, which matches no tag. The
-    // spaced form is ingested and the tight form is not, so the defect above
-    // is a function of the dump's comment style. Same owner, same repair.
-    assertEquals(readAll(commentedRecord).size, 1)
+  test("a commented-out record is not ingested whatever the comment spacing") {
+    // Formerly pinned the spacing-dependent bug: the spaced form was ingested
+    // and the tight form was not. Both forms now contribute nothing.
+    assertEquals(readAll(commentedRecord).size, 0)
     assertEquals(readAll(tightlyCommentedRecord).size, 0)
   }
 
-  test("a record tag inside a CDATA section is read as a live record") {
-    // DEFECT, owner hadoop-engineer. Same root cause as the comment case:
-    // `![CDATA[` matches no tag and the scan continues into the escaped text.
+  test("a record tag inside a CDATA section is not read as a record") {
+    // Formerly the DEFECT pin: `![CDATA[` matched no tag and the scan
+    // continued into the escaped text. The escaped text is now skipped, and a
+    // live record after the section is still read.
     val xml =
-      """<dblp><![CDATA[ <article key="cdata/1"><title>T.</title></article> ]]></dblp>"""
+      """<dblp><![CDATA[ <article key="cdata/1"><title>T.</title></article> ]]><article key="live/2"><title>L.</title></article></dblp>"""
     val records = readAll(xml)
     assertEquals(records.size, 1)
-    assert(records.head.startsWith("""<article key="cdata/1">"""))
+    assert(records.head.startsWith("""<article key="live/2">"""))
   }
 
   test("a literal '>' in an attribute value is read as content") {
