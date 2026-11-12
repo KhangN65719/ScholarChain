@@ -31,6 +31,7 @@ while [[ $# -gt 0 ]]; do
     *) die "unknown argument: $1" ;;
   esac
 done
+dry_announce
 
 step validate-params
 init_common no
@@ -44,6 +45,32 @@ for f in $EXTRA_VAR_FILES; do
 done
 maybe_print_digest plan "image_tag=$IMAGE_TAG"
 step_ok
+
+# Dry run: print the target and the commands as text, run none of them. Nothing
+# below this block is reached in a dry run.
+if is_dry_run; then
+  dry_banner plan "image_tag=$IMAGE_TAG"
+  dry_plan_file="$SC_OUT_DIR/$SC_ENV-${HEAD_SHA:0:12}.tfplan"
+  dry_plan_args="-var-file=$SC_TFVARS -var=image_tag=$IMAGE_TAG"
+  for f in $EXTRA_VAR_FILES; do dry_plan_args="$dry_plan_args -var-file=$f"; done
+  dry_step identity-check
+  dry_would "aws sts get-caller-identity --query Account --output text"
+  dry_step source-tree
+  dry_would "git status --porcelain (sets DIRTY in the plan metadata)"
+  dry_step terraform-init
+  dry_would "terraform -chdir=$SC_ENV_DIR init -input=false -no-color"
+  dry_step terraform-fmt-check
+  dry_would "terraform fmt -check -recursive -no-color $SC_TF_ROOT"
+  dry_step terraform-validate
+  dry_would "terraform -chdir=$SC_ENV_DIR validate -no-color"
+  dry_step terraform-plan
+  dry_would "mkdir $SC_OUT_DIR (mode 700) and terraform -chdir=$SC_ENV_DIR plan -input=false -lock-timeout=60s -detailed-exitcode -no-color -out=$dry_plan_file $dry_plan_args"
+  dry_step plan-scan
+  dry_would "scan the plan log for key material"
+  dry_step plan-summary
+  dry_would "print plan counts, IAM changes, stateful changes; write $dry_plan_file.meta"
+  dry_finish
+fi
 
 step identity-check
 verify_identity

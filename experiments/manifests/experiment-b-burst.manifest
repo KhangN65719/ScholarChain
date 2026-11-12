@@ -1,0 +1,33 @@
+# Experiment B: Hadoop and Spark burst (larger manifest, EMR managed scaling response).
+# DRAFT. Unapproved and unexecuted. Valid only for scripts/run-experiment.sh --dry-run.
+# Format: scripts/README.md, "Experiment manifest contract". No spaces in values.
+# PLACEHOLDERS the human replaces before an approval record is written
+# (the record binds the sha256 of the final file, so any edit needs a new record):
+#   ACCOUNT_ID       123456789012 is the documented example, not a real account.
+#   DATASET_SNAPSHOT a draft name; the dataset-engineer has not defined snapshot ids.
+#   OUTPUT_ROOT      /abs/outside/repo/... is a placeholder path; pick a durable directory
+#                    outside the repository.
+# Needs the tier M overlay plus infra/terraform/environments/course/elasticity-example.tfvars
+# (master plus 4 core nodes, scaling cap 5). Check the On-Demand Standard vCPU quota first.
+# Cost basis: HOURLY_BURN_USD 2.02 is the master plus 4 core nodes burn in scripts/README.md,
+# "Pipeline sizes" (UNVERIFIED rates). 2.02 x 90 min / 60 = 3.03.
+# MAX_TASKS is a tight bound on the pipeline-level operations the entry point issues;
+# the unit is fixed by the Phase 15 entry point and is unconfirmed.
+MANIFEST_VERSION=1
+EXPERIMENT_ID=B
+DESCRIPTION=hadoop-spark-burst-managed-scaling-tier-m-draft
+ENVIRONMENT=course
+REGION=us-east-1
+ACCOUNT_ID=123456789012
+DATASET_SNAPSHOT=scholarchain-slice-m-25000-works-DRAFT
+SIZE_TIER=M
+MAX_MINUTES=90
+MAX_CONCURRENCY=1
+MAX_TASKS=100
+SPEND_CEILING_USD=3.50
+HOURLY_BURN_USD=2.02
+STOP_CONDITIONS=wall-clock,first-failure,spend-estimate
+METRIC_NAMES=ExecutionTime,ExecutionsFailed,AppsPending,ContainerPending,TotalNodesRequested,TotalNodesRunning,TotalUnitsRequested,TotalUnitsRunning,CoreNodesRunning,YARNMemoryAvailablePercentage
+METRIC_NAMESPACES=AWS/States,AWS/ElasticMapReduce
+OUTPUT_ROOT=/abs/outside/repo/scholarchain-experiments
+ENTRY_POINT=script:experiments/b-burst/run.sh

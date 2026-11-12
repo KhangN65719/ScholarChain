@@ -1,0 +1,32 @@
+# Experiment F: failure and recovery (one safe fault: worker termination or poison message).
+# DRAFT. Unapproved and unexecuted. Valid only for scripts/run-experiment.sh --dry-run.
+# Format: scripts/README.md, "Experiment manifest contract". No spaces in values.
+# PLACEHOLDERS the human replaces before an approval record is written
+# (the record binds the sha256 of the final file, so any edit needs a new record):
+#   ACCOUNT_ID       123456789012 is the documented example, not a real account.
+#   DATASET_SNAPSHOT a draft name; the dataset-engineer has not defined snapshot ids.
+#   OUTPUT_ROOT      /abs/outside/repo/... is a placeholder path; pick a durable directory
+#                    outside the repository.
+# The entry point must inject exactly one fault, handle it and exit 0 when recovery is
+# shown. Under first-failure a nonzero exit ends the run as FAILED with no retry, and the
+# failed record is kept, never discarded.
+# MAX_TASKS 200 messages including the fault. Cost basis: HOURLY_BURN_USD 0.62 is the tier
+# M session burn (UNVERIFIED rates). 0.62 x 30 min / 60 = 0.31.
+MANIFEST_VERSION=1
+EXPERIMENT_ID=F
+DESCRIPTION=failure-and-recovery-retry-dead-letter-idempotency-tier-m-draft
+ENVIRONMENT=course
+REGION=us-east-1
+ACCOUNT_ID=123456789012
+DATASET_SNAPSHOT=scholarchain-slice-m-25000-works-DRAFT
+SIZE_TIER=M
+MAX_MINUTES=30
+MAX_CONCURRENCY=2
+MAX_TASKS=200
+SPEND_CEILING_USD=0.50
+HOURLY_BURN_USD=0.62
+STOP_CONDITIONS=wall-clock,first-failure,spend-estimate
+METRIC_NAMES=ApproximateNumberOfMessagesVisible,ApproximateNumberOfMessagesNotVisible,NumberOfMessagesSent,NumberOfMessagesDeleted,DesiredTaskCount,RunningTaskCount
+METRIC_NAMESPACES=AWS/SQS,ECS/ContainerInsights
+OUTPUT_ROOT=/abs/outside/repo/scholarchain-experiments
+ENTRY_POINT=script:experiments/f-failure-recovery/run.sh

@@ -66,7 +66,16 @@ while [[ $# -gt 0 ]]; do
     *) die "unknown argument: $1" ;;
   esac
 done
+dry_announce
 
+# Order of checks, the same in a real run and a dry run, and every refusal comes
+# before anything is listed or called:
+#   1 human-invocation  --i-am-the-human, SCHOLARCHAIN_AGENT_RUN, terminal check
+#   2 validate-params   mode, shared parameters, course only, cleanup.tfvars, image
+#                       tag, --plan-file, --acknowledge-data-loss
+#   3 plan-binding and approval-record (apply modes only)
+#   4 only then the resource listing and any cloud call. A dry run lists from the
+#     Terraform source files and calls nothing.
 step human-invocation
 require_human "$HUMAN"
 step_ok
@@ -92,6 +101,52 @@ EXTRA="mode=$MODE;image_tag=$IMAGE_TAG"
 maybe_print_digest cleanup "$EXTRA"
 step_ok
 
+# dry_cleanup_listing: what a teardown would touch, read from the Terraform source
+# files only. Nothing here is read from AWS or from Terraform state, so it says
+# what the code declares, not what exists.
+dry_cleanup_listing() {
+  local f mod
+  printf 'SOURCE=terraform-source (not live)\n'
+  printf 'LIVE_LISTING=not done in a dry run: the real run lists terraform state, the bucket outputs and the first 20 keys of each bucket\n'
+  printf 'CLEANUP_OVERLAY file=%s\n' "$SC_ENV_DIR/cleanup.tfvars"
+  awk '{ l = $0; sub(/#.*/, "", l); sub(/^[[:space:]]+/, "", l); if (l != "") printf("CLEANUP_OVERLAY_ASSIGNMENT %s\n", l) }' "$SC_ENV_DIR/cleanup.tfvars"
+  printf 'FLIPPED_BY_CLEANUP_MODE (lines of %s that read cleanup_mode or a local derived from it)\n' "$SC_ENV_DIR/main.tf"
+  awk '
+    /^module "/ { m = $2; gsub(/"/, "", m) }
+    /^}/ { m = "" }
+    /cleanup_mode|local\.force_destroy|local\.protect_stateful|local\.keep_final_snapshot/ {
+      t = $0; sub(/^[[:space:]]+/, "", t)
+      printf("FLIPPED_BY_CLEANUP_MODE module=%s %s\n", (m == "" ? "(locals)" : m), t)
+    }
+  ' "$SC_ENV_DIR/main.tf"
+  find "$SC_TF_ROOT/modules" -name main.tf -type f | LC_ALL=C sort | while IFS= read -r f; do
+    mod="$(basename "$(dirname "$f")")"
+    awk -v mod="$mod" '
+      function trim(s) { sub(/^[[:space:]]+/, "", s); return s }
+      /^resource "/ {
+        t = $2; l = $3; gsub(/"/, "", t); gsub(/"/, "", l)
+        res = ""
+        if (t ~ /^(aws_s3_bucket|aws_dynamodb_table|aws_s3vectors_vector_bucket|aws_s3vectors_index|aws_ecr_repository|aws_neptune_cluster|aws_neptune_cluster_instance|aws_secretsmanager_secret)$/) {
+          res = t "." l; found++
+          printf("DECLARED module=%s resource=%s\n", mod, res)
+        }
+        next
+      }
+      /^locals \{/ { inl = 1; next }
+      /^}/ { inl = 0; res = ""; next }
+      inl && ($0 ~ /^[[:space:]]+"[A-Za-z0-9._-]+",?[[:space:]]*$/ || $0 ~ /^[[:space:]]+"?[A-Za-z0-9_-]+"?[[:space:]]*=[[:space:]]*("|true|false)/) { n++; ent[n] = trim($0); next }
+      res != "" && $0 ~ /^  (for_each|bucket|name|vector_bucket_name|index_name|cluster_identifier|identifier)[[:space:]]*=/ {
+        printf("DECLARED_ATTR module=%s resource=%s %s\n", mod, res, trim($0))
+      }
+      res != "" && $0 ~ /force_destroy|force_delete|deletion_protection|skip_final_snapshot|recovery_window_in_days/ {
+        printf("FLIPPED_ATTR module=%s resource=%s %s\n", mod, res, trim($0))
+      }
+      END { if (found) for (i = 1; i <= n; i++) printf("DECLARED_LOCAL module=%s %s\n", mod, ent[i]) }
+    ' "$f"
+  done
+  printf 'DECLARED_NAMES_ARE_SOURCE_EXPRESSIONS: var, local and each.* references are not resolved here\n'
+}
+
 describe_targets() {
   local name b out
   printf 'AFFECTED_RESOURCES_BEGIN (terraform state list, environment %s)\n' "$SC_ENV"
@@ -107,6 +162,83 @@ describe_targets() {
     fi
   done
 }
+
+# Dry run. The refusals above (human, mode, parameters, data-loss acknowledgement)
+# already ran. This block adds the plan binding and the record check for the apply
+# modes, then lists from source and prints the steps. It never reaches the code
+# below: no identity check, no output directory, no Terraform, no deletion.
+if is_dry_run; then
+  dry_banner cleanup "$EXTRA"
+  DRY_PLAN="yes"
+  PLAN_MODE=""
+  case "$MODE" in
+    apply-flip) PLAN_MODE="cleanup-flip" ;;
+    apply-destroy) PLAN_MODE="cleanup-destroy" ;;
+  esac
+  if [[ -n "$PLAN_MODE" ]]; then
+    [[ -f "$PLAN_FILE" && -f "$PLAN_FILE.meta" ]] || DRY_PLAN="no"
+    dry_step identity-check
+    dry_would "aws sts get-caller-identity (skipped)"
+    if [[ "$DRY_PLAN" == "yes" ]]; then
+      step plan-binding
+      check_plan_binding "$PLAN_FILE" "$PLAN_MODE" no
+      [[ "$(meta_get "$SC_PLAN_META" IMAGE_TAG)" == "$IMAGE_TAG" ]] || die "plan image tag differs from --image-tag"
+      step_ok
+    else
+      dry_step plan-binding
+      dry_skipped plan-binding "no plan file and metadata at --plan-file in this dry run"
+      SC_PLAN_DIGEST="@skip:no plan file in this dry run"
+    fi
+    step approval-record
+    if [[ "$MODE" == "apply-destroy" ]]; then
+      verify_approval cleanup "$EXTRA" "$SC_PLAN_DIGEST" "n/a" yes
+    else
+      verify_approval cleanup "$EXTRA" "$SC_PLAN_DIGEST" "n/a"
+    fi
+    step_ok
+    dry_approval_unconsumed
+  else
+    dry_step identity-check
+    dry_would "aws sts get-caller-identity (skipped)"
+  fi
+  case "$MODE" in
+    plan-flip)
+      dry_step terraform-init
+      dry_would "terraform -chdir=$SC_ENV_DIR init -input=false -no-color"
+      dry_step plan-flip
+      dry_would "mkdir $SC_OUT_DIR; terraform plan with course.tfvars, cleanup.tfvars and image_tag=$IMAGE_TAG; the plan must be 0 to add and 0 to destroy"
+      dry_cleanup_listing
+      ;;
+    apply-flip)
+      dry_step terraform-init
+      dry_would "terraform -chdir=$SC_ENV_DIR init -input=false -no-color"
+      dry_step apply-flip
+      dry_cleanup_listing
+      dry_would "live listing (terraform state list, bucket outputs, first 20 keys); consume the approval record; terraform apply of the saved flip plan $PLAN_FILE"
+      ;;
+    plan-destroy)
+      dry_step terraform-init
+      dry_would "terraform -chdir=$SC_ENV_DIR init -input=false -no-color"
+      dry_step list-before-deletion
+      dry_cleanup_listing
+      dry_would "live listing (terraform state list, bucket outputs, first 20 keys)"
+      dry_step plan-destroy
+      dry_would "mkdir $SC_OUT_DIR; terraform plan -destroy with course.tfvars, cleanup.tfvars and image_tag=$IMAGE_TAG; the plan must be 0 to add and 0 to change"
+      ;;
+    apply-destroy)
+      dry_step terraform-init
+      dry_would "terraform -chdir=$SC_ENV_DIR init -input=false -no-color"
+      dry_step list-before-deletion
+      dry_cleanup_listing
+      dry_would "live listing, then terraform show of the saved destroy plan $PLAN_FILE"
+      dry_step apply-destroy
+      dry_would "read bucket outputs; consume the approval record; terraform apply of the saved destroy plan (this deletes the buckets and their contents; a dry run deletes nothing)"
+      dry_step verify-gone
+      dry_would "terraform state list must be empty; head-bucket on both buckets; get-vector-bucket on the vector bucket"
+      ;;
+  esac
+  dry_finish
+fi
 
 step identity-check
 verify_identity
@@ -211,8 +343,7 @@ case "$MODE" in
     [[ "$(meta_get "$SC_PLAN_META" IMAGE_TAG)" == "$IMAGE_TAG" ]] || die "plan image tag differs from --image-tag"
     step_ok
     step approval-record
-    verify_approval cleanup "$EXTRA" "$SC_PLAN_DIGEST" "n/a"
-    [[ "$(approval_value STATEFUL_CHANGE_ACKNOWLEDGED)" == "yes" ]] || die "destroy removes stateful resources: the record must set STATEFUL_CHANGE_ACKNOWLEDGED=yes"
+    verify_approval cleanup "$EXTRA" "$SC_PLAN_DIGEST" "n/a" yes
     step_ok
     tf_init
     step list-before-deletion

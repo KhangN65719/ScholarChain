@@ -39,6 +39,14 @@
 #   --input-file      execution input JSON (hadoop_args, spark_args, loader_command),
 #                     no secrets; scanned before use.
 #
+# Run record: a real run creates <out-dir>/pipeline-<UTC stamp>-<size>.record.env
+# once (mode 600, outside the repository, never overwritten) and appends to it. It
+# holds the input file path, sha256 and size, the limits, the state machine and
+# execution ARNs, start and end UTC, the final status and the s3:// URIs that appear
+# in the input file. It does not hold a dataset snapshot (the input has no such
+# field), and the s3:// URIs are only those written in the input. See
+# scripts/README.md, "run-bounded-pipeline.sh run record".
+#
 # AWS does not enforce a spend limit. The enforcement here is the time limit, the
 # DLQ stop and the pre-start arithmetic. Actual spend is read by the human from
 # billing afterwards; Cost Explorer calls are billed and are not made here.
@@ -72,6 +80,7 @@ while [[ $# -gt 0 ]]; do
     *) die "unknown argument: $1" ;;
   esac
 done
+dry_announce
 
 step validate-params
 init_common yes
@@ -114,18 +123,55 @@ IFS="$OLD_IFS"
 
 [[ "$INPUT_FILE" == /* && -f "$INPUT_FILE" ]] || die "--input-file must be an existing absolute path"
 INPUT_DIGEST="$(sha256_file "$INPUT_FILE")"
+INPUT_BYTES="$(wc -c < "$INPUT_FILE" | tr -d ' ')"
+# The execution input names no output field (hadoop_args, spark_args and
+# loader_command are free-form string lists), so the locations recorded are the
+# s3:// URIs that appear anywhere in the file, nothing more.
+OUTPUT_URIS="$(grep -oE 's3://[A-Za-z0-9._/-]+' "$INPUT_FILE" | LC_ALL=C sort -u || true)"
 EXTRA="size=$SIZE;max_minutes=$MAX_MINUTES;spend_ceiling=$SPEND_CEILING;hourly_burn=$HOURLY_BURN;stop_on=$STOP_ON;input=$INPUT_DIGEST"
 maybe_print_digest pipeline "$EXTRA"
 printf 'PROJECTED_SPEND_USD=%s CEILING_USD=%s\n' "$PROJECTED" "$SPEND_CEILING"
+printf 'INPUT_FILE=%s\nINPUT_SHA256=%s\nINPUT_BYTES=%s\n' "$INPUT_FILE" "$INPUT_DIGEST" "$INPUT_BYTES"
+printf 'LIMITS size=%s max_minutes=%s spend_ceiling_usd=%s hourly_burn_usd=%s stop_on=%s cost_ceiling_usd=%s\n' \
+  "$SIZE" "$MAX_MINUTES" "$SPEND_CEILING" "$HOURLY_BURN" "$STOP_ON" "$SC_COST"
+if [[ -n "$OUTPUT_URIS" ]]; then
+  for u in $OUTPUT_URIS; do
+    printf 'OUTPUT_LOCATION=%s\n' "$u"
+  done
+else
+  printf 'OUTPUT_LOCATIONS=none-named (no s3:// URI appears in the input file)\n'
+fi
+printf 'DATASET_SNAPSHOT=not-recorded (the execution input has no snapshot field)\n'
 step_ok
 
 step input-scan
 scan_for_secrets "$INPUT_FILE"
 step_ok
 
+if is_dry_run; then
+  dry_banner pipeline "$EXTRA"
+fi
+
 step approval-record
 verify_approval pipeline "$EXTRA" "n/a" "n/a"
 step_ok
+
+if is_dry_run; then
+  dry_approval_unconsumed
+  dry_step identity-check
+  dry_would "aws sts get-caller-identity (skipped)"
+  dry_step preflight
+  dry_would "find state machine ${SC_NAME_PREFIX}-pipeline; refuse if an execution is RUNNING or an EMR cluster of that name is active; resolve DLQ URLs when dlq-nonempty is set; refuse an --out-dir inside the repository; create the run record $SC_OUT_DIR/pipeline-<UTC stamp>-$SIZE.record.env once (mode 600, never overwritten)"
+  dry_step start-execution
+  dry_would "consume the approval record; aws stepfunctions start-execution with input file $INPUT_FILE; append EXECUTION_ARN and START_UTC to the run record"
+  dry_step monitor
+  dry_would "poll every $POLL_SECONDS s up to $MAX_MINUTES minutes; stop on: $STOP_ON"
+  dry_step teardown-check
+  dry_would "up to 10 checks for active EMR clusters created after the start"
+  dry_step report
+  dry_would "print elapsed time and estimated spend (burn x time, ceiling $SPEND_CEILING USD)"
+  dry_finish
+fi
 
 step identity-check
 verify_identity
@@ -147,6 +193,47 @@ if [[ "$WATCH_DLQ" -eq 1 ]]; then
   done
 fi
 printf 'PREFLIGHT_OK state_machine=%s\n' "$SM_NAME"
+
+# The run record: written outside the repository, created once (noclobber) and only
+# appended to afterwards. It is made before the approval record is consumed, so a
+# location that cannot be written refuses the run before anything is spent.
+require_external_dir "$SC_OUT_DIR" "--out-dir"
+make_out_dir
+REC="$SC_OUT_DIR/pipeline-$(utc_stamp)-${SIZE}.record.env"
+(umask 077; set -C; : > "$REC") || die "cannot create the run record (it is written once and never overwritten): $REC"
+
+rec() {
+  printf '%s=%s\n' "$1" "$2" >> "$REC"
+}
+
+rec RECORD_VERSION 1
+rec ACTION pipeline
+rec ENVIRONMENT "$SC_ENV"
+rec ACCOUNT_ID "$SC_ACCOUNT"
+rec REGION "$SC_REGION"
+rec SCRIPT_DIGEST "$(script_digest)"
+rec ARGS_DIGEST "$(args_digest pipeline "$EXTRA")"
+rec APPROVED_BY "$(approval_value APPROVED_BY)"
+rec APPROVED_AT "$(approval_value APPROVED_AT)"
+rec INPUT_FILE "$INPUT_FILE"
+rec INPUT_SHA256 "$INPUT_DIGEST"
+rec INPUT_BYTES "$INPUT_BYTES"
+rec SIZE "$SIZE"
+rec MAX_MINUTES "$MAX_MINUTES"
+rec SPEND_CEILING_USD "$SPEND_CEILING"
+rec HOURLY_BURN_USD "$HOURLY_BURN"
+rec COST_CEILING_USD "$SC_COST"
+rec STOP_ON "$STOP_ON"
+rec STATE_MACHINE_ARN "$SM_ARN"
+if [[ -n "$OUTPUT_URIS" ]]; then
+  for u in $OUTPUT_URIS; do
+    rec OUTPUT_LOCATION "$u"
+  done
+else
+  rec OUTPUT_LOCATIONS none-named
+fi
+rec DATASET_SNAPSHOT not-recorded
+printf 'PIPELINE_RECORD=%s\n' "$REC"
 step_ok
 
 stop_everything() {
@@ -168,6 +255,8 @@ on_signal() {
   printf 'SIGNAL received\n' >&2
   SC_STEP_OPEN=0
   stop_everything "interrupted by signal"
+  rec END_UTC "$(utc_now)" || true
+  rec FINAL_STATUS INTERRUPTED || true
   exit 130
 }
 
@@ -181,6 +270,9 @@ EXEC_ARN="$(aws stepfunctions start-execution --state-machine-arn "$SM_ARN" \
   --name "run-$(date -u +%Y%m%dT%H%M%SZ)-$SIZE" --input "file://$INPUT_FILE" \
   --query executionArn --output text)" || die "start-execution failed"
 printf 'EXECUTION_ARN=%s\nSTART=%s size=%s max_minutes=%s\n' "$EXEC_ARN" "$START_ISO" "$SIZE" "$MAX_MINUTES"
+rec EXECUTION_ARN "$EXEC_ARN"
+rec START_UTC "$START_ISO"
+printf 'START_UTC=%s\n' "$START_ISO"
 step_ok
 
 step monitor
@@ -212,6 +304,7 @@ if [[ -n "$STOPPED_BY" ]]; then
   FINAL="STOPPED_BY_SCRIPT"
 fi
 printf 'FINAL_STATUS=%s\n' "$FINAL"
+rec FINAL_STATUS "$FINAL"
 step_ok
 
 step teardown-check
@@ -238,6 +331,12 @@ ELAPSED_MIN="$(awk -v s="$START_EPOCH" -v e="$END_EPOCH" 'BEGIN { printf "%.1f",
 EST="$(awk -v b="$HOURLY_BURN" -v m="$ELAPSED_MIN" 'BEGIN { printf "%.2f", b * m / 60 }')"
 printf 'RUN_REPORT execution=%s final=%s elapsed_min=%s estimated_spend_usd=%s ceiling_usd=%s\n' \
   "$EXEC_ARN" "$FINAL" "$ELAPSED_MIN" "$EST" "$SPEND_CEILING"
+END_ISO="$(utc_now)"
+printf 'END_UTC=%s\n' "$END_ISO"
+rec END_UTC "$END_ISO"
+rec ELAPSED_MINUTES "$ELAPSED_MIN"
+rec ESTIMATED_SPEND_USD "$EST"
+rec RECORD_COMPLETE yes
 note "estimated spend is burn x time, not a bill. Record actual spend from AWS billing, then run cleanup.sh when finished."
 step_ok
 

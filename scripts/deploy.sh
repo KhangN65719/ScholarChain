@@ -43,13 +43,28 @@ while [[ $# -gt 0 ]]; do
     *) die "unknown argument: $1" ;;
   esac
 done
+dry_announce
+
+# DRY_PLAN and DRY_CTX are "yes" in every real run. A dry run may lack the saved
+# plan file (it needs terraform) or the two build contexts (sbt output): the
+# arguments are still required, and the checks that need the files are skipped
+# and said so.
+DRY_PLAN="yes"
+DRY_CTX="yes"
 
 step validate-params
 init_common yes
 require_cmd terraform aws git docker awk tee grep
 [[ -n "$PLAN_FILE" ]] || die "--plan-file is required"
-[[ -n "$SERVICES_CONTEXT" && -d "$SERVICES_CONTEXT/lib" ]] || die "--services-context must be a directory holding lib/ (sbt packaging output)"
-[[ -n "$LOADER_CONTEXT" && -d "$LOADER_CONTEXT/lib" ]] || die "--loader-context must be a directory holding lib/ (sbt packaging output)"
+if is_dry_run; then
+  [[ -n "$SERVICES_CONTEXT" && -n "$LOADER_CONTEXT" ]] || die "--services-context and --loader-context are required (a dry run needs the arguments, not the directories)"
+  [[ "$PLAN_FILE" == /* ]] || die "--plan-file must be an absolute path"
+  [[ -f "$PLAN_FILE" && -f "$PLAN_FILE.meta" ]] || DRY_PLAN="no"
+  [[ -d "$SERVICES_CONTEXT/lib" && -d "$LOADER_CONTEXT/lib" ]] || DRY_CTX="no"
+else
+  [[ -n "$SERVICES_CONTEXT" && -d "$SERVICES_CONTEXT/lib" ]] || die "--services-context must be a directory holding lib/ (sbt packaging output)"
+  [[ -n "$LOADER_CONTEXT" && -d "$LOADER_CONTEXT/lib" ]] || die "--loader-context must be a directory holding lib/ (sbt packaging output)"
+fi
 [[ -f "$SC_REPO_ROOT/Dockerfile" ]] || die "Dockerfile not found at the repository root"
 HEAD_SHA="$(git_head)"
 IMAGE_TAG="$HEAD_SHA"
@@ -57,39 +72,87 @@ require_image_tag "$IMAGE_TAG"
 # The image platform follows the cpu_architecture the plan was made with. plan.sh
 # records it in the plan metadata; it is re-checked against the applied output
 # before any image is built.
-[[ "$PLAN_FILE" == /* && -f "$PLAN_FILE.meta" ]] || die "plan metadata not found next to the plan file: $PLAN_FILE.meta (plan.sh writes it)"
-CPU_ARCH="$(meta_get "$PLAN_FILE.meta" CPU_ARCHITECTURE)"
-case "$CPU_ARCH" in
-  X86_64) PLATFORM="linux/amd64" ;;
-  ARM64) PLATFORM="linux/arm64" ;;
-  *) die "plan metadata has no valid CPU_ARCHITECTURE (got '${CPU_ARCH}'); remake the plan with the current plan.sh" ;;
-esac
+CPU_ARCH=""
+PLATFORM=""
+if [[ "$DRY_PLAN" == "yes" ]]; then
+  [[ "$PLAN_FILE" == /* && -f "$PLAN_FILE.meta" ]] || die "plan metadata not found next to the plan file: $PLAN_FILE.meta (plan.sh writes it)"
+  CPU_ARCH="$(meta_get "$PLAN_FILE.meta" CPU_ARCHITECTURE)"
+  case "$CPU_ARCH" in
+    X86_64) PLATFORM="linux/amd64" ;;
+    ARM64) PLATFORM="linux/arm64" ;;
+    *) die "plan metadata has no valid CPU_ARCHITECTURE (got '${CPU_ARCH}'); remake the plan with the current plan.sh" ;;
+  esac
+fi
 # The images are built from the two context directories, which are not in Git
 # (sbt packaging output). Their content digests go into the digested arguments, so
 # an approval names the exact bytes that become the image.
-SERVICES_CONTEXT_DIGEST="$(dir_digest "$SERVICES_CONTEXT")"
-LOADER_CONTEXT_DIGEST="$(dir_digest "$LOADER_CONTEXT")"
-EXTRA="image_tag=$IMAGE_TAG;platform=$PLATFORM;services_context=$SERVICES_CONTEXT_DIGEST;loader_context=$LOADER_CONTEXT_DIGEST"
+SERVICES_CONTEXT_DIGEST=""
+LOADER_CONTEXT_DIGEST=""
+if [[ "$DRY_PLAN" == "yes" && "$DRY_CTX" == "yes" ]]; then
+  SERVICES_CONTEXT_DIGEST="$(dir_digest "$SERVICES_CONTEXT")"
+  LOADER_CONTEXT_DIGEST="$(dir_digest "$LOADER_CONTEXT")"
+  EXTRA="image_tag=$IMAGE_TAG;platform=$PLATFORM;services_context=$SERVICES_CONTEXT_DIGEST;loader_context=$LOADER_CONTEXT_DIGEST"
+else
+  EXTRA="@skip:the plan file or a build context directory is missing in this dry run, so platform and context digests are unknown"
+fi
 maybe_print_digest deploy "$EXTRA"
 step_ok
+
+if is_dry_run; then
+  dry_banner deploy "$EXTRA"
+fi
 
 step clean-tree
 require_clean_tree
 printf 'CLEAN_TREE git_sha=%s\n' "$HEAD_SHA"
 step_ok
 
-step plan-binding
-check_plan_binding "$PLAN_FILE" apply yes
-[[ "$(meta_get "$SC_PLAN_META" IMAGE_TAG)" == "$IMAGE_TAG" ]] || die "plan image tag differs from HEAD; remake the plan with plan.sh"
-step_ok
+if [[ "$DRY_PLAN" == "yes" ]]; then
+  step plan-binding
+  check_plan_binding "$PLAN_FILE" apply yes
+  [[ "$(meta_get "$SC_PLAN_META" IMAGE_TAG)" == "$IMAGE_TAG" ]] || die "plan image tag differs from HEAD; remake the plan with plan.sh"
+  step_ok
+else
+  dry_step plan-binding
+  dry_skipped plan-binding "no plan file and metadata at --plan-file in this dry run"
+  SC_PLAN_DIGEST="@skip:no plan file in this dry run"
+  SC_PLAN_META=""
+fi
 
 step approval-record
-verify_approval deploy "$EXTRA" "$SC_PLAN_DIGEST" "$HEAD_SHA"
-if [[ "$(meta_get "$SC_PLAN_META" STATEFUL_CHANGE)" == "yes" ]]; then
-  [[ "$(approval_value STATEFUL_CHANGE_ACKNOWLEDGED)" == "yes" ]] || die "the plan destroys or replaces a stateful resource and the record does not acknowledge it"
-  note "stateful change acknowledged in the approval record"
+REQUIRE_ACK="no"
+if [[ -n "$SC_PLAN_META" && "$(meta_get "$SC_PLAN_META" STATEFUL_CHANGE)" == "yes" ]]; then
+  REQUIRE_ACK="yes"
+fi
+verify_approval deploy "$EXTRA" "$SC_PLAN_DIGEST" "$HEAD_SHA" "$REQUIRE_ACK"
+if [[ -n "$SC_PLAN_META" ]]; then
+  if [[ "$REQUIRE_ACK" == "yes" ]]; then
+    note "stateful change acknowledged in the approval record"
+  fi
+else
+  dry_skipped stateful-change-acknowledgement "the plan metadata that says whether the plan changes stateful resources is not available; the record says STATEFUL_CHANGE_ACKNOWLEDGED=$(approval_value STATEFUL_CHANGE_ACKNOWLEDGED)"
 fi
 step_ok
+
+if is_dry_run; then
+  dry_approval_unconsumed
+  dry_step identity-check
+  dry_would "aws sts get-caller-identity (skipped)"
+  dry_step terraform-init
+  dry_would "terraform -chdir=$SC_ENV_DIR init -input=false -no-color"
+  dry_step terraform-apply
+  dry_would "re-check clean tree, HEAD and both context digests; consume the approval record; terraform apply -input=false -lock-timeout=60s of the saved plan $PLAN_FILE (never -auto-approve); compare output account_id and cpu_architecture"
+  dry_step ecr-login
+  dry_would "aws ecr get-login-password | docker login $SC_ACCOUNT.dkr.ecr.$SC_REGION.amazonaws.com"
+  dry_step image-services
+  dry_would "reuse the immutable tag $IMAGE_TAG if present in ${SC_NAME_PREFIX}-services, else docker build and push (platform ${PLATFORM:-unknown in this dry run})"
+  dry_step image-loader
+  dry_would "reuse the immutable tag $IMAGE_TAG if present in ${SC_NAME_PREFIX}-loader, else docker build and push"
+  dry_step verify-revision
+  dry_would "read-only ECR and ECS describes: every task definition and service must use :$IMAGE_TAG"
+  dry_step 'done'
+  dry_finish
+fi
 
 step identity-check
 verify_identity
@@ -152,7 +215,7 @@ step verify-revision
 verify_revision "$IMAGE_TAG"
 step_ok
 
-step done
+step 'done'
 printf 'DEPLOY_COMPLETE environment=%s account=%s region=%s git_sha=%s plan_digest=%s\n' \
   "$SC_ENV" "$SC_ACCOUNT" "$SC_REGION" "$IMAGE_TAG" "$SC_PLAN_DIGEST"
 note "services run at desired count 0 only under course.tfvars and the tier S overlay. Idle-cost items bill until the session-down flow or cleanup.sh runs; see scripts/README.md."

@@ -50,19 +50,41 @@ variable "loader_security_group_id" {
   type        = string
 }
 
-variable "step_timeout_seconds" {
-  description = "Timeout of each pipeline step, 300 to 7200 seconds (default 3600). A step timeout is a States.Timeout error, which the Hadoop and Spark steps catch and route to CleanupOnFailure. CreateCluster, TerminateCluster and RunLoader route a caught error to Failed instead. Whether a timed-out step also stops the EMR step on the cluster is UNVERIFIED. Set it per tier with max_run_seconds (S 1800 with 5400, M 2700 with 7200, L 3600 with 10800): the rule is that cluster start plus the Hadoop step plus a hung Spark step, which is start + 2 x this value, must stay below max_run_seconds, otherwise the execution-level timeout fires first and CleanupOnFailure is skipped. A single legitimate step longer than this value is stopped and cleaned up, so raise both values together."
+variable "create_cluster_timeout_seconds" {
+  description = "TimeoutSeconds of the CreateCluster step, 300 to 3600 seconds (default 1440 = 0.4 h, the HIGH cluster launch overhead in COST_ESTIMATE.md section 1.2). Bounds how long Step Functions waits for the cluster to start. On timeout the step raises States.Timeout, which is caught and routed to Failed. There is NO cleanup state on this path. Whether Step Functions also terminates the half-created cluster is UNVERIFIED, and idle auto-termination is not a proven backstop for a cluster that never reached WAITING (UNVERIFIED), so a hung CreateCluster can leave a cluster until the script's leftover-cluster teardown (run-bounded-pipeline.sh with --stop-on first-failure) or the human's cleanup ends it."
+  type        = number
+  default     = 1440
+
+  validation {
+    condition     = var.create_cluster_timeout_seconds >= 300 && var.create_cluster_timeout_seconds <= 3600
+    error_message = "create_cluster_timeout_seconds must be 300 to 3600."
+  }
+}
+
+variable "emr_step_timeout_seconds" {
+  description = "TimeoutSeconds of each EMR step, the Hadoop step and the Spark step each, 300 to 7200 seconds (default 3600). On timeout the step raises States.Timeout, which is caught and routed to CleanupOnFailure (terminate the cluster, itself bounded at 900 s) and then Failed. Whether a timed-out step also stops the EMR step on the cluster is UNVERIFIED; the termination ends it either way. The value must be at least the longest legitimate single step, because a longer step is stopped and cleaned up. See max_run_seconds for the rule that ties it to the execution timeout."
   type        = number
   default     = 3600
 
   validation {
-    condition     = var.step_timeout_seconds >= 300 && var.step_timeout_seconds <= 7200
-    error_message = "step_timeout_seconds must be 300 to 7200."
+    condition     = var.emr_step_timeout_seconds >= 300 && var.emr_step_timeout_seconds <= 7200
+    error_message = "emr_step_timeout_seconds must be 300 to 7200."
+  }
+}
+
+variable "loader_timeout_seconds" {
+  description = "TimeoutSeconds of the RunLoader step (the Fargate loader task), 300 to 7200 seconds (default 3600). On timeout the step raises States.Timeout, which is caught and routed to Failed. There is NO cleanup state on this path: the EMR cluster was already terminated by TerminateCluster, and whether the Fargate task is stopped on timeout is UNVERIFIED (a left task bills about $0.025 an hour at the default 0.5 vCPU and 1 GB). The value must be at least the longest legitimate load."
+  type        = number
+  default     = 3600
+
+  validation {
+    condition     = var.loader_timeout_seconds >= 300 && var.loader_timeout_seconds <= 7200
+    error_message = "loader_timeout_seconds must be 300 to 7200."
   }
 }
 
 variable "max_run_seconds" {
-  description = "Timeout of the whole execution, 1800 to 10800 seconds (default 10800, 180 minutes: the 150-minute tier L script cap plus 30 minutes of margin). Pass the bound per run through the experiment tfvars (S 5400, M 7200, L 10800). WARNING: when the execution-level timeout fires, the execution ends as TIMED_OUT and CleanupOnFailure does NOT run, as it does not after StopExecution. If the client dies, a running cluster is left to the EMR idle auto-termination (900 s, which starts only once no step is running) and to the human's cleanup. This bound limits how long the state machine itself can run, nothing more."
+  description = "Timeout of the whole execution, 1800 to 10800 seconds (default 10800, 180 minutes: the 150-minute tier L script cap plus 30 minutes of margin). Pass the bound per run through the experiment tfvars (S 5400, M 7200, L 10800). WARNING: when the execution-level timeout fires, the execution ends as TIMED_OUT and CleanupOnFailure does NOT run, as it does not after StopExecution. If the client dies, a running cluster is left to the EMR idle auto-termination (900 s, which starts only once no step is running) and to the human's cleanup. This bound limits how long the state machine itself can run, nothing more. Two rules tie it to the step timeouts. Rule A (enforced here): create_cluster_timeout_seconds + 2 x emr_step_timeout_seconds + 300 must not exceed this value, so a Hadoop step that runs to its limit followed by a hung Spark step is cut by its own timeout and reaches CleanupOnFailure before this bound. The 300 s is the margin for the cleanup state to issue the terminate call. Known limitation, not enforced (human decision O1, phase 13 D10): create + 2 x EMR step + 900 (TerminateCluster) + loader timeout exceeds this value on every tier, so a run whose steps all take their full timeout, or a run at the estimate's HIGH bound, can end as TIMED_OUT in the loader or terminate segment. Recorded in infra/terraform/README.md, Pipeline bounds."
   type        = number
   default     = 10800
 
@@ -72,8 +94,8 @@ variable "max_run_seconds" {
   }
 
   validation {
-    condition     = var.max_run_seconds >= var.step_timeout_seconds
-    error_message = "max_run_seconds must not be shorter than one step timeout."
+    condition     = var.max_run_seconds >= var.create_cluster_timeout_seconds + 2 * var.emr_step_timeout_seconds + 300
+    error_message = "Rule A: max_run_seconds must be at least create_cluster_timeout_seconds + 2 x emr_step_timeout_seconds + 300, otherwise a hung second EMR step ends in the execution timeout and CleanupOnFailure is skipped."
   }
 }
 

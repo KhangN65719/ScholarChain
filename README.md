@@ -1,0 +1,111 @@
+# ScholarChain
+
+ScholarChain uses Scala 3, Hadoop MapReduce, Spark and AWS to build a temporal coauthorship graph and a Graph-RAG service. Project memory and module boundaries are in `CLAUDE.md`; authority and routing are in `docs/agents.md`.
+
+## Reproducing the agentic workflow
+
+Phase 17. This section is owned by the Phase 17 reproduction work and is not written yet. Nothing in "Reproducible automation (Phase 13)" below replaces it.
+
+## Reproducible automation (Phase 13)
+
+Ten source-controlled scripts under `scripts/` are the reproducibility interface. Run each as `bash scripts/<name>.sh ...` (no execute bit is set). Every script has `--help` and `--dry-run`, uses `set -euo pipefail`, never prompts, and prints greppable markers (`grep 'STEP\[' log`). The full per-script reference is `scripts/README.md`; this section does not repeat it.
+
+### The ten scripts
+
+| Script | Purpose | Needs AWS | Needs an approval record |
+|---|---|---|---|
+| `scripts/check.sh` | Local gates: constitution and JSON, hook syntax, shell syntax, shellcheck, sbt, Terraform fmt and validate | no | no |
+| `scripts/package.sh` | Build job artifacts and two local images, record checksums and tags from the commit SHA | no | no |
+| `scripts/plan.sh` | Terraform plan for one environment, record plan digest and summary, never applies | read only (`sts`, Terraform state) | no (it prints the digest the record names) |
+| `scripts/deploy.sh` | Apply a saved plan, push images, record digests and revision | yes | yes, action `deploy` |
+| `scripts/rollback.sh` | Return to an earlier image tag or state version | yes | yes, action `rollback` |
+| `scripts/smoke-test.sh` | Health, readiness and one bounded query | yes | yes, action `smoke-test` |
+| `scripts/run-bounded-pipeline.sh` | Run one bounded Hadoop and Spark pipeline execution | yes | yes, action `pipeline` |
+| `scripts/run-experiment.sh` | Run one approved experiment manifest | yes | yes, action `experiment` |
+| `scripts/archive-evidence.sh` | Gather evidence into a local directory, or upload it | only with `--upload-dir` and `--s3-prefix` | gather: no; upload: yes, action `archive` |
+| `scripts/cleanup.sh` | End-of-project teardown | yes | yes in apply modes, action `cleanup` |
+
+### Non-cloud path from a clean checkout
+
+These lines run without AWS credentials (sbt and the Terraform provider download need network access). Prerequisites named by `scripts/README.md`: bash, git, python3, shellcheck, JDK 21, sbt, terraform, and Docker with a running engine for `package.sh` (not needed with `--skip-images`, and not for any dry run). Replace `<id>` with the approved 12-digit account and give `--out-dir` an absolute path outside the repository. Copied from `scripts/README.md`, "From a clean checkout".
+
+```
+git clone <repository-url> ScholarChain && cd ScholarChain
+bash scripts/check.sh --dry-run
+bash scripts/check.sh                       # prerequisites: bash, git, python3, shellcheck, JDK 21, sbt, terraform
+bash scripts/package.sh --dry-run
+bash scripts/package.sh --out-dir /abs/outside/repo/package-1   # prerequisite: Docker with a running engine, unless --skip-images
+bash scripts/archive-evidence.sh --dry-run --include /abs/outside/repo/package-1
+bash scripts/archive-evidence.sh --include /abs/outside/repo/package-1
+bash scripts/plan.sh --dry-run --environment course --account-id <id> --cost-ceiling-usd 25
+bash scripts/run-experiment.sh --help
+```
+
+Notes:
+
+- `bash scripts/check.sh --skip-sbt --skip-terraform` is the fast form without sbt or Terraform. Its summary lists what was skipped, and its last line is `CHECK_RESULT=PASS_WITH_SKIPS` (exit 0), never `CHECK_RESULT=PASS`: a skipped gate is not a pass, and a failed gate is `CHECK_RESULT=FAIL` (exit 1). This is read from `scripts/check.sh` after work order 15. The harness was observed at `RESULT pass=570 fail=0` with `bash -n` and `shellcheck -x` clean ([checks-5.md](docs/agent-runs/phase-13/checks-5.md)); that run covers syntax, lint and the `--help`, `--print-digest`, `--dry-run` and refusal paths only.
+- `package.sh`, `deploy.sh` and `run-experiment.sh` refuse a dirty tree, including in a dry run. An untracked file such as `docs/.DS_Store` counts as dirty.
+- The dry runs of the approval-gated scripts also need `--approval-record`. See below.
+
+### Required environment variable names
+
+Names only, never values. Read from the caller: `AWS_PROFILE`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` (the AWS CLI credential chain, needed only by the cloud scripts), `HOME`, `TMPDIR`, `SCHOLARCHAIN_OPS_STATE_DIR` (marker directory override), `SCHOLARCHAIN_AGENT_RUN`, `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT` (`cleanup.sh` refuses when these show an agent). The scripts set `AWS_REGION`, `AWS_DEFAULT_REGION`, `AWS_PAGER`, `CHECKPOINT_DISABLE` and, for an experiment entry point, the `SCHOLARCHAIN_EXPERIMENT_ID`, `SCHOLARCHAIN_RUN_ID`, `SCHOLARCHAIN_RUN_DIR`, `SCHOLARCHAIN_MAX_MINUTES`, `SCHOLARCHAIN_MAX_CONCURRENCY`, `SCHOLARCHAIN_MAX_TASKS`, `SCHOLARCHAIN_REGION`, `SCHOLARCHAIN_ACCOUNT_ID` and `SCHOLARCHAIN_DATASET_SNAPSHOT`. `check.sh`, `package.sh` and a local `archive-evidence.sh` gather need no credentials.
+
+### Human approval points and the approval record
+
+No agent approves anything. The human writes each approval record and runs each live script. An approval record is a plain `KEY=VALUE` file, valid at most 24 hours and single use, that binds the action, environment, account, Region, cost ceiling, plan digest, script digest and exact arguments. The field table and how to build one with `--print-digest` are in [scripts/README.md, "Approval record"](scripts/README.md#approval-record). Where approval is required:
+
+1. Before `deploy.sh`, `rollback.sh`, `run-bounded-pipeline.sh` and `smoke-test.sh`: a record with that action.
+2. Before `run-experiment.sh`: a record with action `experiment`, plus the human's spend gate for tier L.
+3. Before an S3 upload of evidence: a record with action `archive`.
+4. Before `cleanup.sh` apply modes: a record, `--i-am-the-human` and `--acknowledge-data-loss`.
+5. A plan with a stateful change needs `STATEFUL_CHANGE_ACKNOWLEDGED=yes` in the record.
+
+The record is a consistency check, not authorization: anyone who can write a file can write a record. The real control is the human signing the digest. The ratified launcher that would verify records for the guard is not built (see Status).
+
+### Exit codes, dry run and rollback
+
+- Exit codes: [scripts/README.md, "Exit codes"](scripts/README.md#exit-codes). Every refusal exits 1 and is told apart by the `EVIDENCE:` text on stderr.
+- Dry run behavior: [scripts/README.md, "Dry run"](scripts/README.md#dry-run).
+- Rollback behavior per script: [scripts/README.md, "What rolls back and what does not"](scripts/README.md#what-rolls-back-and-what-does-not).
+- Experiment manifests and their drafts: [experiments/README.md](experiments/README.md) and [load-tests/README.md](load-tests/README.md).
+
+### Cleanup rule
+
+`cleanup.sh` lists the resources it targets before any deletion, and it is human only: it requires `--i-am-the-human`, refuses when `SCHOLARCHAIN_AGENT_RUN` is set or an agent environment is detected, and in apply modes also requires `--acknowledge-data-loss` and an approval record. It deletes only through `terraform destroy` of a saved plan, never with a wildcard, `-target` or `aws s3 rm`. `--i-am-the-human` is an agreement, not a security control. Details: [scripts/README.md, "Scripts"](scripts/README.md#scripts).
+
+### Script test harness
+
+```
+bash tests/scripts/run.sh
+```
+
+The harness is `tests/scripts/run.sh`. It takes several minutes. Per decision D8 it exercises only `--dry-run`, `--help`, `--print-digest` and refusal paths, in a clean temporary git repository. Its last recorded result is `RESULT pass=570 fail=0` (checks-5.md, see Status). The repair of `run_bounded` for the wall-clock stop (review finding S1) is not covered by any run until the human reruns, and the dry-run harness cannot cover it.
+
+### Status
+
+Evidence is from human check runs on 2026-11-11 and one agent `sbt check`. The documentation-engineer replayed nothing for this update and has no shell tool; every result below is copied from the cited file.
+
+Observed to pass:
+
+- `bash -n` on every script in `scripts/` and on `tests/scripts/run.sh`: no output, passed ([checks-3.md](docs/agent-runs/phase-13/checks-3.md)).
+- `shellcheck -x` on `scripts/*.sh` and `tests/scripts/run.sh`: no findings ([checks-3.md](docs/agent-runs/phase-13/checks-3.md)). An earlier run had findings ([checks-1.md](docs/agent-runs/phase-13/checks-1.md), [checks-2.md](docs/agent-runs/phase-13/checks-2.md)); repair 1 fixed them.
+- `bash tests/scripts/run.sh` printed `RESULT pass=570 fail=0`, with `CHECKS_RC=0`, `bash -n` and `shellcheck -x` clean, after repair round 2 ([checks-5.md](docs/agent-runs/phase-13/checks-5.md)). The 546 figure is the pre-repair-round-1 result ([checks-3.md](docs/agent-runs/phase-13/checks-3.md)). The earlier run printed `pass=539 fail=7` ([checks-2.md](docs/agent-runs/phase-13/checks-2.md)); the seven failures were script defects and now pass.
+- `terraform fmt -check -recursive -diff infra/terraform`, `terraform init -backend=false -input=false` and `terraform validate` on the course environment: passed ([checks-1.md](docs/agent-runs/phase-13/checks-1.md)). Terraform was not rerun after that check, and [checks-3.md](docs/agent-runs/phase-13/checks-3.md) records no Terraform file change since, to its author's knowledge.
+- Agent `sbt check` at 2026-11-11 6:29 PM: exit 0, aggregate `Total 1098, Failed 0, Errors 0, Passed 1098` ([report-11](docs/agent-runs/phase-13/report-11-test-engineer-sbt-check.md)). Only the aggregate and two inferred group lines (services 118, root 81) were read; the other per-group counts are unread. This is turn evidence, not the phase gate, and covers no source edit after 6:29 PM.
+
+What the harness proves: syntax, lint, and the `--help`, `--print-digest`, `--dry-run` and refusal paths of the ten scripts, run in a clean temporary git repository with no AWS, network, Terraform, docker or sbt reachable. It includes the dry-run tripwire, which saw no stub reached in any dry run ([checks-3.md](docs/agent-runs/phase-13/checks-3.md)).
+
+What the harness does not prove: any real AWS call, plan reproducibility, a real deploy, `run_bounded` with a real docker or sbt process (including Ctrl-C forwarding and `docker login --password-stdin`), the smoke test against a real service, a real `terraform plan`, or the cleanup listing from live resources ([checks-3.md](docs/agent-runs/phase-13/checks-3.md)).
+
+Still UNVERIFIED or deferred:
+
+- Everything live, deferred to Phase 14 (needs a live account): every AWS call, deployment, and a run of the bounded pipeline.
+- `run_bounded` with a real docker or sbt process, and a real `docker login --password-stdin`.
+- The smoke test against a real service.
+- Terraform plan reproducibility and the archived plan checksum.
+- The ratified launcher that verifies the approval record, script digest, arguments, environment and bounds before the Phase 1 guard opens `deploy`, `rollback`, `run-bounded-pipeline` and `cleanup` (decision D3 in [decisions.md](docs/agent-runs/phase-13/decisions.md)). It needs factory-engineer and the human.
+- The `run-experiment.sh` tier caps (minutes 60/90/150, concurrency 4/16/32, tasks 1000/5000/20000). They are provisional proposals the human must confirm before any Phase 15 approval record (decision D12 in [decisions.md](docs/agent-runs/phase-13/decisions.md)).
+- The human's final `sbt clean check`, which covers every test and is the phase gate.
+
+Reading of the evidence: the non-cloud script behavior is observed under test in an isolated harness, and the live behavior has not been observed.

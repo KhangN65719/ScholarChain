@@ -15,9 +15,22 @@ emr_managed_scaling_max_units = 3
 
 service_desired_count = 2
 
-# Execution timeout: the 150-minute script cap plus 30 minutes. When it fires,
-# CleanupOnFailure does not run (see the README, "Pipeline bounds"). The step
-# timeout stays at the 3600 default: cluster start plus two full steps is 7200 s
-# plus start, which is already below 10800.
-pipeline_max_run_seconds      = 10800
-pipeline_step_timeout_seconds = 3600
+# Execution timeout: the 150-minute script cap plus 30 minutes = 10800 s. When it
+# fires, CleanupOnFailure does not run (README, "Pipeline bounds").
+# Per-step timeouts (TerminateCluster and CleanupOnFailure stay 900 s):
+#   CreateCluster 1440 s = 0.4 h, the estimate's HIGH launch overhead.
+#   EMR step (Hadoop and Spark, each) 3600 s, unchanged.
+#     The estimate's HIGH Hadoop + Spark time is 2.4 h - 0.4 h = 2.0 h = 7200 s.
+#   Loader 3600 s, unchanged. The estimate's HIGH loader time is 4.0 h = 14400 s,
+#     which is also above the 7200 s range of the loader variable.
+# Rule A: 1440 + 2 x 3600 + 300 = 8940 <= 10800 (holds, 1860 s of slack).
+# Known limitation, accepted by human decision O1 (phase 13 D10), not enforced:
+# 1440 + 2 x 3600 + 900 + 3600 = 13140 > 10800. At the estimate's HIGH bound
+# (23040 s) a run may time out. A cap is a ceiling, not a cost.
+# These values are placeholders until the human sets them from the measured S
+# runtime (README, "Pipeline bounds") and records that in a Phase 14 decisions
+# file before L runs. The range ends at 10800.
+pipeline_max_run_seconds                = 10800
+pipeline_create_cluster_timeout_seconds = 1440
+pipeline_emr_step_timeout_seconds       = 3600
+pipeline_loader_timeout_seconds         = 3600

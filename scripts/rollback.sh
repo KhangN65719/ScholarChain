@@ -45,6 +45,7 @@ while [[ $# -gt 0 ]]; do
     *) die "unknown argument: $1" ;;
   esac
 done
+dry_announce
 
 step validate-params
 init_common yes
@@ -69,22 +70,61 @@ fi
 maybe_print_digest rollback "$EXTRA"
 step_ok
 
+if is_dry_run; then
+  dry_banner rollback "$EXTRA"
+fi
+
 if [[ "$MODE" == "image" ]]; then
+  # A dry run may lack the saved plan file; the real run requires it.
+  DRY_PLAN="yes"
+  if is_dry_run; then
+    [[ "$PLAN_FILE" == /* ]] || die "--plan-file must be an absolute path"
+    [[ -f "$PLAN_FILE" && -f "$PLAN_FILE.meta" ]] || DRY_PLAN="no"
+  fi
+
   step clean-tree
   require_clean_tree
   step_ok
 
-  step plan-binding
-  check_plan_binding "$PLAN_FILE" apply yes
-  [[ "$(meta_get "$SC_PLAN_META" IMAGE_TAG)" == "$TARGET_TAG" ]] || die "plan image tag $(meta_get "$SC_PLAN_META" IMAGE_TAG) is not the rollback target $TARGET_TAG"
-  step_ok
+  if [[ "$DRY_PLAN" == "yes" ]]; then
+    step plan-binding
+    check_plan_binding "$PLAN_FILE" apply yes
+    [[ "$(meta_get "$SC_PLAN_META" IMAGE_TAG)" == "$TARGET_TAG" ]] || die "plan image tag $(meta_get "$SC_PLAN_META" IMAGE_TAG) is not the rollback target $TARGET_TAG"
+    step_ok
+  else
+    dry_step plan-binding
+    dry_skipped plan-binding "no plan file and metadata at --plan-file in this dry run"
+    SC_PLAN_DIGEST="@skip:no plan file in this dry run"
+    SC_PLAN_META=""
+  fi
 
   step approval-record
-  verify_approval rollback "$EXTRA" "$SC_PLAN_DIGEST" "$(git_head)"
-  if [[ "$(meta_get "$SC_PLAN_META" STATEFUL_CHANGE)" == "yes" ]]; then
-    [[ "$(approval_value STATEFUL_CHANGE_ACKNOWLEDGED)" == "yes" ]] || die "the plan changes stateful resources and the record does not acknowledge it"
+  REQUIRE_ACK="no"
+  if [[ -n "$SC_PLAN_META" && "$(meta_get "$SC_PLAN_META" STATEFUL_CHANGE)" == "yes" ]]; then
+    REQUIRE_ACK="yes"
+  fi
+  verify_approval rollback "$EXTRA" "$SC_PLAN_DIGEST" "$(git_head)" "$REQUIRE_ACK"
+  if [[ -n "$SC_PLAN_META" ]]; then
+    if [[ "$REQUIRE_ACK" == "yes" ]]; then
+      note "stateful change acknowledged in the approval record"
+    fi
+  else
+    dry_skipped stateful-change-acknowledgement "the plan metadata is not available; the record says STATEFUL_CHANGE_ACKNOWLEDGED=$(approval_value STATEFUL_CHANGE_ACKNOWLEDGED)"
   fi
   step_ok
+
+  if is_dry_run; then
+    dry_approval_unconsumed
+    dry_step identity-check
+    dry_would "aws sts get-caller-identity (skipped)"
+    dry_step target-exists
+    dry_would "aws ecr describe-images for tag $TARGET_TAG in ${SC_NAME_PREFIX}-services and ${SC_NAME_PREFIX}-loader"
+    dry_step terraform-apply
+    dry_would "consume the approval record; terraform init; terraform apply -input=false -lock-timeout=60s of the saved plan $PLAN_FILE"
+    dry_step verify-revision
+    dry_would "read-only ECR and ECS describes: every task definition and service must use :$TARGET_TAG"
+    dry_finish
+  fi
 
   step identity-check
   verify_identity
@@ -120,6 +160,21 @@ step approval-record
 verify_approval rollback "$EXTRA" "n/a" "n/a"
 step_ok
 
+if is_dry_run; then
+  dry_approval_unconsumed
+  dry_step identity-check
+  dry_would "aws sts get-caller-identity (skipped)"
+  dry_step state-fetch
+  dry_would "consume the approval record; terraform init; terraform state pull to the out-dir; aws s3api get-object of s3://$STATE_BUCKET/$STATE_KEY version $STATE_VERSION"
+  dry_step state-compare
+  dry_would "check the initialized backend, the lineage, and that the candidate serial is older"
+  dry_step state-push
+  dry_would "terraform state push -force of the candidate version"
+  dry_step drift-plan
+  dry_would "terraform plan of the drift, scan and summary (nothing applied)"
+  dry_finish
+fi
+
 step identity-check
 verify_identity
 step_ok
@@ -142,8 +197,11 @@ step state-compare
 lineage_of() { grep -o '"lineage": *"[^"]*"' "$1" | head -n 1 || true; }
 serial_of() { grep -o '"serial": *[0-9]*' "$1" | head -n 1 | grep -o '[0-9]*$' || true; }
 BACKEND_FILE="$SC_ENV_DIR/.terraform/terraform.tfstate"
-[[ -f "$BACKEND_FILE" ]] && grep -q "\"bucket\": *\"$STATE_BUCKET\"" "$BACKEND_FILE" && grep -q "\"key\": *\"$STATE_KEY\"" "$BACKEND_FILE" \
-  || die "the initialized backend is not s3://$STATE_BUCKET/$STATE_KEY: refusing to push state to another backend"
+if [[ ! -f "$BACKEND_FILE" ]] \
+  || ! grep -q "\"bucket\": *\"$STATE_BUCKET\"" "$BACKEND_FILE" \
+  || ! grep -q "\"key\": *\"$STATE_KEY\"" "$BACKEND_FILE"; then
+  die "the initialized backend is not s3://$STATE_BUCKET/$STATE_KEY: refusing to push state to another backend"
+fi
 [[ -n "$(lineage_of "$CURRENT")" && "$(lineage_of "$CURRENT")" == "$(lineage_of "$OLD")" ]] || die "lineage differs or is missing: refusing to push another state's history"
 CUR_SERIAL="$(serial_of "$CURRENT")"
 OLD_SERIAL="$(serial_of "$OLD")"

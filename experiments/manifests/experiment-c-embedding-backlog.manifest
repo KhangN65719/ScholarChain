@@ -1,0 +1,33 @@
+# Experiment C: embedding backlog (controlled enqueue, SQS depth, worker scaling, drain).
+# DRAFT. Unapproved and unexecuted. Valid only for scripts/run-experiment.sh --dry-run.
+# Format: scripts/README.md, "Experiment manifest contract". No spaces in values.
+# PLACEHOLDERS the human replaces before an approval record is written
+# (the record binds the sha256 of the final file, so any edit needs a new record):
+#   ACCOUNT_ID       123456789012 is the documented example, not a real account.
+#   DATASET_SNAPSHOT a draft name; the dataset-engineer has not defined snapshot ids.
+#   OUTPUT_ROOT      /abs/outside/repo/... is a placeholder path; pick a durable directory
+#                    outside the repository.
+# MAX_TASKS 5000 is the number of text chunks enqueued: tier M has 5,000 chunks
+# (COST_ESTIMATE.md section 1.1, an assumption) and 5000 is the tier M cap.
+# Cost basis: HOURLY_BURN_USD 0.70 = tier M session 0.62 plus up to 4 embedding worker
+# tasks at 0.0123 each (0.05), rounded up. 0.70 x 60 min / 60 = 0.70. The ceiling 1.00
+# leaves 0.30 for Titan V2 tokens, which the burn does not include.
+# Whether an embedding worker service exists in Terraform is unconfirmed.
+MANIFEST_VERSION=1
+EXPERIMENT_ID=C
+DESCRIPTION=embedding-backlog-sqs-depth-worker-scaling-drain-tier-m-draft
+ENVIRONMENT=course
+REGION=us-east-1
+ACCOUNT_ID=123456789012
+DATASET_SNAPSHOT=scholarchain-slice-m-25000-works-DRAFT
+SIZE_TIER=M
+MAX_MINUTES=60
+MAX_CONCURRENCY=4
+MAX_TASKS=5000
+SPEND_CEILING_USD=1.00
+HOURLY_BURN_USD=0.70
+STOP_CONDITIONS=wall-clock,first-failure,spend-estimate
+METRIC_NAMES=ApproximateNumberOfMessagesVisible,ApproximateAgeOfOldestMessage,NumberOfMessagesSent,NumberOfMessagesDeleted,DesiredTaskCount,RunningTaskCount,CPUUtilization
+METRIC_NAMESPACES=AWS/SQS,ECS/ContainerInsights,AWS/ECS
+OUTPUT_ROOT=/abs/outside/repo/scholarchain-experiments
+ENTRY_POINT=script:experiments/c-embedding-backlog/run.sh

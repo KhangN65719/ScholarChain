@@ -9,10 +9,19 @@
 #   - the approval record (see verify_approval) is verified, never bypassed
 #   - no secret value is read, printed or placed in an argument list, except in
 #     smoke-test.sh, which reads one bearer token into a private temp file
+#   - --dry-run is the only way to a dry run (no environment variable, and no flag
+#     turns a dry run real). A dry run calls no aws, terraform, docker, curl or sbt:
+#     those names are shell functions below that refuse first (dry_guard), so no call
+#     site can reach the real binary. It writes no plan, marker or output directory.
+#   - every aws call carries a connect and a read timeout, and only describe-,
+#     list-, get- and head- operations are retried (3 attempts); docker calls run
+#     under run_bounded. Terraform is not wrapped in a timeout: a killed apply is
+#     worse than a slow one (see scripts/README.md, "Timeouts and retries").
 #
 # What the approval checks do NOT stop (they are consistency checks, not
-# authorization; the real control is the human signing the digest and, in Phase
-# 13, a ratified launcher):
+# authorization; the real control is the human signing the digest. A ratified
+# launcher is not part of Phase 13 (decision D3, an open constitutional item), so
+# running these scripts stays a human-controlled step):
 #   - a caller who can write a record: every digest is printable, so a new record
 #     with a fresh APPROVED_AT is a new single-use marker
 #   - SCHOLARCHAIN_OPS_STATE_DIR pointing at an empty marker directory: a consumed
@@ -50,6 +59,7 @@ SC_COST=""
 SC_APPROVAL_FILE=""
 SC_OUT_DIR=""
 SC_PRINT_DIGEST=0
+SC_DRY_RUN=0
 SC_SHIFT=0
 SC_ENV_DIR=""
 SC_TFVARS=""
@@ -111,6 +121,9 @@ need_arg() {
 }
 
 # Returns 0 and sets SC_SHIFT when $1 is a flag every script shares.
+# SC_SHIFT is read by the calling scripts (shift "$SC_SHIFT"), which shellcheck
+# does not follow when it checks this file on its own.
+# shellcheck disable=SC2034
 parse_common_flag() {
   SC_SHIFT=0
   case "$1" in
@@ -121,6 +134,7 @@ parse_common_flag() {
     --approval-record) need_arg "$@"; SC_APPROVAL_FILE="$2"; SC_SHIFT=2 ;;
     --out-dir) need_arg "$@"; SC_OUT_DIR="$2"; SC_SHIFT=2 ;;
     --print-digest) SC_PRINT_DIGEST=1; SC_SHIFT=1 ;;
+    --dry-run) SC_DRY_RUN=1; SC_SHIFT=1 ;;
     *) return 1 ;;
   esac
   return 0
@@ -140,13 +154,23 @@ Common parameters (all required unless marked):
   --approval-record PATH    human approval record (see scripts/README.md); not used by plan.sh
   --out-dir ABS_PATH        optional; default ${TMPDIR:-/tmp}/scholarchain-ops/<environment>
   --print-digest            print SCRIPT_DIGEST and ARGS_DIGEST for the record, then exit
+  --dry-run                 check arguments and the approval record, print the steps, call no
+                            cloud, Terraform, docker or network command, consume no record
 EOF
 }
 
+# type -P looks only at executables on PATH. command -v would find the wrapper
+# functions below and report a missing aws, terraform or docker as present.
+# A dry run does not need the cloud tools, so they are not required there.
 require_cmd() {
   local c
   for c in "$@"; do
-    command -v "$c" >/dev/null 2>&1 || die "required command not found: $c"
+    if [[ "$SC_DRY_RUN" -eq 1 ]]; then
+      case "$c" in
+        aws | terraform | docker | curl | sbt) continue ;;
+      esac
+    fi
+    type -P "$c" >/dev/null 2>&1 || die "required command not found: $c"
   done
 }
 
@@ -197,6 +221,7 @@ init_common() {
 }
 
 make_out_dir() {
+  dry_guard "make_out_dir"
   (umask 077 && mkdir -p "$SC_OUT_DIR")
 }
 
@@ -323,6 +348,7 @@ args_digest() {
 maybe_print_digest() {
   local action="$1" extra="$2"
   if [[ "$SC_PRINT_DIGEST" -eq 1 ]]; then
+    [[ "$extra" != @skip:* ]] || die "cannot print the digests: ${extra#@skip:}"
     printf 'ACTION=%s\n' "$action"
     printf 'SCRIPT_DIGEST=%s\n' "$(script_digest)"
     printf 'ARGS_CANONICAL=%s\n' "$(args_canonical "$action" "$extra")"
@@ -383,6 +409,7 @@ consumed_dir() {
 # a retry needs a new record (conservative, because a retry can re-spend).
 consume_approval() {
   local action="$1" d
+  dry_guard "consume_approval"
   [[ -n "${HOME:-}" || -n "${SCHOLARCHAIN_OPS_STATE_DIR:-}" ]] || die "HOME is not set and SCHOLARCHAIN_OPS_STATE_DIR is not given: nowhere to keep the single-use marker"
   check_state_dir
   d="$(consumed_dir "$action")"
@@ -394,9 +421,12 @@ consume_approval() {
 
 # verify_approval ACTION EXTRA EXPECTED_PLAN_DIGEST EXPECTED_GIT_SHA
 # EXPECTED_PLAN_DIGEST and EXPECTED_GIT_SHA are "n/a" when the action has none.
+# Optional fifth argument "yes": the record must also set STATEFUL_CHANGE_ACKNOWLEDGED=yes.
+# That check runs after every other one and before APPROVAL_VERIFIED is printed, so a
+# record that fails it is never reported as verified.
 verify_approval() {
-  local action="$1" extra="$2" plan="$3" sha="$4"
-  local key v now lower_by
+  local action="$1" extra="$2" plan="$3" sha="$4" require_ack="${5:-no}"
+  local key v now lower_by skipped=""
 
   check_state_dir
   [[ -n "$SC_APPROVAL_FILE" ]] || die "no approval record given"
@@ -434,8 +464,24 @@ verify_approval() {
   num_le "$v" "$SC_PROJECT_CEILING_USD" || die "record COST_CEILING_USD exceeds the project ceiling"
 
   [[ "$(approval_value SCRIPT_DIGEST)" == "$(script_digest)" ]] || die "record SCRIPT_DIGEST does not match this script plus lib.sh: the script changed after approval"
-  [[ "$(approval_value ARGS_DIGEST)" == "$(args_digest "$action" "$extra")" ]] || die "record ARGS_DIGEST does not match these exact arguments"
-  [[ "$(approval_value PLAN_DIGEST)" == "$plan" ]] || die "record PLAN_DIGEST does not match: expected $plan"
+  # The @skip: sentinel exists for dry runs that lack the plan file or the build
+  # contexts. The check is then not done, said so on stdout and listed in
+  # skipped=; it is never reported as passed. A real run refuses the sentinel.
+  if [[ "$extra" == @skip:* || "$plan" == @skip:* ]]; then
+    [[ "$SC_DRY_RUN" -eq 1 ]] || die "internal error: a skipped approval check outside a dry run"
+  fi
+  if [[ "$extra" == @skip:* ]]; then
+    skipped="${skipped}${skipped:+,}ARGS_DIGEST"
+    printf 'APPROVAL_CHECK_SKIPPED field=ARGS_DIGEST reason=%s\n' "${extra#@skip:}"
+  else
+    [[ "$(approval_value ARGS_DIGEST)" == "$(args_digest "$action" "$extra")" ]] || die "record ARGS_DIGEST does not match these exact arguments"
+  fi
+  if [[ "$plan" == @skip:* ]]; then
+    skipped="${skipped}${skipped:+,}PLAN_DIGEST"
+    printf 'APPROVAL_CHECK_SKIPPED field=PLAN_DIGEST reason=%s\n' "${plan#@skip:}"
+  else
+    [[ "$(approval_value PLAN_DIGEST)" == "$plan" ]] || die "record PLAN_DIGEST does not match: expected $plan"
+  fi
   [[ "$(approval_value GIT_SHA)" == "$sha" ]] || die "record GIT_SHA does not match: expected $sha"
 
   v="$(approval_value STATEFUL_CHANGE_ACKNOWLEDGED)"
@@ -466,8 +512,227 @@ verify_approval() {
   # first billable or state-changing call.
   [[ ! -d "$(consumed_dir "$action")" ]] || die "this approval record was already used for $action with these arguments (marker $(consumed_dir "$action")); the human must write a new record"
 
+  if [[ "$require_ack" == "yes" ]]; then
+    [[ "$(approval_value STATEFUL_CHANGE_ACKNOWLEDGED)" == "yes" ]] || die "destroy removes stateful resources: the record must set STATEFUL_CHANGE_ACKNOWLEDGED=yes"
+  fi
+
   printf 'APPROVAL_VERIFIED action=%s environment=%s account=%s region=%s cost_ceiling_usd=%s approved_by=%s expires_at=%s\n' \
     "$action" "$SC_ENV" "$SC_ACCOUNT" "$SC_REGION" "$SC_COST" "$(approval_value APPROVED_BY)" "$(approval_value EXPIRES_AT)"
+  if [[ "$SC_DRY_RUN" -eq 1 ]]; then
+    printf 'APPROVAL_SKIPPED_FIELDS=%s\n' "${skipped:-none}"
+  fi
+}
+
+### Dry run and external commands -------------------------------------------
+# aws, terraform, docker, curl and sbt are functions here, so that every call site
+# in every script goes through dry_guard first. A function wins over the binary
+# for a plain command name, also inside $( ) and pipelines. The real binary is
+# found with type -P and run by path. Local reads (git, awk, find, sha256) and the
+# approval-record reads are not wrapped: they change nothing.
+
+dry_guard() {
+  if [[ "$SC_DRY_RUN" -eq 1 ]]; then
+    die "DRY_RUN_GUARD: a dry run reached $1, which must never run in a dry run. This is a script defect; nothing was changed."
+  fi
+}
+
+ext_bin() {
+  local b
+  b="$(type -P "$1")" || die "required command not found: $1"
+  printf '%s' "$b"
+}
+
+# sc_group_alive PGID: success while any process of the group exists.
+sc_group_alive() {
+  kill -0 -- "-$1" 2>/dev/null
+}
+
+# sc_group_stop PGID: TERM the whole process group, wait up to 5 seconds, then KILL
+# it and wait up to 5 seconds more. Returns 0 when the group is gone, 1 when a
+# member is still there.
+sc_group_stop() {
+  local g="$1"
+  sc_group_alive "$g" || return 0
+  kill -TERM -- "-$g" 2>/dev/null || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    sc_group_alive "$g" || return 0
+    sleep 0.5
+  done
+  kill -KILL -- "-$g" 2>/dev/null || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    sc_group_alive "$g" || return 0
+    sleep 0.5
+  done
+  return 1
+}
+
+# run_bounded SECONDS PATH_TO_BINARY ARGS... Runs the command in its own process
+# group (bash job control, set -m, so the command is the group leader and its
+# children inherit the group). A watchdog sends TERM to the whole group at the limit
+# and KILL 5 seconds later. When the command returns, any group member still alive
+# is stopped the same way before run_bounded returns, so nothing the command started
+# keeps running or writing afterwards. Standard input is kept (docker login
+# --password-stdin needs it). Returns the command's status, or 124 on a timeout. A
+# Ctrl-C or TERM is forwarded to the group.
+# After each call: SC_RB_STRAY=1 when members were still alive after the leader
+# returned (and were signalled), SC_RB_LEFT=1 when a member survived even KILL. A
+# member that starts its own session or group (setsid, set -m in the entry point)
+# is outside the group and is not reached. UNVERIFIED until run with real processes.
+SC_RB_PID=""
+# Read by run-experiment.sh, which shellcheck does not follow when it checks this
+# file on its own.
+# shellcheck disable=SC2034
+SC_RB_STRAY=0
+# shellcheck disable=SC2034
+SC_RB_LEFT=0
+
+run_bounded() {
+  local secs="$1" rc=0 wd was_m=0 mark
+  shift
+  SC_RB_STRAY=0
+  SC_RB_LEFT=0
+  mark="$(mktemp "${TMPDIR:-/tmp}/sc-rb.XXXXXX")" || die "cannot create a temporary file for the time limit marker"
+  rm -f "$mark"
+  register_cleanup "$mark"
+  case "$-" in *m*) was_m=1 ;; esac
+  set -m
+  "$@" <&0 &
+  SC_RB_PID=$!
+  (
+    exec >/dev/null 2>&1 </dev/null
+    sleep "$secs"
+    : > "$mark"
+    kill -TERM -- "-$SC_RB_PID" 2>/dev/null || true
+    sleep 5
+    kill -KILL -- "-$SC_RB_PID" 2>/dev/null || true
+  ) &
+  wd=$!
+  trap 'kill -TERM -- "-$SC_RB_PID" 2>/dev/null || true' INT TERM
+  wait "$SC_RB_PID" || rc=$?
+  trap - INT TERM
+  kill -- "-$wd" 2>/dev/null || kill "$wd" 2>/dev/null || true
+  wait "$wd" 2>/dev/null || true
+  if sc_group_alive "$SC_RB_PID"; then
+    # Read by run-experiment.sh (lines 371, 417), outside what shellcheck follows here.
+    # shellcheck disable=SC2034
+    SC_RB_STRAY=1
+    printf 'EVIDENCE: process group %s still had members after the command returned; stopping them\n' "$SC_RB_PID" >&2
+    if ! sc_group_stop "$SC_RB_PID"; then
+      # Read by run-experiment.sh (lines 374, 418), outside what shellcheck follows here.
+      # shellcheck disable=SC2034
+      SC_RB_LEFT=1
+      printf 'EVIDENCE: PROCESS_GROUP_REMAINING pgid=%s: a member survived KILL; stop it by hand\n' "$SC_RB_PID" >&2
+    fi
+  fi
+  if [[ "$was_m" -eq 0 ]]; then set +m; fi
+  if [[ -e "$mark" ]]; then
+    rm -f "$mark"
+    printf 'EVIDENCE: a command exceeded its %s second limit and was stopped\n' "$secs" >&2
+    return 124
+  fi
+  return "$rc"
+}
+
+# Every aws call: connect and read timeouts, and retries only for reads
+# (describe-, list-, get- and head- operations, 3 attempts). Anything else, such as
+# start-execution, stop-execution, terminate-job-flows and the billed Bedrock
+# calls, runs once.
+aws() {
+  dry_guard "aws ${1:-} ${2:-}"
+  local bin attempts=1
+  bin="$(ext_bin aws)" || exit 1
+  case "${2:-}" in
+    describe-* | list-* | get-* | head-*) attempts=3 ;;
+  esac
+  env AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS="$attempts" "$bin" "$@" \
+    --cli-connect-timeout 10 --cli-read-timeout 60
+}
+
+terraform() {
+  dry_guard "terraform"
+  local bin
+  bin="$(ext_bin terraform)" || exit 1
+  "$bin" "$@"
+}
+
+docker() {
+  dry_guard "docker ${1:-}"
+  local bin secs
+  bin="$(ext_bin docker)" || exit 1
+  case "${1:-}" in
+    login) secs=120 ;;
+    build | push) secs=1800 ;;
+    *) secs=300 ;;
+  esac
+  run_bounded "$secs" "$bin" "$@"
+}
+
+curl() {
+  dry_guard "curl"
+  local bin
+  bin="$(ext_bin curl)" || exit 1
+  "$bin" "$@"
+}
+
+sbt() {
+  dry_guard "sbt"
+  die "these scripts never run sbt"
+}
+
+is_dry_run() {
+  [[ "$SC_DRY_RUN" -eq 1 ]]
+}
+
+# dry_announce: the first stdout line of a dry run, before any check can refuse.
+dry_announce() {
+  if [[ "$SC_DRY_RUN" -eq 1 ]]; then
+    printf 'DRY_RUN=yes\n'
+  fi
+}
+
+# dry_banner ACTION EXTRA: the target as given in the arguments (sts is not
+# called) and the digests, as --print-digest prints them. EXTRA may be an @skip:
+# sentinel when the plan file or the build contexts are not available.
+dry_banner() {
+  local action="$1" extra="$2"
+  printf 'TARGET_ACCOUNT=%s\n' "$SC_ACCOUNT"
+  printf 'TARGET_REGION=%s\n' "$SC_REGION"
+  printf 'TARGET_ENVIRONMENT=%s\n' "$SC_ENV"
+  printf 'IDENTITY_CHECK=skipped (dry run: sts is not called, so the account above is the --account-id argument and not a verified caller identity)\n'
+  printf 'ACTION=%s\n' "$action"
+  printf 'SCRIPT_DIGEST=%s\n' "$(script_digest)"
+  if [[ "$extra" == @skip:* ]]; then
+    printf 'ARGS_DIGEST=unavailable (%s)\n' "${extra#@skip:}"
+  else
+    printf 'ARGS_CANONICAL=%s\n' "$(args_canonical "$action" "$extra")"
+    printf 'ARGS_DIGEST=%s\n' "$(args_digest "$action" "$extra")"
+  fi
+}
+
+# dry_step NAME: same numbering and name as the real step, marked not executed.
+dry_step() {
+  SC_STEP_N=$((SC_STEP_N + 1))
+  SC_STEP_NAME="$1"
+  printf 'STEP[%s] %s: dry-run\n' "$SC_STEP_N" "$1"
+}
+
+dry_would() {
+  printf 'WOULD_RUN: %s\n' "$*"
+}
+
+dry_skipped() {
+  printf 'CHECK_SKIPPED %s: %s (not done, so not passed)\n' "$1" "$2"
+}
+
+dry_finish() {
+  SC_STEP_OPEN=0
+  printf 'DRY_RUN_COMPLETE nothing was called or written: no aws, terraform, docker, curl or sbt, no plan, marker or output directory\n'
+  exit 0
+}
+
+# dry_approval_unconsumed: after verify_approval in a dry run.
+dry_approval_unconsumed() {
+  printf 'APPROVAL_NOT_CONSUMED dry-run\n'
 }
 
 ### Cloud identity and git ---------------------------------------------------
@@ -518,11 +783,17 @@ tf_prepare() {
   step_ok
 }
 
+# The key material patterns, shared by every scan (plan logs, inputs, manifests, the
+# evidence archive): AWS access key ids, PEM private keys, aws_secret_access_key, an
+# Authorization: Bearer header, and GitHub tokens (ghp_ and github_pat_ followed by
+# at least 20 token characters).
+SC_SECRET_RE='AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|aws_secret_access_key|[Aa]uthorization:[[:space:]]*[Bb]earer|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}'
+
 scan_for_secrets() {
   local f="$1"
-  if grep -qE 'AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|aws_secret_access_key' "$f"; then
+  if grep -qE "$SC_SECRET_RE" "$f"; then
     printf 'EVIDENCE: possible credential material in %s on line(s): %s\n' "$f" \
-      "$(grep -nE 'AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|aws_secret_access_key' "$f" | cut -d: -f1 | tr '\n' ' ')" >&2
+      "$(grep -nE "$SC_SECRET_RE" "$f" | cut -d: -f1 | tr '\n' ' ')" >&2
     die "stopping: a secret may have reached the output (matched text is not printed)"
   fi
 }
@@ -539,6 +810,9 @@ tf_plan_to() {
   if [[ "$rc" -ne 0 && "$rc" -ne 2 ]]; then
     die "terraform plan failed with exit $rc; output above and in $log"
   fi
+  # Read by plan.sh (PLAN_EXIT in the plan metadata), which shellcheck does not
+  # follow when it checks this file on its own.
+  # shellcheck disable=SC2034
   SC_PLAN_EXIT="$rc"
 }
 
@@ -567,6 +841,7 @@ plan_summary() {
 
 write_meta() {
   local f="$1"
+  dry_guard "write_meta"
   shift
   (umask 077 && : > "$f")
   local kv
@@ -589,6 +864,9 @@ check_plan_binding() {
   [[ -f "$plan" ]] || die "plan file not found: $plan"
   meta="$plan.meta"
   [[ -f "$meta" ]] || die "plan metadata not found: $meta (plan.sh writes it)"
+  # Read by deploy.sh and rollback.sh, which shellcheck does not follow when it
+  # checks this file on its own.
+  # shellcheck disable=SC2034
   SC_PLAN_META="$meta"
   SC_PLAN_DIGEST="$(sha256_file "$plan")"
   [[ "$(meta_get "$meta" META_VERSION)" == "1" ]] || die "unsupported plan metadata version"
@@ -670,6 +948,63 @@ verify_revision() {
   [[ "$seen" -gt 0 ]] || die "no container image found to verify"
   [[ "$bad" -eq 0 ]] || die "deployed revision does not match $tag"
   printf 'DEPLOYED_REVISION=%s\n' "$tag"
+}
+
+### Added in Phase 13 for check.sh, package.sh, run-experiment.sh and ---------
+### archive-evidence.sh. Work order 15 later edited run_bounded and scan_for_secrets above. --
+
+utc_now() {
+  date -u +%Y-%m-%dT%H:%M:%SZ
+}
+
+utc_stamp() {
+  date -u +%Y%m%dT%H%M%SZ
+}
+
+# sbt_run SECONDS ARGS... The one way a script runs sbt. The sbt function above
+# still refuses, so the six older scripts cannot reach it. Refused in a dry run,
+# bounded by run_bounded, and standard input is /dev/null so sbt never waits for a
+# prompt. Returns sbt's status, or 124 on a timeout.
+sbt_run() {
+  local secs="$1" bin
+  shift
+  dry_guard "sbt_run"
+  bin="$(ext_bin sbt)" || exit 1
+  run_bounded "$secs" "$bin" "$@" </dev/null
+}
+
+# require_external_dir PATH WHAT: PATH must be absolute, free of . and .. segments,
+# resolvable, and outside the repository by physical path (letter case ignored).
+# A check at one moment, with the limits listed in the header of this file.
+require_external_dir() {
+  local p="$1" what="$2"
+  [[ "$p" == /* ]] || die "$what must be an absolute path: $p"
+  case "$p/" in
+    */../* | */./*) die "$what must not contain . or .. segments: $p" ;;
+  esac
+  if path_within "$p" "$SC_REPO_ROOT"; then
+    die "$what must not be inside the repository ($SC_REPO_ROOT): $p"
+  fi
+  [[ -n "$(physical_path "$p")" ]] || die "$what cannot be resolved to a physical path: $p"
+}
+
+# file_mtime_iso FILE: the modification time as UTC ISO 8601. GNU stat first, then
+# BSD (macOS). Reads metadata only, never the content.
+file_mtime_iso() {
+  local f="$1" e
+  e="$(stat -c %Y "$f" 2>/dev/null)" || e="$(stat -f %m "$f" 2>/dev/null)" || return 1
+  [[ "$e" =~ ^[0-9]+$ ]] || return 1
+  date -u -d "@$e" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -r "$e" +%Y-%m-%dT%H:%M:%SZ
+}
+
+# safe_name TEXT: TEXT with every character outside A-Za-z0-9._- replaced by _.
+safe_name() {
+  printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_'
+}
+
+# csv_words TEXT: a comma list as space separated words, for a for loop.
+csv_words() {
+  printf '%s' "$1" | tr ',' ' '
 }
 
 ### Human invocation guard (cleanup) -----------------------------------------

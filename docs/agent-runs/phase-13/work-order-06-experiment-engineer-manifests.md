@@ -1,0 +1,18 @@
+# Work order 06: experiment-engineer, draft experiment manifests against the run-experiment.sh contract
+
+Owner: experiment-engineer. Local only. Execute nothing: no AWS, no sbt, no scripts, no load. Do not edit scripts/** (infra-engineer owns it), production code, CLAUDE.md, docs/agents.md or `.claude/**`. Do not commit.
+
+Read first: CLAUDE.md, docs/agents.md, docs/agent-runs/phase-13/{prompt,decisions}.md and report-04-infra-engineer-new-scripts.md, scripts/README.md (section "Experiment manifest contract", the `tier_caps` table and the example), scripts/run-experiment.sh (read only, to see exactly what it parses and refuses), infra/terraform/COST_ESTIMATE.md (tiers S, M, L), and the course Phase 15 text for Experiments A to F as quoted in /Users/winnguyen/scholarchain-data/course-README.md.
+
+## Deliver (only under experiments/** and load-tests/**)
+
+1. `experiments/manifests/` with one draft manifest per Experiment A to F, in exactly the flat KEY=VALUE format the script parses. Every required key present once; no secrets, no account IDs (use the documented placeholder form the contract allows, or a clearly marked placeholder the human replaces; never invent an account ID). Each states environment `course`, region `us-east-1`, dataset snapshot reference, tier, limits, stop conditions (only `wall-clock`, `first-failure`, `spend-estimate`), metric names and namespaces, an output location outside the repository, and an entry point path.
+2. Limits must satisfy the script's tier caps (minutes 60/90/150, concurrency 4/16/32, tasks 1000/5000/20000, proposals from report 04) and the $25 cumulative budget in docs/agent-runs/phase-12/ratification.md. Experiment D wants four concurrency levels such as 1, 10, 50, 100; the course allows "adjusted for budget". Choose levels that fit the cap and say so; if the cap forces fewer or lower levels than the course text implies, record that as an open item for the human, do not raise a cap.
+3. Entry points: do not write workload code in this phase. Name the planned path per experiment (under experiments/ or load-tests/) and state in `experiments/README.md` that entry-point scripts and load generators are authored in Phase 15 and that these manifests are DRAFTS: unapproved, unexecuted, valid only for `--dry-run` (the script reports a missing entry point as CHECK_SKIPPED). Never create a placeholder script that pretends to run.
+4. `experiments/README.md`: what each experiment measures (from Phase 15), the immutability rule for raw results, the rule against tuning during a run, how a manifest becomes approved (a human-written approval record bound to its sha256 per scripts/README.md), and cost per experiment as a bound taken from the estimate, labelled with its source and marked unverified where the estimate does.
+5. `load-tests/README.md`: the query-load design only (concurrency levels chosen, duration, what is measured, stop conditions); no generator code.
+6. Check every manifest against the script's parser by reading `scripts/run-experiment.sh`: list each key, its allowed range and your value in a table in the report.
+
+Before writing, state which check proves each item of your primary gate: here, `bash scripts/run-experiment.sh --dry-run ...` per manifest (the guard may refuse agents; if so report BLOCKED-ON and list the exact human commands, do not work around it).
+
+Report contract: STATUS, OWNER, WORK ORDER, FILES CREATED, FILES MODIFIED, COMMANDS RUN, TEST RESULTS, VALIDATION RESULTS, ASSUMPTIONS, RISKS, MANUAL ACTION REQUIRED, BLOCKED-ON OWNER, BLOCKED-ON EVIDENCE, NEXT GATE. Report only commands you observed succeed.

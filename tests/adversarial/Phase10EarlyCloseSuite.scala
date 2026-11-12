@@ -594,7 +594,12 @@ class Phase10EarlyCloseSuite extends P10Suite:
     // Fails to fail (and so fails this test) if the after-grace limit climbs
     // above baseline plus 4 MiB, or if the at-answer check is what caught it.
     withFake((_, s) => answerThenReadN(4 * mib, 200)(s)) { f =>
-      val r = RawHttp.streamOversized(f.url, 64 * mib, None, graceMillis = 1000)
+      val r = RawHttp.streamOversized(
+        f.url,
+        64 * mib,
+        None,
+        graceMillis = RawHttp.DefaultGraceMillis
+      )
       assertTypedErrorWith(r.resp, 401, toks, "answer then read 4 MiB")
       val la = BodyBaseline.limitAtAnswer(r.declared)
       val lg = BodyBaseline.limitAfterGrace(r.declared)

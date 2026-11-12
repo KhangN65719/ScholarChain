@@ -1,6 +1,6 @@
 # ScholarChain Terraform (Phase 12, local authoring only)
 
-Status: on 2026-11-09 the human ran `terraform fmt -check -recursive -diff` (exit 0, no diff) and `terraform validate` in `environments/course` ("Success! The configuration is valid.", exit 0) on the files as they stood after repair round 1 (`terraform-checks.md`, Run 3; provider 6.26.0 from Run 2's `init -upgrade`). Repair round 2 (work order 15) edited files again without running any Terraform, so **`fmt -check` and `validate` have not been run on the repair round 2 edits** (the per-tier step timeout variable, the descriptions and the overlays) and must be re-run (see "Checks to run"). Never planned. Nothing here has touched AWS.
+Status: on 2026-11-09 the human ran `terraform fmt -check -recursive -diff` (exit 0, no diff) and `terraform validate` in `environments/course` ("Success! The configuration is valid.", exit 0) on the files as they stood after repair round 1 (`terraform-checks.md`, Run 3; provider 6.26.0 from Run 2's `init -upgrade`). Repair round 2 (work order 15) edited files again without running any Terraform. Phase 13 work order 01 then replaced the step timeout variable with three (see "Variables replacing the single step timeout"), and work order 05 removed the Rule B `check` block (human decision O1). On 2026-11-11 the human ran `fmt -check -recursive -diff`, `init -backend=false` and `validate` after those edits (Phase 13 `checks-1.md`): all three passed (see "Checks to run"). **`terraform plan` has still not been run** (Phase 14). Nothing here has touched AWS.
 
 ## Layout
 
@@ -127,15 +127,69 @@ The budget variables and `create_budgets = false` already existed; the D2c round
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `pipeline_step_timeout_seconds` (module `step_timeout_seconds`) | `3600`, range 300 to 7200 | finding L-b. Set per tier in the overlays: S 1800, M 2700, L 3600. See "Pipeline bounds" |
+| `pipeline_step_timeout_seconds` (module `step_timeout_seconds`) | `3600`, range 300 to 7200 | finding L-b. REPLACED in Phase 13 (work order 01, finding F1) by the three variables below |
+
+### Variables replacing the single step timeout (Phase 13, finding F1)
+
+| Variable (module name) | Default | Range | Bounds | On timeout |
+|---|---|---|---|---|
+| `pipeline_create_cluster_timeout_seconds` (`create_cluster_timeout_seconds`) | 1440, all tiers | 300 to 3600 | CreateCluster | Failed, no cleanup state |
+| `pipeline_emr_step_timeout_seconds` (`emr_step_timeout_seconds`) | 3600; S 1800, M 2700, L 3600 | 300 to 7200 | the Hadoop step and the Spark step, each | CleanupOnFailure, then Failed |
+| `pipeline_loader_timeout_seconds` (`loader_timeout_seconds`) | 3600; S 1800, M 2700, L 3600 | 300 to 7200 | RunLoader | Failed, no cleanup state |
+
+TerminateCluster and CleanupOnFailure are not variables: each keeps a fixed 900 s (`locals` in `modules/workflow/main.tf`). The overlay values for the EMR step and the loader are unchanged from repair round 2; only CreateCluster moved (from 1800, 2700 and 3600 to 1440). The EMR step and loader values do not rise to the estimate's HIGH figures: the human decided to keep the caps (O1, Phase 13 decisions D10; see "Pipeline bounds").
 
 ### Pipeline bounds (review finding M1)
 
-The state machine has a per-step timeout (`step_timeout_seconds`, module default 3600, range 300 to 7200; the environment variable is `pipeline_step_timeout_seconds` and each size overlay sets it: S 1800, M 2700, L 3600) and an execution timeout (`max_run_seconds`, now default 10800 seconds = 180 minutes, validated 1800 to 10800 and not below one step timeout). The default was 14400. 10800 is the 150-minute tier L script cap in `scripts/run-bounded-pipeline.sh` plus 30 minutes of margin. The bound goes in per run through the experiment tfvars: S 5400 (60-minute cap plus 30), M 7200 (90 plus 30), L 10800 (150 plus 30).
+The state machine has a timeout on each task state and an execution timeout. Task states: CreateCluster (`pipeline_create_cluster_timeout_seconds`, 1440 s), Hadoop and Spark (`pipeline_emr_step_timeout_seconds`, each; S 1800, M 2700, L 3600), RunLoader (`pipeline_loader_timeout_seconds`; S 1800, M 2700, L 3600), TerminateCluster and CleanupOnFailure (fixed 900 s each). Execution: `max_run_seconds`, default 10800 seconds = 180 minutes, validated 1800 to 10800 and by Rule A below. The default was 14400. 10800 is the 150-minute tier L script cap in `scripts/run-bounded-pipeline.sh` plus 30 minutes of margin. The bound goes in per run through the experiment tfvars: S 5400 (60-minute cap plus 30), M 7200 (90 plus 30), L 10800 (150 plus 30).
+
+Where each failure goes (Phase 13, finding F1; read from `modules/workflow/main.tf`, not observed on AWS):
+
+| State | Catch target | Cleanup runs? |
+|---|---|---|
+| CreateCluster | `Failed` | No |
+| HadoopStep | `CleanupOnFailure`, then `Failed` | Yes |
+| SparkStep | `CleanupOnFailure`, then `Failed` | Yes |
+| TerminateCluster | `Failed` | No |
+| RunLoader | `Failed` | No |
+| CleanupOnFailure | `Failed` (error kept in `$.cleanup_error`) | it is the cleanup |
+
+What that means. A hung CreateCluster ends at its own timeout (1440 s), not in the execution timeout, and goes straight to `Failed`. No state terminates a cluster on that path. Whether Step Functions terminates the half-created cluster when the task times out is UNVERIFIED, and so is whether idle auto-termination applies to a cluster that never reached `WAITING`. The stops that exist are the script's: `run-bounded-pipeline.sh` with `--stop-on first-failure` terminates leftover clusters named `<prefix>-pipeline` created after the start, and the human's cleanup check. Likewise a failed or timed-out TerminateCluster goes to `Failed` and leaves the cluster running (a retry of the termination is not modelled), and RunLoader runs after the cluster is already terminated, so its failure leaves no cluster. Routing TerminateCluster's catch to a cleanup state is a state-machine change this work order did not make.
 
 What the bound does not do. When the execution-level timeout fires, the execution ends as `TIMED_OUT` and `CleanupOnFailure` does **not** run. The same is true of `StopExecution`. `CleanupOnFailure` runs only after a caught error in the Hadoop or Spark step (including a step timeout). So if the script that watches the run dies, the state machine can keep going for up to `max_run_seconds`, and if the execution is then timed out, a running EMR cluster is left to two things only: the cluster's own idle auto-termination (900 s, which starts only once no step is running, so a step still running keeps the cluster up until it ends) and the human's cleanup. Nothing here stops the cluster sooner. Whether a timed-out step also stops the EMR step on the cluster is UNVERIFIED.
 
-Per-tier step timeout (review 2, finding L-b). With one uniform step timeout of 3600 s, a long Hadoop step followed by a hung Spark step reached the execution timeout first on tier S (cluster start plus 2 x 3600 is over 5400) and on tier M (over 7200), and that path skips `CleanupOnFailure`. The overlays now set the step timeout to half the script wall-clock cap: S 1800 with an execution timeout of 5400, M 2700 with 7200, L 3600 with 10800. The hung second step is then cut by its own step timeout, which routes to `CleanupOnFailure`, as long as cluster start stays under 1800 s on S and M (3600 s on L). The estimate's launch overhead is 0.25 to 0.4 hours (900 to 1440 s), so this holds on the estimate's assumptions, which are not measurements. The price: a single legitimate step longer than the step timeout is stopped and cleaned up, so if S or M measure a longer step, raise `pipeline_step_timeout_seconds` and `pipeline_max_run_seconds` together. Reachable gap that remains: a hang in `CreateCluster` itself, a hang that outlasts the margin above, and a dead client that never lets a step fail still end in the execution timeout, which skips cleanup; the idle auto-termination (900 s, only after no step is running) and the human's cleanup are then the only stops. Behavior of the state machine under these timeouts is not proven by `validate`; it needs a Phase 14 test.
+One rule is enforced and one is a known limitation (Phase 13, finding F1, human decision O1).
+
+- Rule A, enforced as a variable validation in `modules/workflow`: `create_cluster_timeout + 2 x emr_step_timeout + 300 <= max_run_seconds`. A Hadoop step that runs to its limit followed by a hung Spark step is then cut by its own timeout and reaches `CleanupOnFailure` before the execution timeout. The 300 s is the margin for the cleanup state to issue the terminate call; the 900 s cleanup bound does not have to fit, because the call is made when the state starts. Holds today: S 1440 + 3600 + 300 = 5340 <= 5400; M 1440 + 5400 + 300 = 7140 <= 7200; L 1440 + 7200 + 300 = 8940 <= 10800.
+- Rule B, a KNOWN LIMITATION, not enforced and not warned about: `create + 2 x emr_step + 900 (TerminateCluster) + loader_timeout <= max_run_seconds`, the worst-case sum of the sequential timeouts. It does NOT hold on any tier, by design: S 1440 + 3600 + 900 + 1800 = 7740 > 5400; M 1440 + 5400 + 900 + 2700 = 10440 > 7200; L 1440 + 7200 + 900 + 3600 = 13140 > 10800. The human accepted this outcome by keeping the caps (decision O1, `docs/agent-runs/phase-13/decisions.md` D10). The earlier plan-time `check` block was removed in work order 05 because a warning that fires on every plan teaches readers to ignore warnings; this paragraph is where the limitation is recorded. A Rule B breach cuts the loader or terminate segment with `TIMED_OUT`; it cannot skip the Hadoop or Spark cleanup, which Rule A covers.
+
+Plain statements of what the caps mean (human decision O1):
+
+- At the estimate's HIGH bound a run may time out (S 7200 s against 5400 s, M 12240 s against 7200 s, L 23040 s against 10800 s, before the terminate allowance).
+- The estimate's HIGH hours are not a promise that the caps cover. The caps are ceilings chosen for the $25 limit, not a forecast of the run time.
+- A timed-out run still wastes the spend it has accrued and needs a re-run with a new approval record (a record is single use).
+- A cap is a ceiling, not a cost. No cost figure changes with this decision.
+
+Recorded human step (Phase 14, before M runs). After the S run, the human sets the M and L values from the measured S runtime and records them as a human decision in a Phase 14 decisions file (`docs/agent-runs/phase-14/decisions.md`) before M runs. Formula, for each of the script `--max-minutes` cap, `pipeline_emr_step_timeout_seconds` and `pipeline_loader_timeout_seconds`: `value(tier) = measured S value x (works(tier) / 5,000) x 1.5`, with 25,000 works for M (factor 5) and 100,000 for L (factor 20), so the factors with margin are 7.5 and 30. The measured S value is the longest single Hadoop or Spark step for the EMR step timeout, the load time for the loader timeout, and the whole run for the cap. `pipeline_create_cluster_timeout_seconds` does not scale with works: use the measured S cluster start time x 1.5 (this is a proposal in this work order, the human may choose otherwise). `pipeline_max_run_seconds` follows the cap plus 30 minutes as today. Every result stays inside the existing validation ranges (execution 1800 to 10800 s, EMR step 300 to 7200 s, loader 300 to 7200 s, create 300 to 3600 s), Rule A must still hold, and the projected spend must stay under the $25 ceiling; a result outside a range needs a human decision to change the range, it is not clamped silently. The linear-in-works scaling is an assumption that S, M and L were not measured to satisfy.
+
+Arithmetic from the estimate's HIGH figures (`COST_ESTIMATE.md` section 1.2 and the Fargate rebuild; the launch overhead is inside the node-hours; the estimate has no terminate time, so 900 s is an allowance):
+
+| | S | M | L |
+|---|---|---|---|
+| Cluster start, HIGH (0.4 h) | 1440 s | 1440 s | 1440 s |
+| Pipeline node-hours, HIGH | 1.0 h | 1.4 h | 2.4 h |
+| Hadoop + Spark together (node-hours minus 0.4 h) | 0.6 h = 2160 s | 1.0 h = 3600 s | 2.0 h = 7200 s |
+| TerminateCluster allowance | 900 s | 900 s | 900 s |
+| Loader, HIGH | 1.0 h = 3600 s | 2.0 h = 7200 s | 4.0 h = 14400 s |
+| One sequential HIGH run (start + Hadoop and Spark + terminate + loader) | 8100 s | 13140 s | 23940 s |
+| Same without the terminate allowance | 7200 s = 120 min | 12240 s = 204 min | 23040 s = 384 min |
+| Execution timeout today | 5400 s | 7200 s | 10800 s |
+| Script `--max-minutes` cap today | 60 min = 3600 s | 90 min = 5400 s | 150 min = 9000 s |
+| Overlay EMR step and loader timeout today | 1800 s | 2700 s | 3600 s |
+
+The estimate's own HIGH run does not fit the current execution timeout or the script caps on any tier. Even at the estimate's LOW figures, M (0.6 h + 1.0 h = 96 min) and L (0.9 h + 2.0 h = 174 min) exceed the caps of 90 and 150 minutes. The human decided (O1) not to raise the caps; the options and their dollar change are in `docs/agent-runs/phase-13/` (work order 01 report). The EMR step and loader timeouts keep their repair round 2 values, each bounded, documented and inside `pipeline_max_run_seconds` (Rule A holds on every tier). F1 is therefore closed in structure and accepted in value: RunLoader, or a run as a whole, can time out when the work takes what the estimate's HIGH bound assumes.
+
+CreateCluster no longer shares a window with the steps: it is cut at 1440 s on every tier. The price of any timeout: a single legitimate step longer than its timeout is stopped, so if S or M measure a longer step or load, raise the matching timeout and `pipeline_max_run_seconds` together through the recorded human step above (Rule A will refuse an inconsistent set at plan time). Reachable gap that remains: a hung `CreateCluster` goes to `Failed` at 1440 s with no cleanup (see the table above), a dead client that never lets a step fail still ends in the execution timeout, which skips cleanup, and a failed TerminateCluster leaves the cluster; the idle auto-termination (900 s, only after no step is running), the script's leftover-cluster teardown and the human's cleanup are then the only stops. Behavior of the state machine under these timeouts is not proven by `validate`; it needs a Phase 14 test.
 
 ### Example tfvars (values only, no secrets)
 
@@ -149,7 +203,7 @@ Apply `course.tfvars` first, then overlays; a later `-var-file` wins. Sizes S, M
 | `elasticity-example.tfvars` | Phase 15 elasticity run on M: master plus 4 core nodes, scaling cap 5. Repeat with `emr_core_instance_count` 1, 2 and 4. Check the On-Demand Standard vCPU quota first (5 x m5.xlarge is 20 vCPUs) |
 | `session-down.tfvars` | between sessions: `egress_mode = "none"`, Neptune off, service tasks 0. Keeps all storage. Never combine with an `experiment-size-*` overlay. See "Session up and session down" |
 
-Each size overlay sets `pipeline_max_run_seconds` (S 5400, M 7200, L 10800) and `pipeline_step_timeout_seconds` (S 1800, M 2700, L 3600). Each size overlay also sets `enable_neptune = true`, so a session brought up with an overlay bills Neptune for the whole session and runs the overlay's service tasks (S none, M one per service, L two per service); the estimate counts those hours (repair round 2, finding N1). A pipeline-only overlay with Neptune off is a proposal only (`COST_ESTIMATE.md`, section 3a), not built.
+Each size overlay sets `pipeline_max_run_seconds` (S 5400, M 7200, L 10800), `pipeline_create_cluster_timeout_seconds` (1440 on every tier), `pipeline_emr_step_timeout_seconds` (S 1800, M 2700, L 3600) and `pipeline_loader_timeout_seconds` (S 1800, M 2700, L 3600), with the arithmetic in the overlay comments. Each size overlay also sets `enable_neptune = true`, so a session brought up with an overlay bills Neptune for the whole session and runs the overlay's service tasks (S none, M one per service, L two per service); the estimate counts those hours (repair round 2, finding N1). A pipeline-only overlay with Neptune off is a proposal only (`COST_ESTIMATE.md`, section 3a), not built.
 
 ### Session up and session down (review finding M3)
 
@@ -221,9 +275,9 @@ The runtime `PutItem` on evidence-bundle and query-session is an assumption (ans
 
 | Gate item | Check | Status |
 |---|---|---|
-| Formatting | `terraform fmt -check -recursive -diff` | exit 0, no diff (human, 2026-11-09, Run 3, after repair round 1). Proves only that the files are formatted as `terraform fmt` would write them. **Not re-run** on the repair round 2 edits (work order 15); alignment of the new lines was done by hand |
-| Syntax, types, references | `terraform validate` in `environments/course` | exit 0, "Success! The configuration is valid." (human, 2026-11-09, Run 3, after repair round 1; provider 6.26.0). Proves HCL syntax, types, and that every argument and attribute reference exists in the provider schema, and that variable validations and dynamic blocks parse. It does not prove IAM scope, cost, exposure, or that the defaults produce the intended resources. **Not re-run** on the repair round 2 edits (one new variable and its wiring, description text, overlay lines) |
-| Script syntax | `bash -n` on the seven scripts | exit 0 (human, 2026-11-09, Run 3, repair round 1 files; first time these ran). Proves syntax only. **Not re-run** on the repair round 2 edits to `scripts/lib.sh` and `scripts/smoke-test.sh`. `shellcheck`: not installed, so not run |
+| Formatting | `terraform fmt -check -recursive -diff` | exit 0, no diff (human, 2026-11-09, Run 3, after repair round 1). Proves only that the files are formatted as `terraform fmt` would write them. Re-run 2026-11-11 (human, `checks-1.md`, after work orders 01 to 05): passed, no diff |
+| Syntax, types, references | `terraform validate` in `environments/course` | exit 0, "Success! The configuration is valid." (human, 2026-11-09, Run 3, after repair round 1; provider 6.26.0). Proves HCL syntax, types, and that every argument and attribute reference exists in the provider schema, and that variable validations and dynamic blocks parse. It does not prove IAM scope, cost, exposure, or that the defaults produce the intended resources. Re-run 2026-11-11 (human, `checks-1.md`, after work orders 01 to 05, with `init -backend=false`, provider 6.26.0 from the lock file): "The configuration is valid." |
+| Script syntax | `bash -n` on the seven scripts | exit 0 (human, 2026-11-09, Run 3, repair round 1 files; first time these ran). Proves syntax only. Later runs on 2026-11-11 (human): `bash -n` and `shellcheck -x` clean on the ten scripts and the harness (`checks-3.md`); the harness gave `RESULT pass=546 fail=0` with no AWS reachable. See `scripts/README.md` |
 | IAM scoped to actual resources and actions | read-only review of `modules/identity/main.tf` against this table | independent review rounds 1 and 2 done; round 2 verified H1, H2, M8 and the identity scope as fixed. `validate` does not prove IAM correctness |
 | Not public, bounded capacity | read-only review; variable validations | rounds 1 and 2: no public exposure found. Range checks exist for the pipeline timeouts and the scaling cap |
 | Cost | `COST_ESTIMATE.md` | restated for endpoint egress, provisioned Neptune and absolute thresholds in repair round 1; Neptune session hours and service-task hours restated in repair round 2 (finding N1); mostly unverified rates; S + M at the HIGH bound does not fit under $25 |
@@ -232,12 +286,12 @@ The runtime `PutItem` on evidence-bundle and query-session is an assumption (ans
 ## Checks to run
 
 ```
-terraform fmt -check -recursive infra/terraform
-terraform -chdir=infra/terraform/environments/course init -upgrade -backend=false
+terraform fmt -check -recursive -diff infra/terraform
+terraform -chdir=infra/terraform/environments/course init -backend=false
 terraform -chdir=infra/terraform/environments/course validate
 ```
 
-`init -upgrade` is not needed: no provider or version changed (the lock file already records 6.26.0; `terraform_data` is built in and needs no provider). Run `fmt -check` and `validate` again after repair round 2. The last results, on the repair round 1 files (2026-11-09, `terraform-checks.md` Run 3), were `fmt -check -recursive -diff` exit 0 with no diff and `validate` exit 0 ("Success! The configuration is valid."). If `validate` fails now, the new variable `pipeline_step_timeout_seconds` and its wiring in `environments/course/main.tf` are the first places to look. `validate` proves syntax, types and references only; it does not prove IAM correctness, cost or exposure.
+`init -upgrade` is not used: no provider or version changed, the committed `.terraform.lock.hcl` already records 6.26.0, and `terraform_data` is built in and needs no provider. Run `fmt -check` and `validate` after any Terraform edit. Observed results. Latest, 2026-11-11 (human, `docs/agent-runs/phase-13/checks-1.md`, after Phase 13 work orders 01 to 05, which include the F1 timeout files): `fmt -check -recursive -diff infra/terraform` passed with no diff, `init -backend=false -input=false` succeeded (aws 6.26.0 from the lock file) and `validate` printed "The configuration is valid." `checks-3.md` did not rerun Terraform; no Terraform file is known to have changed since. Earlier, on the repair round 1 files (2026-11-09, `terraform-checks.md` Run 3): `fmt -check -recursive -diff` exit 0 with no diff and `validate` exit 0 ("Success! The configuration is valid."). **`terraform plan` has still not been run** and is a Phase 14 item (D3), so plan counts, IAM scope, cost and stateful replacements remain unobserved. The Rule B `check` block was removed in Phase 13 work order 05, so `plan` no longer prints a Rule B warning. If `validate` fails now, the three pipeline timeout variables (`pipeline_create_cluster_timeout_seconds`, `pipeline_emr_step_timeout_seconds`, `pipeline_loader_timeout_seconds`) and their wiring in `environments/course/main.tf` are the first places to look. `validate` proves syntax, types and references only; it does not prove IAM correctness, cost or exposure.
 
 ## Remote state design (documented only, not created in Phase 12)
 

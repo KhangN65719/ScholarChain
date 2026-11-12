@@ -14,6 +14,10 @@ locals {
 
   hadoop_jar_uri = "s3://${var.artifacts_bucket}/${var.hadoop_jar_key}"
 
+  # TerminateCluster and CleanupOnFailure keep a fixed 900 s each (not variables).
+  terminate_timeout_seconds = 900
+  cleanup_timeout_seconds   = 900
+
   on_failure = [{
     ErrorEquals = ["States.ALL"]
     ResultPath  = "$.error"
@@ -32,7 +36,7 @@ locals {
         Resource       = "arn:aws:states:::elasticmapreduce:createCluster.sync"
         Parameters     = var.cluster_definition
         ResultPath     = "$.cluster"
-        TimeoutSeconds = var.step_timeout_seconds
+        TimeoutSeconds = var.create_cluster_timeout_seconds
         Next           = "HadoopStep"
         Catch = [{
           ErrorEquals = ["States.ALL"]
@@ -55,7 +59,7 @@ locals {
           }
         }
         ResultPath     = "$.hadoop"
-        TimeoutSeconds = var.step_timeout_seconds
+        TimeoutSeconds = var.emr_step_timeout_seconds
         Next           = "SparkStep"
         Catch          = local.on_failure
       }
@@ -74,7 +78,7 @@ locals {
           }
         }
         ResultPath     = "$.spark"
-        TimeoutSeconds = var.step_timeout_seconds
+        TimeoutSeconds = var.emr_step_timeout_seconds
         Next           = "TerminateCluster"
         Catch          = local.on_failure
       }
@@ -85,7 +89,7 @@ locals {
           "ClusterId.$" = "$.cluster.ClusterId"
         }
         ResultPath     = "$.terminated"
-        TimeoutSeconds = 900
+        TimeoutSeconds = local.terminate_timeout_seconds
         Next           = "RunLoader"
         Catch = [{
           ErrorEquals = ["States.ALL"]
@@ -115,7 +119,7 @@ locals {
           }
         }
         ResultPath     = "$.load"
-        TimeoutSeconds = var.step_timeout_seconds
+        TimeoutSeconds = var.loader_timeout_seconds
         Next           = "Done"
         Catch = [{
           ErrorEquals = ["States.ALL"]
@@ -130,7 +134,7 @@ locals {
           "ClusterId.$" = "$.cluster.ClusterId"
         }
         ResultPath     = "$.terminated"
-        TimeoutSeconds = 900
+        TimeoutSeconds = local.cleanup_timeout_seconds
         Next           = "Failed"
         Catch = [{
           ErrorEquals = ["States.ALL"]
@@ -149,6 +153,12 @@ locals {
     }
   }
 }
+
+# No Rule B check. The sum create + 2 x EMR step + terminate + loader exceeds
+# max_run_seconds on every tier by design: it is the accepted human decision O1
+# (phase 13 decisions D10), recorded as a known limitation in README "Pipeline
+# bounds". A warning that fires on every plan would only teach readers to ignore
+# warnings. Rule A is a validation on max_run_seconds.
 
 resource "aws_sqs_queue" "dead_letter" {
   for_each = local.queues

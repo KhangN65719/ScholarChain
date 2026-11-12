@@ -349,7 +349,7 @@ variable "deployer_require_mfa" {
 ### Pipeline bounds
 
 variable "pipeline_max_run_seconds" {
-  description = "Timeout of one whole pipeline execution, 1800 to 10800 seconds. Default 10800 (the 150-minute tier L script cap plus 30 minutes). Set per run in the experiment tfvars: S 5400, M 7200, L 10800. When it fires, CleanupOnFailure does NOT run (same as StopExecution): an EMR cluster left behind falls to the 900 s idle auto-termination and to the human's cleanup."
+  description = "Timeout of one whole pipeline execution, 1800 to 10800 seconds. Default 10800 (the 150-minute tier L script cap plus 30 minutes). Set per run in the experiment tfvars: S 5400, M 7200, L 10800. When it fires, CleanupOnFailure does NOT run (same as StopExecution): an EMR cluster left behind falls to the 900 s idle auto-termination and to the human's cleanup. Rule A (enforced in the workflow module): pipeline_create_cluster_timeout_seconds + 2 x pipeline_emr_step_timeout_seconds + 300 must not exceed this value. Known limitation, not enforced (human decision O1, phase 13 D10): create + 2 x EMR step + 900 + pipeline_loader_timeout_seconds exceeds it on every tier (infra README, Pipeline bounds)."
   type        = number
   default     = 10800
 
@@ -359,13 +359,35 @@ variable "pipeline_max_run_seconds" {
   }
 }
 
-variable "pipeline_step_timeout_seconds" {
-  description = "Timeout of each pipeline step, 300 to 7200 seconds. Default 3600. Set per tier in the experiment tfvars: S 1800, M 2700, L 3600. With max run S 5400, M 7200, L 10800, a Hadoop step that runs to the step limit followed by a hung Spark step is cut by the step timeout (and routed to CleanupOnFailure) as long as cluster start stays under 1800 s on S and M (3600 s on L). At the old uniform 3600 the run-level timeout fired first on S and M, and that path skips CleanupOnFailure. A legitimate single step longer than this value is stopped, so raise it together with pipeline_max_run_seconds. Must not exceed pipeline_max_run_seconds (checked in the workflow module)."
+variable "pipeline_create_cluster_timeout_seconds" {
+  description = "Timeout of the CreateCluster step, 300 to 3600 seconds. Default and all tiers 1440 (0.4 h, the HIGH cluster launch overhead of COST_ESTIMATE.md section 1.2). On timeout the execution goes to Failed with NO cleanup state (only the Hadoop and Spark steps route to CleanupOnFailure). Whether Step Functions terminates the half-created cluster is UNVERIFIED."
+  type        = number
+  default     = 1440
+
+  validation {
+    condition     = var.pipeline_create_cluster_timeout_seconds >= 300 && var.pipeline_create_cluster_timeout_seconds <= 3600
+    error_message = "pipeline_create_cluster_timeout_seconds must be 300 to 3600."
+  }
+}
+
+variable "pipeline_emr_step_timeout_seconds" {
+  description = "Timeout of the Hadoop step and of the Spark step, each, 300 to 7200 seconds. Default 3600. Set per tier in the experiment tfvars: S 1800, M 2700, L 3600 (unchanged from repair round 2; the estimate's HIGH Hadoop plus Spark time is S 2160, M 3600, L 7200 s, which does not fit under the current execution timeouts: accepted under human decision O1, see the infra README, Pipeline bounds). On timeout the execution goes to CleanupOnFailure and then Failed. A legitimate single step longer than this value is stopped. Tied to pipeline_max_run_seconds by Rule A (checked in the workflow module)."
   type        = number
   default     = 3600
 
   validation {
-    condition     = var.pipeline_step_timeout_seconds >= 300 && var.pipeline_step_timeout_seconds <= 7200
-    error_message = "pipeline_step_timeout_seconds must be 300 to 7200."
+    condition     = var.pipeline_emr_step_timeout_seconds >= 300 && var.pipeline_emr_step_timeout_seconds <= 7200
+    error_message = "pipeline_emr_step_timeout_seconds must be 300 to 7200."
+  }
+}
+
+variable "pipeline_loader_timeout_seconds" {
+  description = "Timeout of the RunLoader step, 300 to 7200 seconds. Default 3600. Set per tier in the experiment tfvars: S 1800, M 2700, L 3600 (unchanged from repair round 2; the estimate's HIGH loader time is S 3600, M 7200, L 14400 s, which does not fit the current caps: accepted under human decision O1, see the infra README, Pipeline bounds). On timeout the execution goes to Failed with NO cleanup state; the cluster is already terminated by then."
+  type        = number
+  default     = 3600
+
+  validation {
+    condition     = var.pipeline_loader_timeout_seconds >= 300 && var.pipeline_loader_timeout_seconds <= 7200
+    error_message = "pipeline_loader_timeout_seconds must be 300 to 7200."
   }
 }

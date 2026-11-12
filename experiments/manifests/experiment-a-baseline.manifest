@@ -1,0 +1,31 @@
+# Experiment A: Hadoop and Spark baseline at minimum EMR capacity.
+# DRAFT. Unapproved and unexecuted. Valid only for scripts/run-experiment.sh --dry-run.
+# Format: scripts/README.md, "Experiment manifest contract". No spaces in values.
+# PLACEHOLDERS the human replaces before an approval record is written
+# (the record binds the sha256 of the final file, so any edit needs a new record):
+#   ACCOUNT_ID       123456789012 is the documented example, not a real account.
+#   DATASET_SNAPSHOT a draft name; the dataset-engineer has not defined snapshot ids.
+#   OUTPUT_ROOT      /abs/outside/repo/... is a placeholder path; pick a durable directory
+#                    outside the repository.
+# Cost basis: HOURLY_BURN_USD 0.60 is the tier S session burn in scripts/README.md,
+# "Pipeline sizes" (UNVERIFIED rates, from COST_ESTIMATE.md). 0.60 x 60 min / 60 = 0.60.
+# MAX_TASKS is a tight bound on the pipeline-level operations the entry point issues;
+# the unit is fixed by the Phase 15 entry point and is unconfirmed.
+MANIFEST_VERSION=1
+EXPERIMENT_ID=A
+DESCRIPTION=hadoop-spark-baseline-minimum-emr-capacity-tier-s-draft
+ENVIRONMENT=course
+REGION=us-east-1
+ACCOUNT_ID=123456789012
+DATASET_SNAPSHOT=scholarchain-slice-s-5000-works-DRAFT
+SIZE_TIER=S
+MAX_MINUTES=60
+MAX_CONCURRENCY=1
+MAX_TASKS=100
+SPEND_CEILING_USD=0.75
+HOURLY_BURN_USD=0.60
+STOP_CONDITIONS=wall-clock,first-failure,spend-estimate
+METRIC_NAMES=ExecutionTime,ExecutionsFailed,ExecutionsTimedOut,IsIdle,AppsRunning,AppsFailed,TotalNodesRunning,YARNMemoryAvailablePercentage
+METRIC_NAMESPACES=AWS/States,AWS/ElasticMapReduce
+OUTPUT_ROOT=/abs/outside/repo/scholarchain-experiments
+ENTRY_POINT=script:experiments/a-baseline/run.sh

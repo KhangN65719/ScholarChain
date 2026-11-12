@@ -491,11 +491,16 @@ object RawHttp:
     * is tolerated only because the answer was read: if no answer arrives, the
     * failure is part of the assertion message.
     */
+  /** The grace period shared by the baseline, the real-service checks and the
+    * N2 control, so the control proves the period the checks use.
+    */
+  val DefaultGraceMillis: Int = 500
+
   def streamOversized(
       url: String,
       declared: Long,
       token: Option[String],
-      graceMillis: Int = 500,
+      graceMillis: Int = DefaultGraceMillis,
       timeoutMillis: Int = 5000,
       chunkBytes: Int = 64 * 1024
   ): Streamed =

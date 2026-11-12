@@ -12,9 +12,21 @@ emr_managed_scaling_max_units = 3
 
 service_desired_count = 0
 
-# Execution timeout: the 60-minute script cap plus 30 minutes. When it fires,
-# CleanupOnFailure does not run (see the README, "Pipeline bounds"). The step
-# timeout is half the script cap, so a hung second step is cut by the step
-# timeout (which does run CleanupOnFailure) before the execution timeout.
-pipeline_max_run_seconds      = 5400
-pipeline_step_timeout_seconds = 1800
+# Execution timeout: the 60-minute script cap plus 30 minutes = 5400 s. When it
+# fires, CleanupOnFailure does not run (README, "Pipeline bounds").
+# Per-step timeouts (TerminateCluster and CleanupOnFailure stay 900 s):
+#   CreateCluster 1440 s = 0.4 h, the estimate's HIGH launch overhead.
+#   EMR step (Hadoop and Spark, each) 1800 s = half the script cap, unchanged.
+#     The estimate's HIGH Hadoop + Spark time is 1.0 h - 0.4 h = 0.6 h = 2160 s.
+#   Loader 1800 s, unchanged. The estimate's HIGH loader time is 1.0 h = 3600 s.
+# Rule A: 1440 + 2 x 1800 + 300 = 5340 <= 5400 (holds, 60 s of slack).
+# Known limitation, accepted by human decision O1 (phase 13 D10), not enforced:
+# 1440 + 2 x 1800 + 900 + 1800 = 7740 > 5400. At the estimate's HIGH bound (7200 s)
+# a run may time out. A cap is a ceiling, not a cost.
+# The EMR step and loader values are NOT the estimate's HIGH values. After the S
+# run the human re-derives the M and L values from the measured S runtime (README,
+# "Pipeline bounds") and records them in a Phase 14 decisions file.
+pipeline_max_run_seconds                = 5400
+pipeline_create_cluster_timeout_seconds = 1440
+pipeline_emr_step_timeout_seconds       = 1800
+pipeline_loader_timeout_seconds         = 1800

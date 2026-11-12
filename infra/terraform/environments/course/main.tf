@@ -177,18 +177,20 @@ module "runtime" {
 module "workflow" {
   source = "../../modules/workflow"
 
-  name_prefix                = local.name_prefix
-  enable_pipeline            = var.enable_pipeline
-  sfn_role_arn               = module.identity.role_arns["sfn"]
-  cluster_definition         = module.emr.cluster_definition
-  artifacts_bucket           = module.data_lake.artifacts_bucket
-  ecs_cluster_arn            = module.runtime.cluster_arn
-  loader_task_definition_arn = module.runtime.loader_task_definition_arn
-  app_subnet_ids             = module.network.app_subnet_ids
-  loader_security_group_id   = module.network.security_group_ids["loader"]
-  log_retention_days         = var.log_retention_days
-  max_run_seconds            = var.pipeline_max_run_seconds
-  step_timeout_seconds       = var.pipeline_step_timeout_seconds
+  name_prefix                    = local.name_prefix
+  enable_pipeline                = var.enable_pipeline
+  sfn_role_arn                   = module.identity.role_arns["sfn"]
+  cluster_definition             = module.emr.cluster_definition
+  artifacts_bucket               = module.data_lake.artifacts_bucket
+  ecs_cluster_arn                = module.runtime.cluster_arn
+  loader_task_definition_arn     = module.runtime.loader_task_definition_arn
+  app_subnet_ids                 = module.network.app_subnet_ids
+  loader_security_group_id       = module.network.security_group_ids["loader"]
+  log_retention_days             = var.log_retention_days
+  max_run_seconds                = var.pipeline_max_run_seconds
+  create_cluster_timeout_seconds = var.pipeline_create_cluster_timeout_seconds
+  emr_step_timeout_seconds       = var.pipeline_emr_step_timeout_seconds
+  loader_timeout_seconds         = var.pipeline_loader_timeout_seconds
 }
 
 module "observability" {
