@@ -36,16 +36,20 @@
 #   --hourly-burn-usd the estimated cost per hour of the running pipeline, taken
 #                     from the cost estimate. The script refuses when
 #                     burn * max-minutes / 60 exceeds --spend-ceiling-usd.
-#   --input-file      execution input JSON (hadoop_args, spark_args, loader_command),
-#                     no secrets; scanned before use.
+#   --input-file      execution input JSON, no secrets; scanned before use. Contract:
+#                     {"mode":"capability-check"} or {"mode":"pipeline","snapshot":ID,
+#                     "snapshots":SPEC,"run_id":ID,"loader_command":[...]}; any other
+#                     shape is refused (scripts/README.md, "Execution input contract").
 #
 # Run record: a real run creates <out-dir>/pipeline-<UTC stamp>-<size>.record.env
 # once (mode 600, outside the repository, never overwritten) and appends to it. It
 # holds the input file path, sha256 and size, the limits, the state machine and
 # execution ARNs, start and end UTC, the final status and the s3:// URIs that appear
-# in the input file. It does not hold a dataset snapshot (the input has no such
-# field), and the s3:// URIs are only those written in the input. See
-# scripts/README.md, "run-bounded-pipeline.sh run record".
+# in the input file. In pipeline mode it also holds INPUT_MODE, DATASET_SNAPSHOT (the
+# input's "snapshot"), RUN_SNAPSHOTS (its "snapshots" spec, whole), RUN_ID and the
+# OUTPUT_PREFIX key prefixes of the run; in capability-check mode DATASET_SNAPSHOT is
+# n/a. The s3:// URIs are only those written in the input. See scripts/README.md,
+# "run-bounded-pipeline.sh run record".
 #
 # AWS does not enforce a spend limit. The enforcement here is the time limit, the
 # DLQ stop and the pre-start arithmetic. Actual spend is read by the human from
@@ -84,7 +88,7 @@ dry_announce
 
 step validate-params
 init_common yes
-require_cmd aws awk grep date
+require_cmd aws awk grep date python3
 [[ -n "$SIZE" ]] || die "--size is required (small, medium or large)"
 [[ -n "$MAX_MINUTES" ]] || die "--max-minutes is required"
 [[ -n "$SPEND_CEILING" ]] || die "--spend-ceiling-usd is required"
@@ -124,9 +128,61 @@ IFS="$OLD_IFS"
 [[ "$INPUT_FILE" == /* && -f "$INPUT_FILE" ]] || die "--input-file must be an existing absolute path"
 INPUT_DIGEST="$(sha256_file "$INPUT_FILE")"
 INPUT_BYTES="$(wc -c < "$INPUT_FILE" | tr -d ' ')"
-# The execution input names no output field (hadoop_args, spark_args and
-# loader_command are free-form string lists), so the locations recorded are the
-# s3:// URIs that appear anywhere in the file, nothing more.
+# The execution input contract (infra/terraform/modules/workflow/main.tf, design B):
+#   {"mode":"capability-check"}  or
+#   {"mode":"pipeline","snapshot":ID,"snapshots":SPEC,"run_id":ID,"loader_command":[...]}
+# Unknown keys, a bad mode or a malformed field are refused before anything is started.
+# The old free-form lists (hadoop_args, spark_args) are no longer accepted.
+INPUT_FIELDS="$(python3 -I - "$INPUT_FILE" <<'PY'
+import json, re, sys
+try:
+    with open(sys.argv[1], encoding="utf-8") as fh:
+        data = json.load(fh)
+except Exception as error:
+    sys.exit("input is not valid JSON: " + error.__class__.__name__)
+if not isinstance(data, dict):
+    sys.exit("input must be a JSON object")
+mode = data.get("mode")
+ident = re.compile(r"[A-Za-z0-9._-]{1,64}")
+snaps = re.compile(r"[A-Za-z0-9._=,:-]{1,300}")
+if mode == "capability-check":
+    allowed = {"mode"}
+elif mode == "pipeline":
+    allowed = {"mode", "snapshot", "snapshots", "run_id", "loader_command"}
+else:
+    sys.exit("mode must be capability-check or pipeline")
+extra = sorted(set(data) - allowed)
+if extra:
+    sys.exit("unknown input key(s) for mode " + mode + ": " + ", ".join(extra))
+out = ["MODE=" + mode]
+if mode == "pipeline":
+    for key, rx in (("snapshot", ident), ("snapshots", snaps), ("run_id", ident)):
+        value = data.get(key)
+        if not isinstance(value, str) or not rx.fullmatch(value):
+            sys.exit(key + " is missing or not valid")
+        if key != "snapshots" and value in (".", ".."):
+            sys.exit(key + " must not be . or ..")
+        out.append(key.upper() + "=" + value)
+    cmd = data.get("loader_command")
+    if not isinstance(cmd, list) or not cmd or not all(isinstance(x, str) and x for x in cmd):
+        sys.exit("loader_command must be a non-empty list of non-empty strings")
+print("\n".join(out))
+PY
+)" || die "execution input refused (see the line above); contract in scripts/README.md, Execution input contract"
+INPUT_MODE="$(printf '%s\n' "$INPUT_FIELDS" | awk -F= '$1 == "MODE" { print $2; exit }')"
+INPUT_SNAPSHOT="$(printf '%s\n' "$INPUT_FIELDS" | awk -F= '$1 == "SNAPSHOT" { print $2; exit }')"
+INPUT_SNAPSHOTS="$(printf '%s\n' "$INPUT_FIELDS" | awk -F= '$1 == "SNAPSHOTS" { sub(/^[^=]*=/, ""); print; exit }')"
+INPUT_RUN_ID="$(printf '%s\n' "$INPUT_FIELDS" | awk -F= '$1 == "RUN_ID" { print $2; exit }')"
+# Output locations are fixed by the on-node scripts: run prefixes named by run_id, or
+# the capability report prefix (its time stamp is chosen on the node). Bucket names are
+# not in the input, so only the key prefixes are recorded, plus any s3:// URI the
+# input itself names (the loader command may).
+OUTPUT_PREFIXES=""
+if [[ "$INPUT_MODE" == "pipeline" ]]; then
+  OUTPUT_PREFIXES="curated/runs/$INPUT_RUN_ID/ graph/runs/$INPUT_RUN_ID/ semantic-context/runs/$INPUT_RUN_ID/ reports/runs/$INPUT_RUN_ID/"
+else
+  OUTPUT_PREFIXES="reports/capability/"
+fi
 OUTPUT_URIS="$(grep -oE 's3://[A-Za-z0-9._/-]+' "$INPUT_FILE" | LC_ALL=C sort -u || true)"
 EXTRA="size=$SIZE;max_minutes=$MAX_MINUTES;spend_ceiling=$SPEND_CEILING;hourly_burn=$HOURLY_BURN;stop_on=$STOP_ON;input=$INPUT_DIGEST"
 maybe_print_digest pipeline "$EXTRA"
@@ -141,7 +197,15 @@ if [[ -n "$OUTPUT_URIS" ]]; then
 else
   printf 'OUTPUT_LOCATIONS=none-named (no s3:// URI appears in the input file)\n'
 fi
-printf 'DATASET_SNAPSHOT=not-recorded (the execution input has no snapshot field)\n'
+printf 'INPUT_MODE=%s\n' "$INPUT_MODE"
+for u in $OUTPUT_PREFIXES; do
+  printf 'OUTPUT_PREFIX=%s (key prefix in the data bucket)\n' "$u"
+done
+if [[ "$INPUT_MODE" == "pipeline" ]]; then
+  printf 'DATASET_SNAPSHOT=%s snapshots=%s run_id=%s\n' "$INPUT_SNAPSHOT" "$INPUT_SNAPSHOTS" "$INPUT_RUN_ID"
+else
+  printf 'DATASET_SNAPSHOT=n/a (capability-check reads no dataset)\n'
+fi
 step_ok
 
 step input-scan
@@ -232,7 +296,17 @@ if [[ -n "$OUTPUT_URIS" ]]; then
 else
   rec OUTPUT_LOCATIONS none-named
 fi
-rec DATASET_SNAPSHOT not-recorded
+rec INPUT_MODE "$INPUT_MODE"
+for u in $OUTPUT_PREFIXES; do
+  rec OUTPUT_PREFIX "$u"
+done
+if [[ "$INPUT_MODE" == "pipeline" ]]; then
+  rec DATASET_SNAPSHOT "$INPUT_SNAPSHOT"
+  rec RUN_SNAPSHOTS "$INPUT_SNAPSHOTS"
+  rec RUN_ID "$INPUT_RUN_ID"
+else
+  rec DATASET_SNAPSHOT n/a
+fi
 printf 'PIPELINE_RECORD=%s\n' "$REC"
 step_ok
 

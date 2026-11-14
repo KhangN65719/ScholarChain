@@ -28,23 +28,30 @@ data "aws_iam_policy_document" "load_trust" {
   }
 }
 
+# Work order 31: the role reads only graph/neptune/, where the loader's single-file
+# load sources live (s3://<bucket>/graph/neptune/<file>.csv). The manifest under
+# graph/neptune-manifest/ is read by the loader task, not by Neptune, so it is no
+# longer in this role's reach (it was covered by the earlier graph/* grant).
+# The Neptune bulk-load documentation was not read this round: that s3:ListBucket
+# with this prefix condition satisfies the loader for a single-object source is
+# UNVERIFIED until a real load.
 data "aws_iam_policy_document" "load_access" {
   statement {
-    sid       = "ListGraphPrefix"
+    sid       = "ListGraphLoadPrefix"
     actions   = ["s3:ListBucket", "s3:GetBucketLocation"]
     resources = [var.data_bucket_arn]
 
     condition {
       test     = "StringLike"
       variable = "s3:prefix"
-      values   = ["graph/*"]
+      values   = ["graph/neptune/*"]
     }
   }
 
   statement {
-    sid       = "ReadGraphObjects"
+    sid       = "ReadGraphLoadObjects"
     actions   = ["s3:GetObject"]
-    resources = ["${var.data_bucket_arn}/graph/*"]
+    resources = ["${var.data_bucket_arn}/graph/neptune/*"]
   }
 }
 

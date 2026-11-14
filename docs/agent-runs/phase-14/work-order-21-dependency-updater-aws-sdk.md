@@ -1,0 +1,13 @@
+# Work order 21: dependency-updater, AWS SDK v2 version proposal for the AWS loader (research and proposal only)
+
+Owner: dependency-updater (version values in project/DependencyVersions.scala; docs/dependencies/**). No edits to project/**, no sbt, no AWS, no commit. You may write only the proposal file docs/dependencies/aws-sdk-v2-proposal.md.
+
+Decision (human, D19): AWS SDK v2 with one ledger key; you propose a pinned version with compatibility evidence and the human approves the exact version before build-engineer declares it. Evidence: docs/agent-runs/phase-14/report-16-storage-engineer-aws-loader-inventory.md (no AWS SDK or SigV4 code exists; adapters needed: S3, S3 Vectors, Bedrock Runtime for Titan, Neptune loader, optional DynamoDB), project/DependencyVersions.scala and docs/dependencies/** (read how existing ledger entries and upstream evidence are recorded).
+
+Proposal must contain, marking each fact verified (with the source URL you actually read) or UNVERIFIED:
+1. The exact SDK v2 version (the newest stable release that includes the S3 Vectors client, `s3vectors`; say which release first included it) and the BOM approach for sbt (`software.amazon.awssdk:bom` with `dependencyManagement` is Maven; the sbt equivalent is a single version val for each module; give the exact module coordinates: `s3`, `s3vectors`, `bedrockruntime`, `neptunedata` or `neptune` for the loader API, `dynamodb` optional, `url-connection-client`, `sts` if needed for the credential chain, and `auth`/`regions` transitives).
+2. Compatibility with Scala 3.x and JDK 21 (a Java library: say so), the transitive dependency tree size, conflicts with the ledger's slf4j, upickle, hadoop 3.5.0 and spark 4.0.5 (the SDK must be confined to the storage and rag runtime classpath and must NOT reach the spark, hadoop or entity-resolution job jars, which depend only on core: verify from build.sbt that this holds if only storage declares the SDK), HTTP client choice (exclude apache-client and netty-nio-client; url-connection-client only), and any known vulnerability advisories for that version (cite sources).
+3. Image size effect on the services image (unmeasured: say so), rollback (remove the key and the dependency lines).
+4. The ledger key names to add (for example `awsSdk`) and the exact `DependencyVersions.scala` line you would add, as text in the proposal only.
+
+If you cannot verify a fact without network access, list it in the report so the orchestrator can verify it. Report contract: STATUS, OWNER, WORK ORDER, PROPOSAL SUMMARY, UNVERIFIED LIST, RISKS, NEXT GATE (the human's approval of the exact version).

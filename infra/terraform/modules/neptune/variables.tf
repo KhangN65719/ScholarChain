@@ -14,7 +14,7 @@ variable "security_group_ids" {
 }
 
 variable "data_bucket_arn" {
-  description = "Data bucket ARN. The bulk load role reads only the graph/ prefix."
+  description = "Data bucket ARN. The bulk load role reads only the graph/neptune/ prefix."
   type        = string
 }
 

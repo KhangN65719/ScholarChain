@@ -252,9 +252,26 @@ variable "acknowledge_vector_loss" {
 ### EMR
 
 variable "emr_release_label" {
-  description = "EMR release label (UNVERIFIED, see the module)."
+  description = "EMR release label. Design B (Phase 14 D21): emr-7.10.0 with the Hadoop application only; Spark 4.0.5 runs on YARN from our own distribution (scripts/emr/). UNVERIFIED until the first cluster, see the module."
   type        = string
   default     = "emr-7.10.0"
+}
+
+variable "emr_install_java_bootstrap" {
+  description = "Add the optional bootstrap action that installs Corretto (scripts/emr/install-java-bootstrap.sh). Off by default. Turn it on only after the capability check reports no usable JDK 17, and only after scripts/upload-inputs.sh has uploaded the script. A failing bootstrap action fails the cluster launch."
+  type        = bool
+  default     = false
+}
+
+variable "emr_bootstrap_java_major" {
+  description = "Corretto major version for the bootstrap: 17 (default) or 21 (when the job jars need Java 21 bytecode). Used only with emr_install_java_bootstrap."
+  type        = number
+  default     = 17
+
+  validation {
+    condition     = contains([17, 21], var.emr_bootstrap_java_major)
+    error_message = "emr_bootstrap_java_major must be 17 or 21."
+  }
 }
 
 variable "emr_master_instance_type" {

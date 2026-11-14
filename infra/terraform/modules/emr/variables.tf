@@ -39,9 +39,37 @@ variable "log_uri" {
 }
 
 variable "release_label" {
-  description = "EMR release label. UNVERIFIED against current releases and the Hadoop and Spark versions the jars target: confirm in Phase 14."
+  description = "EMR release label. Design B (Phase 14 D21): emr-7.10.0 (Hadoop 3.4.1-amzn-2, YARN MapReduce) with the Hadoop application only. Its Spark 3.5.5 on Scala 2.12 is not installed or used: Spark 4.0.5 comes from our own distribution (scripts/emr/). Whether the default JDK of this release is 17 is UNVERIFIED: the capability check decides."
   type        = string
   default     = "emr-7.10.0"
+}
+
+variable "install_java_bootstrap" {
+  description = "Add a bootstrap action that installs Corretto and records JAVA_HOME (scripts/emr/install-java-bootstrap.sh). Off by default; turn it on only when the capability check reports no usable JDK. A failing bootstrap action fails the cluster launch. Needs the script uploaded to bootstrap/install-java-bootstrap.sh in the artifacts bucket first."
+  type        = bool
+  default     = false
+}
+
+variable "bootstrap_script_uri" {
+  description = "s3:// URI of the java bootstrap script, under the artifacts bucket bootstrap/ prefix. Required when install_java_bootstrap is true."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = !var.install_java_bootstrap || startswith(var.bootstrap_script_uri, "s3://")
+    error_message = "bootstrap_script_uri must be an s3:// URI when install_java_bootstrap is true."
+  }
+}
+
+variable "bootstrap_java_major" {
+  description = "Corretto major version the bootstrap installs: 17 (the Spark 4 minimum) or 21 (use it if the job jars were compiled for Java 21 bytecode and Corretto 17 fails with UnsupportedClassVersionError). Used only with install_java_bootstrap."
+  type        = number
+  default     = 17
+
+  validation {
+    condition     = contains([17, 21], var.bootstrap_java_major)
+    error_message = "bootstrap_java_major must be 17 or 21."
+  }
 }
 
 variable "master_instance_type" {

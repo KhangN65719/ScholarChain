@@ -29,6 +29,6 @@ output "cluster_resource_id" {
 }
 
 output "bulk_load_role_arn" {
-  description = "Role the cluster assumes to read graph/ for bulk loads."
+  description = "Role the cluster assumes (trusts rds.amazonaws.com, attached through iam_roles) to read graph/neptune/ for bulk loads. Passed to the loader as SCHOLARCHAIN_NEPTUNE_LOAD_ROLE_ARN."
   value       = aws_iam_role.bulk_load.arn
 }

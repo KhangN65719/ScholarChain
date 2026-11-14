@@ -305,33 +305,63 @@ resource "aws_iam_role_policy" "runtime" {
 # Loader: the only role that writes DynamoDB ledger, registry and cache, S3
 # Vectors and starts Neptune bulk loads. Index creation is Terraform's job, so
 # CreateIndex is not granted.
+#
+# Work order 31: the statements below are matched to the SDK calls of the AWS
+# adapters in modules/storage (read from AwsObjectStore, AwsVectorBucket,
+# AwsDynamoTable, AwsNeptuneBulkLoader and TitanEmbedder):
+#   S3        PutObject (conditional, If-None-Match), HeadObject, GetObject,
+#             ListObjectsV2. HeadObject needs s3:GetObject on the key.
+#   S3 Vectors GetIndex, PutVectors, GetVectors, ListVectors, QueryVectors, all on
+#             the index ARN. ListIndexes and CreateIndex are not called.
+#   DynamoDB  PutItem, GetItem, Query (no UpdateItem, no batch calls, no scan).
+#             Condition expressions need no extra action.
+#   Neptune   StartLoaderJob, GetLoaderJobStatus (data API); the others in the
+#             statement are the work order's list, not called by the adapter.
+#   Bedrock   InvokeModel on the Titan V2 foundation-model ARN.
+#
+# Prefixes the loader may touch. semantic-context is read (the export) and, per
+# the work order, written. graph/neptune holds the load CSV files and
+# graph/neptune-manifest the manifest (the manifest is read by the loader, never
+# by Neptune). reports/runs/<run_id>/loader/ and logs/ are written. Every prefix
+# the loader PUTs it must also be able to GET, because a conditional put that
+# loses the race (HTTP 412) calls head(key) on the same key, and HeadObject is
+# authorized by s3:GetObject.
+locals {
+  loader_prefixes = ["semantic-context", "graph/neptune", "graph/neptune-manifest", "reports", "logs"]
+}
+
 data "aws_iam_policy_document" "loader" {
+  # StringLikeIfExists, not StringLike. A HeadObject on a missing key returns 404
+  # only to a caller that holds s3:ListBucket; otherwise S3 returns 403 and the
+  # adapter raises AwsAccessDenied. HeadObject carries no s3:prefix context key, so
+  # a plain StringLike condition would not match and the HEAD would see 403. With
+  # IfExists the statement applies when the key is absent (HEAD) and constrains the
+  # prefix of every ListObjectsV2 call that does send one. Side effect: a list
+  # call that sends no prefix at all is also allowed, which exposes key names
+  # (not contents) of the whole data bucket. Contents stay limited by GetObject.
+  # UNVERIFIED until a live run: that HeadObject sends no s3:prefix.
   statement {
     sid       = "ListLoadPrefixes"
     actions   = ["s3:ListBucket"]
     resources = [var.data_bucket_arn]
 
     condition {
-      test     = "StringLike"
+      test     = "StringLikeIfExists"
       variable = "s3:prefix"
-      values   = ["curated/*", "graph/*", "semantic-context/*", "logs/*", "reports/*"]
+      values   = [for p in local.loader_prefixes : "${p}/*"]
     }
   }
 
   statement {
-    sid     = "ReadLoadInputs"
-    actions = ["s3:GetObject"]
-    resources = [
-      "${var.data_bucket_arn}/curated/*",
-      "${var.data_bucket_arn}/graph/*",
-      "${var.data_bucket_arn}/semantic-context/*",
-    ]
+    sid       = "ReadLoadInputs"
+    actions   = ["s3:GetObject"]
+    resources = [for p in local.loader_prefixes : "${var.data_bucket_arn}/${p}/*"]
   }
 
   statement {
-    sid       = "WriteRejectsAndReports"
+    sid       = "WriteLoaderOutputs"
     actions   = ["s3:PutObject"]
-    resources = ["${var.data_bucket_arn}/logs/*", "${var.data_bucket_arn}/reports/*"]
+    resources = [for p in local.loader_prefixes : "${var.data_bucket_arn}/${p}/*"]
   }
 
   statement {
@@ -343,22 +373,21 @@ data "aws_iam_policy_document" "loader" {
     )
   }
 
+  # ListVectors pages the count; QueryVectors is for the loader's own check. With
+  # metadata or data returned, ListVectors and QueryVectors also need GetVectors
+  # (held). All five are index-level actions, so the bucket ARN is not needed.
+  # UNVERIFIED: that S3 Vectors authorizes these actions on the index ARN alone
+  # (read from the runtime role's existing use, not from the IAM reference).
   statement {
-    sid       = "WriteVectors"
-    actions   = ["s3vectors:GetIndex", "s3vectors:PutVectors", "s3vectors:GetVectors"]
+    sid = "WriteVectors"
+    actions = [
+      "s3vectors:GetIndex",
+      "s3vectors:PutVectors",
+      "s3vectors:GetVectors",
+      "s3vectors:ListVectors",
+      "s3vectors:QueryVectors",
+    ]
     resources = var.vector_index_arns
-  }
-
-  statement {
-    sid       = "ListIndexes"
-    actions   = ["s3vectors:ListIndexes"]
-    resources = [var.vector_bucket_arn]
-  }
-
-  statement {
-    sid       = "ConsumeEmbeddingWork"
-    actions   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility", "sqs:GetQueueAttributes", "sqs:SendMessage"]
-    resources = [local.embedding_work_queue]
   }
 
   dynamic "statement" {

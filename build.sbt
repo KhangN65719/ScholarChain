@@ -1,4 +1,5 @@
 import java.nio.file.{Files, StandardCopyOption}
+import sbt.internal.util.MessageOnlyException
 import scala.sys.process.Process
 
 ThisBuild / scalaVersion := DependencyVersions.scala3
@@ -33,7 +34,18 @@ lazy val scalaSources =
 lazy val buildDockerLocal =
   taskKey[Unit]("Build the local service runtime image.")
 lazy val stageJob = taskKey[Unit]("Stage the job JAR and runtime dependencies.")
-
+lazy val jobSdkGuard = taskKey[Unit](
+  "Fail when a batch job module has an AWS SDK jar on its Runtime classpath."
+)
+// Job modules stay outside the runtime graph and must not ship the AWS SDK.
+lazy val jobProjects = ScopeFilter(
+  inProjects(hadoop, entityResolution, sparkAnalytics)
+)
+// The jar's resolved organization decides when sbt recorded it; the path
+// segment is the fallback for an entry without module metadata.
+def isAwsSdkJar(entry: Attributed[File]): Boolean =
+  entry.get(moduleID.key).exists(_.organization == "software.amazon.awssdk") ||
+    entry.data.getPath.contains("/software.amazon.awssdk/")
 // Hadoop's own diagnostics go through SLF4J, and hadoop-client-runtime brings
 // only slf4j-api 1.7.36 with no binding, so a test run logs nothing: job
 // submission messages and task failure stacks are discarded on exactly the run
@@ -100,6 +112,8 @@ lazy val slowSuites: Set[String] = Set(
   "scholarchain.tests.analytics.SparkOutputsSuite",
   "scholarchain.tests.analytics.SparkPathEvidenceSuite",
   "scholarchain.tests.analytics.SparkReproducibilitySuite",
+  // Runs the pipeline and the export in its first test: about 168 s.
+  "scholarchain.tests.analytics.SparkRoundTripSuite",
   "scholarchain.tests.analytics.SparkSummariesSuite",
   "scholarchain.tests.analytics.SparkTemporalWindowsSuite",
   // modules/spark suites that run the whole pipeline: 79 to 88 s per test.
@@ -132,7 +146,18 @@ lazy val quickSettings = Seq(
 )
 
 def jobPackagingSettings(useProvidedScalaLibrary: Boolean = false) = Seq(
+  jobSdkGuard := {
+    val offending = (Runtime / dependencyClasspathAsJars).value
+      .filter(isAwsSdkJar)
+      .map(_.data.getName)
+    if (offending.nonEmpty)
+      throw new MessageOnlyException(
+        s"${name.value} must not ship the AWS SDK on its Runtime classpath; " +
+          s"found ${offending.size} jar(s): ${offending.sorted.mkString(", ")}"
+      )
+  },
   stageJob := {
+    jobSdkGuard.value
     val output = target.value / "job"
     val jobJar = (Compile / packageBin).value
     val runtimeJars = (Runtime / dependencyClasspathAsJars).value.files
@@ -193,6 +218,7 @@ lazy val root = project
       .sequential(
         scalafmtCheck.all(scalaSources),
         Compile / scalafmtSbtCheck,
+        jobSdkGuard.all(jobProjects),
         (Compile / compile).all(allProjects),
         quickTest.all(allProjects),
         writeTestMarker
@@ -263,6 +289,7 @@ lazy val root = project
       .sequential(
         scalafmtCheck.all(scalaSources),
         Compile / scalafmtSbtCheck,
+        jobSdkGuard.all(jobProjects),
         (Compile / compile).all(allProjects),
         (Test / test).all(allProjects),
         writeTestMarker
@@ -331,6 +358,24 @@ lazy val storage = project
   .in(file("modules/storage"))
   .dependsOn(core)
   .settings(quickSettings)
+  .settings(
+    // The HTTP client is the JDK-based url-connection-client; the Apache (4 and
+    // 5) and Netty clients are excluded from every SDK module so none is chosen by
+    // classpath discovery.
+    libraryDependencies ++= Seq(
+      "s3",
+      "s3vectors",
+      "bedrockruntime",
+      "neptunedata",
+      "dynamodb",
+      "url-connection-client"
+    ).map { artifact =>
+      ("software.amazon.awssdk" % artifact % DependencyVersions.awsSdk)
+        .exclude("software.amazon.awssdk", "apache-client")
+        .exclude("software.amazon.awssdk", "netty-nio-client")
+        .exclude("software.amazon.awssdk", "apache5-client")
+    }
+  )
 lazy val rag = project
   .in(file("modules/rag"))
   .dependsOn(core, storage)

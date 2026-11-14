@@ -197,9 +197,13 @@ object GraphExportJob:
   /** One input path and the mapper that reads it. */
   final case class TypedInput(path: String, mapper: Class[? <: ExportMapper])
 
-  def configure(run: RunContext, inputs: Vector[TypedInput]): Job =
+  def configure(
+      run: RunContext,
+      inputs: Vector[TypedInput],
+      base: Configuration = new Configuration
+  ): Job =
     require(inputs.nonEmpty, "Graph export requires at least one typed input")
-    val configuration = new Configuration
+    val configuration = new Configuration(base)
     JobConfig.write(configuration, run)
     val job = Job.getInstance(configuration, s"scholarchain-$stage")
     job.setJarByClass(classOf[WorkExportMapper])
@@ -234,7 +238,7 @@ class GraphExportTool extends Configured with Tool:
             s"Expected <kind>=<path>, got: $argument"
           )
     }
-    val job = GraphExportJob.configure(context, typed)
+    val job = GraphExportJob.configure(context, typed, getConf)
     if job.waitForCompletion(true) then 0 else 1
 
 object GraphExportTool:

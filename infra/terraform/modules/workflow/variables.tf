@@ -20,14 +20,13 @@ variable "cluster_definition" {
 }
 
 variable "artifacts_bucket" {
-  description = "Artifacts bucket name holding the job jars."
+  description = "Artifacts bucket name holding the job jars (jars/), the Spark 4.0.5 distribution (jars/spark-4.0.5/) and the on-node scripts (bootstrap/)."
   type        = string
 }
 
-variable "hadoop_jar_key" {
-  description = "Object key of the Hadoop job jar under the artifacts bucket. Proposed name: no packaging step names it yet."
+variable "data_bucket" {
+  description = "Data bucket name: inputs under raw/, run outputs under curated/, graph/, semantic-context/ and reports/. Passed to the on-node scripts as an argument."
   type        = string
-  default     = "jars/scholarchain-hadoop.jar"
 }
 
 variable "ecs_cluster_arn" {
@@ -62,7 +61,7 @@ variable "create_cluster_timeout_seconds" {
 }
 
 variable "emr_step_timeout_seconds" {
-  description = "TimeoutSeconds of each EMR step, the Hadoop step and the Spark step each, 300 to 7200 seconds (default 3600). On timeout the step raises States.Timeout, which is caught and routed to CleanupOnFailure (terminate the cluster, itself bounded at 900 s) and then Failed. Whether a timed-out step also stops the EMR step on the cluster is UNVERIFIED; the termination ends it either way. The value must be at least the longest legitimate single step, because a longer step is stopped and cleaned up. See max_run_seconds for the rule that ties it to the execution timeout."
+  description = "TimeoutSeconds of the one long EMR script step (CapabilityStep or PipelineStep), 300 to 7200 seconds (default 3600). The script-fetch step has its own fixed 300 s. Rule A below still counts 2 x this value, which now over-covers a run (one long step plus the 300 s fetch). On timeout the step raises States.Timeout, which is caught and routed to CleanupOnFailure (terminate the cluster, itself bounded at 900 s) and then Failed. Whether a timed-out step also stops the EMR step on the cluster is UNVERIFIED; the termination ends it either way. The value must be at least the longest legitimate single step, because a longer step is stopped and cleaned up. See max_run_seconds for the rule that ties it to the execution timeout."
   type        = number
   default     = 3600
 

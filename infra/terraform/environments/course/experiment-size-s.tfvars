@@ -6,6 +6,15 @@
 enable_neptune = true
 neptune_mode   = "provisioned"
 
+# Bedrock on (work order 31). The loader embeds with Titan V2 in-Region
+# (amazon.titan-embed-text-v2:0, us-east-2), which needs the bedrock-runtime
+# interface endpoint (a ninth, about 0.010 to 0.015 USD an hour in one AZ at the
+# estimate's unverified rate) and the bedrock:InvokeModel statements on the loader
+# and runtime roles. It also adds the Haiku profile and foundation-model ARNs to
+# the runtime role. With it off the loader cannot embed. The M and L overlays do
+# not set it: a loader run under them needs the same line.
+enable_bedrock = true
+
 emr_core_instance_count       = 0
 emr_task_spot_instance_count  = 0
 emr_managed_scaling_max_units = 3

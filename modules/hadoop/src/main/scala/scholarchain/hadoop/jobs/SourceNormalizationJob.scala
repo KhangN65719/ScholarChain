@@ -175,9 +175,10 @@ object SourceNormalizationJob:
   def configure(
       run: RunContext,
       dataset: String,
-      inputs: Vector[String]
+      inputs: Vector[String],
+      base: Configuration = new Configuration
   ): Job =
-    val configuration = new Configuration
+    val configuration = new Configuration(base)
     JobConfig.write(configuration, run)
     configuration.set(JobConfig.dataset, dataset)
     val job =
@@ -201,7 +202,8 @@ class SourceNormalizationTool extends Configured with Tool:
     val job = SourceNormalizationJob.configure(
       context,
       arguments(1),
-      arguments.drop(2).toVector
+      arguments.drop(2).toVector,
+      getConf
     )
     if job.waitForCompletion(true) then 0 else 1
 

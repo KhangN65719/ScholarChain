@@ -47,6 +47,12 @@ enum ErrorCode:
   case TextHashMismatch
   case ExecutionInputChanged
   case AmbiguousRun
+  case AwsNotFound
+  case AwsAccessDenied
+  case AwsRejected
+  case IndexMissing
+  case IndexSpecMismatch
+  case BulkLoadFailed
 
 final class StorageException(val code: ErrorCode, message: String)
     extends RuntimeException(s"${code}: ${message}")

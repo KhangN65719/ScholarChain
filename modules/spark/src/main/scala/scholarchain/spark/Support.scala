@@ -89,7 +89,7 @@ final class Algo(
   def checkpoint(frame: DataFrame): DataFrame =
     val number = telemetry.checkpoints.incrementAndGet()
     val target = checkpointDirectory.resolve(f"ckpt-$number%06d")
-    val location = target.toUri.toString
+    val location = Inputs.fileUri(target)
     frame.write.mode("errorifexists").parquet(location)
     session.read.schema(frame.schema).parquet(location)
 

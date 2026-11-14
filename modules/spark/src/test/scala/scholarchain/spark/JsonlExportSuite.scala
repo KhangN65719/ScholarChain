@@ -169,9 +169,189 @@ class JsonlExportSuite extends SparkSuite:
 
   private def edgeFrame(edges: Seq[(String, String, String)]): DataFrame =
     frame(
-      "edgeId STRING, researcherA STRING, researcherB STRING, " +
-        "jointPublicationCount BIGINT, window STRING"
-    )(edges.map((id, a, b) => Row(id, a, b, 1L, "all"))*)
+      "edgeId STRING, window STRING, windowStart INT, windowEnd INT, " +
+        "researcherA STRING, researcherB STRING, policyVersion STRING, " +
+        "jointPublicationCount BIGINT, firstCollaborationYear INT, " +
+        "lastCollaborationYear INT, representativeWorkIds ARRAY<STRING>, " +
+        "endpointAUnresolved BOOLEAN, endpointBUnresolved BOOLEAN, " +
+        provenanceDdl
+    )(
+      edges.map((id, a, b) =>
+        Row(
+          id,
+          "all",
+          1,
+          9999,
+          a,
+          b,
+          "scholarchain.spark.coauthor-policy/1",
+          1L,
+          2001,
+          2001,
+          Seq("work:v1:1"),
+          a.startsWith("mention:"),
+          b.startsWith("mention:"),
+          prov(id, "scholarchain:spark-analytics/edges-coauthored")
+        )
+      )*
+    )
+
+  private def uri(table: String): String =
+    s"scholarchain:spark-analytics/$table"
+
+  private def supportFrame(edges: Seq[(String, String, String)]): DataFrame =
+    frame(
+      "edgeId STRING, window STRING, windowStart INT, windowEnd INT, " +
+        "researcherA STRING, researcherB STRING, canonicalWorkId STRING, " +
+        "year INT, " + provenanceDdl
+    )(
+      edges.map((id, a, b) =>
+        Row(
+          id,
+          "all",
+          1,
+          9999,
+          a,
+          b,
+          "work:v1:1",
+          2001,
+          prov(id, uri("edge-support"))
+        )
+      )*
+    )
+
+  private def researcherNodes: DataFrame =
+    frame(
+      "nodeId STRING, nodeKind STRING, idRule STRING, orcid STRING, " +
+        "linkStatus STRING, memberCount BIGINT, inResearchersExport BOOLEAN, " +
+        "displayName STRING, mentionCount BIGINT, " + provenanceDdl
+    )(
+      Row(
+        "researcher:v1:y",
+        "canonical",
+        "orcid",
+        "0000-0002-1825-0097",
+        "accepted",
+        2L,
+        true,
+        "Y Name",
+        2L,
+        prov("researcher:v1:y", uri("nodes-researcher"))
+      ),
+      Row(
+        "mention:v1:a",
+        "unresolved-mention",
+        null,
+        null,
+        "no-link-row",
+        1L,
+        null,
+        "A\tMention",
+        1L,
+        prov("mention:v1:a", uri("nodes-researcher"))
+      ),
+      Row(
+        "researcher:v1:x",
+        "canonical",
+        "name",
+        null,
+        "accepted",
+        1L,
+        true,
+        "X Name",
+        1L,
+        prov("researcher:v1:x", uri("nodes-researcher"))
+      )
+    )
+
+  private def venueNodes: DataFrame =
+    frame(
+      "venueId STRING, name STRING, issns ARRAY<STRING>, " +
+        "canonicalWorkCount BIGINT, " + provenanceDdl
+    )(
+      Row(
+        "venue:v1:2",
+        "Venue Two",
+        Seq.empty[String],
+        1L,
+        prov("venue:v1:2", uri("nodes-venue"))
+      ),
+      Row(
+        "venue:v1:1",
+        "Venue One",
+        Seq("1234-5678"),
+        1L,
+        prov("venue:v1:1", uri("nodes-venue"))
+      )
+    )
+
+  private def topicNodes: DataFrame =
+    frame(
+      "topicId STRING, name STRING, parentTopicId STRING, " + provenanceDdl
+    )(
+      Row("topic:v1:1", "Topic", null, prov("topic:v1:1", uri("nodes-topic")))
+    )
+
+  private def institutionNodes: DataFrame =
+    frame(
+      "institutionId STRING, name STRING, countryCode STRING, " +
+        "externalIdsJson STRING, " + provenanceDdl
+    )(
+      Row(
+        "institution:v1:1",
+        "Institute",
+        "NL",
+        "{}",
+        prov("institution:v1:1", uri("nodes-institution"))
+      )
+    )
+
+  private def authoredEdges: DataFrame =
+    frame(
+      "researcherNodeId STRING, nodeKind STRING, canonicalWorkId STRING, " +
+        "workId STRING, mentionId STRING, authorPosition INT, year INT, " +
+        "countedInMetrics BOOLEAN, " + provenanceDdl
+    )(
+      Row(
+        "researcher:v1:y",
+        "canonical",
+        "work:v1:1",
+        "work:v1:1",
+        "mention:v1:b",
+        1,
+        2001,
+        true,
+        prov("mention:v1:b", uri("edges-authored"))
+      ),
+      Row(
+        "researcher:v1:x",
+        "canonical",
+        "work:v1:1",
+        "work:v1:1",
+        "mention:v1:c",
+        0,
+        2001,
+        true,
+        prov("mention:v1:c", uri("edges-authored"))
+      ),
+      Row(
+        "mention:v1:a",
+        "unresolved-mention",
+        "work:v1:2",
+        "work:v1:2",
+        "mention:v1:a",
+        0,
+        null,
+        true,
+        prov("mention:v1:a", uri("edges-authored"))
+      )
+    )
+
+  private def publishedInEdges: DataFrame =
+    frame("fromId STRING, toId STRING, " + provenanceDdl)(
+      Row("work:v1:2", "venue:v1:2", prov("w2|v2", uri("edges-published-in"))),
+      Row("work:v1:1", "venue:v1:1", prov("w1|v1", uri("edges-published-in")))
+    )
 
   private val plainEdges = Seq(
     ("mention-coauthor:v1:aa", "mention:v1:a", "researcher:v1:x"),
@@ -203,7 +383,14 @@ class JsonlExportSuite extends SparkSuite:
       "semantic-summaries" -> summaries,
       "nodes-work" -> worksFrame,
       "researcher-metrics" -> metricsFrame,
-      "edges-coauthored" -> edgeFrame(edges)
+      "edges-coauthored" -> edgeFrame(edges),
+      "nodes-researcher" -> researcherNodes,
+      "nodes-venue" -> venueNodes,
+      "nodes-topic" -> topicNodes,
+      "nodes-institution" -> institutionNodes,
+      "edges-authored" -> authoredEdges,
+      "edges-published-in" -> publishedInEdges,
+      "edge-support" -> supportFrame(edges)
     )
     tables.filterNot((name, _) => skip.contains(name)).foreach { (name, data) =>
       write(runDir, name, data)
@@ -366,6 +553,200 @@ class JsonlExportSuite extends SparkSuite:
     assertEquals(rows(1)("communityId").str, "k1")
     assertEquals(rows(1)("weightedDegree"), ujson.Num(1.5))
     assertEquals(rows(1)("coreness"), ujson.Num(3))
+  }
+
+  test("the data files of the fixture have fixed names and digests") {
+    val run = makeRun()
+    val out = outDir
+    assertEquals(runExport(run, out, Vector("--rows-per-file", "2"))._1, 0)
+    val files = manifest(out)("tables").obj.toVector.sortBy(_._1).flatMap {
+      (name, table) =>
+        table("files").arr
+          .map(f => s"$name/${f("path").str} ${f("sha256").str}")
+    }
+    val original = Set("nodes-work", "researcher-metrics", "semantic-summaries")
+    val unchanged = files.filter(f => original.contains(f.takeWhile(_ != '/')))
+    assertEquals(
+      unchanged.map(_.takeWhile(_ != ' ')),
+      Vector(
+        "nodes-work/nodes-work/part-00000.jsonl",
+        "researcher-metrics/researcher-metrics/part-00000.jsonl",
+        "researcher-metrics/researcher-metrics/part-00001.jsonl",
+        "semantic-summaries/semantic-summaries/part-00000.jsonl",
+        "semantic-summaries/semantic-summaries/part-00001.jsonl",
+        "semantic-summaries/semantic-summaries/part-00002.jsonl"
+      )
+    )
+    // The digest the export of these three tables had before the graph tables
+    // were added: their bytes did not change.
+    assertEquals(
+      Digests.sha256Hex(unchanged.mkString("\n")),
+      "e94b999f0e1c7ba0b8ae9da4903a11a1a562232b112f817ad26a35c1b88f6c71"
+    )
+    assertEquals(
+      files.map(_.takeWhile(_ != ' ')),
+      Vector(
+        "edge-support/edge-support/part-00000.jsonl",
+        "edge-support/edge-support/part-00001.jsonl",
+        "edge-support/edge-support/part-00002.jsonl",
+        "edges-authored/edges-authored/part-00000.jsonl",
+        "edges-authored/edges-authored/part-00001.jsonl",
+        "edges-coauthored/edges-coauthored/part-00000.jsonl",
+        "edges-coauthored/edges-coauthored/part-00001.jsonl",
+        "edges-coauthored/edges-coauthored/part-00002.jsonl",
+        "edges-published-in/edges-published-in/part-00000.jsonl",
+        "nodes-institution/nodes-institution/part-00000.jsonl",
+        "nodes-researcher/nodes-researcher/part-00000.jsonl",
+        "nodes-researcher/nodes-researcher/part-00001.jsonl",
+        "nodes-topic/nodes-topic/part-00000.jsonl",
+        "nodes-venue/nodes-venue/part-00000.jsonl",
+        "nodes-work/nodes-work/part-00000.jsonl",
+        "researcher-metrics/researcher-metrics/part-00000.jsonl",
+        "researcher-metrics/researcher-metrics/part-00001.jsonl",
+        "semantic-summaries/semantic-summaries/part-00000.jsonl",
+        "semantic-summaries/semantic-summaries/part-00001.jsonl",
+        "semantic-summaries/semantic-summaries/part-00002.jsonl"
+      )
+    )
+    assertEquals(
+      Digests.sha256Hex(files.mkString("\n")),
+      "822da06dbe651e3eb4e1eb010e5d8a2a411f8075e4a2267c151063b7c050603e"
+    )
+    val text = Files.readString(out.resolve("export-manifest.json"), UTF_8)
+    assert(!text.contains("master") && !text.contains("deployMode"), text)
+  }
+
+  private val graphIds = Map(
+    "nodes-researcher" -> Vector("nodeId"),
+    "nodes-venue" -> Vector("venueId"),
+    "nodes-topic" -> Vector("topicId"),
+    "nodes-institution" -> Vector("institutionId"),
+    "edges-authored" -> Vector(
+      "researcherNodeId",
+      "canonicalWorkId",
+      "mentionId"
+    ),
+    "edges-published-in" -> Vector("fromId", "toId"),
+    "edges-coauthored" -> Vector("edgeId"),
+    "edge-support" -> Vector("edgeId", "canonicalWorkId")
+  )
+
+  test("the export holds the eight graph tables the projector reads") {
+    val out = outDir
+    val (code, text) = runExport(makeRun(), out, Vector("--rows-per-file", "2"))
+    assertEquals(code, 0, text)
+    val m = manifest(out)
+    assertEquals(
+      m("tables").obj.keySet.toSet,
+      graphIds.keySet ++ Set(
+        "nodes-work",
+        "researcher-metrics",
+        "semantic-summaries"
+      )
+    )
+    val rows = Map(
+      "nodes-researcher" -> 3,
+      "nodes-venue" -> 2,
+      "nodes-topic" -> 1,
+      "nodes-institution" -> 1,
+      "edges-authored" -> 3,
+      "edges-published-in" -> 2,
+      "edges-coauthored" -> 6,
+      "edge-support" -> 6
+    )
+    graphIds.foreach { (name, ids) =>
+      val table = m("tables")(name)
+      assertEquals(table("idColumns").arr.map(_.str).toVector, ids, name)
+      assertEquals(table("rows").num.toInt, rows(name), name)
+      val required = ExportTables.all.find(_.name == name).get.required
+      val columns = table("columns").arr.map(_("name").str).toSet
+      assert(
+        required.forall(columns.contains),
+        s"$name lacks a required column"
+      )
+      assertEquals(tableLines(out, name).size, rows(name), name)
+      tableLines(out, name).foreach { row =>
+        val p = upickle.default.read[Provenance](row("provenance"))
+        assertEquals(p.runId, runId, name)
+      }
+      table("files").arr.foreach { file =>
+        val path = out.resolve(file("path").str)
+        assertEquals(file("bytes").num.toLong, Files.size(path), name)
+        assertEquals(file("sha256").str, Digests.sha256File(path), name)
+      }
+    }
+    val researchers = tableLines(out, "nodes-researcher")
+    assertEquals(
+      researchers.map(_("nodeId").str),
+      Vector("mention:v1:a", "researcher:v1:x", "researcher:v1:y")
+    )
+    assertEquals(researchers(0)("orcid"), ujson.Null)
+    assertEquals(researchers(0)("inResearchersExport"), ujson.Null)
+    assertEquals(researchers(2)("memberCount"), ujson.Num(2))
+    val authored = tableLines(out, "edges-authored")
+    assertEquals(
+      authored.map(_("mentionId").str),
+      Vector("mention:v1:a", "mention:v1:c", "mention:v1:b")
+    )
+    assertEquals(authored(0)("year"), ujson.Null)
+    assertEquals(authored(1)("countedInMetrics"), ujson.True)
+    val coauthored = tableLines(out, "edges-coauthored")
+    assertEquals(
+      coauthored.map(_("edgeId").str),
+      plainEdges.map(_._1).sorted
+    )
+    val first = coauthored.head
+    assertEquals(first("window").str, "all")
+    assertEquals(first("windowStart"), ujson.Num(1))
+    assertEquals(first("representativeWorkIds"), ujson.Arr("work:v1:1"))
+    assertEquals(first("endpointAUnresolved"), ujson.False)
+    assertEquals(coauthored(4)("edgeId").str, "mention-coauthor:v1:aa")
+    assertEquals(coauthored(4)("endpointAUnresolved"), ujson.True)
+    val support = tableLines(out, "edge-support")
+    assertEquals(
+      support.map(r => (r("edgeId").str, r("canonicalWorkId").str)),
+      plainEdges.map(e => (e._1, "work:v1:1")).sorted
+    )
+    assert(text.contains("table edge-support rows=6 files=3"), text)
+  }
+
+  test("the graph tables export identically twice, digests included") {
+    val run = makeRun()
+    val first = outDir
+    val second = outDir
+    assertEquals(runExport(run, first, Vector("--rows-per-file", "2"))._1, 0)
+    assertEquals(runExport(run, second, Vector("--rows-per-file", "2"))._1, 0)
+    def digests(out: Path): Map[String, String] =
+      graphIds.keys.toVector.sorted.flatMap { name =>
+        manifest(out)("tables")(name)("files").arr
+          .map(f => f("path").str -> f("sha256").str)
+      }.toMap
+    val one = digests(first)
+    assert(one.size >= graphIds.size, one.toString)
+    assertEquals(digests(second), one)
+    assertEquals(
+      Files.readAllBytes(second.resolve("export-manifest.json")).toVector,
+      Files.readAllBytes(first.resolve("export-manifest.json")).toVector
+    )
+  }
+
+  test("a missing graph table or a missing projector column is refused") {
+    graphIds.keys.toVector.sorted.foreach { name =>
+      val out = outDir
+      val (code, text) = runExport(makeRun(skip = Set(name)), out)
+      assertEquals(code, 2, text)
+      assert(text.contains(s"Missing table $name"), text)
+      assert(!Files.exists(out), name)
+    }
+    val thin = frame("edgeId STRING, window STRING, " + provenanceDdl)(
+      Row("e", "all", prov("e", "u"))
+    )
+    val root = makeRun(skip = Set("edge-support"))
+    write(root, "edge-support", thin)
+    val (code, text) = runExport(root, outDir)
+    assertEquals(code, 2, text)
+    assert(text.contains("Table edge-support lacks column(s)"), text)
+    assert(text.contains("canonicalWorkId"), text)
   }
 
   test("a repeat run gives byte-identical files and manifest") {

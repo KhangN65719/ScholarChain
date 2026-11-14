@@ -8,4 +8,5 @@ object DependencyVersions {
   val slf4j = "2.0.18"
   val hadoop = "3.5.0"
   val spark = "4.0.5"
+  val awsSdk = "2.59.1"
 }

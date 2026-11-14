@@ -18,6 +18,9 @@ Run each as `bash scripts/<name>.sh ...` (no execute bit is set). Every script h
 | `run-experiment.sh` | `experiment` | yes: STS, CloudWatch list-metrics | `run-record.env`, `raw/entrypoint.log`, `metrics/*.list.json`, `SHA256SUMS` under `<OUTPUT_ROOT>/<run id>/` |
 | `archive-evidence.sh` | none to gather; `archive` to upload | only with `--upload-dir` and `--s3-prefix` | `evidence-<UTC>-<sha12>/` with `MANIFEST.txt` and `MANIFEST.sha256` |
 | `cleanup.sh` | `cleanup` (apply modes) | yes: destroy | stdout markers and the Terraform logs |
+| `upload-inputs.sh` (work order 20, not yet run or covered by the harness) | `upload` | yes: S3 put and head | `UPLOAD_PLAN`, `UPLOADED`, `VERIFIED` and `UPLOAD_COMPLETE` markers |
+
+`scripts/emr/` holds the on-node scripts (not run from this machine, not in the "ten scripts"): `lib-emr.sh`, `capability-check.sh`, `run-s-pipeline.sh`, `install-java-bootstrap.sh` and `spark-yarn.conf`. See "EMR design B" below.
 
 Human approval points. Nothing below is approved by an agent; the human writes each record (see "Approval record") and runs each live script. (1) Before `deploy.sh`: the plan digest, script digest, arguments, account, Region, cost bound and rollback, in a record with action `deploy`. (2) Before `rollback.sh`, `run-bounded-pipeline.sh`, `smoke-test.sh`: a record with that action. (3) Before `run-experiment.sh`: a record with action `experiment` that binds the manifest by sha256, plus the human's spend gate for tier L (G-L). (4) Before an S3 upload of evidence: a record with action `archive` that binds the prefix and the content digest. (5) Before `cleanup.sh`: `--i-am-the-human`, `--acknowledge-data-loss` and a record. (6) Terraform `apply` of a plan with a stateful change needs `STATEFUL_CHANGE_ACKNOWLEDGED=yes`. `check.sh`, `package.sh`, `plan.sh` and a local `archive-evidence.sh` gather need no record and change no cloud resource.
 
@@ -112,7 +115,7 @@ A plain `KEY=VALUE` file, `#` comments allowed, no spaces in values, every key e
 | Field | Meaning |
 |---|---|
 | `APPROVAL_VERSION` | `1` |
-| `ACTION` | `deploy`, `rollback`, `pipeline`, `cleanup`, `smoke-test`, `experiment` or `archive`. `verify_approval` takes the action as a parameter and compares it with the record, so `experiment` and `archive` needed no new allow list and no existing check was relaxed |
+| `ACTION` | `deploy`, `rollback`, `pipeline`, `cleanup`, `smoke-test`, `experiment`, `archive` or `upload`. `verify_approval` takes the action as a parameter and compares it with the record, so `experiment`, `archive` and `upload` needed no new allow list and no existing check was relaxed. (Work order 20 asked for `upload` to be added to an allow list in `lib.sh`; `lib.sh` has none, so `lib.sh` is unchanged and this row is the only registration.) For `upload`, `ARGS_DIGEST` covers the snapshot, both bucket names, the object and byte counts and limits, and one digest over every destination with its sha256 and size |
 | `ENVIRONMENT`, `ACCOUNT_ID`, `REGION` | must equal the parameters; region must be `us-east-2` |
 | `COST_CEILING_USD` | must equal `--cost-ceiling-usd` and be <= 20 |
 | `PLAN_DIGEST` | sha256 of the saved plan file (printed by `plan.sh`), or `n/a` for `pipeline`, `smoke-test`, `experiment` and `archive` and for state-version rollback |
@@ -262,11 +265,13 @@ Deferred to Phase 14, with the reason:
 
 A real run creates `<--out-dir>/pipeline-<UTC stamp>-<size>.record.env` in the preflight step, before the approval record is consumed, once (mode 600, no-clobber: an existing file is refused) and only appends to it. `--out-dir` must be outside the repository (physical path, case ignored; refused otherwise, before anything is spent), default `${TMPDIR:-/tmp}/scholarchain-ops/<environment>`. A dry run writes nothing.
 
-Recorded, as `KEY=VALUE` lines in the file: `RECORD_VERSION=1`, `ACTION=pipeline`, `ENVIRONMENT`, `ACCOUNT_ID`, `REGION`, `SCRIPT_DIGEST`, `ARGS_DIGEST`, `APPROVED_BY`, `APPROVED_AT`, `INPUT_FILE` (the path as given), `INPUT_SHA256`, `INPUT_BYTES`, `SIZE`, `MAX_MINUTES`, `SPEND_CEILING_USD`, `HOURLY_BURN_USD`, `COST_CEILING_USD`, `STOP_ON`, `STATE_MACHINE_ARN`, one `OUTPUT_LOCATION=<s3 uri>` per URI found in the input (or `OUTPUT_LOCATIONS=none-named`), `DATASET_SNAPSHOT=not-recorded`, then `EXECUTION_ARN`, `START_UTC`, `FINAL_STATUS` (after the monitor loop), `END_UTC`, `ELAPSED_MINUTES`, `ESTIMATED_SPEND_USD` and `RECORD_COMPLETE=yes`. A signal appends `END_UTC` and `FINAL_STATUS=INTERRUPTED` and no `RECORD_COMPLETE`. A record without `RECORD_COMPLETE` is an unfinished run (a failed teardown check, SIGKILL).
+Recorded, as `KEY=VALUE` lines in the file: `RECORD_VERSION=1`, `ACTION=pipeline`, `ENVIRONMENT`, `ACCOUNT_ID`, `REGION`, `SCRIPT_DIGEST`, `ARGS_DIGEST`, `APPROVED_BY`, `APPROVED_AT`, `INPUT_FILE` (the path as given), `INPUT_SHA256`, `INPUT_BYTES`, `SIZE`, `MAX_MINUTES`, `SPEND_CEILING_USD`, `HOURLY_BURN_USD`, `COST_CEILING_USD`, `STOP_ON`, `STATE_MACHINE_ARN`, one `OUTPUT_LOCATION=<s3 uri>` per URI found in the input (or `OUTPUT_LOCATIONS=none-named`), `INPUT_MODE`, one `OUTPUT_PREFIX=<key prefix>` per run prefix (`curated/`, `graph/`, `semantic-context/` and `reports/` under `runs/<run_id>/` in pipeline mode, `reports/capability/` in capability-check mode), then in pipeline mode `DATASET_SNAPSHOT=<the input's snapshot>`, `RUN_SNAPSHOTS=<its snapshots spec>` and `RUN_ID=<its run_id>`, and in capability-check mode `DATASET_SNAPSHOT=n/a`, then `EXECUTION_ARN`, `START_UTC`, `FINAL_STATUS` (after the monitor loop), `END_UTC`, `ELAPSED_MINUTES`, `ESTIMATED_SPEND_USD` and `RECORD_COMPLETE=yes`. A signal appends `END_UTC` and `FINAL_STATUS=INTERRUPTED` and no `RECORD_COMPLETE`. A record without `RECORD_COMPLETE` is an unfinished run (a failed teardown check, SIGKILL).
 
-The same facts are printed as markers: `INPUT_FILE=`, `INPUT_SHA256=`, `INPUT_BYTES=`, `LIMITS size=... max_minutes=... spend_ceiling_usd=... hourly_burn_usd=... stop_on=... cost_ceiling_usd=...`, `OUTPUT_LOCATION=` (or `OUTPUT_LOCATIONS=none-named ...`), `DATASET_SNAPSHOT=not-recorded ...` (all in `validate-params`, so they also print in a dry run), `PIPELINE_RECORD=<path>` (preflight), `EXECUTION_ARN=` and `START_UTC=` (start-execution) and `END_UTC=` (report).
+The same facts are printed as markers: `INPUT_FILE=`, `INPUT_SHA256=`, `INPUT_BYTES=`, `LIMITS size=... max_minutes=... spend_ceiling_usd=... hourly_burn_usd=... stop_on=... cost_ceiling_usd=...`, `OUTPUT_LOCATION=` (or `OUTPUT_LOCATIONS=none-named ...`), `INPUT_MODE=`, `OUTPUT_PREFIX=` and `DATASET_SNAPSHOT=<snapshot> snapshots=<spec> run_id=<id>` (pipeline mode) or `DATASET_SNAPSHOT=n/a (capability-check reads no dataset)` (all in `validate-params`, so they also print in a dry run), `PIPELINE_RECORD=<path>` (preflight), `EXECUTION_ARN=` and `START_UTC=` (start-execution) and `END_UTC=` (report).
 
-Not recorded, and why. The dataset snapshot: the execution input contract is `{hadoop_args, spark_args, loader_command}` (`infra/terraform/modules/workflow/main.tf`), three free-form string lists with no snapshot field, so the script does not invent one; the human records the snapshot id from the dataset manifest next to this file, or puts it in an argument the pipeline reads. Output locations: the input names no output field either, so the recorded locations are the `s3://` URIs that appear anywhere in the input file, which may include inputs as well as outputs, and miss an output whose path a job builds at run time. The input file's content is not copied (it is scanned for key material and digested). Run ids other than the execution ARN do not exist in this script. Spend is the burn-times-time estimate, not a bill.
+Current contract (work order 20, design B; text above updated in work order 37): the execution input has fixed fields (see "Execution input contract" below). In `pipeline` mode the record holds `INPUT_MODE`, `DATASET_SNAPSHOT=<snapshot>`, `RUN_SNAPSHOTS`, `RUN_ID` and one `OUTPUT_PREFIX=` per run prefix (key prefixes only, the input names no bucket); in `capability-check` mode it records `DATASET_SNAPSHOT=n/a` and `OUTPUT_PREFIX=reports/capability/`. `DATASET_SNAPSHOT=not-recorded` is the value of the earlier free-form-input contract and no script writes it now.
+
+Not recorded, and why. Output locations: the input names no bucket, so the `OUTPUT_LOCATION` lines are the `s3://` URIs that appear anywhere in the input file (the loader command may name some), which may include inputs as well as outputs, and miss an output whose path a job builds at run time; the key prefixes are recorded separately as `OUTPUT_PREFIX`. The input file's content is not copied (it is scanned for key material and digested). Run ids other than the execution ARN do not exist in this script. Spend is the burn-times-time estimate, not a bill.
 
 ### Session up and session down (keep storage, stop the hourly billing)
 
@@ -367,6 +372,101 @@ set -o pipefail; STAMP=$(date -u +%Y%m%dT%H%M%SZ); docker-credential-osxkeychain
 Expect an entry whose key is `<account>.dkr.ecr.us-east-2.amazonaws.com` and whose value is `AWS`. This helper name is an assumption for Docker Desktop on macOS and is UNVERIFIED on this machine; if the command is absent, rely on the step 5 result. The account id appears in the log, which lives outside the repository: keep it out of committed evidence files. A `docker manifest inspect` is not used, because no repository exists yet.
 
 To remove the stored token afterwards: `docker logout <account>.dkr.ecr.us-east-2.amazonaws.com`. Run it with the same pipefail, tee and `tail -n 60; echo "exit: $?"` form.
+
+## EMR design B: inputs, on-node scripts, capability check (work order 20, Phase 14 D21)
+
+Nothing in this section was executed. Every command is UNVERIFIED until the human runs it and the first cluster answers. Scope is one node (core 0): report results as "data-size scaling on a single-node EMR cluster (Spark and MapReduce on YARN)". Experiment B (node elasticity) stays "not demonstrated". If MapReduce turns out to run in local mode, say "MapReduce in local mode on an EMR node", never "distributed MapReduce".
+
+### S3 key layout
+
+| Bucket | Key | Written by | Read by |
+|---|---|---|---|
+| data | `raw/<snapshot>/{dblp-subset.xml,openalex.jsonl,crossref.jsonl,orcid.jsonl}` | `upload-inputs.sh` | pipeline script |
+| data | `reports/capability/<UTC stamp>/capability.json` and `*.log` | `capability-check.sh` | human |
+| data | `curated/runs/<run_id>/hadoop/`, `curated/runs/<run_id>/er/` | pipeline script | later stages |
+| data | `graph/runs/<run_id>/` (Spark `run=<id>/`), `semantic-context/runs/<run_id>/export/` | pipeline script | loader |
+| data | `reports/runs/<run_id>/` (stage logs, `run-record.env`, `run-record.json`) | pipeline script | human |
+| artifacts | `jars/<module>/<main>.jar` and `jars/<module>/lib/*.jar` for `hadoop`, `entity-resolution`, `spark` | `upload-inputs.sh` | pipeline script |
+| artifacts | `jars/spark-4.0.5/{spark-4.0.5-bin-hadoop3.tgz,spark-4.0.5-jars.zip,spark-4.0.5.sha256}` | `upload-inputs.sh` | both on-node scripts |
+| artifacts | `bootstrap/{lib-emr.sh,capability-check.sh,run-s-pipeline.sh,install-java-bootstrap.sh,spark-yarn.conf}` | `upload-inputs.sh` | fetch step, bootstrap action |
+
+All of these are inside what the `emr_ec2` role already reads and writes, so the design needs no IAM, security-group or endpoint change.
+
+### Execution input contract
+
+Two modes. Any other shape is refused by `run-bounded-pipeline.sh` before it starts anything, and by the state machine's first Choice state.
+
+```
+{"mode": "capability-check"}
+
+{"mode": "pipeline",
+ "snapshot": "<id of the raw/ prefix: A-Za-z0-9._->",
+ "snapshots": "<value of -Dscholarchain.run.snapshots, naming exactly dblp plus the supplied datasets, e.g. dblp=2026-11-05,openalex=2026-11-07,crossref=2026-11-07,orcid=2026-11-07; confirm against the dataset manifest>",
+ "run_id": "<id, pinned with -Dscholarchain.run.id>",
+ "loader_command": ["scholarchain.some.MainClass", "arg", "..."]}
+```
+
+`loader_command` goes to the ECS loader task only (its entry point is the storage and rag owners' work). The three scalars reach the node as separate step arguments (never through a shell string) and the scripts validate them again. Reusing a `run_id` fails: FileOutputFormat refuses an existing stage directory, so a rerun needs a new id (or a deleted prefix).
+
+State machine (read from the Terraform, not observed): `ValidateInput` (Choice) -> `CreateCluster` -> `FetchScripts` (copies `bootstrap/` to `/home/hadoop/sc`, fixed 300 s) -> `ChooseStep` -> `CapabilityStep` or `PipelineStep` (one `command-runner.jar bash <script>` step, bounded by `pipeline_emr_step_timeout_seconds`) -> `TerminateCluster` -> `AfterTerminate` -> `RunLoader` (pipeline mode only) or `Done`. The cleanup states, the 900 s terminate and cleanup timeouts and Rule A are unchanged. Steps use `command-runner.jar` (local to the node), not `script-runner.jar` (in the regional EMR bucket, which the `emr_ec2` role cannot read, so it would need an IAM change; the bucket path is from memory, UNVERIFIED). That `command-runner.jar bash <script>` runs as expected, and that the AWS CLI exists on the node, are UNVERIFIED.
+
+### Capability check (run it first, before any S run)
+
+1. Build and upload (below), including the Spark files.
+2. Plan and apply `course.tfvars` only (no size overlay: Neptune and service tasks stay off). The Terraform plan must show the `emr` module with `Applications = [Hadoop]` only.
+3. Write `{"mode":"capability-check"}` to an absolute path outside the repository, then run `run-bounded-pipeline.sh --size small --max-minutes 45 --spend-ceiling-usd 0.50 --hourly-burn-usd 0.47 --stop-on first-failure --input-file <path>` with an approval record (action `pipeline`).
+4. Read `s3://<data-bucket>/reports/capability/<UTC stamp>/capability.json` (`aws s3 cp`, human credentials). Keys: `MAPREDUCE=yarn|local|absent` (decided by the job id of the examples `pi 1 1` job: `job_local...` is local, `job_<timestamp>_<n>` plus a MAPREDUCE application in `yarn application -list` is YARN, evidence in `MAPREDUCE_DETAIL`), `SPARK_ON_YARN=client:yes|no cluster:yes|no` (exit 0, a YARN application id in the log and YARN final state SUCCEEDED), `POPULATE_HADOOP_CLASSPATH_FALSE` and `_TRUE` (the two settings of `spark.yarn.populateHadoopClasspath`), `SPARK_ARCHIVE_MODE=hdfs|file|none` (see below), `JAVA17_PLUS_FOUND`, `JAVA_HOME_SELECTED`, `HADOOP_VERSION`, `AWS_CLI`, `DISK_*`, `MEMORY_MB`, `HDFS_REACHABLE`, `MAPREDUCE_JAVA_ENV_OVERRIDE`.
+5. The script exits 0 when it wrote the report even if a capability is "no". If `JAVA17_PLUS_FOUND` is `no`, Spark is skipped (`SPARK_STAGE=skipped-no-jdk`): set `emr_install_java_bootstrap = true` (and `emr_bootstrap_java_major = 21` if the job jars need Java 21 bytecode), re-plan, re-apply and run once more. At most two launches are planned. A third needs a new decision.
+
+Not tested by the capability check, so tested first by the S run: PipelineTool itself (a DBLP-only run on `datasets/subset/dblp-subset.xml` is optional; a single-record input fails the blocking stage, so it is not used), `-libjars` reaching the tasks (hadoop-engineer fixes the Configuration handling in work order 23), Hadoop 3.5.0 client classes against the cluster's 3.4.1, and the Scala 3 `--jars` path of Spark.
+
+Spark archive decision: the `spark.yarn.archive` file goes to HDFS (`hdfs:///user/hadoop/sc/spark-4.0.5/`). The Spark 4 client from the Apache tarball has no EMRFS and no hadoop-aws, so an `s3://` archive path may be unreadable to it (UNVERIFIED). A `file:` path works only while every container is on the node holding the file, and the client copies it on every submit. HDFS works on one node and on many. `file:` is the fallback when the HDFS put fails, and `SPARK_ARCHIVE_MODE` says which was used. `fs.defaultFS` is never overridden (YARN staging stays on HDFS); Spark, ER and the export get plain absolute local paths, and Hadoop gets explicit `file:///` URIs.
+
+### Pipeline mode (the S run, after the capability check passed)
+
+`run-s-pipeline.sh` marks `STAGE[n] name: start|ok|FAIL`: `validate-arguments`, `java`, `fetch-inputs`, `spark-stage`, `hadoop`, `entity-resolution`, `spark`, `export`, `publish`. It records `MAPREDUCE=yarn|local` (same rule as the capability check) and `SPARK_ON_YARN=<mode>:yes`; it fails the stage when the Spark log shows no YARN application (for example because the application still forces `local[2]`). For the Hadoop output it records `id`, the owner and mode of the output root before and after `chmod -R a+rX`, because the container user for `file:` output on EMR is unknown (UNVERIFIED). `-Dscholarchain.run.id` and `-Dscholarchain.run.snapshots` are always passed. Settings are in `scripts/emr/spark-yarn.conf` (memory sizes for an m5.xlarge, `POPULATE_HADOOP_CLASSPATH`, `DEPLOY_MODE`); edit it, upload again, and the next cluster reads it.
+
+Library jars are filtered: `hadoop-*` is excluded from the Hadoop `-libjars`, and `spark-*` and `hadoop-*` from Spark `--jars`, so the cluster's and the distribution's own classes win. The excluded names are recorded (`*_EXCLUDED_LIB_JARS`). Whether `target/job/lib` holds such jars is unknown.
+
+### Upload
+
+```
+bash scripts/upload-inputs.sh --dry-run ...            # prints the plan; calls no cloud
+bash scripts/upload-inputs.sh --print-digest ...       # then write the approval record (action upload)
+bash scripts/upload-inputs.sh ... --approval-record /abs/record.env
+```
+
+Required: `--snapshot`, `--data-bucket`, `--artifacts-bucket`, `--spark-dir` (outside the repository), `--max-objects`, `--max-bytes`, plus the shared parameters. It needs `modules/{hadoop,entity-resolution,spark}/target/job` from `scripts/package.sh` (with `--skip-images` it is enough). It checks the Spark checksum file against the two Spark files, scans every file except the two large Spark binaries for key material, refuses credential-like names, copies one object at a time with `aws s3 cp`, then checks each key with `head-object` (size, and prints the reported server-side encryption). No `sync`, no delete, no `--sse-c`. The jar count and size are unmeasured, so the human sets `--max-objects` and `--max-bytes` after looking at `target/job` (a first guess: 120 objects, 1.5 GB).
+
+### Spark 4.0.5 archive (human steps, outside the repository)
+
+The private subnets have no internet, so the Apache distribution reaches the cluster through S3. The URLs below are from memory, UNVERIFIED; verify the tarball against the checksum Apache publishes before trusting it.
+
+```
+mkdir -p /abs/outside/repo/spark-4.0.5 && cd /abs/outside/repo/spark-4.0.5
+curl -fLO https://archive.apache.org/dist/spark/spark-4.0.5/spark-4.0.5-bin-hadoop3.tgz
+curl -fLO https://archive.apache.org/dist/spark/spark-4.0.5/spark-4.0.5-bin-hadoop3.tgz.sha512
+# compare the sha512 in the .sha512 file with: shasum -a 512 spark-4.0.5-bin-hadoop3.tgz   (by eye if shasum -c refuses Apache's layout)
+tar -xzf spark-4.0.5-bin-hadoop3.tgz
+(cd spark-4.0.5-bin-hadoop3/jars && zip -q -r -0 ../../spark-4.0.5-jars.zip .)
+shasum -a 256 spark-4.0.5-bin-hadoop3.tgz spark-4.0.5-jars.zip > spark-4.0.5.sha256
+rm -rf spark-4.0.5-bin-hadoop3
+ls -l
+```
+
+`spark-4.0.5.sha256` must hold one `<sha256>  <file name>` line for each of the tarball and the zip (that is what `shasum -a 256` prints, and what `sha256sum -c` on the node reads). The zip holds the jars at its top level, stored without compression (`-0`, as the Spark documentation does with `jar cv0f`). The tarball is about 400 MB and the zip about 300 to 400 MB (unmeasured).
+
+### Cost of the capability check (COST_ESTIMATE, all rates UNVERIFIED for us-east-2)
+
+One m5.xlarge at 0.22 to 0.35 USD an hour (COST_ESTIMATE U1) for about 30 to 45 minutes (provisioning 8 to 15, fetch and checks 15 to 25, terminate a few) is 0.11 to 0.26 USD. The eight interface endpoints cost 0.08 to 0.12 USD an hour while up, about 1 hour for the session: 0.08 to 0.12. S3 requests and gateway transfer are negligible. Per launch about 0.20 to 0.40 USD; at most two launches 0.40 to 0.80 USD. Reference burn for the bounds, `--hourly-burn-usd 0.47` (0.35 + 0.12) with `--max-minutes 45`, projects 0.35 USD against a 0.50 ceiling. An idle cluster costs the same hourly rate until the 900 s idle timeout ends it.
+
+### Harness cases that must change (tests/scripts/run.sh, owner test-engineer)
+
+- Every `run-bounded-pipeline.sh` case that writes an input file with `hadoop_args`, `spark_args` or `loader_command` only: the old shape is now refused. Give them a valid `capability-check` or `pipeline` input.
+- Cases that expect `DATASET_SNAPSHOT=not-recorded`: it is now `n/a` (capability-check) or the snapshot id (pipeline).
+- New refusals to cover: bad or missing mode, unknown key, a `run_id` or `snapshot` with a bad character, an empty `loader_command`, the old `hadoop_args` shape, and `python3` absent.
+- `upload-inputs.sh` has no cases: `--help`, `--print-digest`, `--dry-run` (including the `@skip` path with no `target/job`), a missing `--max-objects` or `--max-bytes`, a count or byte limit exceeded, equal buckets, a credential-named file, a record with another action, a changed file list (digest mismatch), and the stub tripwire.
+- `check.sh` runs `bash -n scripts/*.sh` and `shellcheck -x scripts/*.sh`, which do not reach `scripts/emr/`; the human runs `bash -n` and `shellcheck -x` on `scripts/emr/*.sh` until that gate is widened. `archive-evidence.sh` lists script digests from `scripts/*.sh`, so `upload-inputs.sh` appears there with no change.
 
 ## Idle and cost note
 

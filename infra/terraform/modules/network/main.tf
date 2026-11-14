@@ -284,12 +284,21 @@ resource "aws_vpc_security_group_egress_rule" "to_endpoints" {
   description                  = "HTTPS to interface endpoints"
 }
 
+# The neptune entry (work order 31, finding L1): the Neptune group had no egress
+# rule (Terraform removes the default allow-all), and the bulk loader fetches its
+# files from S3 from inside the cluster. The S3 gateway endpoint is attached to the
+# data route table (see aws_vpc_endpoint.s3), so the route exists; this rule adds
+# the 443 egress to the S3 prefix list only. UNVERIFIED that AWS requires it (the
+# documentation was not read this round); it is a narrow rule, added as the safe
+# side of a guess, and a live load settles it. It exists even when Neptune is off,
+# because the group does.
 resource "aws_vpc_security_group_egress_rule" "to_s3" {
   for_each = {
     services   = aws_security_group.services.id
     loader     = aws_security_group.loader.id
     emr_master = aws_security_group.emr_master.id
     emr_core   = aws_security_group.emr_core.id
+    neptune    = aws_security_group.neptune.id
   }
 
   security_group_id = each.value

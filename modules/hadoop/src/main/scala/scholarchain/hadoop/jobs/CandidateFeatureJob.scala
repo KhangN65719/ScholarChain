@@ -136,8 +136,12 @@ object CandidateFeatureJob:
     ): Unit =
       sink.close()
 
-  def configure(run: RunContext, inputs: Vector[String]): Job =
-    val configuration = new Configuration
+  def configure(
+      run: RunContext,
+      inputs: Vector[String],
+      base: Configuration = new Configuration
+  ): Job =
+    val configuration = new Configuration(base)
     JobConfig.write(configuration, run)
     val job = Job.getInstance(configuration, s"scholarchain-$stage")
     job.setJarByClass(classOf[RegroupMapper])
@@ -152,7 +156,11 @@ class CandidateFeatureTool extends Configured with Tool:
   def run(arguments: Array[String]): Int =
     require(arguments.length >= 2, "Usage: <outputRoot> <blockingMembers>...")
     val context = PipelineOptions.runContext(getConf, arguments(0))
-    val job = CandidateFeatureJob.configure(context, arguments.drop(1).toVector)
+    val job = CandidateFeatureJob.configure(
+      context,
+      arguments.drop(1).toVector,
+      getConf
+    )
     if job.waitForCompletion(true) then 0 else 1
 
 object CandidateFeatureTool:

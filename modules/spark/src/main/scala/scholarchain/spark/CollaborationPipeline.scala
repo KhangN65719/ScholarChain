@@ -206,10 +206,10 @@ object CollaborationPipeline:
     val work = runDir.resolve("_work")
     config.eventLogDir.foreach(dir => Files.createDirectories(dir))
     val session = provided.getOrElse {
-      val builder = SparkSession
-        .builder()
-        .appName("scholarchain-spark-analytics")
-        .master(config.master)
+      val builder = SparkMaster(
+        SparkSession.builder().appName("scholarchain-spark-analytics"),
+        config.explicitMaster
+      )
         .config("spark.ui.enabled", "false")
         .config("spark.driver.host", "127.0.0.1")
         .config("spark.driver.bindAddress", "127.0.0.1")
@@ -914,7 +914,7 @@ object CollaborationPipeline:
           "m" -> metrics
         )
 
-  private def configJson(config: PipelineArgs): ujson.Obj =
+  private[spark] def configJson(config: PipelineArgs): ujson.Obj =
     ujson.Obj(
       "windows" -> ujson.Arr.from(config.windows.map { w =>
         ujson.Obj("label" -> w.label, "start" -> w.start, "end" -> w.end)
@@ -1252,7 +1252,8 @@ object CollaborationPipeline:
       "partitioning" -> ujson.Obj(
         "shufflePartitions" -> config.partitions,
         "adaptiveQueryExecution" -> false,
-        "master" -> config.master
+        "master" -> session.sparkContext.master,
+        "deployMode" -> session.sparkContext.deployMode
       ),
       "checkpointing" -> ujson.Obj(
         "directory" -> runDir.resolve("_checkpoints").toString,

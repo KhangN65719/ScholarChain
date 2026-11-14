@@ -22,12 +22,14 @@ enum Prop:
   case StrList(values: Vector[String])
 
   def typeName: String = this match
-    case Str(_)     => "String"
-    case I32(_)     => "Int"
-    case I64(_)     => "Long"
-    case Dbl(_)     => "Double"
-    case Flag(_)    => "Bool"
-    case StrList(_) => "String[]"
+    case Str(_)  => "String"
+    case I32(_)  => "Int"
+    case I64(_)  => "Long"
+    case Dbl(_)  => "Double"
+    case Flag(_) => "Bool"
+    // The openCypher bulk-load page documents no array type, so a list is
+    // written as one String joined by `;` (see NeptuneExporter.ListColumns).
+    case StrList(_) => "String"
 
   def cell: String = this match
     case Str(v)     => v
@@ -35,7 +37,13 @@ enum Prop:
     case I64(v)     => v.toString
     case Dbl(v)     => v.toString
     case Flag(v)    => v.toString
-    case StrList(v) => v.mkString(";")
+    case StrList(v) =>
+      Fail.unless(
+        !v.exists(_.contains(NeptuneExporter.ListSeparator)),
+        ErrorCode.MalformedRow,
+        s"A list element contains the separator ${NeptuneExporter.ListSeparator}"
+      )
+      v.mkString(NeptuneExporter.ListSeparator)
 
 final case class GraphVertex(
     id: String,
@@ -773,9 +781,32 @@ final case class NeptuneExportReport(
 object NeptuneExporter:
   val Version = "v1"
 
+  /** The load files live under `graph/neptune/v=<version>/run=<run>/` and hold
+    * CSV only. The manifest is a different dataset, so it is never under a
+    * prefix that a prefix load of the CSV files would read.
+    */
+  val DataDataset = "neptune"
+  val ManifestDataset = "neptune-manifest"
+
+  /** A list property is flattened to one `String` column joined by this
+    * separator; only the columns named here may hold a list, and the CSV reader
+    * turns exactly these columns back into lists.
+    */
+  val ListSeparator = ";"
+  val ListColumns: Set[String] = Set("representativeWorkIds")
+
   private def columns(props: Seq[Map[String, Prop]]): Vector[(String, String)] =
     val names = props.flatMap(_.keys).distinct.sorted.toVector
     names.map { name =>
+      val lists = props.flatMap(_.get(name)).exists {
+        case Prop.StrList(_) => true
+        case _               => false
+      }
+      Fail.unless(
+        !lists || ListColumns.contains(name),
+        ErrorCode.MalformedRow,
+        s"Property $name holds a list but is not a flattened list column"
+      )
       val kinds = props.flatMap(_.get(name)).map(_.typeName).distinct
       Fail.unless(
         kinds.size == 1,
@@ -831,7 +862,7 @@ object NeptuneExporter:
       case (name, kind, label, count, content) =>
         val key = ObjectKeys.versioned(
           S3Prefix.Graph,
-          "neptune",
+          DataDataset,
           Version,
           runId,
           name
@@ -859,7 +890,7 @@ object NeptuneExporter:
     )
     val manifestKey = ObjectKeys.versioned(
       S3Prefix.Graph,
-      "neptune",
+      ManifestDataset,
       Version,
       runId,
       "load-manifest.json"
@@ -883,7 +914,13 @@ object NeptuneExporter:
 
 /** Reads the CSV files back into vertices and edges. */
 object NeptuneCsvReader:
-  private def parseProp(kind: String, cell: String): Prop = kind match
+  private def parseProp(name: String, kind: String, cell: String): Prop =
+    kind match
+      case "String" if NeptuneExporter.ListColumns.contains(name) =>
+        Prop.StrList(cell.split(NeptuneExporter.ListSeparator).toVector)
+      case other => parseScalar(kind, cell)
+
+  private def parseScalar(kind: String, cell: String): Prop = kind match
     case "String"   => Prop.Str(cell)
     case "Int"      => Prop.I32(cell.toInt)
     case "Long"     => Prop.I64(cell.toLong)
@@ -904,7 +941,7 @@ object NeptuneCsvReader:
         if cell.isEmpty then None
         else
           val Array(name, kind) = header(i).split(":", 2)
-          Some(name -> parseProp(kind, cell))
+          Some(name -> parseProp(name, kind, cell))
       }
       .toMap
 
@@ -928,14 +965,44 @@ object NeptuneCsvReader:
       )
     }
 
+/** What the Neptune loader reports for one load job (GetLoaderJobStatus
+  * `overallStatus`), and nothing derived.
+  */
+final case class LoaderCounts(
+    totalRecords: Long,
+    totalDuplicates: Long,
+    parsingErrors: Long,
+    datatypeMismatchErrors: Long,
+    insertErrors: Long
+):
+  def errors: Long = parsingErrors + datatypeMismatchErrors + insertErrors
+
+/** One loader job: the S3 source, its load ID, the terminal status text, the
+  * counts the loader reported and the first error entries it listed.
+  */
+final case class LoaderJobReport(
+    source: String,
+    loadId: String,
+    status: String,
+    counts: LoaderCounts,
+    errorSamples: Vector[String]
+)
+
+/** `inserted`, `updated` and `unchanged` are what the in-memory graph can tell
+  * exactly. The AWS loader does not report them, so for it `inserted` is the
+  * records neither duplicated nor in error, `unchanged` the duplicates and
+  * `updated` zero: derived, not reported. `jobs` carries what the loader did
+  * report, per file; it is empty for the in-memory graph.
+  */
 final case class BulkLoadResult(
     inserted: Int,
     updated: Int,
-    unchanged: Int
+    unchanged: Int,
+    jobs: Vector[LoaderJobReport] = Vector.empty
 )
 
 /** Port for the Neptune bulk loader. The loader is non-ACID, so a load must be
-  * idempotent by ID. The AWS-backed adapter is DEFERRED.
+  * idempotent by ID. `AwsNeptuneBulkLoader` is the AWS-backed adapter.
   */
 trait NeptuneBulkLoader:
   def load(manifestKey: String): BulkLoadResult

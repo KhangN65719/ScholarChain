@@ -5,6 +5,7 @@ import scholarchain.storage.{
   ErrorCode,
   Fail,
   HashEmbedder,
+  TitanEmbedder,
   VectorIndexSpec
 }
 
@@ -44,7 +45,42 @@ object EmbeddingModels:
   val HashEmbedV1: EmbeddingModelSpec =
     EmbeddingModelSpec(HashEmbedder.ModelVersion, HashEmbedder.Dimension, 1)
 
+  /** The AWS profile (decision D19): Titan Text Embeddings V2 at 256 dimensions
+    * with normalization is generation 1 of its own registry, so its indexes are
+    * the Terraform `-v1` indexes at 256 dimensions. The version string is
+    * `TitanEmbedder.ModelVersion`, so the registry cannot drift from the
+    * adapter.
+    */
+  val TitanTextV2D256: EmbeddingModelSpec =
+    EmbeddingModelSpec(TitanEmbedder.ModelVersion, TitanEmbedder.Dimension, 1)
+
+  /** The local registry: `hash-embed-v1` only. */
   val registry: Vector[EmbeddingModelSpec] = Vector(HashEmbedV1)
+
+  /** The AWS registry: Titan-256 only, as generation 1. */
+  val awsRegistry: Vector[EmbeddingModelSpec] = Vector(TitanTextV2D256)
+
+  val LocalProfile = "local"
+  val AwsProfileName = "aws"
+
+  /** The registry of one profile. An unknown profile name is refused. */
+  def profile(name: String): Vector[EmbeddingModelSpec] = name match
+    case LocalProfile   => registry
+    case AwsProfileName => awsRegistry
+    case other          =>
+      Fail(
+        ErrorCode.EmbeddingInvalid,
+        s"Unknown embedding profile '$other'; expected $LocalProfile or " +
+          AwsProfileName
+      )
+
+  /** The AWS Titan-256 entry with an explicit index-generation override. The
+    * ingest path names its indexes with the fixed `-v1` suffix, so an override
+    * other than 1 is refused by `requireIndexSpecs` until indexes carrying that
+    * suffix exist.
+    */
+  def awsWithGeneration(generation: Int): EmbeddingModelSpec =
+    TitanTextV2D256.copy(generation = generation)
 
   def validateRegistry(entries: Vector[EmbeddingModelSpec]): Unit =
     Fail.unless(
@@ -59,9 +95,16 @@ object EmbeddingModels:
     )
 
   validateRegistry(registry)
+  validateRegistry(awsRegistry)
 
   def lookup(version: String): Option[EmbeddingModelSpec] =
     registry.find(_.version == version)
+
+  def lookupIn(
+      entries: Vector[EmbeddingModelSpec],
+      version: String
+  ): Option[EmbeddingModelSpec] =
+    entries.find(_.version == version)
 
   /** Fails when the embedder is not the expected model and dimension. */
   def requireMatches(

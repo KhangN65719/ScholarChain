@@ -1,0 +1,29 @@
+{
+  "hadoop_args": [
+    "TODO-from-WO12-hadoop-main-class-or-jar-manifest",
+    "TODO-from-WO12-input-flag",
+    "s3://TODO-DATA-BUCKET/raw/TODO-DATASET-SNAPSHOT/dblp/dblp-subset.xml",
+    "s3://TODO-DATA-BUCKET/raw/TODO-DATASET-SNAPSHOT/openalex/openalex.jsonl",
+    "s3://TODO-DATA-BUCKET/raw/TODO-DATASET-SNAPSHOT/crossref/crossref.jsonl",
+    "s3://TODO-DATA-BUCKET/raw/TODO-DATASET-SNAPSHOT/orcid/orcid.jsonl",
+    "TODO-from-WO12-output-flag",
+    "s3://TODO-DATA-BUCKET/curated/TODO-DATASET-SNAPSHOT/hadoop-out/"
+  ],
+  "spark_args": [
+    "spark-submit",
+    "--deploy-mode",
+    "cluster",
+    "--class",
+    "TODO-from-WO12-spark-main-class",
+    "s3://TODO-ARTIFACTS-BUCKET/TODO-spark-jar-key",
+    "TODO-from-WO12-input-flag",
+    "s3://TODO-DATA-BUCKET/curated/TODO-DATASET-SNAPSHOT/hadoop-out/",
+    "TODO-from-WO12-output-flag",
+    "s3://TODO-DATA-BUCKET/curated/TODO-DATASET-SNAPSHOT/spark-out/"
+  ],
+  "loader_command": [
+    "TODO-from-WO12-loader-entry-point",
+    "TODO-from-WO12-argument",
+    "s3://TODO-DATA-BUCKET/curated/TODO-DATASET-SNAPSHOT/spark-out/"
+  ]
+}

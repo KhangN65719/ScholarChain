@@ -77,6 +77,14 @@ Gate G-L, restated. The gate was "run L only if A plus the L estimate is at most
 
 What the figures leave out. The credits ($20) and the AWS spend limit ($20) apply on a basis the budget alerts do not (the Terraform budget excludes credits, so it counts gross usage). Whether the spend limit counts gross or net usage, and what "pause idle resources" does to a running EMR cluster or Neptune cluster when the limit is reached, are UNVERIFIED and not read from AWS documentation in this work order. An idle endpoint day is $1.92 to $3.24, so a forgotten session consumes about 10 to 16 percent of the $20 ceiling per day (LOW to HIGH rates).
 
+## Loader and Bedrock endpoint (Phase 14, work order 31)
+
+Added without recomputing any total in sections 0 to 8. The S overlay now sets `enable_bedrock = true`, which adds the `bedrock-runtime` interface endpoint (a ninth) so the loader can call Titan Text Embeddings V2 in-Region. Rate: U6, 0.010 to 0.015 USD per endpoint per AZ-hour, UNVERIFIED for us-east-2, one AZ. Delta: **+0.010 to +0.015 USD per session hour** on the S overlay. Endpoint hours in this document's totals were counted for 8 endpoints (section 2.3); a session on the S overlay now bills 9, so each S session hour is 0.010 to 0.015 USD above the figure used, and the idle endpoint day without a session-down is 2.16 to 3.24 USD (9 endpoints) instead of 1.92 to 2.88 (8). The M and L overlays do not set `enable_bedrock`, so their figures are unchanged until they do; a loader run under them cannot embed without it.
+
+Hourly burn of an S session on the S overlay, same unverified rates (README, "Loader (work order 31)", has the table and arithmetic): with Neptune and Bedrock 0.37 to 0.585 USD an hour while the single EMR node is up and 0.18 to 0.27 while only the loader runs; with Neptune off 0.31 to 0.485 and 0.12 to 0.17. Neptune is 0.06 to 0.10 of that (U3). The loader's Fargate task is about 0.03 an hour (memory of the rate, unverified), and EMR is terminated before the loader starts. These do not change the HIGH bound of section 3 by more than the endpoint delta times the S session hours (1 to 2 hours LOW to HIGH for 14.1 in section 1.2): at most +0.03 USD, inside the noise of the unverified rates. Titan token cost is volume-based (section 4) and unchanged.
+
+Neptune-off S session: saves 0.06 to 0.10 USD an hour of Neptune plus its creation wait, but gives up the Neptune bulk load that decision D17 requires. Treat it as a rehearsal or fallback.
+
 ## 0. Read this first
 
 1. Most rates here are UNVERIFIED. The pricing pages gave worked examples only. The biggest lines (EC2 and EMR hours, Neptune, DynamoDB writes), Bedrock tokens and the interface-endpoint rate rest on agent memory. "LOW" below is the remembered-rate case, not a verified floor. "HIGH" stacks every upper bound at once, which is unlikely but is the check the work order asks for.

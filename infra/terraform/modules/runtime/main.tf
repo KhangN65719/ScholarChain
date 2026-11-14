@@ -34,6 +34,11 @@ locals {
   secrets = [for name, arn in local.secret_env : { name = name, valueFrom = arn }]
 
   environment = [for name, value in var.container_environment : { name = name, value = value }]
+
+  # The loader reads exactly the names the environment passes in
+  # loader_environment (scholarchain.rag.AwsIngestMain, Phase 14 work order 30).
+  # It does not share the services' proposed names.
+  loader_environment = [for name, value in var.loader_environment : { name = name, value = value }]
 }
 
 resource "aws_ecr_repository" "this" {
@@ -192,7 +197,7 @@ resource "aws_ecs_task_definition" "loader" {
       name        = "loader"
       image       = "${aws_ecr_repository.this["loader"].repository_url}:${var.image_tag}"
       essential   = true
-      environment = local.environment
+      environment = local.loader_environment
       logConfiguration = {
         logDriver = "awslogs"
         options = {

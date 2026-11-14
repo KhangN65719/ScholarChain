@@ -651,11 +651,3 @@ class VectorQuerySuite extends munit.FunSuite:
         SummaryFacets.empty
     )
   }
-
-  test("a deferred AWS bucket refuses to query") {
-    val deferred = new DeferredAwsVectorBucket(AwsProfile("p"))
-    assertEquals(
-      code(deferred.query(VectorQuery(index, query, 1))),
-      ErrorCode.DeferredAdapter
-    )
-  }

@@ -11,6 +11,13 @@ terraform {
 # Serverless is not carried: it runs Spark and Hive only, and the Hadoop stage is
 # MapReduce (modules/hadoop), which needs EMR on EC2.
 #
+# Design B (Phase 14 decision D21): release emr-7.10.0 with the Hadoop application
+# only. EMR's own Spark (3.5.5 on Scala 2.12) is NOT installed, so /usr/bin/spark-submit,
+# /etc/spark/conf and SPARK_HOME do not exist on the node. Our jobs target Spark 4.0.5
+# on Scala 2.13: the on-node scripts (scripts/emr/) stage the Apache Spark 4.0.5
+# distribution from the artifacts bucket and run spark-submit --master yarn from it
+# against the cluster's YARN. Hadoop (MapReduce on YARN) comes from the Hadoop application.
+#
 # This module owns what is free to keep: the security configuration, and the
 # bounded cluster definition handed to the state machine.
 locals {
@@ -63,6 +70,21 @@ locals {
     }
   }
 
+  # Optional bootstrap action: installs Corretto (17 or 21) and records JAVA_HOME
+  # when the capability check finds no usable JDK. Off by default. The script is
+  # scripts/emr/install-java-bootstrap.sh, uploaded by scripts/upload-inputs.sh to
+  # the artifacts bucket key bootstrap/install-java-bootstrap.sh (read by the
+  # emr_ec2 role, which already reads bootstrap/*). A bootstrap action that fails
+  # fails the cluster launch, so it is not enabled until the capability check says
+  # it is needed.
+  bootstrap_actions = [{
+    Name = "install-java"
+    ScriptBootstrapAction = {
+      Path = var.bootstrap_script_uri
+      Args = [tostring(var.bootstrap_java_major)]
+    }
+  }]
+
   # RunJobFlow shape, as Step Functions elasticmapreduce:createCluster.sync expects.
   cluster_base = {
     Name                  = "${var.name_prefix}-pipeline"
@@ -72,7 +94,7 @@ locals {
     LogUri                = var.log_uri
     VisibleToAllUsers     = false
     SecurityConfiguration = aws_emr_security_configuration.this.name
-    Applications          = [{ Name = "Hadoop" }, { Name = "Spark" }]
+    Applications          = [{ Name = "Hadoop" }]
     AutoTerminationPolicy = { IdleTimeout = var.idle_timeout_seconds }
     Instances = {
       Ec2SubnetId                   = var.subnet_id
@@ -88,6 +110,7 @@ locals {
   cluster_definition = merge(
     local.cluster_base,
     { for k, v in { ManagedScalingPolicy = local.managed_scaling } : k => v if local.has_core },
+    { for k, v in { BootstrapActions = local.bootstrap_actions } : k => v if var.install_java_bootstrap },
   )
 }
 

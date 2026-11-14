@@ -65,25 +65,21 @@ class AwsIntegrationGateSuite extends munit.FunSuite:
     assert(AwsIntegrationGate.enabled(Map("SCHOLARCHAIN_AWS_IT" -> "1")))
   }
 
-/** The seam stays closed: every AWS-backed call fails with DeferredAdapter. */
+/** What stays deferred keeps failing closed: the Neptune query port has no
+  * adapter yet. The S3, S3 Vectors, Titan, bulk-loader and DynamoDB adapters
+  * are implemented and have their own suites.
+  */
 class DeferredAdapterSuite extends munit.FunSuite:
   private val profile = AwsProfile("aws-integration")
 
   private def code(thunk: => Any): ErrorCode =
     intercept[StorageException](thunk).code
 
-  test("AWS-backed adapters are DEFERRED and refuse every call") {
+  test("the Neptune query adapter is DEFERRED and refuses every call") {
     assertEquals(AwsAdapters.Status, "DEFERRED")
+    val query = CypherCatalog.coauthorsOf("r", "all", 1)
     assertEquals(
-      code(new DeferredAwsObjectStore(profile).get("a")),
-      ErrorCode.DeferredAdapter
-    )
-    assertEquals(
-      code(new DeferredAwsVectorBucket(profile).count("a")),
-      ErrorCode.DeferredAdapter
-    )
-    assertEquals(
-      code(new DeferredAwsNeptune(profile).load("a")),
+      code(new DeferredAwsNeptuneQuery(profile).run(query)),
       ErrorCode.DeferredAdapter
     )
   }

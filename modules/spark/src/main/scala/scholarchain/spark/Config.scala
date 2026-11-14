@@ -64,8 +64,40 @@ final case class PipelineArgs(
     driverRowCap: Int,
     paperSummaryLimit: Int,
     eventLogDir: Option[Path],
-    overwrite: Boolean
+    overwrite: Boolean,
+    explicitMaster: Option[String] = None
 )
+
+/** Which Spark master a job asks its session for. `spark-submit` sets
+  * `spark.master` as a system property before `main` runs; a builder `.master`
+  * call would override it, so a master is set only when the caller named one or
+  * when nothing else supplies one.
+  */
+object SparkMaster:
+  val localDefault = "local[2]"
+  val property = "spark.master"
+
+  /** The master to set on the builder, or None to leave the one that
+    * `spark-submit` or `spark.master` already provides.
+    */
+  def resolve(
+      explicit: Option[String],
+      submitted: Option[String]
+  ): Option[String] =
+    explicit
+      .filter(_.nonEmpty)
+      .orElse(
+        if submitted.exists(_.nonEmpty) then None else Some(localDefault)
+      )
+
+  def forBuilder(explicit: Option[String]): Option[String] =
+    resolve(explicit, Option(System.getProperty(property)))
+
+  def apply(
+      builder: org.apache.spark.sql.SparkSession.Builder,
+      explicit: Option[String]
+  ): org.apache.spark.sql.SparkSession.Builder =
+    forBuilder(explicit).fold(builder)(builder.master)
 
 object PipelineArgs:
   val usage: String =
@@ -159,7 +191,7 @@ object PipelineArgs:
       reps <- number(found, "--representative-works", 5, 1, 1000)
       cap <- number(found, "--driver-row-cap", 5000, 1, 10000000)
       papers <- number(found, "--paper-summaries", 20, 0, 100000)
-      master = found.getOrElse("--master", "local[2]")
+      master = found.getOrElse("--master", SparkMaster.localDefault)
       _ <- Either.cond(master.nonEmpty, (), "--master must not be empty")
     yield PipelineArgs(
       Paths.get(erRun),
@@ -179,7 +211,8 @@ object PipelineArgs:
       cap.toInt,
       papers.toInt,
       found.get("--event-log-dir").map(Paths.get(_)),
-      found.contains("--overwrite")
+      found.contains("--overwrite"),
+      found.get("--master")
     )
 
 /** Output may never land in the repository or in a build directory. */

@@ -161,7 +161,7 @@ object Export:
       val writer = ordered.write.mode("errorifexists")
       val configured =
         if partitioned then writer.partitionBy("window") else writer
-      configured.parquet(target.toUri.toString)
+      configured.parquet(Inputs.fileUri(target))
       cached.unpersist()
       renameParts(target)
       TableInfo(

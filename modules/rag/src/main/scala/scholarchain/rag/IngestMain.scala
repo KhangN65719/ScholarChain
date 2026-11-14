@@ -7,11 +7,13 @@ import scala.jdk.CollectionConverters.*
 import scala.util.control.NonFatal
 import scholarchain.storage.*
 
-/** The local composition point of Phase 8: a Spark JSON-lines export through
-  * the rag templates and `hash-embed-v1` into the local fakes. LOCAL ONLY: the
-  * vector bucket and the RunLedger table are in memory, ordinary S3 is a
-  * directory under the output directory, and no AWS client code exists. The S3
-  * Vectors adapter, SQS and the bounded AWS ingestion are DEFERRED to Phase 12.
+/** The composition point of the ingest: a Spark JSON-lines export through the
+  * rag templates and an embedder into a vector bucket, an object store and a
+  * RunLedger table, all named by a `Backend`. The default backend (`main`) is
+  * LOCAL ONLY: `hash-embed-v1`, vectors and ledger in memory, ordinary S3 as a
+  * directory under the output directory, no AWS client. `AwsIngestMain` passes
+  * the AWS backend (Titan-256, S3 Vectors, S3, DynamoDB) through the same
+  * `execute`.
   *
   * Arguments: `<exportDir> <outDir> [maxSummaryRows]`.
   *
@@ -40,6 +42,56 @@ object IngestMain:
   final case class Args(exportDir: Path, outDir: Path, bound: Option[Int])
 
   final case class Outcome(success: Boolean, reason: String)
+
+  /** The ports one run composes. The local run and the AWS run
+    * (`AwsIngestMain`) share every line of `execute`; only the backend differs.
+    *
+    *   - `model` is the registry entry the embedder and the index specs are
+    *     checked against before any work (`EmbeddingModels`).
+    *   - `graph` is the Neptune step, which `execute` does not run: the caller
+    *     runs it after a successful ingest (`GraphStep`).
+    *   - `aws` switches the labels and numbers that are local-only: an AWS run
+    *     never prints or writes `LocalCost`, `LocalTimings.Label` or a `LOCAL`
+    *     tag, counts the vectors in an index as at least the planned ones (the
+    *     index may hold earlier runs) and skips the whole-store listing.
+    *   - `embedCalls` reports the embedder calls made so far, when known.
+    *   - `executionLabel` names the ledger execution (`embed:<run>:<label>`).
+    *     The local default is `1`. A finished execution cannot be started again
+    *     with a different start time (the ledger's run item is written once),
+    *     so the AWS loader gives each execution its own label and relies on the
+    *     unchanged-text skip for a rerun.
+    */
+  final case class Backend(
+      embedder: Embedder,
+      model: EmbeddingModelSpec,
+      store: ObjectStore,
+      bucket: VectorBucketPort,
+      ledger: DynamoTable,
+      graph: Option[GraphLoad] = None,
+      aws: Boolean = false,
+      label: String = LocalTimings.Label,
+      sleeper: Sleeper = NoSleep,
+      embedCalls: () => Option[Long] = () => None,
+      executionLabel: String = "1"
+  ):
+    def tag: String = if aws then "AWS" else "LOCAL"
+
+  val AwsLabel = "AWS: Bedrock Titan, S3 Vectors, S3 and DynamoDB"
+  val AwsCost =
+    "cost: not estimated here; AWS Billing is the source of cost"
+
+  /** The local backend: `hash-embed-v1`, a directory under the output directory
+    * for ordinary S3, and in-memory vectors and ledger.
+    */
+  def localBackend(args: Args): Backend =
+    val embedder = new HashEmbedder
+    Backend(
+      embedder,
+      EmbeddingModels.HashEmbedV1,
+      new LocalFsObjectStore(args.outDir.resolve(ObjectsDir)),
+      new InMemoryVectorBucket,
+      new InMemoryDynamoTable(RunLedger.spec(TableNames("local")))
+    )
 
   /** The `summary-rows` of the export, optionally limited to the first `bound`
     * in export order (summary ID order), read once and kept.
@@ -153,18 +205,29 @@ object IngestMain:
       )
     })
 
-  private def objectGroups(store: ObjectStore): Vector[(String, Int, Long)] =
-    val all = store.list("")
+  private def objectGroups(
+      store: ObjectStore,
+      listAll: Boolean
+  ): Vector[(String, Int, Long)] =
     val groups = Vector(
       "documents" -> SemanticDocuments.prefix,
       "embedding-work" -> s"${S3Prefix.SemanticContext.dir}/embedding-work/",
       "vector-rejects" -> s"${S3Prefix.Logs.dir}/vector-rejects/"
     )
-    val listed = groups.map { case (name, prefix) =>
-      val inGroup = all.filter(_.key.startsWith(prefix))
-      (name, inGroup.size, inGroup.map(_.bytes).sum)
-    }
-    listed :+ (("all-objects", all.size, all.map(_.bytes).sum))
+    if listAll then
+      val all = store.list("")
+      val listed = groups.map { case (name, prefix) =>
+        val inGroup = all.filter(_.key.startsWith(prefix))
+        (name, inGroup.size, inGroup.map(_.bytes).sum)
+      }
+      listed :+ (("all-objects", all.size, all.map(_.bytes).sum))
+    else
+      // A real bucket holds other runs' objects and a listing costs one HEAD
+      // per object, so only the three prefixes this run owns are listed.
+      groups.map { case (name, prefix) =>
+        val inGroup = store.list(prefix)
+        (name, inGroup.size, inGroup.map(_.bytes).sum)
+      }
 
   private def words(text: String, count: Int): String =
     text.split("\\s+").filter(_.nonEmpty).take(count).mkString(" ")
@@ -208,6 +271,29 @@ object IngestMain:
       "nearest" -> s.nearest
     )
 
+  private def metaStrings(h: RetrievedHit, key: String): ujson.Value =
+    h.hit.metadata.get(key) match
+      case Some(MetaValue.Strs(values)) =>
+        ujson.Arr.from(values.map(ujson.Str(_)))
+      case _ => ujson.Arr()
+
+  /** The evidence a hit points at, as the vector metadata names it: the subject
+    * and the work and node IDs behind the summary.
+    */
+  private def hitsEvidenceJson(hits: Vector[RetrievedHit]): ujson.Value =
+    ujson.Arr.from(hits.map { h =>
+      ujson.Obj(
+        "key" -> h.hit.key,
+        "distance" -> h.hit.distance,
+        "subjectId" -> (h.hit.metadata.get("subjectId") match
+          case Some(MetaValue.Str(v)) => ujson.Str(v)
+          case _                      => ujson.Null),
+        "evidenceWorkIds" -> metaStrings(h, "evidenceWorkIds"),
+        "evidenceNodeIds" -> metaStrings(h, "evidenceNodeIds"),
+        "textRef" -> h.text.key
+      )
+    })
+
   /** Two sample queries per summary type, built from the first row of that type
     * in export order. Each query is the FULL rendered text of that row (the
     * text that was embedded), so the check is an identity check: the source row
@@ -233,7 +319,9 @@ object IngestMain:
   private def sampleQueries(
       rows: Vector[Row],
       specs: Vector[VectorIndexSpec],
-      retrieval: SemanticRetrieval
+      retrieval: SemanticRetrieval,
+      tag: String,
+      evidence: Boolean
   ): (Vector[String], Boolean, ujson.Value) =
     val lines = Vector.newBuilder[String]
     val json = Vector.newBuilder[ujson.Value]
@@ -282,7 +370,9 @@ object IngestMain:
                 case Right(hits) =>
                   val st = standing(hits, summaryId)
                   entry("narrow") = standingJson(st)
-                  lines += s"SAMPLE $index: LOCAL latency $millis ms, " +
+                  if evidence then
+                    entry("narrowHits") = hitsEvidenceJson(hits.take(3))
+                  lines += s"SAMPLE $index: $tag latency $millis ms, " +
                     s"${hits.size} hits, nearest is the source row: " +
                     s"${st.nearest}, top-score tie size ${st.tieSize}, " +
                     s"source row rank ${st.sourceRank}"
@@ -331,7 +421,9 @@ object IngestMain:
                       s"${st.sourceRank} of ${found.size}"
                     else "absent"
                   val others = found.size > 1 || sameKind <= 1
-                  lines += s"WIDE-SAMPLE $index: LOCAL latency $wideMillis ms, " +
+                  if evidence then
+                    entry("wideHits") = hitsEvidenceJson(found.take(WideTopK))
+                  lines += s"WIDE-SAMPLE $index: $tag latency $wideMillis ms, " +
                     s"${found.size} hits among $sameKind rows of this type, " +
                     s"source row rank: $rankText, other candidates: $others, " +
                     s"top-score tie size ${st.tieSize}, source row in the " +
@@ -358,7 +450,8 @@ object IngestMain:
   def execute(
       args: Args,
       out: String => Unit,
-      sampleBucket: VectorBucketPort => VectorBucketPort = identity
+      sampleBucket: VectorBucketPort => VectorBucketPort = identity,
+      backendFor: Args => Backend = localBackend
   ): Outcome =
     // `sampleBucket` is a test seam: it wraps only the bucket the sample
     // queries read, so a test can present a corrupted index to them.
@@ -372,29 +465,50 @@ object IngestMain:
       )
       Files.createDirectories(args.outDir)
       val tables = new BoundedSource(source, args.bound)
-      val embedder = new HashEmbedder
-      EmbeddingModels.requireMatches(embedder, EmbeddingModels.HashEmbedV1)
+      val backend = backendFor(args)
+      val embedder = backend.embedder
+      val store = backend.store
+      EmbeddingModels.requireMatches(embedder, backend.model)
       val specs =
         VectorIndexes.all(embedder.dimension, "cosine")
-      EmbeddingModels.requireIndexSpecs(EmbeddingModels.HashEmbedV1, specs)
-      val store = new LocalFsObjectStore(args.outDir.resolve(ObjectsDir))
-      val bucket = new InMemoryVectorBucket
-      val ledger = new InMemoryDynamoTable(RunLedger.spec(TableNames("local")))
+      EmbeddingModels.requireIndexSpecs(backend.model, specs)
       val ingest =
-        new EmbeddingIngest(embedder, RagTemplates, bucket, store, ledger)
+        new EmbeddingIngest(
+          embedder,
+          RagTemplates,
+          backend.bucket,
+          store,
+          backend.ledger,
+          backend.sleeper
+        )
       val report = ingest.run(
         tables,
         source.sourceRun,
-        IngestConfig(startedAt = Instant.now().toString)
+        IngestConfig(
+          startedAt = Instant.now().toString,
+          executionLabel = backend.executionLabel
+        )
       )
       val retrieval =
-        new SemanticRetrieval(embedder, sampleBucket(bucket), store)
+        new SemanticRetrieval(
+          embedder,
+          sampleBucket(backend.bucket),
+          store,
+          backend.model
+        )
       val (queryLines, queriesOk, sampleJson) =
-        sampleQueries(tables.selected, specs, retrieval)
-      val groups = objectGroups(store)
+        sampleQueries(
+          tables.selected,
+          specs,
+          retrieval,
+          backend.tag,
+          backend.aws
+        )
+      val groups = objectGroups(store, listAll = !backend.aws)
       val accounted = report.perIndex.forall { i =>
         i.written + i.skippedUnchanged + i.skippedResumed == i.planned &&
-        i.vectorsInIndex == i.planned
+        (if backend.aws then i.vectorsInIndex >= i.planned
+         else i.vectorsInIndex == i.planned)
       }
       val clean = report.failedBatches.isEmpty && report.rejected.isEmpty &&
         report.unmapped.isEmpty && accounted
@@ -402,7 +516,7 @@ object IngestMain:
       val runId = source.sourceRun.runId
       val stable = ujson.Obj(
         "reportVersion" -> ReportVersion,
-        "label" -> LocalTimings.Label,
+        "label" -> backend.label,
         "sourceRunId" -> runId,
         "sparkTransformVersion" -> source.sourceRun.transformVersion,
         "exportVersion" -> source.exportVersion,
@@ -437,7 +551,8 @@ object IngestMain:
             .Obj("count" -> count, "bytes" -> ujson.Num(bytes.toDouble))
         }),
         "samples" -> sampleJson,
-        "localCost" -> LocalCost,
+        (if backend.aws then "cost" else "localCost") ->
+          (if backend.aws then AwsCost else LocalCost),
         "result" -> (if success then "SUCCESS" else "FAILED")
       )
       atomicWrite(
@@ -445,7 +560,7 @@ object IngestMain:
         ujson.write(stable, indent = 2) + "\n"
       )
       val run = ujson.Obj(
-        "label" -> LocalTimings.Label,
+        "label" -> backend.label,
         "totalMillis" -> ujson.Num(report.timings.totalMillis.toDouble),
         "vectorsPerSecond" -> report.timings.vectorsPerSecond(report.written),
         "documentsCreated" -> report.documentsCreated,
@@ -459,6 +574,12 @@ object IngestMain:
           )
         })
       )
+      if backend.aws then
+        run("embeddingModel") = embedder.modelVersion
+        run("dimension") = embedder.dimension
+        run("embeddingCalls") = backend
+          .embedCalls()
+          .fold[ujson.Value](ujson.Null)(n => ujson.Num(n.toDouble))
       atomicWrite(
         args.outDir.resolve(RunName),
         ujson.write(run, indent = 2) + "\n"
@@ -473,7 +594,7 @@ object IngestMain:
       )
       out(
         s"embedding model ${embedder.modelVersion}, dimension " +
-          s"${embedder.dimension}; ${LocalTimings.Label}"
+          s"${embedder.dimension}; ${backend.label}"
       )
       report.perIndex.foreach { i =>
         out(
@@ -486,7 +607,7 @@ object IngestMain:
       groups.foreach { case (name, count, bytes) =>
         out(s"objects $name: count=$count bytes=$bytes")
       }
-      out(LocalCost)
+      out(if backend.aws then AwsCost else LocalCost)
       out(
         s"rejected=${report.rejected.size} unmapped=${report.unmapped.size} " +
           s"failedBatches=${report.failedBatches.size} " +
@@ -503,8 +624,12 @@ object IngestMain:
         report.timings.vectorsPerSecond(report.written)
       )
       out(
-        s"LOCAL timing: total ${report.timings.totalMillis} ms, $rate " +
-          "vectors per second (in-process fakes, not AWS)"
+        if backend.aws then
+          s"AWS timing: total ${report.timings.totalMillis} ms, $rate " +
+            "vectors per second"
+        else
+          s"LOCAL timing: total ${report.timings.totalMillis} ms, $rate " +
+            "vectors per second (in-process fakes, not AWS)"
       )
       out(s"report: ${args.outDir.resolve(ReportName)}")
       out(

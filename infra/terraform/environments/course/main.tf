@@ -32,8 +32,30 @@ locals {
 
   endpoint_services = concat(var.interface_endpoint_services, var.enable_bedrock ? ["bedrock-runtime"] : [])
 
-  # PROPOSED names. The current application code reads none of these. The
-  # service and storage owners adopt or rename them when the AWS adapters land.
+  # Loader environment (Phase 14 work order 31). These are the names
+  # scholarchain.rag.AwsIngestMain reads, from work order 30; AwsIngestMain was not
+  # present in the tree when this was written, so the names are UNVERIFIED against
+  # code. The Neptune pair exists only when Neptune does: with it off the loader is
+  # expected to skip the graph step (UNVERIFIED: whether it needs the names absent
+  # or empty; absent is chosen). The Neptune port is not passed: the loader
+  # defaults to 8182 and the cluster listens on var.neptune_port's default 8182.
+  # tomap() on both branches because an object and an empty object do not unify.
+  loader_environment = merge(
+    tomap({
+      AWS_REGION                 = var.region
+      SCHOLARCHAIN_DATA_BUCKET   = module.data_lake.data_bucket
+      SCHOLARCHAIN_VECTOR_BUCKET = module.s3vectors.bucket_name
+      SCHOLARCHAIN_TABLE_PREFIX  = local.name_prefix
+    }),
+    var.enable_neptune ? tomap({
+      SCHOLARCHAIN_NEPTUNE_HOST          = module.neptune[0].endpoint
+      SCHOLARCHAIN_NEPTUNE_LOAD_ROLE_ARN = module.neptune[0].bulk_load_role_arn
+    }) : tomap({}),
+  )
+
+  # PROPOSED names, for the fast and slow services only. No loader reads these.
+  # Whether the current services code reads any of them is UNVERIFIED (it could
+  # not be searched in work order 31), so the services map is unchanged.
   container_environment = {
     AWS_REGION                 = var.region
     SCHOLARCHAIN_TABLE_PREFIX  = local.name_prefix
@@ -149,6 +171,9 @@ module "emr" {
   task_spot_instance_count  = var.emr_task_spot_instance_count
   managed_scaling_max_units = var.emr_managed_scaling_max_units
   idle_timeout_seconds      = var.emr_idle_timeout_seconds
+  install_java_bootstrap    = var.emr_install_java_bootstrap
+  bootstrap_script_uri      = "s3://${module.data_lake.artifacts_bucket}/bootstrap/install-java-bootstrap.sh"
+  bootstrap_java_major      = var.emr_bootstrap_java_major
 }
 
 module "runtime" {
@@ -172,6 +197,7 @@ module "runtime" {
   use_fargate_spot           = var.use_fargate_spot
   cpu_architecture           = var.cpu_architecture
   container_environment      = local.container_environment
+  loader_environment         = local.loader_environment
 }
 
 module "workflow" {
@@ -182,6 +208,7 @@ module "workflow" {
   sfn_role_arn                   = module.identity.role_arns["sfn"]
   cluster_definition             = module.emr.cluster_definition
   artifacts_bucket               = module.data_lake.artifacts_bucket
+  data_bucket                    = module.data_lake.data_bucket
   ecs_cluster_arn                = module.runtime.cluster_arn
   loader_task_definition_arn     = module.runtime.loader_task_definition_arn
   app_subnet_ids                 = module.network.app_subnet_ids

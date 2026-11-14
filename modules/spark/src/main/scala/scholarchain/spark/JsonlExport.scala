@@ -82,6 +82,97 @@ object ExportTables:
       Vector("researcherId", "window"),
       Vector("researcherId", "window", "communityId", provenance)
     )
+  ) ++ graphTables
+
+  /** The nine-table input of the storage `SparkGraphProjector`, less
+    * `nodes-work` (exported above). Each `required` list is the set of columns
+    * the projector reads, so a renamed column fails the export instead of
+    * dropping a property from the graph. The id columns give a total order; the
+    * export also sorts on the whole row, so a repeated key stays stable.
+    */
+  private def graphTables: Vector[ExportTable] = Vector(
+    ExportTable(
+      "nodes-researcher",
+      Vector("nodeId"),
+      Vector(
+        "nodeId",
+        "nodeKind",
+        "displayName",
+        "orcid",
+        "linkStatus",
+        "idRule",
+        "memberCount",
+        "mentionCount",
+        provenance
+      )
+    ),
+    ExportTable(
+      "nodes-venue",
+      Vector("venueId"),
+      Vector("venueId", "name", provenance)
+    ),
+    ExportTable(
+      "nodes-topic",
+      Vector("topicId"),
+      Vector("topicId", "name", "parentTopicId", provenance)
+    ),
+    ExportTable(
+      "nodes-institution",
+      Vector("institutionId"),
+      Vector("institutionId", "name", "countryCode", provenance)
+    ),
+    ExportTable(
+      "edges-authored",
+      Vector("researcherNodeId", "canonicalWorkId", "mentionId"),
+      Vector(
+        "researcherNodeId",
+        "canonicalWorkId",
+        "mentionId",
+        "authorPosition",
+        "year",
+        "countedInMetrics",
+        "nodeKind",
+        provenance
+      )
+    ),
+    ExportTable(
+      "edges-published-in",
+      Vector("fromId", "toId"),
+      Vector("fromId", "toId", provenance)
+    ),
+    ExportTable(
+      "edges-coauthored",
+      Vector("edgeId"),
+      Vector(
+        "edgeId",
+        "researcherA",
+        "researcherB",
+        "window",
+        "windowStart",
+        "windowEnd",
+        "policyVersion",
+        "jointPublicationCount",
+        "firstCollaborationYear",
+        "lastCollaborationYear",
+        "representativeWorkIds",
+        "endpointAUnresolved",
+        "endpointBUnresolved",
+        provenance
+      )
+    ),
+    ExportTable(
+      "edge-support",
+      Vector("edgeId", "canonicalWorkId"),
+      Vector(
+        "edgeId",
+        "researcherA",
+        "researcherB",
+        "canonicalWorkId",
+        "window",
+        "year",
+        provenance
+      )
+    )
   )
 
   val edgesTable = "edges-coauthored"
@@ -343,10 +434,10 @@ object JsonlExport:
       case _ => refuse(s"$what has no usable '$name'")
 
   private def newSession(work: Path): SparkSession =
-    SparkSession
-      .builder()
-      .appName("scholarchain-spark-jsonl-export")
-      .master("local[2]")
+    SparkMaster(
+      SparkSession.builder().appName("scholarchain-spark-jsonl-export"),
+      None
+    )
       .config("spark.ui.enabled", "false")
       .config("spark.driver.host", "127.0.0.1")
       .config("spark.driver.bindAddress", "127.0.0.1")
@@ -422,7 +513,7 @@ object JsonlExport:
     val source = runDir.resolve("tables").resolve(table.name)
     if !Files.isDirectory(source) then
       refuse(s"Missing table ${table.name}: $source")
-    val frame = session.read.parquet(source.toUri.toString)
+    val frame = session.read.parquet(Inputs.fileUri(source))
     val schema = frame.schema
     val missing = table.required.filterNot(schema.fieldNames.contains)
     if missing.nonEmpty then
@@ -455,7 +546,7 @@ object JsonlExport:
     )
     val target = staging.resolve(table.name)
     Stages.run(session, s"jsonl-write:${table.name}") {
-      placed.map(_._2).saveAsTextFile(target.toUri.toString)
+      placed.map(_._2).saveAsTextFile(Inputs.fileUri(target))
     }
     val entries =
       finishParts(table, target, staging, rows, files.toInt, rowsPerFile)
@@ -488,7 +579,7 @@ object JsonlExport:
     if !Files.isDirectory(source) then
       refuse(s"Missing table ${ExportTables.edgesTable}: $source")
     val (from, to) = endpointColumns(runDir)
-    val frame = session.read.parquet(source.toUri.toString)
+    val frame = session.read.parquet(Inputs.fileUri(source))
     val idColumn = ExportTables.edgeIdColumn
     Vector(idColumn, from, to).foreach { name =>
       val field = frame.schema.fields.find(_.name == name)

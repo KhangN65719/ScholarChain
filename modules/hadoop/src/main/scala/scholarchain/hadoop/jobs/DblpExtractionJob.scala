@@ -176,8 +176,12 @@ object DblpExtractionJob:
     ): Unit =
       sink.close()
 
-  def configure(run: RunContext, inputs: Vector[String]): Job =
-    val configuration = new Configuration
+  def configure(
+      run: RunContext,
+      inputs: Vector[String],
+      base: Configuration = new Configuration
+  ): Job =
+    val configuration = new Configuration(base)
     JobConfig.write(configuration, run)
     val job = Job.getInstance(configuration, s"scholarchain-$stage")
     job.setJarByClass(classOf[ExtractMapper])
@@ -194,7 +198,7 @@ class DblpExtractionTool extends Configured with Tool:
     require(arguments.length >= 2, "Usage: <outputRoot> <input>...")
     val run = PipelineOptions.runContext(getConf, arguments(0))
     val job =
-      DblpExtractionJob.configure(run, arguments.drop(1).toVector)
+      DblpExtractionJob.configure(run, arguments.drop(1).toVector, getConf)
     if job.waitForCompletion(true) then 0 else 1
 
 object DblpExtractionTool:

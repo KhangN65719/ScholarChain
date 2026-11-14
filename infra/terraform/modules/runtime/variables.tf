@@ -137,7 +137,13 @@ variable "slow_port" {
 }
 
 variable "container_environment" {
-  description = "Nonsecret environment variables. The names are a PROPOSED contract with the application owners."
+  description = "Nonsecret environment variables of the fast and slow services. The names are a PROPOSED contract with the service owners: no service code read them when this was written (UNVERIFIED for the current services code). The loader does not use this map."
+  type        = map(string)
+  default     = {}
+}
+
+variable "loader_environment" {
+  description = "Nonsecret environment variables of the loader task. Exactly the names scholarchain.rag.AwsIngestMain reads: AWS_REGION, SCHOLARCHAIN_DATA_BUCKET, SCHOLARCHAIN_VECTOR_BUCKET, SCHOLARCHAIN_TABLE_PREFIX, and (only with Neptune) SCHOLARCHAIN_NEPTUNE_HOST and SCHOLARCHAIN_NEPTUNE_LOAD_ROLE_ARN. No credential belongs here: the task role supplies credentials."
   type        = map(string)
   default     = {}
 }

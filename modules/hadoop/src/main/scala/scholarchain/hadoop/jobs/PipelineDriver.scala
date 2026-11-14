@@ -156,7 +156,11 @@ object PipelineDriver:
         )
     }
 
-  def run(run: RunContext, inputs: Inputs): Int =
+  def run(
+      run: RunContext,
+      inputs: Inputs,
+      base: Configuration = new Configuration
+  ): Int =
     val datasets = inputs.external.keys.toVector.sorted
     requireKnownDatasets(datasets)
     var dblpWritten = Set.empty[Artifact]
@@ -178,7 +182,7 @@ object PipelineDriver:
 
     val stages: Vector[(String, () => Boolean)] = Vector(
       Stage.dblpExtraction -> (() =>
-        val job = DblpExtractionJob.configure(run, inputs.dblp)
+        val job = DblpExtractionJob.configure(run, inputs.dblp, base)
         job.waitForCompletion(true) && {
           dblpWritten = written(job, DblpExtractionJob.ownedStreams)
           requireExpected(
@@ -192,7 +196,7 @@ object PipelineDriver:
       val name = s"${Stage.sourceNormalization}/$dataset"
       name -> (() =>
         val job = SourceNormalizationJob
-          .configure(run, dataset, inputs.external(dataset))
+          .configure(run, dataset, inputs.external(dataset), base)
         job.waitForCompletion(true) && {
           val actual = written(job, SourceNormalizationJob.streams)
           externalWritten = externalWritten.updated(dataset, actual)
@@ -206,30 +210,31 @@ object PipelineDriver:
     ) ++ Vector(
       Stage.identifierJoin -> (() =>
         IdentifierJoinJob
-          .configure(run, workPaths(run, outputs))
+          .configure(run, workPaths(run, outputs), base)
           .waitForCompletion(true)
       ),
       Stage.blocking -> (() =>
         BlockingJob
-          .configure(run, workPaths(run, outputs))
+          .configure(run, workPaths(run, outputs), base)
           .waitForCompletion(true)
       ),
       Stage.candidateFeatures -> (() =>
         CandidateFeatureJob
           .configure(
             run,
-            Vector(run.artifactPath(Artifact.BlockingMembers))
+            Vector(run.artifactPath(Artifact.BlockingMembers)),
+            base
           )
           .waitForCompletion(true)
       ),
       Stage.teamExpansion -> (() =>
         PublicationTeamJob
-          .configure(run, workPaths(run, outputs))
+          .configure(run, workPaths(run, outputs), base)
           .waitForCompletion(true)
       ),
       Stage.graphExport -> (() =>
         GraphExportJob
-          .configure(run, exportInputs(run, outputs))
+          .configure(run, exportInputs(run, outputs), base)
           .waitForCompletion(true)
       )
     )
@@ -250,7 +255,7 @@ class PipelineTool extends Configured with Tool:
   def run(arguments: Array[String]): Int =
     try
       val plan = PipelineTool.plan(getConf, arguments, System.out, System.err)
-      PipelineDriver.run(plan.context, plan.inputs)
+      PipelineDriver.run(plan.context, plan.inputs, getConf)
     catch
       case error: IllegalArgumentException =>
         System.err.println(

@@ -34,6 +34,11 @@ trait ObjectStore:
   def get(key: String): Option[Array[Byte]]
   def list(prefix: String): Vector[ObjectMeta]
 
+  /** The keys under a prefix. An adapter that can list keys more cheaply than
+    * it can describe objects overrides this.
+    */
+  def listKeys(prefix: String): Vector[String] = list(prefix).map(_.key)
+
   /** Versioned keys are immutable: the same content is a no-op, different
     * content under the same key is an error.
     */

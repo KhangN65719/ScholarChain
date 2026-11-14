@@ -137,11 +137,23 @@ object Inputs:
     "provenance STRUCT<source: STRING, snapshotId: STRING, " +
       "sourceRecordId: STRING, sourceUri: STRING>"
 
-  private def json(session: SparkSession, path: Path, ddl: String): DataFrame =
+  /** An explicit `file:` location, so a read or write does not depend on
+    * `fs.defaultFS`. Spark and Hadoop take the text after `file://` as a
+    * literal path and do not percent-decode it, so a `Path.toUri` string would
+    * look for `a%20b` instead of `a b`.
+    */
+  def fileUri(path: Path): String =
+    "file://" + path.toAbsolutePath.normalize.toString
+
+  private[spark] def json(
+      session: SparkSession,
+      path: Path,
+      ddl: String
+  ): DataFrame =
     session.read
       .schema(ddl)
       .option("mode", "FAILFAST")
-      .json(path.toAbsolutePath.toString)
+      .json(fileUri(path))
 
   def load(session: SparkSession, layout: InputLayout): RawInputs =
     RawInputs(

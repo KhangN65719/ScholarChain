@@ -578,6 +578,14 @@ class CollaborationPipelineSuite extends SparkSuite:
     assertEquals(neptune("edges").arr.size, 3)
   }
 
+  test("the run manifest records the master and deploy mode of the session") {
+    val partitioning = json(first, "run-manifest.json")("partitioning")
+    assertEquals(partitioning("master").str, "local[2]")
+    assertEquals(partitioning("deployMode").str, "client")
+    assertEquals(partitioning("shufflePartitions").num.toInt, 4)
+    assertEquals(partitioning("adaptiveQueryExecution").bool, false)
+  }
+
   test("two runs give the same logical output") {
     val one = first
     val two = second

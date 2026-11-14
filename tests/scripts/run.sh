@@ -411,6 +411,37 @@ make_plan() {
   printf '%s' "$d"
 }
 
+# Fixtures for scripts/upload-inputs.sh (Phase 14 work order 24). Small stand-ins that are
+# committed with the temporary repository, so the tree stays clean. The EMR file names
+# mirror the real scripts/emr directory but the content is a stand-in: the upload plan
+# cases then do not depend on the real files, which get their own secret-scan cases
+# (14.upload.real-emr-file.*). The Spark files live outside the repository, as the script
+# requires.
+UP_SNAP="harness-snap"
+UP_DATA_BUCKET="harness-data-bucket"
+UP_ART_BUCKET="harness-artifacts-bucket"
+UP_SPARK="$WORK/spark-dir"
+UP_MAXO=500
+UP_MAXB=100000000
+
+make_upload_fixtures_repo() {
+  local f m
+  mkdir -p "$REPO/datasets/subset" "$REPO/scripts/emr"
+  for f in dblp-subset.xml openalex.jsonl crossref.jsonl orcid.jsonl; do
+    printf 'harness dataset %s\n' "$f" > "$REPO/datasets/subset/$f"
+  done
+  for m in hadoop entity-resolution spark; do
+    mkdir -p "$REPO/modules/$m/target/job/lib"
+    printf 'harness main jar %s\n' "$m" > "$REPO/modules/$m/target/job/$m-job.jar"
+    printf 'harness lib jar %s\n' "$m" > "$REPO/modules/$m/target/job/lib/dep-$m.jar"
+  done
+  for f in "$REAL_ROOT"/scripts/emr/*.sh "$REAL_ROOT"/scripts/emr/spark-yarn.conf; do
+    [ -f "$f" ] || continue
+    printf '# harness stand-in for %s\n' "${f##*/}" > "$REPO/scripts/emr/${f##*/}"
+  done
+  return 0
+}
+
 setup_repo() {
   local f
   mkdir -p "$REPO/scripts"
@@ -432,6 +463,7 @@ setup_repo() {
   mkdir -p "$REPO/experiments/manifests" "$REPO/experiments/harness"
   cp "$REAL_ROOT"/experiments/manifests/*.manifest "$REPO/experiments/manifests/" 2>/dev/null
   printf '#!/usr/bin/env bash\nexit 0\n' > "$REPO/experiments/harness/run.sh"
+  make_upload_fixtures_repo || return 1
   git -C "$REPO" init -q || return 1
   git -C "$REPO" symbolic-ref HEAD refs/heads/main || return 1
   git -C "$REPO" add -A || return 1
@@ -444,6 +476,94 @@ setup_repo() {
 HEAD_SHA=""
 setup_repo || prereq_fail "could not build the temporary repository under $REPO"
 [ -n "$HEAD_SHA" ] || prereq_fail "no HEAD in the temporary repository"
+
+# The Spark 4.0.5 files for upload-inputs.sh: stand-in content, a real sha256 file.
+up_write_sums() {
+  printf '%s  spark-4.0.5-bin-hadoop3.tgz\n%s  spark-4.0.5-jars.zip\n' \
+    "$(sha_of "$UP_SPARK/spark-4.0.5-bin-hadoop3.tgz")" "$(sha_of "$UP_SPARK/spark-4.0.5-jars.zip")" > "$UP_SPARK/spark-4.0.5.sha256"
+}
+up_write_spark() {
+  mkdir -p "$UP_SPARK"
+  printf 'harness spark tarball\n' > "$UP_SPARK/spark-4.0.5-bin-hadoop3.tgz"
+  printf 'harness spark jars archive\n' > "$UP_SPARK/spark-4.0.5-jars.zip"
+  up_write_sums
+}
+up_write_spark
+
+# The file count and total size the upload plan must report for the fixtures above.
+UP_N=0
+UP_BYTES=0
+while IFS= read -r up_f; do
+  [ -n "$up_f" ] || continue
+  UP_N=$((UP_N + 1))
+  UP_BYTES=$((UP_BYTES + $(wc -c < "$up_f" | tr -d ' ')))
+done < <(find "$REPO/datasets/subset" "$REPO/modules" "$REPO/scripts/emr" "$UP_SPARK" -type f | sort)
+[ "$UP_N" -ge 18 ] || prereq_fail "the upload fixtures hold only $UP_N files"
+
+# The upload-inputs.sh argument list is built from these settings, so a case changes one
+# value (an empty value leaves the flag out).
+UPV_SNAP=""
+UPV_DB=""
+UPV_AB=""
+UPV_SPARK=""
+UPV_MAXO=""
+UPV_MAXB=""
+UD_S=""
+UD_A=""
+
+up_reset() {
+  UPV_SNAP="$UP_SNAP"
+  UPV_DB="$UP_DATA_BUCKET"
+  UPV_AB="$UP_ART_BUCKET"
+  UPV_SPARK="$UP_SPARK"
+  UPV_MAXO="$UP_MAXO"
+  UPV_MAXB="$UP_MAXB"
+}
+
+# up_args FLAG RECORD: sets SN, AN and A. FLAG may be empty (a real run); RECORD is "-" to
+# leave --approval-record out. The common arguments must be in CA already.
+up_args() {
+  local flag="$1" rec="$2"
+  SN=upload-inputs
+  AN=upload
+  A=()
+  if [ -n "$flag" ]; then A+=("$flag"); fi
+  A+=("${CA[@]}")
+  if [ -n "$UPV_SNAP" ]; then A+=(--snapshot "$UPV_SNAP"); fi
+  if [ -n "$UPV_DB" ]; then A+=(--data-bucket "$UPV_DB"); fi
+  if [ -n "$UPV_AB" ]; then A+=(--artifacts-bucket "$UPV_AB"); fi
+  if [ -n "$UPV_SPARK" ]; then A+=(--spark-dir "$UPV_SPARK"); fi
+  if [ -n "$UPV_MAXO" ]; then A+=(--max-objects "$UPV_MAXO"); fi
+  if [ -n "$UPV_MAXB" ]; then A+=(--max-bytes "$UPV_MAXB"); fi
+  if [ "$rec" != "-" ]; then A+=(--approval-record "$rec"); fi
+}
+
+# up_digest: --print-digest with the current settings; sets UD_S and UD_A.
+up_digest() {
+  common_args "$ACCT" us-east-2 "$CEIL"
+  up_args --print-digest -
+  run_build
+  UD_S="$(sed -n 's/^SCRIPT_DIGEST=//p' "$OUT" | head -n 1)"
+  UD_A="$(sed -n 's/^ARGS_DIGEST=//p' "$OUT" | head -n 1)"
+}
+
+# up_dry_record FILE: writes a record for the current settings and runs the dry run with it.
+up_dry_record() {
+  up_digest
+  rec_base upload "$UD_S" "$UD_A" n/a n/a
+  rec_write "$1"
+  common_args "$ACCT" us-east-2 "$CEIL"
+  up_args --dry-run "$1"
+  run_build
+}
+
+# Puts the fixtures back after a case changed them.
+up_restore() {
+  git -C "$REPO" checkout -q -- .
+  git -C "$REPO" clean -q -f -d
+  up_write_spark
+  up_reset
+}
 
 # The project cost ceiling is read from the copied lib.sh, not hard-coded: Phase 14 D6
 # moves it from 25 to 20 in a parallel work order. Case 0.ceiling-pinned-to-D6 pins the
@@ -471,7 +591,12 @@ mkdir -p "$CTX_S/lib" "$CTX_L/lib"
 printf 'services\n' > "$CTX_S/lib/a.jar"
 printf 'loader\n' > "$CTX_L/lib/b.jar"
 PIPE_IN="$REC/pipeline-input.json"
-printf '{"hadoop_args":[],"spark_args":[],"loader_command":[]}\n' > "$PIPE_IN"
+# The execution input contract of design B (scripts/README.md, "Execution input contract"):
+# {"mode":"capability-check"} or mode pipeline with snapshot, snapshots, run_id, loader_command.
+PI_SNAP="harness-snap"
+PI_SNAPS="dblp=harness-snap,openalex=harness-snap,crossref=harness-snap,orcid=harness-snap"
+PI_RUN="harness-run-1"
+printf '{"mode":"pipeline","snapshot":"%s","snapshots":"%s","run_id":"%s","loader_command":["loader","--run","%s"]}\n' "$PI_SNAP" "$PI_SNAPS" "$PI_RUN" "$PI_RUN" > "$PIPE_IN"
 INCL_DIR="$REC/incl"
 mkdir -p "$INCL_DIR"
 printf 'RUN_ID=harness\n' > "$INCL_DIR/run-record.env"
@@ -562,6 +687,9 @@ build() {
     archive-upload)
       SN=archive-evidence; AN=archive
       A=("$flag" --upload-dir "$EVDIR" --s3-prefix s3://harness-evidence-bucket/prefix "${CA[@]}") ;;
+    upload)
+      up_reset
+      up_args "$flag" - ;;
     *)
       printf 'harness bug: unknown key %s\n' "$key" >&2
       exit 2 ;;
@@ -602,8 +730,8 @@ consume_with_lib() {
   ) > "$LOGDIR/consume.out" 2> "$LOGDIR/consume.err" < /dev/null
 }
 
-KEYS="deploy rollback-image rollback-state smoke pipeline cleanup-flip cleanup-destroy experiment archive-upload"
-SCRIPT_NAMES="plan deploy rollback smoke-test run-bounded-pipeline cleanup check package run-experiment archive-evidence"
+KEYS="deploy rollback-image rollback-state smoke pipeline cleanup-flip cleanup-destroy experiment archive-upload upload"
+SCRIPT_NAMES="plan deploy rollback smoke-test run-bounded-pipeline cleanup check package run-experiment archive-evidence upload-inputs"
 
 ### Controls: the harness itself -----------------------------------------------
 
@@ -752,6 +880,8 @@ for key in $KEYS; do
       a_out "LIMITS max_minutes=30" ;;
     pipeline)
       a_out "PROJECTED_SPEND_USD=0.60" ;;
+    upload)
+      a_out "UPLOAD_PLAN objects=$UP_N bytes=$UP_BYTES max_objects=$UP_MAXO max_bytes=$UP_MAXB" ;;
     cleanup-flip | cleanup-destroy)
       a_out "SOURCE=terraform-source (not live)" ;;
   esac
@@ -1205,7 +1335,7 @@ pipe_case projected-over-spend "projected spend" small 60 0.75 2.00 first-failur
 pipe_case spend-over-cost "exceeds the cost ceiling" small 60 "$CEIL_PLUS1" 0.60 first-failure "$PIPE_IN"
 pipe_case unknown-stop-condition "unknown stop condition" small 60 0.75 0.60 first-failure,bogus "$PIPE_IN"
 pipe_case input-missing "must be an existing absolute path" small 60 0.75 0.60 first-failure "$REC/no-such-input.json"
-printf '{"x":"%s"}\n' "$FAKE_AKIA" > "$REC/pipeline-secret-input.json"
+printf '{"mode":"pipeline","snapshot":"%s","snapshots":"%s","run_id":"%s","loader_command":["loader","%s"]}\n' "$PI_SNAP" "$PI_SNAPS" "$PI_RUN" "$FAKE_AKIA" > "$REC/pipeline-secret-input.json"
 pipe_case input-key-material "possible credential material" small 60 0.75 0.60 first-failure "$REC/pipeline-secret-input.json"
 
 # run-bounded-pipeline.sh: the input, limits and output markers of validate-params
@@ -1222,14 +1352,17 @@ a_out "INPUT_BYTES=$PIPE_BYTES"
 a_out "LIMITS size=small max_minutes=60 spend_ceiling_usd=0.75 hourly_burn_usd=0.60 stop_on=first-failure,dlq-nonempty cost_ceiling_usd=$CEIL"
 a_out "OUTPUT_LOCATIONS=none-named"
 a_not_out "OUTPUT_LOCATION="
-a_out "DATASET_SNAPSHOT=not-recorded"
+a_out "INPUT_MODE=pipeline"
+a_out "DATASET_SNAPSHOT=$PI_SNAP snapshots="
+a_out_re " run_id=$PI_RUN\$"
+a_not_out "DATASET_SNAPSHOT=not-recorded"
 a_not_out "PIPELINE_RECORD="
 a_not_out "EXECUTION_ARN="
 a_not_out "START_UTC="
 case_end
 
 PIPE_IN_S3="$REC/pipeline-input-s3.json"
-printf '{"hadoop_args":["--output","s3://harness-out-bucket/run-1/hadoop"],"spark_args":[],"loader_command":[]}\n' > "$PIPE_IN_S3"
+printf '{"mode":"pipeline","snapshot":"%s","snapshots":"%s","run_id":"%s","loader_command":["loader","--out","s3://harness-out-bucket/run-1/hadoop"]}\n' "$PI_SNAP" "$PI_SNAPS" "$PI_RUN" > "$PIPE_IN_S3"
 common_args "$ACCT" us-east-2 "$CEIL"
 SN=run-bounded-pipeline
 stop_on="first-failure,dlq-nonempty"
@@ -1245,7 +1378,9 @@ a_out "INPUT_FILE=$PIPE_IN_S3"
 a_out "INPUT_SHA256=$(sha_of "$PIPE_IN_S3")"
 a_out "OUTPUT_LOCATION=s3://harness-out-bucket/run-1/hadoop"
 a_not_out "OUTPUT_LOCATIONS=none-named"
-a_out "DATASET_SNAPSHOT=not-recorded"
+a_out "INPUT_MODE=pipeline"
+a_out "DATASET_SNAPSHOT=$PI_SNAP snapshots="
+a_not_out "DATASET_SNAPSHOT=not-recorded"
 a_out "APPROVAL_VERIFIED action=pipeline"
 case_end
 
@@ -2175,6 +2310,818 @@ case "$SM_CANON_NO" in
   *";dim=$TF_DIM;"*) ;;
   *) note_fail "smoke-test.sh default vector dimension differs from the Terraform default $TF_DIM" ;;
 esac
+case_end
+
+### Case 14: Phase 14 work order 24 -------------------------------------------------------
+# The pipeline execution input contract of design B (run-bounded-pipeline.sh), the new
+# scripts/upload-inputs.sh (its approval-gated cases are in the KEYS loops above, key
+# "upload"), and the static content of scripts/emr/*. Placed before case 12 so that the
+# outputs of these cases are covered by the secret scan and the tripwire check. A case
+# named in the work order report as "predicted to fail" documents a defect found by
+# reading the script; it is not loosened here.
+
+static_begin() {
+  case_begin "$1"
+  OUT="$LOGDIR/none.out"
+  ERR="$LOGDIR/none.err"
+  RC=0
+}
+
+CODE_DIR="$WORK/code"
+mkdir -p "$CODE_DIR"
+
+# code_of FILE: prints the path of a copy of FILE without comment-only lines, so a rule
+# written in a comment ("no sync, no delete") is not mistaken for code.
+code_of() {
+  grep -v '^[[:space:]]*#' "$1" > "$CODE_DIR/${1##*/}" 2> /dev/null
+  printf '%s' "$CODE_DIR/${1##*/}"
+}
+
+f_has() {
+  grep -qF -- "$2" "$1" || note_fail "${1##*/} lacks: $2"
+}
+
+f_has_not() {
+  if grep -qF -- "$2" "$1"; then note_fail "${1##*/} holds: $2"; fi
+}
+
+f_has_not_re() {
+  if grep -qE -- "$2" "$1"; then note_fail "${1##*/} matches: $2"; fi
+}
+
+f_count_is() {
+  local n
+  n="$(grep -cF -- "$2" "$1")"
+  [ "$n" = "$3" ] || note_fail "${1##*/} holds '$2' $n time(s), expected $3"
+}
+
+line_of() {
+  grep -nF -- "$2" "$1" | head -n 1 | cut -d: -f1
+}
+
+f_before() {
+  local a b
+  a="$(line_of "$1" "$2")"
+  b="$(line_of "$1" "$3")"
+  if [ -z "$a" ] || [ -z "$b" ]; then
+    note_fail "${1##*/}: '$2' or '$3' not found"
+    return 0
+  fi
+  [ "$a" -lt "$b" ] || note_fail "${1##*/}: '$2' (line $a) is not before '$3' (line $b)"
+}
+
+### 14.pipeline: execution input contract -------------------------------------------------
+
+PI_TAIL=(--size small --max-minutes 45 --spend-ceiling-usd 0.50 --hourly-burn-usd 0.47 --stop-on first-failure)
+J_SNAP="\"$PI_SNAP\""
+J_SNAPS="\"$PI_SNAPS\""
+J_RUN="\"$PI_RUN\""
+J_LOAD='["loader","--run","harness-run-1"]'
+# shellcheck disable=SC2016
+J_CMDSUB='"$(id)"'
+
+pi_json() {
+  printf '{"mode":"pipeline","snapshot":%s,"snapshots":%s,"run_id":%s,"loader_command":%s}' "$1" "$2" "$3" "$4"
+}
+
+pi_rep() {
+  awk -v n="$1" 'BEGIN { for (i = 0; i < n; i++) printf "a" }'
+}
+
+# pi_refuse ID JSON FRAGMENT: a dry run with this input is refused by the input validation,
+# before anything is printed from the input and before the approval record is read.
+pi_refuse() {
+  local id="$1" json="$2" frag="$3" f="$REC/pi-$1.json"
+  printf '%s' "$json" > "$f"
+  common_args "$ACCT" us-east-2 "$CEIL"
+  SN=run-bounded-pipeline
+  A=(--dry-run "${CA[@]}" "${PI_TAIL[@]}" --input-file "$f" --approval-record "$REC/pipeline.env")
+  run_build
+  case_begin "14.pipeline.input.$id"
+  a_refused "execution input refused"
+  a_err "$frag"
+  a_not_out "INPUT_MODE="
+  a_not_out "DATASET_SNAPSHOT="
+  case_end
+}
+
+# pi_dry_with FILE RECORD: --print-digest, a record for it, then the dry run with the record.
+pi_dry_with() {
+  local f="$1" r="$2"
+  common_args "$ACCT" us-east-2 "$CEIL"
+  SN=run-bounded-pipeline
+  A=(--print-digest "${CA[@]}" "${PI_TAIL[@]}" --input-file "$f")
+  run_build
+  rec_base pipeline "$(sed -n 's/^SCRIPT_DIGEST=//p' "$OUT" | head -n 1)" "$(sed -n 's/^ARGS_DIGEST=//p' "$OUT" | head -n 1)" n/a n/a
+  rec_write "$r"
+  A=(--dry-run "${CA[@]}" "${PI_TAIL[@]}" --input-file "$f" --approval-record "$r")
+  run_build
+}
+
+# Accepted: capability-check.
+printf '{"mode":"capability-check"}\n' > "$REC/pi-capability.json"
+pi_dry_with "$REC/pi-capability.json" "$REC/pi-capability.env"
+case_begin "14.pipeline.capability-check.accepted-and-records-no-dataset"
+a_dry_common
+a_out "INPUT_MODE=capability-check"
+a_out "DATASET_SNAPSHOT=n/a (capability-check reads no dataset)"
+a_not_out "DATASET_SNAPSHOT=not-recorded"
+a_out "OUTPUT_PREFIX=reports/capability/ (key prefix in the data bucket)"
+a_not_out "curated/runs/"
+a_not_out "run_id="
+a_out "OUTPUT_LOCATIONS=none-named"
+a_out "PROJECTED_SPEND_USD=0.35 CEILING_USD=0.50"
+a_out "LIMITS size=small max_minutes=45 spend_ceiling_usd=0.50 hourly_burn_usd=0.47 stop_on=first-failure cost_ceiling_usd=$CEIL"
+a_out "APPROVAL_VERIFIED action=pipeline"
+a_out "APPROVAL_NOT_CONSUMED dry-run"
+case_end
+
+# Accepted: pipeline mode. One dry run feeds the next two cases.
+pi_dry_with "$PIPE_IN" "$REC/pi-pipeline.env"
+case_begin "14.pipeline.pipeline-mode.output-prefixes-follow-the-run-id"
+a_dry_common
+a_out "INPUT_MODE=pipeline"
+a_out "OUTPUT_PREFIX=curated/runs/$PI_RUN/ (key prefix in the data bucket)"
+a_out "OUTPUT_PREFIX=graph/runs/$PI_RUN/ (key prefix in the data bucket)"
+a_out "OUTPUT_PREFIX=semantic-context/runs/$PI_RUN/ (key prefix in the data bucket)"
+a_out "OUTPUT_PREFIX=reports/runs/$PI_RUN/ (key prefix in the data bucket)"
+a_not_out "reports/capability/"
+a_out "APPROVAL_VERIFIED action=pipeline"
+case_end
+case_begin "14.pipeline.pipeline-mode.snapshots-spec-printed-whole"
+a_dry_common
+a_out "DATASET_SNAPSHOT=$PI_SNAP snapshots=$PI_SNAPS run_id=$PI_RUN"
+case_end
+
+# Boundaries: 64 characters for an id and 300 for the snapshots spec are accepted.
+RUN64="$(pi_rep 64)"
+printf '%s\n' "$(pi_json "$J_SNAP" "$J_SNAPS" "\"$RUN64\"" "$J_LOAD")" > "$REC/pi-run64.json"
+pi_dry_with "$REC/pi-run64.json" "$REC/pi-run64.env"
+case_begin "14.pipeline.input.run-id-64-chars-accepted"
+a_dry_common
+a_out "run_id=$RUN64"
+a_out "OUTPUT_PREFIX=curated/runs/$RUN64/ (key prefix in the data bucket)"
+case_end
+SNAPS300="$(pi_rep 300)"
+printf '%s\n' "$(pi_json "$J_SNAP" "\"$SNAPS300\"" "$J_RUN" "$J_LOAD")" > "$REC/pi-snaps300.json"
+pi_dry_with "$REC/pi-snaps300.json" "$REC/pi-snaps300.env"
+case_begin "14.pipeline.input.snapshots-300-chars-accepted"
+a_dry_common
+a_out "snapshots=$SNAPS300 run_id=$PI_RUN"
+case_end
+
+# Refused: mode.
+pi_refuse unknown-mode '{"mode":"batch"}' "mode must be capability-check or pipeline"
+pi_refuse missing-mode '{}' "mode must be capability-check or pipeline"
+pi_refuse mode-not-a-string '{"mode":1}' "mode must be capability-check or pipeline"
+pi_refuse mode-wrong-case "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "$J_LOAD" | sed 's/"pipeline"/"Pipeline"/')" "mode must be capability-check or pipeline"
+pi_refuse mode-trailing-space '{"mode":"capability-check "}' "mode must be capability-check or pipeline"
+
+# Refused: keys.
+pi_refuse capability-unknown-key '{"mode":"capability-check","run_id":"x"}' "unknown input key(s) for mode capability-check: run_id"
+pi_refuse capability-with-all-pipeline-fields "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "$J_LOAD" | sed 's/"pipeline"/"capability-check"/')" "unknown input key(s) for mode capability-check: loader_command, run_id, snapshot, snapshots"
+pi_refuse pipeline-unknown-key "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "$J_LOAD" | sed 's/}$/,"extra":1}/')" "unknown input key(s) for mode pipeline: extra"
+pi_refuse pipeline-old-hadoop-args-key "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "$J_LOAD" | sed 's/}$/,"hadoop_args":[]}/')" "unknown input key(s) for mode pipeline: hadoop_args"
+pi_refuse pipeline-old-spark-args-key "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "$J_LOAD" | sed 's/}$/,"spark_args":[]}/')" "unknown input key(s) for mode pipeline: spark_args"
+pi_refuse old-shape-without-mode '{"hadoop_args":[],"spark_args":[],"loader_command":[]}' "mode must be capability-check or pipeline"
+pi_refuse old-shape-with-mode-pipeline '{"mode":"pipeline","hadoop_args":[],"spark_args":[],"loader_command":[]}' "unknown input key(s) for mode pipeline: hadoop_args, spark_args"
+
+# Refused: snapshot.
+pi_refuse snapshot-missing '{"mode":"pipeline","snapshots":"dblp=a","run_id":"r1","loader_command":["l"]}' "snapshot is missing or not valid"
+pi_refuse snapshot-not-a-string "$(pi_json 123 "$J_SNAPS" "$J_RUN" "$J_LOAD")" "snapshot is missing or not valid"
+pi_refuse snapshot-with-slash "$(pi_json '"a/b"' "$J_SNAPS" "$J_RUN" "$J_LOAD")" "snapshot is missing or not valid"
+pi_refuse snapshot-with-space "$(pi_json '"a b"' "$J_SNAPS" "$J_RUN" "$J_LOAD")" "snapshot is missing or not valid"
+pi_refuse snapshot-empty "$(pi_json '""' "$J_SNAPS" "$J_RUN" "$J_LOAD")" "snapshot is missing or not valid"
+pi_refuse snapshot-65-chars "$(pi_json "\"$(pi_rep 65)\"" "$J_SNAPS" "$J_RUN" "$J_LOAD")" "snapshot is missing or not valid"
+pi_refuse snapshot-non-ascii "$(pi_json "\"sn$(printf '\303\251')p\"" "$J_SNAPS" "$J_RUN" "$J_LOAD")" "snapshot is missing or not valid"
+
+# Refused: snapshots.
+pi_refuse snapshots-missing '{"mode":"pipeline","snapshot":"s1","run_id":"r1","loader_command":["l"]}' "snapshots is missing or not valid"
+pi_refuse snapshots-with-space "$(pi_json "$J_SNAP" '"dblp=a openalex=b"' "$J_RUN" "$J_LOAD")" "snapshots is missing or not valid"
+pi_refuse snapshots-with-semicolon "$(pi_json "$J_SNAP" '"dblp=a;rm -rf x"' "$J_RUN" "$J_LOAD")" "snapshots is missing or not valid"
+pi_refuse snapshots-command-substitution "$(pi_json "$J_SNAP" "$J_CMDSUB" "$J_RUN" "$J_LOAD")" "snapshots is missing or not valid"
+pi_refuse snapshots-301-chars "$(pi_json "$J_SNAP" "\"$(pi_rep 301)\"" "$J_RUN" "$J_LOAD")" "snapshots is missing or not valid"
+
+# Refused: run id.
+pi_refuse run-id-missing '{"mode":"pipeline","snapshot":"s1","snapshots":"dblp=a","loader_command":["l"]}' "run_id is missing or not valid"
+pi_refuse run-id-with-slash "$(pi_json "$J_SNAP" "$J_SNAPS" '"a/b"' "$J_LOAD")" "run_id is missing or not valid"
+pi_refuse run-id-empty "$(pi_json "$J_SNAP" "$J_SNAPS" '""' "$J_LOAD")" "run_id is missing or not valid"
+pi_refuse run-id-65-chars "$(pi_json "$J_SNAP" "$J_SNAPS" "\"$(pi_rep 65)\"" "$J_LOAD")" "run_id is missing or not valid"
+pi_refuse run-id-with-space "$(pi_json "$J_SNAP" "$J_SNAPS" '"run 1"' "$J_LOAD")" "run_id is missing or not valid"
+pi_refuse run-id-not-a-string "$(pi_json "$J_SNAP" "$J_SNAPS" '["x"]' "$J_LOAD")" "run_id is missing or not valid"
+
+# Refused: loader_command.
+pi_refuse loader-command-missing '{"mode":"pipeline","snapshot":"s1","snapshots":"dblp=a","run_id":"r1"}' "loader_command must be a non-empty list of non-empty strings"
+pi_refuse loader-command-empty-list "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" '[]')" "loader_command must be a non-empty list of non-empty strings"
+pi_refuse loader-command-not-a-list "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" '"loader"')" "loader_command must be a non-empty list of non-empty strings"
+pi_refuse loader-command-empty-string-element "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" '[""]')" "loader_command must be a non-empty list of non-empty strings"
+pi_refuse loader-command-non-string-element "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" '["loader",1]')" "loader_command must be a non-empty list of non-empty strings"
+
+# Refused: not an object.
+pi_refuse not-json '{not json' "input is not valid JSON"
+pi_refuse empty-file '' "input is not valid JSON"
+pi_refuse json-array '[]' "input must be a JSON object"
+pi_refuse json-null 'null' "input must be a JSON object"
+pi_refuse json-string '"capability-check"' "input must be a JSON object"
+
+# Adversarial (report 24): "." and ".." would make "curated/runs/../", and a final newline
+# must not slip past the id patterns. The script now refuses "." and ".." with its own
+# message ("must not be . or .."); the newline cases are refused as not valid.
+pi_refuse run-id-dot-dot "$(pi_json "$J_SNAP" "$J_SNAPS" '".."' "$J_LOAD")" "run_id must not be . or .."
+pi_refuse snapshot-dot-dot "$(pi_json '".."' "$J_SNAPS" "$J_RUN" "$J_LOAD")" "snapshot must not be . or .."
+pi_refuse run-id-trailing-newline "$(pi_json "$J_SNAP" "$J_SNAPS" '"run1\n"' "$J_LOAD")" "run_id is missing or not valid"
+pi_refuse snapshot-trailing-newline "$(pi_json '"snap1\n"' "$J_SNAPS" "$J_RUN" "$J_LOAD")" "snapshot is missing or not valid"
+pi_refuse snapshots-trailing-newline "$(pi_json "$J_SNAP" '"dblp=a\n"' "$J_RUN" "$J_LOAD")" "snapshots is missing or not valid"
+
+# The old shape is refused in a real run and with --print-digest too, before any call.
+printf '{"hadoop_args":[],"spark_args":[],"loader_command":[]}\n' > "$REC/pi-old-shape.json"
+common_args "$ACCT" us-east-2 "$CEIL"
+SN=run-bounded-pipeline
+A=("${CA[@]}" "${PI_TAIL[@]}" --input-file "$REC/pi-old-shape.json" --approval-record "$REC/pipeline.env")
+run_build
+case_begin "14.pipeline.input.old-shape-real-run-refused-before-any-call"
+a_refused "execution input refused"
+a_err "mode must be capability-check or pipeline"
+a_not_out "identity-check"
+a_not_out "IDENTITY_OK"
+a_not_out "EXECUTION_ARN="
+case_end
+A=(--print-digest "${CA[@]}" "${PI_TAIL[@]}" --input-file "$REC/pi-old-shape.json")
+run_build
+case_begin "14.pipeline.input.old-shape-print-digest-refused"
+a_rc_nonzero
+a_err_evidence
+a_err "execution input refused"
+a_not_out "SCRIPT_DIGEST="
+a_not_out "ARGS_DIGEST="
+a_trip_empty
+case_end
+
+# The key-material scan still covers the loader command, and never prints what matched.
+common_args "$ACCT" us-east-2 "$CEIL"
+SN=run-bounded-pipeline
+A=(--dry-run "${CA[@]}" --size small --max-minutes 60 --spend-ceiling-usd 0.75 --hourly-burn-usd 0.60 --stop-on first-failure --input-file "$REC/pipeline-secret-input.json" --approval-record "$REC/pipeline.env")
+run_build
+case_begin "5.pipeline.input-key-material.value-not-printed"
+a_refused "possible credential material"
+a_out "INPUT_MODE=pipeline"
+a_not_out_re '^STEP\[[0-9]+\] input-scan: ok$'
+if grep -qF -- "$FAKE_AKIA" "$OUT" "$ERR"; then note_fail "the matched text was printed"; fi
+case_end
+
+# Static content of scripts/run-bounded-pipeline.sh (the run record is written only in a
+# real run, which a stubbed harness cannot reach; its lines are read as text, and the dry
+# run above prints the same variables).
+# shellcheck disable=SC2016
+static_pipeline_cases() {
+  local c
+  c="$(code_of "$REPO/scripts/run-bounded-pipeline.sh")"
+  static_begin "14.pipeline.static.input-validated-with-isolated-python-and-no-eval"
+  f_has "$c" 'python3 -I - "$INPUT_FILE"'
+  f_has_not_re "$c" '(^|[[:space:]])eval[[:space:]]'
+  case_end
+  static_begin "14.pipeline.static.record-holds-the-input-mode"
+  f_has "$c" 'rec INPUT_MODE "$INPUT_MODE"'
+  case_end
+  static_begin "14.pipeline.static.record-holds-snapshot-snapshots-and-run-id-in-pipeline-mode"
+  f_has "$c" 'rec DATASET_SNAPSHOT "$INPUT_SNAPSHOT"'
+  f_has "$c" 'rec RUN_SNAPSHOTS "$INPUT_SNAPSHOTS"'
+  f_has "$c" 'rec RUN_ID "$INPUT_RUN_ID"'
+  case_end
+  static_begin "14.pipeline.static.record-says-n-a-for-capability-check"
+  f_has "$c" 'rec DATASET_SNAPSHOT n/a'
+  case_end
+  static_begin "14.pipeline.static.no-not-recorded-placeholder-left"
+  f_has_not "$c" 'not-recorded'
+  case_end
+  static_begin "14.pipeline.static.record-holds-the-output-prefixes"
+  f_has "$c" 'rec OUTPUT_PREFIX "$u"'
+  f_has "$c" 'curated/runs/$INPUT_RUN_ID/'
+  f_has "$c" 'graph/runs/$INPUT_RUN_ID/'
+  f_has "$c" 'semantic-context/runs/$INPUT_RUN_ID/'
+  f_has "$c" 'reports/runs/$INPUT_RUN_ID/'
+  f_has "$c" 'reports/capability/'
+  case_end
+  static_begin "14.pipeline.static.input-checked-before-approval-and-the-same-file-is-started"
+  f_before "$c" 'INPUT_FIELDS="$(python3' 'verify_approval pipeline "$EXTRA" "n/a" "n/a"'
+  f_before "$c" 'verify_approval pipeline "$EXTRA" "n/a" "n/a"' 'consume_approval pipeline'
+  f_before "$c" 'consume_approval pipeline' 'start-execution --state-machine-arn'
+  f_has "$c" '--input "file://$INPUT_FILE"'
+  case_end
+  static_begin "14.pipeline.static.old-free-form-lists-are-not-accepted"
+  f_has_not "$c" 'hadoop_args'
+  f_has_not "$c" 'spark_args'
+  case_end
+}
+static_pipeline_cases
+
+### 14.upload: scripts/upload-inputs.sh (the KEYS loops above cover the approval matrix) ---
+
+# up_refuse ID FRAGMENT [MODE]: the current UPV_* settings are refused. MODE is dry
+# (default), digest or real (no --dry-run, a record that exists). UP_PLANTED, when set, is
+# text that must not appear in any output.
+UP_PLANTED=""
+up_refuse() {
+  local id="$1" frag="$2" mode="${3:-dry}"
+  common_args "$ACCT" us-east-2 "$CEIL"
+  case "$mode" in
+    dry) up_args --dry-run "$REC/upload.env" ;;
+    digest) up_args --print-digest - ;;
+    real) up_args "" "$REC/upload.env" ;;
+  esac
+  run_build
+  case_begin "14.upload.$id"
+  a_refused "$frag"
+  a_not_out "WOULD_UPLOAD"
+  a_not_out "UPLOADED"
+  a_not_out "IDENTITY_OK"
+  if [ "$mode" = "digest" ]; then a_not_out "ARGS_DIGEST="; fi
+  if [ -n "$UP_PLANTED" ] && grep -qF -- "$UP_PLANTED" "$OUT" "$ERR"; then note_fail "the matched text was printed"; fi
+  case_end
+  UP_PLANTED=""
+}
+
+up_reset
+up_digest
+UP_BASE_S="$UD_S"
+UP_BASE_A="$UD_A"
+
+# The plan: every file, with its bucket, key, size and sha256, in one dry run.
+up_reset
+up_dry_record "$REC/upload-plan.env"
+case_begin "14.upload.dry-run.plan-lists-every-file"
+a_dry_common
+a_out "UPLOAD_PLAN objects=$UP_N bytes=$UP_BYTES max_objects=$UP_MAXO max_bytes=$UP_MAXB"
+[ "$(grep -c '^WOULD_UPLOAD ' "$OUT")" = "$UP_N" ] || note_fail "the WOULD_UPLOAD lines are not $UP_N"
+[ "$(grep -c "^WOULD_UPLOAD s3://$UP_DATA_BUCKET/raw/$UP_SNAP/" "$OUT")" = "4" ] || note_fail "the data bucket does not get exactly the four raw files"
+for up_f in dblp-subset.xml openalex.jsonl crossref.jsonl orcid.jsonl; do
+  a_out "WOULD_UPLOAD s3://$UP_DATA_BUCKET/raw/$UP_SNAP/$up_f bytes=$(wc -c < "$REPO/datasets/subset/$up_f" | tr -d ' ') sha256=$(sha_of "$REPO/datasets/subset/$up_f")"
+done
+for up_m in hadoop entity-resolution spark; do
+  a_out "WOULD_UPLOAD s3://$UP_ART_BUCKET/jars/$up_m/$up_m-job.jar bytes="
+  a_out "WOULD_UPLOAD s3://$UP_ART_BUCKET/jars/$up_m/lib/dep-$up_m.jar bytes="
+done
+for up_f in "$REPO"/scripts/emr/*; do
+  a_out "WOULD_UPLOAD s3://$UP_ART_BUCKET/bootstrap/${up_f##*/} bytes="
+done
+for up_f in spark-4.0.5-bin-hadoop3.tgz spark-4.0.5-jars.zip spark-4.0.5.sha256; do
+  a_out "WOULD_UPLOAD s3://$UP_ART_BUCKET/jars/spark-4.0.5/$up_f bytes=$(wc -c < "$UP_SPARK/$up_f" | tr -d ' ') sha256=$(sha_of "$UP_SPARK/$up_f")"
+done
+a_not_out_re "^WOULD_UPLOAD s3://$UP_DATA_BUCKET/(jars|bootstrap)/"
+a_not_out_re "^WOULD_UPLOAD s3://$UP_ART_BUCKET/raw/"
+a_not_out "UPLOADED"
+case_end
+case_begin "14.upload.dry-run.spark-checksums-verified"
+a_out "SPARK_CHECKSUMS_VERIFIED file=$UP_SPARK/spark-4.0.5.sha256"
+case_end
+case_begin "14.upload.dry-run.says-what-the-real-run-would-do"
+a_out "one aws s3 cp per file"
+a_out "no sync, no delete"
+a_out "aws s3api head-object for every key: ContentLength must equal the local size"
+a_not_out "--sse-c"
+a_not_out "s3 sync"
+a_not_out "--delete"
+a_out "APPROVAL_NOT_CONSUMED dry-run"
+a_not_out "APPROVAL_CONSUMED"
+a_state_empty
+case_end
+case_begin "14.upload.dry-run.step-order"
+a_order "validate-params: ok" "plan-files: ok" "approval-record: ok" "identity-check: dry-run" "upload: dry-run" "verify-upload: dry-run" "DRY_RUN_COMPLETE"
+case_end
+
+# The digest binds the exact file list, the buckets, the snapshot and both limits.
+up_reset
+common_args "$ACCT" us-east-2 "$CEIL"
+up_args --print-digest -
+run_build
+case_begin "14.upload.print-digest.canonical-binds-file-list"
+a_rc 0
+a_out "ACTION=upload"
+a_out_re '^ARGS_CANONICAL=action=upload;environment=course;account='"$ACCT"';region=us-east-2;cost='"$CEIL"';extra=snapshot='"$UP_SNAP"';data_bucket='"$UP_DATA_BUCKET"';artifacts_bucket='"$UP_ART_BUCKET"';objects='"$UP_N"';bytes='"$UP_BYTES"';max_objects='"$UP_MAXO"';max_bytes='"$UP_MAXB"';files=[0-9a-f]{64}$'
+a_trip_empty
+case_end
+
+up_digest_differs() {
+  up_digest
+  case_begin "14.upload.digest-changes-with.$1"
+  a_rc 0
+  a_out_re '^ARGS_DIGEST=[0-9a-f]{64}$'
+  [ "$UD_A" != "$UP_BASE_A" ] || note_fail "ARGS_DIGEST did not change"
+  [ "$UD_S" = "$UP_BASE_S" ] || note_fail "SCRIPT_DIGEST changed"
+  a_trip_empty
+  case_end
+}
+
+up_reset
+printf 'harness dataset openalex.jsonX\n' > "$REPO/datasets/subset/openalex.jsonl"
+up_digest_differs changed-file-content-of-the-same-size
+up_restore
+
+up_reset
+printf 'extra\n' > "$REPO/modules/hadoop/target/job/lib/extra.jar"
+up_digest
+case_begin "14.upload.digest-changes-with.added-file"
+a_rc 0
+a_out "objects=$((UP_N + 1));"
+[ "$UD_A" != "$UP_BASE_A" ] || note_fail "ARGS_DIGEST did not change"
+a_trip_empty
+case_end
+up_restore
+
+up_reset
+UPV_DB="harness-other-bucket"
+up_digest_differs other-data-bucket
+up_reset
+UPV_SNAP="harness-snap2"
+up_digest_differs other-snapshot
+up_reset
+UPV_MAXO=$((UP_MAXO + 1))
+up_digest_differs other-max-objects
+
+# A record written for one file list does not cover a changed file.
+up_reset
+up_dry_record "$REC/upload-old.env"
+printf 'harness dataset openalex.jsonX\n' > "$REPO/datasets/subset/openalex.jsonl"
+common_args "$ACCT" us-east-2 "$CEIL"
+up_args --dry-run "$REC/upload-old.env"
+run_build
+case_begin "14.upload.changed-file-invalidates-an-existing-record"
+a_refused "record ARGS_DIGEST does not match these exact arguments"
+case_end
+up_restore
+
+# Limits: the count and the size are inclusive, one below is refused, and both are required.
+up_reset
+UPV_MAXO="$UP_N"
+up_dry_record "$REC/upload-maxo.env"
+case_begin "14.upload.max-objects-exactly-the-count-accepted"
+a_dry_common
+a_out "UPLOAD_PLAN objects=$UP_N bytes=$UP_BYTES max_objects=$UP_N "
+case_end
+up_reset
+UPV_MAXO=$((UP_N - 1))
+up_refuse max-objects-one-below-refused "$UP_N objects exceed --max-objects $((UP_N - 1))"
+up_reset
+UPV_MAXB="$UP_BYTES"
+up_dry_record "$REC/upload-maxb.env"
+case_begin "14.upload.max-bytes-exactly-the-total-accepted"
+a_dry_common
+a_out "UPLOAD_PLAN objects=$UP_N bytes=$UP_BYTES max_objects=$UP_MAXO max_bytes=$UP_BYTES"
+case_end
+up_reset
+UPV_MAXB=$((UP_BYTES - 1))
+up_refuse max-bytes-one-below-refused "$UP_BYTES bytes exceed --max-bytes $((UP_BYTES - 1))"
+up_reset
+UPV_MAXO=""
+up_refuse max-objects-missing "--max-objects and --max-bytes are required"
+up_reset
+UPV_MAXB=""
+up_refuse max-bytes-missing "--max-objects and --max-bytes are required"
+up_reset
+UPV_MAXO=0
+up_refuse max-objects-zero "--max-objects must be a whole number of at least 1"
+up_reset
+UPV_MAXB=0
+up_refuse max-bytes-zero "--max-bytes must be a whole number of at least 1"
+up_reset
+UPV_MAXO=abc
+up_refuse max-objects-non-numeric "--max-objects must be a whole number of at least 1"
+up_reset
+UPV_MAXB=-5
+up_refuse max-bytes-negative "--max-bytes must be a whole number of at least 1"
+up_reset
+UPV_MAXB=1.5
+up_refuse max-bytes-decimal "--max-bytes must be a whole number of at least 1"
+up_reset
+UPV_MAXO=$((UP_N - 1))
+up_refuse max-objects-real-run-refused-before-any-call "$UP_N objects exceed --max-objects" real
+up_reset
+UPV_MAXB=$((UP_BYTES - 1))
+up_refuse max-bytes-print-digest-refused-with-no-digest "$UP_BYTES bytes exceed --max-bytes" digest
+
+# Snapshot, buckets and the Spark directory.
+up_reset
+UPV_SNAP="a/b"
+up_refuse snapshot-with-slash "--snapshot must be 1 to 64 characters"
+up_reset
+UPV_SNAP="$(pi_rep 65)"
+up_refuse snapshot-65-chars "--snapshot must be 1 to 64 characters"
+up_reset
+UPV_SNAP="a b"
+up_refuse snapshot-with-space "--snapshot must be 1 to 64 characters"
+up_reset
+UPV_SNAP=""
+up_refuse snapshot-missing "--snapshot, --data-bucket, --artifacts-bucket and --spark-dir are required"
+up_reset
+UPV_SNAP=".."
+up_refuse snapshot-dot-dot "--snapshot must not be . or .."
+up_reset
+UPV_DB="Harness-Data"
+up_refuse data-bucket-uppercase "not a bucket name: Harness-Data"
+up_reset
+UPV_DB="harness_data"
+up_refuse data-bucket-underscore "not a bucket name: harness_data"
+up_reset
+UPV_AB="ab"
+up_refuse artifacts-bucket-too-short "not a bucket name: ab"
+up_reset
+UPV_AB="$UP_DATA_BUCKET"
+up_refuse same-bucket-twice "the data and artifacts buckets must differ"
+up_reset
+UPV_AB=""
+up_refuse artifacts-bucket-missing "--snapshot, --data-bucket, --artifacts-bucket and --spark-dir are required"
+up_reset
+UPV_SPARK=""
+up_refuse spark-dir-missing "--snapshot, --data-bucket, --artifacts-bucket and --spark-dir are required"
+up_reset
+UPV_SPARK="$REPO/spark-dir"
+up_refuse spark-dir-inside-repository "--spark-dir must not be inside the repository"
+up_reset
+UPV_SPARK="relative/spark-dir"
+up_refuse spark-dir-relative "--spark-dir must be an absolute path"
+up_reset
+UPV_SPARK="$WORK/a/../spark-dir"
+up_refuse spark-dir-dot-dot "--spark-dir must not contain . or .. segments"
+
+# Files: a symlink, a missing file, a wrong number of main jars, names that look like
+# credentials, key material in the content, and Spark files that do not match their sums.
+up_reset
+rm -f "$REPO/datasets/subset/orcid.jsonl"
+ln -s "$REPO/datasets/subset/openalex.jsonl" "$REPO/datasets/subset/orcid.jsonl"
+rec_base upload "$UP_BASE_S" "$ZERO64" n/a n/a
+rec_write "$REC/upload-skip.env"
+common_args "$ACCT" us-east-2 "$CEIL"
+up_args --dry-run "$REC/upload-skip.env"
+run_build
+case_begin "14.upload.symlinked-dataset.dry-run-skips-the-file-list-and-says-so"
+a_dry_common
+a_out "CHECK_SKIPPED file-list: not a regular file (or a symlink): $REPO/datasets/subset/orcid.jsonl (not done, so not passed)"
+a_out "APPROVAL_CHECK_SKIPPED field=ARGS_DIGEST"
+a_out "APPROVAL_SKIPPED_FIELDS=ARGS_DIGEST"
+a_not_out "UPLOAD_PLAN"
+a_not_out "WOULD_UPLOAD"
+case_end
+up_refuse symlinked-dataset-real-run-refused "cannot build the file list: not a regular file (or a symlink): $REPO/datasets/subset/orcid.jsonl" real
+up_refuse symlinked-dataset-print-digest-refused "cannot build the file list: not a regular file (or a symlink): $REPO/datasets/subset/orcid.jsonl" digest
+up_restore
+
+rm -f "$REPO/datasets/subset/orcid.jsonl"
+up_refuse missing-dataset-file-real-run-refused "cannot build the file list: not a regular file (or a symlink): $REPO/datasets/subset/orcid.jsonl" real
+up_restore
+
+rm -rf "$REPO/modules/hadoop/target/job/lib"
+up_refuse missing-lib-directory-real-run-refused "cannot build the file list: no $REPO/modules/hadoop/target/job/lib (run sbt packageJobs through scripts/package.sh)" real
+up_restore
+
+printf 'x\n' > "$REPO/modules/spark/target/job/second-job.jar"
+up_refuse two-main-jars-real-run-refused "expected exactly one main jar in $REPO/modules/spark/target/job, found 2" real
+up_restore
+
+rm -f "$REPO/modules/entity-resolution/target/job/entity-resolution-job.jar"
+up_refuse no-main-jar-real-run-refused "expected exactly one main jar in $REPO/modules/entity-resolution/target/job, found 0" real
+up_restore
+
+rm -f "$REPO/modules/hadoop/target/job/lib/dep-hadoop.jar"
+ln -s "$REPO/modules/hadoop/target/job/hadoop-job.jar" "$REPO/modules/hadoop/target/job/lib/dep-hadoop.jar"
+up_refuse symlinked-lib-jar-real-run-refused "cannot build the file list: not a regular file (or a symlink): $REPO/modules/hadoop/target/job/lib/dep-hadoop.jar" real
+up_restore
+
+printf 'x\n' > "$REPO/modules/hadoop/target/job/lib/my-credentials.jar"
+up_refuse credential-named-jar-refused-in-a-dry-run "refusing a file named like a credential or secret: $REPO/modules/hadoop/target/job/lib/my-credentials.jar"
+up_restore
+
+printf 'x\n' > "$REPO/modules/spark/target/job/lib/SECRET-Lib.jar"
+up_refuse secret-named-jar-refused-in-a-real-run "refusing a file named like a credential or secret: $REPO/modules/spark/target/job/lib/SECRET-Lib.jar" real
+up_restore
+
+printf '# x\n' > "$REPO/scripts/emr/my-credentials.sh"
+up_refuse credential-named-emr-script-refused-in-a-dry-run "refusing a file named like a credential or secret: $REPO/scripts/emr/my-credentials.sh"
+up_restore
+
+printf 'note %s\n' "$FAKE_AKIA" > "$REPO/datasets/subset/dblp-subset.xml"
+UP_PLANTED="$FAKE_AKIA"
+up_refuse key-material-in-a-dataset-real-run-refused "possible credential material" real
+up_restore
+
+printf 'note %s\n' "$FAKE_AKIA" > "$REPO/modules/entity-resolution/target/job/lib/dep-entity-resolution.jar"
+UP_PLANTED="$FAKE_AKIA"
+up_refuse key-material-in-a-lib-jar-dry-run-refused "possible credential material"
+up_restore
+
+printf '%s\n' "$FAKE_PEM" >> "$REPO/scripts/emr/capability-check.sh"
+UP_PLANTED="$FAKE_PEM"
+up_refuse key-material-in-an-emr-script-real-run-refused "possible credential material" real
+up_restore
+
+printf 'tampered\n' > "$UP_SPARK/spark-4.0.5-jars.zip"
+up_refuse spark-archive-not-matching-the-sums-refused "spark-4.0.5-jars.zip does not match spark-4.0.5.sha256"
+up_restore
+
+printf '%s  spark-4.0.5-bin-hadoop3.tgz\n' "$(sha_of "$UP_SPARK/spark-4.0.5-bin-hadoop3.tgz")" > "$UP_SPARK/spark-4.0.5.sha256"
+up_refuse spark-sums-file-without-a-line-for-the-archive-refused "spark-4.0.5.sha256 has no sha256 line for spark-4.0.5-jars.zip"
+up_restore
+
+rm -f "$UP_SPARK/spark-4.0.5-jars.zip"
+up_refuse spark-archive-missing-real-run-refused "cannot build the file list: not a regular file (or a symlink): $UP_SPARK/spark-4.0.5-jars.zip" real
+up_restore
+
+# The real scripts/emr files go through the same secret scan upload-inputs.sh applies
+# (scan_for_secrets from lib.sh). Predicted to fail for lib-emr.sh: it holds the key-material
+# pattern list itself, so the scan matches its own pattern line and the upload would stop.
+scan_with_lib() {
+  RC=0
+  (
+    # SC_SCRIPT is read by script_digest in the sourced lib.sh, which shellcheck does not follow here.
+    # shellcheck disable=SC2034
+    SC_SCRIPT="$REPO/scripts/upload-inputs.sh"
+    # shellcheck source=/dev/null
+    source "$REPO/scripts/lib.sh"
+    scan_for_secrets "$1"
+  ) > "$LOGDIR/scan.out" 2> "$LOGDIR/scan.err" < /dev/null || RC=$?
+  OUT="$LOGDIR/scan.out"
+  ERR="$LOGDIR/scan.err"
+}
+for up_f in "$REAL_ROOT"/scripts/emr/*; do
+  [ -f "$up_f" ] || continue
+  scan_with_lib "$up_f"
+  case_begin "14.upload.real-emr-file.${up_f##*/}.passes-the-upload-secret-scan"
+  a_rc 0
+  [ ! -s "$ERR" ] || note_fail "scan stderr: $(head -n 1 "$ERR" | cut -c1-140)"
+  case_end
+done
+
+# Static content of scripts/upload-inputs.sh.
+# shellcheck disable=SC2016
+static_upload_cases() {
+  local c p
+  c="$(code_of "$REPO/scripts/upload-inputs.sh")"
+  static_begin "14.upload.static.one-aws-s3-cp-per-file-with-errors-only"
+  f_count_is "$c" 'aws s3 cp "$src" "s3://$bucket/$key" --only-show-errors' 1
+  case_end
+  static_begin "14.upload.static.no-sse-c-no-sync-no-delete-no-overwrite-options"
+  for p in '--sse-c' '--delete' 's3 sync' 's3 rm' 's3 mv' 'delete-object' 'put-object' '--acl' '--recursive' '--storage-class'; do
+    f_has_not "$c" "$p"
+  done
+  case_end
+  static_begin "14.upload.static.head-object-checks-the-size-and-reports-the-encryption"
+  f_has "$c" 'aws s3api head-object --bucket "$bucket" --key "$key" --query ContentLength'
+  f_has "$c" '[[ "$got" == "$bytes" ]] || die "size mismatch'
+  f_has "$c" '--query ServerSideEncryption'
+  case_end
+  static_begin "14.upload.static.record-checked-then-identity-then-consume-then-copy-then-verify"
+  f_before "$c" 'step plan-files' 'verify_approval upload'
+  f_before "$c" 'verify_approval upload' 'verify_identity'
+  f_before "$c" 'verify_identity' 'consume_approval upload'
+  f_before "$c" 'consume_approval upload' 'aws s3 cp "$src"'
+  f_before "$c" 'aws s3 cp "$src"' 'aws s3api head-object --bucket'
+  case_end
+  static_begin "14.upload.static.credential-name-list-is-complete"
+  for p in '.env | .env.*' '*credential*' '*secret*' '*.pem' '*.key' '*.p12' '*.pfx' '*.tfstate*' '*.tfplan' '.netrc' '.npmrc' 'id_rsa*' 'id_ed25519*'; do
+    f_has "$c" "$p"
+  done
+  case_end
+  static_begin "14.upload.static.one-action-name-everywhere"
+  f_has "$c" 'maybe_print_digest upload "$EXTRA"'
+  f_has "$c" 'dry_banner upload "$EXTRA"'
+  f_has "$c" 'verify_approval upload "$EXTRA" "n/a" "n/a"'
+  f_has "$c" 'consume_approval upload'
+  case_end
+}
+static_upload_cases
+up_restore
+
+### 14.emr: static content of scripts/emr/* (read as text from the real repository) ---------
+
+EMR_DIR="$REAL_ROOT/scripts/emr"
+EMR_SH="lib-emr.sh capability-check.sh run-s-pipeline.sh install-java-bootstrap.sh"
+# shellcheck disable=SC2016
+CRED_PATTERNS=(
+  '^[[:space:]]*(printenv|export -p|declare -p|declare -x)([[:space:]]|$)'
+  '^[[:space:]]*(env|set)[[:space:]]*($|\||>)'
+  '^[[:space:]]*set[[:space:]]+(-[a-zA-Z]*x|-o[[:space:]]+xtrace)'
+  '(^|[[:space:]])(ba)?sh[[:space:]]+-[a-zA-Z]*x'
+  'AWS_(SECRET|SESSION|ACCESS)'
+  '(echo|printf)[^|]*\$\{?AWS_'
+  '/proc/[^ ]*/environ'
+  'get-secret-value|get-parameter|169\.254\.169\.254|security-credentials|aws configure|sts get-session-token|assume-role'
+  '\.aws/(credentials|config)|credential_process'
+)
+EMR_KEY_RE='AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIV''ATE KEY-----|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|[Aa]uthorization:[[:space:]]*[Bb]earer[[:space:]]+[A-Za-z0-9]'
+
+# shellcheck disable=SC2016
+for emr_n in $EMR_SH; do
+  emr_p="$EMR_DIR/$emr_n"
+  static_begin "14.emr.$emr_n.strict-mode"
+  if [ ! -f "$emr_p" ]; then
+    note_fail "missing $emr_p"
+  else
+    emr_c="$(code_of "$emr_p")"
+    emr_lib="$(code_of "$EMR_DIR/lib-emr.sh")"
+    if grep -qE '^[[:space:]]*set -euo pipefail[[:space:]]*$' "$emr_c"; then
+      :
+    elif grep -qF 'source "$SC_SCRIPT_DIR/lib-emr.sh"' "$emr_c" && grep -qE '^set -euo pipefail[[:space:]]*$' "$emr_lib"; then
+      :
+    else
+      note_fail "$emr_n has no set -euo pipefail and does not source lib-emr.sh, which has it"
+    fi
+  fi
+  case_end
+
+  static_begin "14.emr.$emr_n.no-credential-printing"
+  if [ ! -f "$emr_p" ]; then
+    note_fail "missing $emr_p"
+  else
+    emr_c="$(code_of "$emr_p")"
+    for emr_pat in "${CRED_PATTERNS[@]}"; do
+      f_has_not_re "$emr_c" "$emr_pat"
+    done
+  fi
+  case_end
+
+  static_begin "14.emr.$emr_n.no-sse-c-no-sync-no-delete"
+  if [ ! -f "$emr_p" ]; then
+    note_fail "missing $emr_p"
+  else
+    emr_c="$(code_of "$emr_p")"
+    for emr_pat in '--sse-c' '--sse-customer' 's3 sync' 's3 rm' 's3 mv' '--delete' 'delete-object'; do
+      f_has_not "$emr_c" "$emr_pat"
+    done
+  fi
+  case_end
+
+  static_begin "14.emr.$emr_n.no-key-material-literal"
+  if [ ! -f "$emr_p" ]; then
+    note_fail "missing $emr_p"
+  else
+    f_has_not_re "$emr_p" "$EMR_KEY_RE"
+  fi
+  case_end
+done
+
+emr_cap="$(code_of "$EMR_DIR/capability-check.sh")"
+emr_run="$(code_of "$EMR_DIR/run-s-pipeline.sh")"
+emr_lib="$(code_of "$EMR_DIR/lib-emr.sh")"
+emr_boot="$(code_of "$EMR_DIR/install-java-bootstrap.sh")"
+
+static_begin "14.emr.capability-check.local-mode-wording"
+f_has "$emr_cap" 'MapReduce in local mode on an EMR node'
+f_has "$emr_cap" 'mr="local"'
+case_end
+
+static_begin "14.emr.run-s-pipeline.local-mode-wording"
+f_has "$emr_run" 'MapReduce in local mode on an EMR node'
+f_has "$emr_run" 'mr="local"'
+case_end
+
+static_begin "14.emr.no-distributed-mapreduce-claim"
+emr_claim="$(grep -hiE 'distributed[[:space:]]+(mapreduce|execution|processing|computing)' "$EMR_DIR"/* | grep -viE '(never|not|no)[[:space:]]+distributed' | head -n 1)"
+[ -z "$emr_claim" ] || note_fail "a line claims distributed execution without a negation: $(printf '%s' "$emr_claim" | cut -c1-120)"
+case_end
+
+static_begin "14.emr.run-s-pipeline.single-node-scope-wording"
+f_has "$emr_run" 'data-size scaling on a single-node EMR cluster (Spark and MapReduce on YARN)'
+case_end
+
+static_begin "14.emr.capability-check.scope-lines-say-not-distributed"
+f_has "$emr_cap" 'kv MAPREDUCE_SCOPE "single node: MapReduce on YARN on one node is not distributed execution"'
+f_has "$emr_cap" 'kv SPARK_SCOPE "single node: Spark on YARN on one node is not distributed execution"'
+case_end
+
+static_begin "14.emr.region-is-us-east-2-only"
+f_has "$emr_lib" 'SC_REGION="us-east-2"'
+emr_region="$(grep -hE '(^|[^a-z0-9])(us-east-1|us-west-[12]|eu-[a-z]+-[0-9]|ap-[a-z]+-[0-9])' "$EMR_DIR"/* | head -n 1)"
+[ -z "$emr_region" ] || note_fail "another Region is named: $(printf '%s' "$emr_region" | cut -c1-120)"
+case_end
+
+static_begin "14.emr.key-material-pattern-text-only-on-its-own-line"
+emr_pat_lines="$(grep -hF 'aws_secret_access_key' "$EMR_DIR"/*.sh | grep -vF 'SC_SECRET_RE=' | head -n 1)"
+[ -z "$emr_pat_lines" ] || note_fail "aws_secret_access_key appears outside the SC_SECRET_RE line: $(printf '%s' "$emr_pat_lines" | cut -c1-120)"
+case_end
+
+static_begin "14.emr.install-java-bootstrap.sh.only-java-17-or-21"
+f_has "$emr_boot" '17 | 21) ;;'
+# shellcheck disable=SC2016
+f_has "$emr_boot" 'major="${1:-17}"'
+case_end
+
+static_begin "14.emr.install-java-bootstrap.sh.no-download-and-no-gpg-bypass"
+f_has_not_re "$emr_boot" '(^|[^a-z])(curl|wget)([^a-z]|$)'
+f_has_not_re "$emr_boot" 'nogpgcheck|no-gpgcheck|gpgcheck=0'
+case_end
+
+static_begin "14.emr.spark-yarn-conf.holds-only-key-value-settings"
+emr_bad="$(grep -vE '^[[:space:]]*(#.*)?$' "$EMR_DIR/spark-yarn.conf" | grep -vE '^[A-Z_]+=[A-Za-z0-9._-]*$' | head -n 1)"
+[ -z "$emr_bad" ] || note_fail "a line is not KEY=VALUE: $emr_bad"
+[ -f "$EMR_DIR/spark-yarn.conf" ] || note_fail "scripts/emr/spark-yarn.conf is missing"
+case_end
+
+static_begin "14.emr.every-file-in-the-directory-is-on-the-upload-list"
+for emr_f in "$EMR_DIR"/*; do
+  case "${emr_f##*/}" in
+    *.sh | spark-yarn.conf) ;;
+    *) note_fail "upload-inputs.sh uploads only scripts/emr/*.sh and spark-yarn.conf, not ${emr_f##*/}" ;;
+  esac
+done
 case_end
 
 ### Case 12: secrets, the tripwire and the real repository ---------------------------------
