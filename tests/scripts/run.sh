@@ -309,7 +309,7 @@ a_dry_common() {
 
 a_targets() {
   a_out "TARGET_ACCOUNT=$ACCT"
-  a_out "TARGET_REGION=us-east-1"
+  a_out "TARGET_REGION=us-east-2"
   a_out "TARGET_ENVIRONMENT=course"
 }
 
@@ -335,8 +335,8 @@ R_GSHA=""
 R_VERSION=1
 R_ENV=course
 R_ACCT="$ACCT"
-R_REGION=us-east-1
-R_COST=25
+R_REGION=us-east-2
+R_COST=""
 R_STATEFUL=no
 R_BY="harness-operator"
 R_AT=""
@@ -354,8 +354,8 @@ rec_base() {
   R_VERSION=1
   R_ENV=course
   R_ACCT="$ACCT"
-  R_REGION=us-east-1
-  R_COST=25
+  R_REGION=us-east-2
+  R_COST="$CEIL"
   R_STATEFUL=no
   R_BY="harness-operator"
   R_AT="$(iso_from_epoch $((NOW - 120)))"
@@ -404,8 +404,8 @@ make_plan() {
   if [ "$stateful" = "yes" ]; then printf 'harness fake plan: stateful change\n' >> "$f"; fi
   d="$(sha_of "$f")"
   {
-    printf 'META_VERSION=1\nMODE=%s\nENVIRONMENT=course\nACCOUNT_ID=%s\nREGION=us-east-1\n' "$mode" "$ACCT"
-    printf 'GIT_SHA=%s\nDIRTY=no\nIMAGE_TAG=%s\nCPU_ARCHITECTURE=X86_64\nCOST_CEILING_USD=25\n' "$HEAD_SHA" "$tag"
+    printf 'META_VERSION=1\nMODE=%s\nENVIRONMENT=course\nACCOUNT_ID=%s\nREGION=us-east-2\n' "$mode" "$ACCT"
+    printf 'GIT_SHA=%s\nDIRTY=no\nIMAGE_TAG=%s\nCPU_ARCHITECTURE=X86_64\nCOST_CEILING_USD=%s\n' "$HEAD_SHA" "$tag" "$CEIL"
     printf 'PLAN_EXIT=2\nSTATEFUL_CHANGE=%s\nPLAN_DIGEST=%s\nCREATED_AT=%s\n' "$stateful" "$d" "$(iso_from_epoch "$NOW")"
   } > "$f.meta"
   printf '%s' "$d"
@@ -445,6 +445,16 @@ HEAD_SHA=""
 setup_repo || prereq_fail "could not build the temporary repository under $REPO"
 [ -n "$HEAD_SHA" ] || prereq_fail "no HEAD in the temporary repository"
 
+# The project cost ceiling is read from the copied lib.sh, not hard-coded: Phase 14 D6
+# moves it from 25 to 20 in a parallel work order. Case 0.ceiling-pinned-to-D6 pins the
+# expected value separately, so a lib.sh still at 25 fails that one case only.
+CEIL="$(sed -n 's/^SC_PROJECT_CEILING_USD="\{0,1\}\([0-9][0-9]*\)"\{0,1\}$/\1/p' "$REPO/scripts/lib.sh" | head -n 1)"
+printf '%s' "$CEIL" | grep -qE '^[0-9]+$' || prereq_fail "cannot read SC_PROJECT_CEILING_USD from scripts/lib.sh"
+[ "$CEIL" -gt 5 ] || prereq_fail "SC_PROJECT_CEILING_USD is too small for the harness arithmetic: $CEIL"
+CEIL_PLUS1=$((CEIL + 1))
+CEIL_PLUS_CENT="$CEIL.01"
+COST_OTHER=$((CEIL - 5))
+
 PLAN_F="$REC/plan/course-${HEAD_SHA:0:12}.tfplan"
 PLAN_DIGEST="$(make_plan "$PLAN_F" apply "$HEAD_SHA")"
 PLAN_FLIP="$REC/plan/course-cleanup-flip.tfplan"
@@ -472,7 +482,7 @@ MANIFEST_VERSION=1
 EXPERIMENT_ID=A
 DESCRIPTION=harness-tier-s-manifest
 ENVIRONMENT=course
-REGION=us-east-1
+REGION=us-east-2
 ACCOUNT_ID=$ACCT
 DATASET_SNAPSHOT=harness-slice
 SIZE_TIER=S
@@ -509,7 +519,7 @@ EVDIR=""
 # SN (script name), AN (approval action), GS (record GIT_SHA), PD (record PLAN_DIGEST)
 # and ST (record STATEFUL_CHANGE_ACKNOWLEDGED).
 build() {
-  local key="$1" mode="$2" rec="$3" acct="${4:-$ACCT}" cost="${5:-25}" region="${6:-us-east-1}"
+  local key="$1" mode="$2" rec="$3" acct="${4:-$ACCT}" cost="${5:-$CEIL}" region="${6:-us-east-2}"
   local flag="--dry-run" pf stop_on
   if [ "$mode" = "digest" ]; then flag="--print-digest"; fi
   common_args "$acct" "$region" "$cost"
@@ -533,7 +543,7 @@ build() {
       A=("$flag" "${CA[@]}" --state-bucket scholarchain-harness-state --state-key env/course/terraform.tfstate --state-version-id v1.2-abc) ;;
     smoke)
       SN=smoke-test; AN=smoke-test
-      A=("$flag" "${CA[@]}" --out-dir "$OUT_BASE/smoke" --fast-url http://10.20.0.10:8080 --slow-url http://10.20.0.11:8081 --query-secret-arn "arn:aws:secretsmanager:us-east-1:${acct}:secret:scholarchain/query-token-AbCdEf" --bedrock off) ;;
+      A=("$flag" "${CA[@]}" --out-dir "$OUT_BASE/smoke" --fast-url http://10.20.0.10:8080 --slow-url http://10.20.0.11:8081 --query-secret-arn "arn:aws:secretsmanager:us-east-2:${acct}:secret:scholarchain/query-token-AbCdEf" --bedrock off) ;;
     pipeline)
       SN=run-bounded-pipeline; AN=pipeline
       stop_on="first-failure,dlq-nonempty"
@@ -685,7 +695,7 @@ A1="$D_ARGS"
 prep_key rollback-state
 S2="$D_SCRIPT"
 A2="$D_ARGS"
-build rollback-state digest - "$ACCT" 20
+build rollback-state digest - "$ACCT" "$COST_OTHER"
 run_build
 S3="$(sed -n 's/^SCRIPT_DIGEST=//p' "$OUT" | head -n 1)"
 A3="$(sed -n 's/^ARGS_DIGEST=//p' "$OUT" | head -n 1)"
@@ -881,7 +891,7 @@ for key in $KEYS; do
   rv record-region "record REGION differs"
   R_ENV=staging
   rv record-environment "record ENVIRONMENT differs"
-  R_COST=20
+  R_COST="$COST_OTHER"
   rv record-cost-differs "differs from --cost-ceiling-usd"
   R_BY=claude-agent
   rv approver-agent "APPROVED_BY must name the human"
@@ -910,16 +920,60 @@ for key in $KEYS; do
 
   fresh
   rec_write "$VREC"
-  arg_variant account-10-digits "account id must be 12 digits" 1234567890 25 us-east-1
-  arg_variant account-13-digits "account id must be 12 digits" 1234567890123 25 us-east-1
-  arg_variant account-not-numeric "account id must be 12 digits" abcdefghijkl 25 us-east-1
-  arg_variant region-not-us-east-1 "region must be us-east-1" "$ACCT" 25 eu-west-1
-  arg_variant cost-zero "cost ceiling must be greater than zero" "$ACCT" 0 us-east-1
-  arg_variant cost-negative "not a plain positive number" "$ACCT" -1 us-east-1
-  arg_variant cost-non-numeric "not a plain positive number" "$ACCT" abc us-east-1
-  arg_variant cost-exponent "not a plain positive number" "$ACCT" 1e1 us-east-1
-  arg_variant cost-above-25 "exceeds the project ceiling" "$ACCT" 26 us-east-1
-  arg_variant cost-just-above-25 "exceeds the project ceiling" "$ACCT" 25.01 us-east-1
+  arg_variant account-10-digits "account id must be 12 digits" 1234567890 "$CEIL" us-east-2
+  arg_variant account-13-digits "account id must be 12 digits" 1234567890123 "$CEIL" us-east-2
+  arg_variant account-not-numeric "account id must be 12 digits" abcdefghijkl "$CEIL" us-east-2
+  # Flipped from "region must be us-east-1" (Phase 14 D1: the approved Region is us-east-2).
+  arg_variant region-not-us-east-2 "region must be us-east-2" "$ACCT" "$CEIL" eu-west-1
+  arg_variant cost-zero "cost ceiling must be greater than zero" "$ACCT" 0 us-east-2
+  arg_variant cost-negative "not a plain positive number" "$ACCT" -1 us-east-2
+  arg_variant cost-non-numeric "not a plain positive number" "$ACCT" abc us-east-2
+  arg_variant cost-exponent "not a plain positive number" "$ACCT" 1e1 us-east-2
+  arg_variant cost-above-ceiling "exceeds the project ceiling" "$ACCT" "$CEIL_PLUS1" us-east-2
+  arg_variant cost-just-above-ceiling "exceeds the project ceiling" "$ACCT" "$CEIL_PLUS_CENT" us-east-2
+done
+
+# Phase 14 D1: the account is locked to us-east-2. Every approval-gated form refuses
+# us-east-1 and any other Region, with the D1 note, before any command is called.
+# region_variant ID REGION: --region REGION against a record that is otherwise valid.
+region_variant() {
+  local id="$1" r="$2"
+  build "$KEY" dry "$VREC" "$ACCT" "$CEIL" "$r"
+  run_build
+  case_begin "5.$KEY.$id"
+  a_refused "region must be us-east-2, got: $r"
+  a_err "Phase 14 decision D1"
+  a_err "locked to us-east-2"
+  a_err "never suggested"
+  case_end
+}
+
+for key in $KEYS; do
+  KEY="$key"
+  prep_key "$key"
+  fresh
+  rec_write "$VREC"
+  region_variant region-us-east-1-refused-with-d1-note us-east-1
+  region_variant region-us-west-2-refused-with-d1-note us-west-2
+  region_variant region-us-east-2a-zone-is-not-a-region us-east-2a
+  region_variant region-letter-case-refused US-EAST-2
+
+  build "$key" digest - "$ACCT" "$CEIL" us-east-1
+  run_build
+  case_begin "5.$key.region-us-east-1-print-digest-refused"
+  a_rc_nonzero
+  a_err_evidence
+  a_err "region must be us-east-2, got: us-east-1"
+  a_not_out "SCRIPT_DIGEST="
+  a_not_out "ARGS_DIGEST="
+  a_trip_empty
+  case_end
+
+  # Approval record whose REGION is us-east-1 while --region is us-east-2.
+  R_REGION=us-east-1
+  rv record-region-us-east-1 "record REGION differs from --region"
+  R_REGION=us-west-2
+  rv record-region-us-west-2 "record REGION differs from --region"
 done
 
 for key in deploy rollback-image; do
@@ -1025,7 +1079,8 @@ a_refused "must not contain . or .. segments"
 case_end
 LONGQ="$(awk 'BEGIN { for (i = 0; i < 201; i++) printf "a" }')"
 for variant in "url-with-path|--fast-url|http://10.20.0.10:8080/x|must look like http://host:port" \
-  "secret-other-account|--query-secret-arn|arn:aws:secretsmanager:us-east-1:210987654321:secret:abc|must be a Secrets Manager ARN" \
+  "secret-other-account|--query-secret-arn|arn:aws:secretsmanager:us-east-2:210987654321:secret:abc|must be a Secrets Manager ARN" \
+  "secret-us-east-1|--query-secret-arn|arn:aws:secretsmanager:us-east-1:${ACCT}:secret:abc|must be a Secrets Manager ARN in account $ACCT, us-east-2" \
   "bedrock-maybe|--bedrock|maybe|--bedrock must be on or off" \
   "question-201-chars|--question|$LONGQ|limited to 200 characters"; do
   vid="${variant%%|*}"
@@ -1059,7 +1114,7 @@ a_out "no --read-secret-arn: the real run skips this step"
 a_not_out "read the read-scope token"
 case_end
 
-SM_ARN_OK="arn:aws:secretsmanager:us-east-1:${ACCT}:secret:x"
+SM_ARN_OK="arn:aws:secretsmanager:us-east-2:${ACCT}:secret:x"
 build smoke digest -
 run_build
 SM_CANON_NO="$(sed -n 's/^ARGS_CANONICAL=//p' "$OUT" | head -n 1)"
@@ -1106,7 +1161,7 @@ a_not_out "no --read-secret-arn"
 case_end
 
 build smoke dry "$REC/smoke.env"
-A=("${A[@]}" --read-secret-arn "arn:aws:secretsmanager:us-east-1:210987654321:secret:x")
+A=("${A[@]}" --read-secret-arn "arn:aws:secretsmanager:us-east-2:210987654321:secret:x")
 run_build
 case_begin "5.smoke.read-secret-arn-other-account"
 a_refused "--read-secret-arn must be a Secrets Manager ARN"
@@ -1123,11 +1178,17 @@ run_build
 case_begin "5.smoke.read-secret-arn-other-region"
 a_refused "--read-secret-arn must be a Secrets Manager ARN"
 case_end
+build smoke dry "$REC/smoke.env"
+A=("${A[@]}" --read-secret-arn "arn:aws:secretsmanager:us-east-1:${ACCT}:secret:x")
+run_build
+case_begin "5.smoke.read-secret-arn-us-east-1"
+a_refused "--read-secret-arn must be a Secrets Manager ARN in account $ACCT, us-east-2"
+case_end
 
 # run-bounded-pipeline.sh limits.
 pipe_case() {
   local id="$1" frag="$2" size="$3" minutes="$4" spend="$5" burn="$6" stop="$7" input="$8"
-  common_args "$ACCT" us-east-1 25
+  common_args "$ACCT" us-east-2 "$CEIL"
   SN=run-bounded-pipeline
   A=(--dry-run "${CA[@]}" --size "$size" --max-minutes "$minutes" --spend-ceiling-usd "$spend" --hourly-burn-usd "$burn" --stop-on "$stop" --input-file "$input" --approval-record "$REC/pipeline.env")
   run_build
@@ -1141,7 +1202,7 @@ pipe_case large-over-150 "must be 1 to 150" large 151 5.00 0.60 first-failure "$
 pipe_case minutes-zero "must be 1 to 60" small 0 0.75 0.60 first-failure "$PIPE_IN"
 pipe_case unknown-size "size must be small, medium or large" huge 60 0.75 0.60 first-failure "$PIPE_IN"
 pipe_case projected-over-spend "projected spend" small 60 0.75 2.00 first-failure "$PIPE_IN"
-pipe_case spend-over-cost "exceeds the cost ceiling" small 60 26 0.60 first-failure "$PIPE_IN"
+pipe_case spend-over-cost "exceeds the cost ceiling" small 60 "$CEIL_PLUS1" 0.60 first-failure "$PIPE_IN"
 pipe_case unknown-stop-condition "unknown stop condition" small 60 0.75 0.60 first-failure,bogus "$PIPE_IN"
 pipe_case input-missing "must be an existing absolute path" small 60 0.75 0.60 first-failure "$REC/no-such-input.json"
 printf '{"x":"%s"}\n' "$FAKE_AKIA" > "$REC/pipeline-secret-input.json"
@@ -1158,7 +1219,7 @@ a_dry_common
 a_out "INPUT_FILE=$PIPE_IN"
 a_out "INPUT_SHA256=$PIPE_SHA"
 a_out "INPUT_BYTES=$PIPE_BYTES"
-a_out "LIMITS size=small max_minutes=60 spend_ceiling_usd=0.75 hourly_burn_usd=0.60 stop_on=first-failure,dlq-nonempty cost_ceiling_usd=25"
+a_out "LIMITS size=small max_minutes=60 spend_ceiling_usd=0.75 hourly_burn_usd=0.60 stop_on=first-failure,dlq-nonempty cost_ceiling_usd=$CEIL"
 a_out "OUTPUT_LOCATIONS=none-named"
 a_not_out "OUTPUT_LOCATION="
 a_out "DATASET_SNAPSHOT=not-recorded"
@@ -1169,7 +1230,7 @@ case_end
 
 PIPE_IN_S3="$REC/pipeline-input-s3.json"
 printf '{"hadoop_args":["--output","s3://harness-out-bucket/run-1/hadoop"],"spark_args":[],"loader_command":[]}\n' > "$PIPE_IN_S3"
-common_args "$ACCT" us-east-1 25
+common_args "$ACCT" us-east-2 "$CEIL"
 SN=run-bounded-pipeline
 stop_on="first-failure,dlq-nonempty"
 A=(--print-digest "${CA[@]}" --size small --max-minutes 60 --spend-ceiling-usd 0.75 --hourly-burn-usd 0.60 --stop-on "$stop_on" --input-file "$PIPE_IN_S3")
@@ -1222,7 +1283,7 @@ done
 
 ### Case 7: cleanup.sh -------------------------------------------------------------
 
-common_args "$ACCT" us-east-1 25
+common_args "$ACCT" us-east-2 "$CEIL"
 
 a_cleanup_refused() {
   a_refused "$1"
@@ -1261,8 +1322,8 @@ case_begin "7.refuse.agent-environment-without-terminal"
 a_human_refused "agent environment is detected"
 case_end
 
-common_args "$ACCT" us-east-1 25
-SC cleanup --dry-run --mode plan-flip --environment staging --account-id "$ACCT" --region us-east-1 --cost-ceiling-usd 25 --i-am-the-human
+common_args "$ACCT" us-east-2 "$CEIL"
+SC cleanup --dry-run --mode plan-flip --environment staging --account-id "$ACCT" --region us-east-2 --cost-ceiling-usd "$CEIL" --i-am-the-human
 case_begin "7.refuse.environment-not-course"
 a_cleanup_refused "course environment only"
 case_end
@@ -1315,7 +1376,7 @@ case_end
 exp_args() {
   local flag="--dry-run"
   if [ "$1" = "digest" ]; then flag="--print-digest"; fi
-  common_args "$ACCT" us-east-1 25
+  common_args "$ACCT" us-east-2 "$CEIL"
   SN=run-experiment
   A=("$flag" --manifest "$2" "${CA[@]}")
   if [ "$1" = "dry" ] && [ "$3" != "-" ]; then
@@ -1353,7 +1414,9 @@ exp_refuse minutes-over-tier-cap set MAX_MINUTES 61 "above the cap 60"
 exp_refuse concurrency-over-tier-cap set MAX_CONCURRENCY 5 "above the cap 4"
 exp_refuse tasks-over-tier-cap set MAX_TASKS 1001 "above the cap 1000"
 exp_refuse minutes-zero set MAX_MINUTES 0 "must be a whole number from 1 to 60"
-exp_refuse region-not-us-east-1 set REGION eu-west-1 "manifest REGION must be us-east-1"
+# Flipped from "manifest REGION must be us-east-1" (Phase 14 D1: the approved Region is us-east-2).
+exp_refuse region-not-us-east-2 set REGION eu-west-1 "manifest REGION must be us-east-2"
+exp_refuse region-us-east-1 set REGION us-east-1 "manifest REGION must be us-east-2, got: us-east-1"
 exp_refuse unknown-experiment-id set EXPERIMENT_ID G "unknown EXPERIMENT_ID"
 exp_refuse tier-unknown set SIZE_TIER XL "SIZE_TIER must be S, M or L"
 exp_refuse output-root-inside-repository set OUTPUT_ROOT "$REPO/exp-out" "must not be inside the repository"
@@ -1368,7 +1431,7 @@ exp_refuse space-in-value set DESCRIPTION "two words" "malformed line"
 exp_refuse entry-point-outside-experiments set ENTRY_POINT script:scripts/check.sh "must be a .sh file under experiments/ or load-tests/"
 exp_refuse entry-point-dot-dot set ENTRY_POINT script:experiments/../scripts/check.sh "must not contain . or .. segments"
 exp_refuse entry-point-not-script-or-sbt set ENTRY_POINT bash:experiments/harness/run.sh "must start with script: or sbt:"
-exp_refuse spend-above-cost-ceiling set SPEND_CEILING_USD 26 "exceeds --cost-ceiling-usd"
+exp_refuse spend-above-cost-ceiling set SPEND_CEILING_USD "$CEIL_PLUS1" "exceeds --cost-ceiling-usd"
 exp_refuse projected-spend-above-ceiling set HOURLY_BURN_USD 5.00 "projected spend"
 exp_refuse account-differs set ACCOUNT_ID 210987654321 "manifest ACCOUNT_ID differs"
 exp_refuse environment-differs set ENVIRONMENT staging "manifest ENVIRONMENT differs"
@@ -1384,19 +1447,28 @@ case_begin "8.refuse.out-dir-differs-from-output-root"
 a_refused "differs from the manifest OUTPUT_ROOT"
 case_end
 
-common_args "$ACCT" us-east-1 25
+common_args "$ACCT" us-east-2 "$CEIL"
 SN=run-experiment
-A=(--dry-run --manifest "$MF_BASE" --environment course --account-id "$ACCT" --cost-ceiling-usd 25 --approval-record "$REC/experiment.env")
+A=(--dry-run --manifest "$MF_BASE" --environment course --account-id "$ACCT" --cost-ceiling-usd "$CEIL" --approval-record "$REC/experiment.env")
 run_build
 case_begin "8.refuse.region-argument-missing"
 a_refused "--region is required"
 case_end
 
 SN=run-experiment
-A=(--dry-run --manifest "$MF_BASE" --environment course --account-id "$ACCT" --region eu-west-1 --cost-ceiling-usd 25 --approval-record "$REC/experiment.env")
+A=(--dry-run --manifest "$MF_BASE" --environment course --account-id "$ACCT" --region eu-west-1 --cost-ceiling-usd "$CEIL" --approval-record "$REC/experiment.env")
 run_build
-case_begin "8.refuse.region-argument-not-us-east-1"
-a_refused "region must be us-east-1"
+# Flipped from "region must be us-east-1" (Phase 14 D1: the approved Region is us-east-2).
+case_begin "8.refuse.region-argument-not-us-east-2"
+a_refused "region must be us-east-2"
+case_end
+
+SN=run-experiment
+A=(--dry-run --manifest "$MF_BASE" --environment course --account-id "$ACCT" --region us-east-1 --cost-ceiling-usd "$CEIL" --approval-record "$REC/experiment.env")
+run_build
+case_begin "8.refuse.region-argument-us-east-1"
+a_refused "region must be us-east-2, got: us-east-1"
+a_err "Phase 14 decision D1"
 case_end
 
 exp_args dry "$MF_BASE" "$REC/experiment.env"
@@ -1448,7 +1520,7 @@ UNTRACKED_REL="experiments/harness/untracked.sh"
 MF_UNTRACKED="$REC/mf-untracked.manifest"
 mf_edit "$MF_BASE" "$MF_UNTRACKED" set ENTRY_POINT "script:$UNTRACKED_REL"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$REPO/$UNTRACKED_REL"
-common_args "$ACCT" us-east-1 25
+common_args "$ACCT" us-east-2 "$CEIL"
 SN=run-experiment
 A=(--manifest "$MF_UNTRACKED" "${CA[@]}" --approval-record "$REC/does-not-exist.env")
 run_build
@@ -1647,7 +1719,7 @@ a_trip_empty
 case_end
 
 UP_NAME="evidence-20260101T000000Z-aaaaaaaaaaaa"
-common_args "$ACCT" us-east-1 25
+common_args "$ACCT" us-east-2 "$CEIL"
 SC archive-evidence --dry-run --upload-dir "$OUT_BASE/$UP_NAME" --s3-prefix s3://harness-evidence-bucket/prefix "${CA[@]}"
 case_begin "9.upload.dry-run-without-record-refused"
 a_refused "--approval-record is required"
@@ -1851,6 +1923,258 @@ case_begin "11.refuse.out-dir-relative"
 a_rc_nonzero
 a_err "must be an absolute path"
 a_trip_empty
+case_end
+
+### Case 13: Phase 14 Region lock (decision D1) ---------------------------------------
+# Work order 03 (phase 14). Placed before case 12 so that the outputs of these cases
+# are covered by the secret scan and the tripwire check.
+
+case_begin "13.ceiling-pinned-to-D6"
+OUT="$LOGDIR/none.out"; ERR="$LOGDIR/none.err"; RC=0
+[ "$CEIL" = "20" ] || note_fail "scripts/lib.sh SC_PROJECT_CEILING_USD is $CEIL; Phase 14 D6 sets 20 (work order 02 changes it)"
+case_end
+
+# plan.sh: --region other than us-east-2, dry run, digest and real run.
+for r in us-east-1 us-west-2 us-east-2a US-EAST-2; do
+  build plan dry - "$ACCT" "$CEIL" "$r"
+  run_build
+  case_begin "13.plan.region-$r-refused-with-d1-note"
+  a_refused "region must be us-east-2, got: $r"
+  a_err "Phase 14 decision D1"
+  a_err "locked to us-east-2"
+  a_not_out "TARGET_REGION="
+  case_end
+done
+
+build plan digest - "$ACCT" "$CEIL" us-east-1
+run_build
+case_begin "13.plan.print-digest-region-us-east-1-refused"
+a_rc_nonzero
+a_err_evidence
+a_err "region must be us-east-2, got: us-east-1"
+a_not_out "SCRIPT_DIGEST="
+a_trip_empty
+case_end
+
+# Real runs (no --dry-run) are refused in the shared validation, before the identity
+# check and before any stubbed command.
+build plan dry - "$ACCT" "$CEIL" us-east-1
+A=("${A[@]:1}")
+run_build
+case_begin "13.plan.real-run-region-us-east-1-refused"
+a_refused "region must be us-east-2, got: us-east-1"
+a_err "Phase 14 decision D1"
+a_not_out "IDENTITY_OK"
+a_not_out "identity-check"
+case_end
+
+build deploy dry "$REC/deploy.env" "$ACCT" "$CEIL" us-east-1
+A=("${A[@]:1}")
+run_build
+case_begin "13.deploy.real-run-region-us-east-1-refused"
+a_refused "region must be us-east-2, got: us-east-1"
+a_err "Phase 14 decision D1"
+a_not_out "IDENTITY_OK"
+a_not_out "identity-check"
+case_end
+
+build smoke dry "$REC/smoke.env" "$ACCT" "$CEIL" us-east-1
+A=("${A[@]:1}")
+run_build
+case_begin "13.smoke.real-run-region-us-east-1-refused"
+a_refused "region must be us-east-2, got: us-east-1"
+a_err "Phase 14 decision D1"
+a_not_out "IDENTITY_OK"
+a_not_out "identity-check"
+case_end
+
+build experiment dry "$REC/experiment.env" "$ACCT" "$CEIL" us-east-1
+A=("${A[@]:1}")
+run_build
+case_begin "13.experiment.real-run-region-us-east-1-refused"
+a_refused "region must be us-east-2, got: us-east-1"
+a_err "Phase 14 decision D1"
+a_not_out "IDENTITY_OK"
+a_not_out "identity-check"
+case_end
+
+# check_tfvars_region through plan.sh (course.tfvars is checked on every plan run;
+# --extra-var-file files are checked too). Files live outside the repository.
+TFV_DIR="$REC/tfv"
+mkdir -p "$TFV_DIR"
+tfv_write() {
+  local name="$1"
+  shift
+  : > "$TFV_DIR/$name.tfvars"
+  while [ "$#" -gt 0 ]; do
+    printf '%s\n' "$1" >> "$TFV_DIR/$name.tfvars"
+    shift
+  done
+}
+
+# plan_tfv ID MODE FRAGMENT: the var file TFV_DIR/ID.tfvars is given as --extra-var-file.
+# MODE is refuse (the D1 note and FRAGMENT on stderr) or accept (the dry run completes).
+plan_tfv() {
+  local id="$1" mode="$2" frag="${3:-}"
+  build plan dry -
+  A=("${A[@]}" --extra-var-file "$TFV_DIR/$id.tfvars")
+  run_build
+  case_begin "13.plan.tfvars.$id.$mode"
+  if [ "$mode" = "refuse" ]; then
+    a_refused "$frag"
+    a_err "Phase 14 decision D1"
+    a_err "locked to us-east-2"
+  else
+    a_dry_common
+    a_out "TARGET_REGION=us-east-2"
+    a_not_out "EVIDENCE"
+  fi
+  case_end
+}
+
+tfv_write region-east1 'region = "us-east-1"'
+plan_tfv region-east1 refuse 'sets region = "us-east-1"; region must be us-east-2'
+tfv_write region-west2 'region = "us-west-2"'
+plan_tfv region-west2 refuse 'sets region = "us-west-2"; region must be us-east-2'
+tfv_write region-no-spaces 'region="us-east-1"'
+plan_tfv region-no-spaces refuse 'sets region = "us-east-1"'
+tfv_write region-last-assignment-wins-bad 'region = "us-east-2"' 'region = "us-east-1"'
+plan_tfv region-last-assignment-wins-bad refuse 'sets region = "us-east-1"'
+tfv_write region-east2 'region = "us-east-2"'
+plan_tfv region-east2 accept
+tfv_write region-comments-ignored '# region = "us-east-1"' 'region = "us-east-2" # not "us-east-1"'
+plan_tfv region-comments-ignored accept
+tfv_write az-east1 'availability_zones = ["us-east-1a", "us-east-1b"]'
+plan_tfv az-east1 refuse 'sets an availability zone outside us-east-2: us-east-1a'
+tfv_write az-mixed 'availability_zones = ["us-east-2a", "us-east-1b"]'
+plan_tfv az-mixed refuse 'sets an availability zone outside us-east-2: us-east-1b'
+tfv_write az-west2 'availability_zones = ["us-west-2a", "us-west-2b"]'
+plan_tfv az-west2 refuse 'sets an availability zone outside us-east-2: us-west-2a'
+tfv_write az-prefix-trap 'availability_zones = ["eu-us-east-2a", "us-east-2b"]'
+plan_tfv az-prefix-trap refuse 'sets an availability zone outside us-east-2: eu-us-east-2a'
+tfv_write az-east2 'availability_zones = ["us-east-2a", "us-east-2b"]'
+plan_tfv az-east2 accept
+tfv_write region-and-az-east2 'region = "us-east-2"' 'availability_zones = ["us-east-2a", "us-east-2b"]'
+plan_tfv region-and-az-east2 accept
+tfv_write az-comment-ignored '# availability_zones = ["us-east-1a"]' 'availability_zones = ["us-east-2a", "us-east-2b"] # not us-east-1a'
+plan_tfv az-comment-ignored accept
+tfv_write empty-file
+plan_tfv empty-file accept
+tfv_write region-and-az-both-wrong 'region = "us-east-1"' 'availability_zones = ["us-east-1a", "us-east-1b"]'
+plan_tfv region-and-az-both-wrong refuse 'sets region = "us-east-1"; region must be us-east-2'
+
+# A good first file does not excuse a bad second one.
+build plan dry -
+A=("${A[@]}" --extra-var-file "$TFV_DIR/region-east2.tfvars" --extra-var-file "$TFV_DIR/az-east1.tfvars")
+run_build
+case_begin "13.plan.tfvars.second-extra-var-file-bad.refuse"
+a_refused "sets an availability zone outside us-east-2: us-east-1a"
+a_err "Phase 14 decision D1"
+case_end
+
+# check_tfvars_region called directly (the library function, as case 6 does for
+# consume_approval).
+check_with_lib() {
+  RC=0
+  (
+    # SC_SCRIPT is read by script_digest in the sourced lib.sh, which shellcheck does not follow here.
+    # shellcheck disable=SC2034
+    SC_SCRIPT="$REPO/scripts/plan.sh"
+    # shellcheck source=/dev/null
+    source "$REPO/scripts/lib.sh"
+    check_tfvars_region "$1"
+  ) > "$LOGDIR/chk.out" 2> "$LOGDIR/chk.err" < /dev/null || RC=$?
+  OUT="$LOGDIR/chk.out"
+  ERR="$LOGDIR/chk.err"
+}
+
+check_with_lib "$TFV_DIR/region-east1.tfvars"
+case_begin "13.lib.check_tfvars_region.region-east1-refused"
+a_rc 1
+a_err_evidence
+a_err 'sets region = "us-east-1"; region must be us-east-2 (Phase 14 decision D1'
+case_end
+check_with_lib "$TFV_DIR/az-east1.tfvars"
+case_begin "13.lib.check_tfvars_region.az-east1-refused"
+a_rc 1
+a_err_evidence
+a_err "sets an availability zone outside us-east-2: us-east-1a (Phase 14 decision D1"
+case_end
+check_with_lib "$TFV_DIR/az-east2.tfvars"
+case_begin "13.lib.check_tfvars_region.az-east2a-east2b-accepted"
+a_rc 0
+[ ! -s "$ERR" ] || note_fail "stderr is not empty"
+[ ! -s "$OUT" ] || note_fail "stdout is not empty"
+case_end
+check_with_lib "$TFV_DIR/region-east2.tfvars"
+case_begin "13.lib.check_tfvars_region.region-east2-accepted"
+a_rc 0
+[ ! -s "$ERR" ] || note_fail "stderr is not empty"
+case_end
+check_with_lib "$TFV_DIR/empty-file.tfvars"
+case_begin "13.lib.check_tfvars_region.no-region-no-zones-accepted"
+a_rc 0
+[ ! -s "$ERR" ] || note_fail "stderr is not empty"
+case_end
+
+# Every committed var file (and the staging copy the harness makes) passes.
+TFV_N=0
+while IFS= read -r tf_file; do
+  [ -n "$tf_file" ] || continue
+  TFV_N=$((TFV_N + 1))
+  check_with_lib "$tf_file"
+  tf_rel="${tf_file#"$REPO"/}"
+  case_begin "13.lib.check_tfvars_region.committed.$(printf '%s' "$tf_rel" | tr '/' '.')"
+  a_rc 0
+  [ ! -s "$ERR" ] || note_fail "stderr is not empty: $(head -n 1 "$ERR" | cut -c1-140)"
+  case_end
+done < <(find "$REPO/infra/terraform" -name '*.tfvars' -type f | sort)
+case_begin "13.lib.check_tfvars_region.committed.found-at-least-eight"
+OUT="$LOGDIR/none.out"; ERR="$LOGDIR/none.err"; RC=0
+[ "$TFV_N" -ge 8 ] || note_fail "only $TFV_N var files were found under infra/terraform"
+case_end
+
+# Terraform defaults, read as plain text from the copied files (no terraform binary).
+TF_VARS_FILE="$REPO/infra/terraform/environments/course/variables.tf"
+tf_default() {
+  awk -v v="$1" '
+    $0 ~ "^variable \"" v "\" " { f = 1; next }
+    f && /^}/ { exit }
+    f && /^[[:space:]]*default[[:space:]]*=/ { sub(/^[^=]*=[[:space:]]*/, ""); print; exit }
+  ' "$TF_VARS_FILE"
+}
+
+case_begin "13.terraform.region-default-and-validation-are-us-east-2"
+OUT="$LOGDIR/none.out"; ERR="$LOGDIR/none.err"; RC=0
+[ "$(tf_default region)" = '"us-east-2"' ] || note_fail "region default is $(tf_default region), not \"us-east-2\""
+grep -qF 'condition     = var.region == "us-east-2"' "$TF_VARS_FILE" || note_fail "no validation that var.region equals us-east-2"
+grep -qF 'Phase 14 decision D1' "$TF_VARS_FILE" || note_fail "the region validation message does not name decision D1"
+case_end
+
+case_begin "13.terraform.availability-zone-defaults-are-us-east-2a-and-b"
+OUT="$LOGDIR/none.out"; ERR="$LOGDIR/none.err"; RC=0
+[ "$(tf_default availability_zones)" = '["us-east-2a", "us-east-2b"]' ] || note_fail "availability_zones default is $(tf_default availability_zones)"
+case_end
+
+case_begin "13.terraform.haiku-profile-default-is-the-us-geo-profile"
+OUT="$LOGDIR/none.out"; ERR="$LOGDIR/none.err"; RC=0
+[ "$(tf_default bedrock_haiku_profile_id)" = '"us.anthropic.claude-haiku-4-5-20251001-v1:0"' ] || note_fail "bedrock_haiku_profile_id default is $(tf_default bedrock_haiku_profile_id)"
+case_end
+
+# The smoke script's Bedrock defaults agree with the Terraform defaults (Phase 14 D5).
+TF_HAIKU="$(tf_default bedrock_haiku_profile_id | tr -d '"')"
+TF_DIM="$(tf_default vector_dimension)"
+case_begin "13.smoke-defaults-agree-with-terraform-defaults"
+OUT="$LOGDIR/none.out"; ERR="$LOGDIR/none.err"; RC=0
+[ -n "$TF_HAIKU" ] && [ -n "$TF_DIM" ] || note_fail "a Terraform default could not be read"
+case "$SM_CANON_NO" in
+  *";haiku=$TF_HAIKU") ;;
+  *) note_fail "smoke-test.sh default Haiku profile differs from the Terraform default $TF_HAIKU" ;;
+esac
+case "$SM_CANON_NO" in
+  *";dim=$TF_DIM;"*) ;;
+  *) note_fail "smoke-test.sh default vector dimension differs from the Terraform default $TF_DIM" ;;
+esac
 case_end
 
 ### Case 12: secrets, the tripwire and the real repository ---------------------------------

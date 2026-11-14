@@ -4,7 +4,8 @@
 #
 # Contract of every script that sources this file:
 #   - bash strict mode, no prompts, greppable markers STEP[n] name: start|ok|skip|FAIL
-#   - region is us-east-1 or the script refuses
+#   - region is us-east-2 or the script refuses (Phase 14 decision D1: the account is
+#     locked to us-east-2; another Region needs an irreversible account change)
 #   - account id, environment and cost ceiling are explicit parameters
 #   - the approval record (see verify_approval) is verified, never bypassed
 #   - no secret value is read, printed or placed in an argument list, except in
@@ -44,8 +45,14 @@ SC_LIB_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 SC_REPO_ROOT="$(cd "$(dirname "$SC_LIB_FILE")/.." && pwd)"
 SC_TF_ROOT="$SC_REPO_ROOT/infra/terraform"
 SC_PROJECT="scholarchain"
-SC_APPROVED_REGION="us-east-1"
-SC_PROJECT_CEILING_USD="25"
+SC_APPROVED_REGION="us-east-2"
+# Shown with every Region refusal. Names decision D1 so the reader does not look for
+# a way around it.
+SC_REGION_LOCK_NOTE="Phase 14 decision D1: the AWS account is locked to us-east-2 (Ohio); another Region needs an irreversible account change that removes the spend limit and is never suggested"
+# Phase 14 decision D6: the code ceiling is 20 USD, matching the AWS-enforced project
+# spend limit. The AWS Budget of 25 (alerts at 10, 15, 20) is the outer alert and the
+# human's operating stop near 15 is tighter still; neither is enforced here.
+SC_PROJECT_CEILING_USD="20"
 # An approval record may be valid for at most this long (24 hours).
 SC_APPROVAL_MAX_SECONDS=86400
 # Where single-use markers live. Outside the repository and outside --out-dir,
@@ -149,8 +156,8 @@ common_usage() {
 Common parameters (all required unless marked):
   --environment NAME        environment directory under infra/terraform/environments (course)
   --account-id 123456789012 the approved AWS account; checked against the caller identity
-  --region us-east-1        optional; any other value is refused
-  --cost-ceiling-usd N      project cost ceiling, 0 < N <= 25; must equal the approval record
+  --region us-east-2        optional; any other value is refused (decision D1)
+  --cost-ceiling-usd N      project cost ceiling, 0 < N <= 20 (decision D6); must equal the approval record
   --approval-record PATH    human approval record (see scripts/README.md); not used by plan.sh
   --out-dir ABS_PATH        optional; default ${TMPDIR:-/tmp}/scholarchain-ops/<environment>
   --print-digest            print SCRIPT_DIGEST and ARGS_DIGEST for the record, then exit
@@ -199,7 +206,7 @@ init_common() {
   [[ "$SC_ENV" =~ ^[a-z][a-z0-9-]{1,19}$ ]] || die "environment name is not valid: $SC_ENV"
   [[ -d "$SC_TF_ROOT/environments/$SC_ENV" ]] || die "no Terraform environment directory for: $SC_ENV"
   [[ "$SC_ACCOUNT" =~ ^[0-9]{12}$ ]] || die "account id must be 12 digits"
-  [[ "$SC_REGION" == "$SC_APPROVED_REGION" ]] || die "region must be $SC_APPROVED_REGION, got: $SC_REGION"
+  [[ "$SC_REGION" == "$SC_APPROVED_REGION" ]] || die "region must be $SC_APPROVED_REGION, got: $SC_REGION ($SC_REGION_LOCK_NOTE)"
   validate_number "$SC_COST"
   num_gt0 "$SC_COST" || die "cost ceiling must be greater than zero"
   num_le "$SC_COST" "$SC_PROJECT_CEILING_USD" || die "cost ceiling $SC_COST exceeds the project ceiling $SC_PROJECT_CEILING_USD USD"
@@ -335,6 +342,28 @@ tfvar_value() {
   ' "$1"
 }
 
+# check_tfvars_region FILE: refuse a var file that assigns a quoted region other than
+# the approved one, or an availability_zones list with a zone outside it. Not an HCL
+# parser (same limits as tfvar_value). Terraform's own validation on var.region is the
+# second layer.
+check_tfvars_region() {
+  local f="$1" v bad
+  v="$(tfvar_value "$f" region)"
+  if [[ -n "$v" && "$v" != "$SC_APPROVED_REGION" ]]; then
+    die "$f sets region = \"$v\"; region must be $SC_APPROVED_REGION ($SC_REGION_LOCK_NOTE)"
+  fi
+  bad="$(awk -v ok="$SC_APPROVED_REGION" '
+    { line = $0; sub(/#.*/, "", line) }
+    line ~ /^[[:space:]]*availability_zones[[:space:]]*=/ {
+      n = split(line, parts, "\"")
+      for (i = 2; i <= n; i += 2) if (index(parts[i], ok) != 1) { print parts[i]; exit }
+    }
+  ' "$f")"
+  if [[ -n "$bad" ]]; then
+    die "$f sets an availability zone outside $SC_APPROVED_REGION: $bad ($SC_REGION_LOCK_NOTE)"
+  fi
+}
+
 args_canonical() {
   printf 'action=%s;environment=%s;account=%s;region=%s;cost=%s;extra=%s' \
     "$1" "$SC_ENV" "$SC_ACCOUNT" "$SC_REGION" "$SC_COST" "$2"
@@ -456,7 +485,7 @@ verify_approval() {
   [[ "$(approval_value ENVIRONMENT)" == "$SC_ENV" ]] || die "record ENVIRONMENT differs from --environment"
   [[ "$(approval_value ACCOUNT_ID)" == "$SC_ACCOUNT" ]] || die "record ACCOUNT_ID differs from --account-id"
   [[ "$(approval_value REGION)" == "$SC_REGION" ]] || die "record REGION differs from --region"
-  [[ "$(approval_value REGION)" == "$SC_APPROVED_REGION" ]] || die "record REGION is not $SC_APPROVED_REGION"
+  [[ "$(approval_value REGION)" == "$SC_APPROVED_REGION" ]] || die "record REGION is not $SC_APPROVED_REGION ($SC_REGION_LOCK_NOTE)"
 
   v="$(approval_value COST_CEILING_USD)"
   validate_number "$v"

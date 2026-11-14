@@ -5,7 +5,7 @@
 #
 # Usage:
 #   bash scripts/plan.sh --environment course --account-id 123456789012 \
-#     --cost-ceiling-usd 25 [--image-tag <40-hex git sha>] \
+#     --cost-ceiling-usd 20 [--image-tag <40-hex git sha>] \
 #     [--extra-var-file /abs/path.tfvars] [--out-dir /abs/dir]
 #
 # Output (in --out-dir): <env>-<sha12>.tfplan, .tfplan.meta, .plan.log
@@ -42,6 +42,10 @@ HEAD_SHA="$(git_head)"
 require_image_tag "$IMAGE_TAG"
 for f in $EXTRA_VAR_FILES; do
   [[ "$f" == /* && -f "$f" ]] || die "--extra-var-file must be an existing absolute path: $f"
+done
+# A plan targeting another Region is refused before Terraform runs (decision D1).
+for f in "$SC_TFVARS" $EXTRA_VAR_FILES; do
+  check_tfvars_region "$f"
 done
 maybe_print_digest plan "image_tag=$IMAGE_TAG"
 step_ok

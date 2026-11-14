@@ -6,7 +6,7 @@
 #
 # Usage:
 #   bash scripts/run-bounded-pipeline.sh --environment course --account-id 123456789012 \
-#     --cost-ceiling-usd 25 --approval-record /abs/approval.env \
+#     --cost-ceiling-usd 20 --approval-record /abs/approval.env \
 #     --size small --max-minutes 60 --spend-ceiling-usd 0.75 --hourly-burn-usd 0.60 \
 #     --stop-on first-failure,dlq-nonempty --input-file /abs/execution-input.json
 #

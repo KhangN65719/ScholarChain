@@ -32,12 +32,12 @@
 #
 # Usage:
 #   bash scripts/smoke-test.sh --environment course --account-id 123456789012 \
-#     --cost-ceiling-usd 25 --approval-record /abs/approval.env \
+#     --cost-ceiling-usd 20 --approval-record /abs/approval.env \
 #     --fast-url http://10.20.0.10:8080 \
 #     --slow-url http://10.20.0.11:8081 \
-#     --query-secret-arn arn:aws:secretsmanager:us-east-1:123456789012:secret:... \
+#     --query-secret-arn arn:aws:secretsmanager:us-east-2:123456789012:secret:... \
 #     --bedrock off [--expected-image-tag <40-hex git sha>] [--question "text"] \
-#     [--read-secret-arn arn:aws:secretsmanager:us-east-1:123456789012:secret:...]
+#     [--read-secret-arn arn:aws:secretsmanager:us-east-2:123456789012:secret:...]
 #
 #   --read-secret-arn  optional. The Secrets Manager ARN of a bearer token with the
 #                     read scope. The evidence route needs it: the query token has

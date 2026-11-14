@@ -1,13 +1,13 @@
 ### Identity and tags
 
 variable "region" {
-  description = "AWS region. The project is fixed to us-east-1."
+  description = "AWS region. Single source of truth for the provider, endpoint service names, ARNs and the AZ check. The account is LOCKED to us-east-2 (Ohio) by Phase 14 decision D1."
   type        = string
-  default     = "us-east-1"
+  default     = "us-east-2"
 
   validation {
-    condition     = var.region == "us-east-1"
-    error_message = "This project deploys to us-east-1 only."
+    condition     = var.region == "us-east-2"
+    error_message = "Phase 14 decision D1: the AWS account is locked to us-east-2 (Ohio). Any other Region needs the irreversible account change that removes the spend limit, and is never suggested. This project deploys to us-east-2 only."
   }
 }
 
@@ -56,24 +56,24 @@ variable "cleanup_mode" {
 ### Budgets
 
 variable "create_budgets" {
-  description = "Create the project budget with the instructor alert thresholds. Off by default because $25 and $50 budgets already exist."
+  description = "Create a project budget with the alert thresholds. Off by default. Phase 14 D1 account facts: the account has USD 20 credits, an AWS-enforced project spend limit of USD 20 with pause idle resources on, and an AWS Budget of USD 25 with alerts at 10, 15 and 20 that was created outside Terraform. This resource would be a second budget, capped at the code ceiling of 20 (D6)."
   type        = bool
   default     = false
 }
 
 variable "budget_total_usd" {
-  description = "Cumulative project ceiling (instructor: $25). Used only when create_budgets is true."
+  description = "Cumulative ceiling of the optional Terraform budget, at most 20 USD (Phase 14 D6: the code ceiling matches the AWS spend limit; the existing USD 25 AWS Budget is the outer alert and is not managed here). Used only when create_budgets is true."
   type        = number
-  default     = 25
+  default     = 20
 
   validation {
-    condition     = var.budget_total_usd > 0 && var.budget_total_usd <= 25
-    error_message = "budget_total_usd must be greater than 0 and at most 25 (the instructor's ceiling)."
+    condition     = var.budget_total_usd > 0 && var.budget_total_usd <= 20
+    error_message = "budget_total_usd must be greater than 0 and at most 20 (Phase 14 decision D6, the AWS-enforced project spend limit)."
   }
 }
 
 variable "budget_alert_thresholds_usd" {
-  description = "Actual-spend alerts in USD (instructor: 10, 15, 20). Used only when create_budgets is true."
+  description = "Actual-spend alerts in USD (10, 15, 20, as on the existing USD 25 AWS Budget). Used only when create_budgets is true."
   type        = list(number)
   default     = [10, 15, 20]
 
@@ -98,9 +98,14 @@ variable "activate_cost_allocation_tags" {
 ### Network
 
 variable "availability_zones" {
-  description = "Two Availability Zones."
+  description = "Two Availability Zones, both in var.region. Zone names are per account: a and b exist in us-east-2, but whether they are the zones a plan can use is only confirmed by the first plan."
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
+  default     = ["us-east-2a", "us-east-2b"]
+
+  validation {
+    condition     = length(var.availability_zones) == 2 && alltrue([for az in var.availability_zones : startswith(az, var.region)])
+    error_message = "Give exactly two Availability Zones, each inside var.region (us-east-2, Phase 14 decision D1)."
+  }
 }
 
 variable "vpc_cidr" {
@@ -170,7 +175,7 @@ variable "enable_service_discovery" {
 }
 
 variable "neptune_engine_version" {
-  description = "Neptune engine version (UNVERIFIED, see the module)."
+  description = "Neptune engine version. 1.4.5.1 is confirmed orderable for db.t4g.medium in us-east-2 (human read-only CLI check, 2026-11-13, docs/agent-runs/phase-14/checks-3.md). The module's parameter_group_family default neptune1.4 matches it."
   type        = string
   default     = "1.4.5.1"
 }
@@ -202,7 +207,7 @@ variable "enable_bedrock" {
 }
 
 variable "bedrock_haiku_profile_id" {
-  description = "Claude Haiku 4.5 inference profile ID. UNVERIFIED: confirm the ID in Phase 14 before enabling."
+  description = "Claude Haiku 4.5 inference profile ID. Geo (US) profile: documented for source us-east-2 (docs/agent-runs/phase-14/evidence-availability-us-east-2.md). In-Region is not supported for this model in us-east-2. The human confirmed a live invoke of this profile in us-east-2 (Phase 14 D5, as relayed by the orchestrator; the log is not in this work order's evidence). global.anthropic.claude-haiku-4-5-20251001-v1:0 is the Region-neutral alternative. Cross-Region routing is Bedrock-side behavior, not a Terraform Region."
   type        = string
   default     = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 }
@@ -214,7 +219,7 @@ variable "bedrock_haiku_model_id" {
 }
 
 variable "bedrock_haiku_regions" {
-  description = "Regions the inference profile may route to. Each needs a foundation-model ARN. UNVERIFIED: confirm in Phase 14."
+  description = "Regions the US inference profile may route to (destinations, not deployment Regions). Each needs a foundation-model ARN. Documented for source us-east-2: us-east-1, us-east-2, us-west-2. The us-east-1 entry is a routing destination only; nothing is deployed there."
   type        = list(string)
   default     = ["us-east-1", "us-east-2", "us-west-2"]
 }

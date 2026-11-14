@@ -4,9 +4,78 @@ Author: infra-engineer. Status: estimate only. Nothing was planned, applied or p
 
 Repair round 2 (finding N1, ruling D7): the earlier version counted Neptune hours only for runs 14.0, 15.1, 15.2 and part of 15.5, but every size overlay sets `enable_neptune = true`, so a session brought up with an overlay bills Neptune for the whole session. It also left out the service tasks that the M overlay starts in 14.2 and 15.3. Both are added below, and every total that depended on them is recomputed. The review named 7.6 LOW and 15.7 HIGH missing Neptune hours (runs 14.1, 14.2, 15.3, 15.4). This version adds 10.6 and 21.2, because run 15.5 also has Neptune up for the whole 6 to 10 hour session under the L overlay and not only for the 3 to 4.5 hour query window. **The result: S + M at the HIGH bound is now $25.42, which is over the $25 ceiling.** The overlays and the Terraform defaults were not changed.
 
-Ceiling: at most $25 cumulative for the whole project, not enforced by AWS, alerts at $10, $15 and $20 (absolute amounts, `budget_alert_thresholds_usd`; `create_budgets` stays false until Phase 14).
+Ceiling (restated by Phase 14 decisions D1 and D6): the code ceiling is **$20** cumulative (`SC_PROJECT_CEILING_USD`, the `budget_total_usd` validation). It matches the AWS-enforced project spend limit of $20 (pause idle resources on) and the $20 of credits. The AWS Budget of $25 with alerts at $10, $15 and $20 is the outer alert and only notifies. The human's operating stop is near $15 of actual spend. The figures and the text below were written against the earlier $25 ceiling: every "$25" in sections 0 to 8 that is not marked is that earlier ceiling, and "Cost ceiling lowered to 20 USD" below says what each total means against $20. `create_budgets` stays false.
 
 This version is restated for what Terraform now defaults to: **interface-endpoint egress with 8 endpoints (9 when Bedrock is on), provisioned Neptune `db.t4g.medium`, Cloud Map off, absolute alert thresholds**. The earlier version priced NAT, which the human rejected in D2c, so its totals are replaced. NAT is shown as an alternative column for comparison. This document does not choose it.
+
+## Region migration to us-east-2 (Phase 14, work order 01)
+
+The account's Region is LOCKED to us-east-2 (Ohio) (Phase 14 decision D1). This section adds a Region audit of every region-sensitive line. **No cost figure, total, cap or projection in this document was changed by this audit.** Only rates that could be tied to a us-east-2 page are marked verified, and only one is (V9, the NAT example, which the VPC pricing page states for US East (Ohio)). Every total below was computed from rates gathered for us-east-1 or for pages that state no Region, so every total is carried over unchanged and flagged: it is an estimate on unverified rates for us-east-2.
+
+The new account's limits are tighter than the figures below assume (D1: USD 20 credits, an AWS-enforced USD 20 spend limit with idle-resource pause, an AWS Budget of USD 25, stop near USD 15). Work order 01 left the $25 ceiling unchanged and reported it BLOCKED-ON. The human decided (D6) to lower the code ceiling to $20; work order 02 changed `SC_PROJECT_CEILING_USD`, the `budget_total_usd` validation and the docs, and added "Cost ceiling lowered to 20 USD" below. No rate, total, cap or tier size was changed by either work order.
+
+Marks: `us-east-2 verified` = a us-east-2 or Ohio figure was read on a cited page. `us-east-2 unverified` = the stated rate is for us-east-1 or for no stated Region and nothing for us-east-2 was read. `unchanged (Region-neutral)` = a fact that does not depend on the Region.
+
+| ID or line | What it is | Mark | Cited page or reason |
+|---|---|---|---|
+| V1 | Neptune bills per second in NCUs, 1 NCU starting capacity | unchanged (Region-neutral) | billing model, aws.amazon.com/neptune/pricing. The per-NCU rate is U2 |
+| V2 | Neptune db.r5.large $0.348 an hour | us-east-2 unverified | aws.amazon.com/neptune/pricing example, Region not stated |
+| V3 | Neptune storage $0.10, I/O $0.20, CPU credits $0.15 | us-east-2 unverified | same page, Region not stated |
+| V3 | Neptune Free Tier terms (750 hours, 10 M I/O, 1 GB, 30 days) | unchanged (Region-neutral) for the terms; whether a Paid-plan account gets it is still unverified (P3) | `instance-types.html`, evidence-availability-us-east-2.md |
+| V4 | EMR charge c4.2xlarge $0.105 an hour "(US-East-1)" | us-east-2 unverified | aws.amazon.com/emr/pricing, source label kept as recorded |
+| V5 | EMR Serverless per vCPU-hour and GB-hour | us-east-2 unverified | same page, Region not stated. Not used (Hadoop stage is MapReduce) |
+| V6 | Spot "up to 90 percent off" | unchanged (Region-neutral) | aws.amazon.com/ec2/spot/pricing, no price |
+| V7 | S3 Vectors storage, PUT, query rates "(US East N. Virginia)" | us-east-2 unverified | aws.amazon.com/s3/pricing, source label kept as recorded. The service itself is available in us-east-2 (endpoint `s3vectors.us-east-2.api.aws`, s3-vectors-regions-quotas.html); only the rate is unread |
+| V8 | Fargate per vCPU-second and GB-second | us-east-2 unverified | aws.amazon.com/fargate/pricing, Region not stated |
+| V9 | VPC gateway endpoints free; NAT $0.045 an hour and $0.045 per GB | us-east-2 verified | aws.amazon.com/vpc/pricing, the example is US East (Ohio). This is the deployed Region now |
+| V10 | CloudWatch alarm $0.10, 3 dashboards free | us-east-2 unverified | aws.amazon.com/cloudwatch/pricing, Region not stated |
+| V11 | Step Functions $0.000025 per transition, 4,000 free | us-east-2 unverified (rate); the free allowance is unchanged (Region-neutral) | aws.amazon.com/step-functions/pricing |
+| V12 | SQS first 1 M requests free | unchanged (Region-neutral) | aws.amazon.com/sqs/pricing |
+| V13 | Secrets Manager $0.40 per secret, $0.05 per 10,000 calls | us-east-2 unverified | aws.amazon.com/secrets-manager/pricing, Region not stated |
+| V14 | KMS $1 per key (no key is created) | unchanged (Region-neutral) | not used |
+| V15 | Bedrock batch inference 50 percent for select models | us-east-2 unverified | aws.amazon.com/bedrock/pricing. Not used |
+| U1 | EC2 + EMR m5.xlarge $0.22 to $0.35 per node-hour | us-east-2 unverified | memory. EC2 offers m5.xlarge in us-east-2 (human read-only CLI check, 2026-11-13, `docs/agent-runs/phase-14/checks-3.md`); the EMR page was not read and the first CreateCluster confirms it |
+| U2, U3 | Neptune Serverless NCU-hour, db.t4g.medium hour | us-east-2 unverified | memory. `db.t4g.medium` is confirmed orderable in us-east-2 by a human read-only CLI check on 2026-11-13 (`docs/agent-runs/phase-14/checks-3.md`); the rate itself stays unverified |
+| U4 | NAT gateway hourly | us-east-2 verified for the $0.045 LOW value (V9, Ohio). The $0.052 HIGH value (Ohio plus 15 percent) is an assumption and stays flagged | aws.amazon.com/vpc/pricing |
+| U5 | Public IPv4 for the NAT | us-east-2 unverified | memory |
+| U6 | Interface endpoint per endpoint per AZ-hour, and per GB | us-east-2 unverified | memory. Per-hour and per-AZ billing is Region-independent in structure (R3) |
+| U7 | S3 Standard storage and requests | us-east-2 unverified | memory |
+| U8 | DynamoDB on-demand write, read, storage | us-east-2 unverified | `pricing-evidence.md`, summary only |
+| U9 | Claude Haiku 4.5 per million tokens | us-east-2 unverified | memory. In us-east-2 the model is reached only through a cross-Region profile (evidence-availability-us-east-2.md); the profile price premium is unknown |
+| U10 | Titan Text Embeddings V2 per million tokens | us-east-2 unverified | memory. In-Region support in us-east-2 is confirmed (availability only) |
+| U11 | CloudWatch Logs ingestion per GB | us-east-2 unverified | memory |
+| U12 | Cloud Map hosted zone | us-east-2 unverified | memory. Off by default |
+| U13 | ECR storage per GB-month | us-east-2 unverified | memory |
+| Section 2.3 | Endpoints versus NAT figures | us-east-2 unverified (endpoint side); NAT LOW side verified through V9 | derived from U4, U5, U6 |
+| Section 3, 3a | Timeline, run costs, S + M and L totals, gate G-L figures ($10.18, $20.68) | us-east-2 unverified | derived from the rates above. Carried over unchanged |
+| Section 4 | Totals by service ($10.32 LOW, $38.70 HIGH) | us-east-2 unverified | carried over unchanged. Not recomputed: a total recomputed from unverified rates would only look verified |
+| Section 5, 8 | Threat table and open items | us-east-2 unverified | the item 4 and 6 rows now name us-east-2 |
+| Data transfer | Interface-endpoint and NAT per-GB processing, cross-AZ charges with one endpoint AZ | us-east-2 unverified | volumes are assumptions in any Region |
+| Bedrock cross-Region data transfer | Not priced anywhere in this document | unchanged (not modelled) | the US profile may route a request to us-east-1 or us-west-2 (evidence-availability-us-east-2.md); whether that adds a charge is unknown |
+
+Counts: 2 lines us-east-2 verified (V9, and the LOW half of U4), 6 unchanged (Region-neutral) (V1, V6, V12, V14, the V3 and V11 terms), every other line unverified. Caps: `pipeline_max_run_seconds`, the three step timeouts and the script `--max-minutes` caps (60, 90, 150) are NOT changed. Closing the unverified lines needs the price-list queries in section 8, now pointed at us-east-2.
+
+## Cost ceiling lowered to 20 USD (Phase 14 decisions D1 and D6, work order 02)
+
+The code ceiling is now $20, the human's operating stop is near $15, and the AWS Budget of $25 is the outer alert. This section applies those three lines to the existing figures. **No figure was recomputed and no tier, overlay or cap was changed.** Every number below is copied from section 3 (timeline running totals), section 3a and section 4, and carries their status: rates mostly UNVERIFIED for us-east-2. The HIGH bound stacks every upper bound at once and is the stress case, not a forecast. The decision is the human's; this table only shows where the existing HIGH bound lands.
+
+| Tier or cumulative point | LOW | HIGH | HIGH against 20 | HIGH against the 15 stop |
+|---|---|---|---|---|
+| Foundation 14.0 and tier S pipeline 14.1 (running total) | 1.44 | 5.30 | under by 14.70 | under by 9.70 |
+| plus tier M pipeline 14.2 (running total) | 2.19 | 8.38 | under by 11.62 | under by 6.62 |
+| plus 15.1 and 15.2 (queries on S and M, running total) | 3.54 | 14.20 | under by 5.80 | under by 0.80 |
+| plus 15.3 elasticity on M (running total) | 4.76 | 18.64 | under by 1.36 | **over by 3.64** |
+| **S + M complete, through 15.4 load test (running total)** | 7.46 | **25.42** | **over by 5.42** | **over by 10.42** |
+| Tier L increment alone (15.5) | 2.82 | 13.32 | under by 6.68 taken alone (it runs after S + M, so the running total decides) | under by 1.68 taken alone |
+| **Whole project S + M + L (section 4 service table)** | 10.32 | **38.70** | **over by 18.70** | **over by 23.70** |
+
+Reading of the table. At LOW, everything is under 20 and under 15 (the whole project is $10.32). At HIGH, S + M does not fit under 20: the running total passes $15 during 15.3 and passes $20 during 15.4, and tier L is far past it. These are `BLOCKED-ON` the human, who decides what to do (nothing in this work order shortens a run, drops a tier or changes an overlay).
+
+Alternatives already priced in section 3a, restated against 20 (all HIGH, S + M only): P1 (pipeline-only overlay with Neptune off for 15.3 and 15.4) 24.22, over by 4.22; P1 with P2 24.07, over by 4.07; P3 (Neptune Free Tier, conditional) 23.00, over by 3.00; P4 (NAT instead of endpoints) 23.41, over by 3.41. **None of them brings S + M under $20 at the HIGH bound.** Neither does the earlier unitemized-NAT-share reading (about $24.74). Only a smaller plan would: for example S plus a shorter M, or no 15.3 and 15.4 sessions, which is a scope decision and is not drawn here.
+
+Gate G-L, restated. The gate was "run L only if A plus the L estimate is at most $23.5" ($25 minus a $1.5 reserve for teardown and billing lag). Against the new ceiling it is "at most $18.5" ($20 minus the same $1.5), and the human's operating stop near $15 is tighter than that. Derived arithmetic, not a new estimate: at the HIGH rates L costs $13.32, so L passes only if A is at most 18.5 - 13.32 = 5.18; at the LOW rates L costs $2.82, so it passes while A is at most 18.5 - 2.82 = 15.68. A after S + M is 25.42 at HIGH (no) and 7.46 at LOW (yes). The earlier figures $10.18 and $20.68 (against $23.5) are superseded. Against the $15 stop instead of $18.5 the thresholds fall by $3.50 more, to 1.68 (HIGH) and 12.18 (LOW).
+
+What the figures leave out. The credits ($20) and the AWS spend limit ($20) apply on a basis the budget alerts do not (the Terraform budget excludes credits, so it counts gross usage). Whether the spend limit counts gross or net usage, and what "pause idle resources" does to a running EMR cluster or Neptune cluster when the limit is reached, are UNVERIFIED and not read from AWS documentation in this work order. An idle endpoint day is $1.92 to $3.24, so a forgotten session consumes about 10 to 16 percent of the $20 ceiling per day (LOW to HIGH rates).
 
 ## 0. Read this first
 
@@ -35,7 +104,7 @@ This version is restated for what Terraform now defaults to: **interface-endpoin
 
 ## 1. Assumptions
 
-Region us-east-1 (D4). One account. After each session the compute and network are removed with the session-down overlay (`session-down.tfvars`: egress mode `none`, Neptune off, service tasks 0, applied through `plan.sh` and `deploy.sh`; infra README, "Session up and session down"). The overlay **keeps** storage (S3, DynamoDB tables, S3 Vectors, ECR, secrets), which cost cents idle and would cost more to reload (DynamoDB writes) than to keep. Neptune keeps no snapshot in the course environment, so each session reloads its graph from S3; that reload is inside the Neptune session hours below. `cleanup.sh` is the end-of-project full teardown only; it deletes storage and is not the between-session step. Each session needs one approval record for the down apply and one for the next up apply.
+Region us-east-2 (Phase 14 D1; it was us-east-1 under D4, and the rates below were gathered for us-east-1 or Region-unstated pages, see "Region migration to us-east-2"). One account. After each session the compute and network are removed with the session-down overlay (`session-down.tfvars`: egress mode `none`, Neptune off, service tasks 0, applied through `plan.sh` and `deploy.sh`; infra README, "Session up and session down"). The overlay **keeps** storage (S3, DynamoDB tables, S3 Vectors, ECR, secrets), which cost cents idle and would cost more to reload (DynamoDB writes) than to keep. Neptune keeps no snapshot in the course environment, so each session reloads its graph from S3; that reload is inside the Neptune session hours below. `cleanup.sh` is the end-of-project full teardown only; it deletes storage and is not the between-session step. Each session needs one approval record for the down apply and one for the next up apply.
 
 ### 1.1 Three sizes (proposal for the human to confirm; dataset selection belongs to dataset-engineer)
 
@@ -235,7 +304,7 @@ Notes:
 - NAT alternative on the same basis: S + M $6.86 LOW and $23.41 HIGH (the earlier $6.34 and $21.70 plus the repair round 2 additions 0.52 and 1.71). Endpoints cost up to $0.60 LOW and $2.01 HIGH more over S + M on this basis; the cleaner section 2.3 difference without the possible double count is $0.46 and $1.33.
 - Neptune is priced at the provisioned t4g rate (U3, UNVERIFIED). In 14.0 the Neptune window (1 / 2 hours) is assumed to be switched on by itself and not through an overlay, as before.
 
-Gate G-L, before 15.5: the human reads Billing (section 7) and records actual cumulative spend A. Estimate L from measured costs on M scaled by 4 (works ratio) and multiplied by 1.5. Run L only if A plus that estimate is at most $23.5, which leaves $1.5 for teardown and billing lag. At the HIGH rates L costs $13.32, so the test passes only if A is at most $10.18; at LOW rates L costs $2.82 and the test passes while A is at most $20.68. The measured-scaling rule does not scale the endpoint hours with works (they follow session time), so it may over-estimate L; that errs toward not running L. Fallback tier L-half (50,000 works) costs about half. L-half and L both run in a session that needs the same endpoints, so the fixed hourly part does not halve.
+Gate G-L, before 15.5: the human reads Billing (section 7) and records actual cumulative spend A. Estimate L from measured costs on M scaled by 4 (works ratio) and multiplied by 1.5. Run L only if A plus that estimate is at most **$18.5** (Phase 14 D6: the $20 code ceiling minus $1.5 for teardown and billing lag; it was $23.5 against $25; the human's operating stop near $15 is tighter). At the HIGH rates L costs $13.32, so the test passes only if A is at most $5.18 (it was $10.18); at LOW rates L costs $2.82 and the test passes while A is at most $15.68 (it was $20.68). The figures $10.18 and $20.68 quoted elsewhere in this document are the superseded $25-ceiling values. The measured-scaling rule does not scale the endpoint hours with works (they follow session time), so it may over-estimate L; that errs toward not running L. Fallback tier L-half (50,000 works) costs about half. L-half and L both run in a session that needs the same endpoints, so the fixed hourly part does not halve.
 
 Gate G-S, before 14.1: every later tier waits for the human to confirm the 14.0 session-down left nothing running (section 5). Gate G-M, before 14.2: replace the pairs-per-work, edges-per-work, run-hour and I/O assumptions with S measurements and recompute this document's HIGH total.
 
@@ -245,8 +314,9 @@ Gate G-S, before 14.1: every later tier waits for the human to confirm the 14.0 
 |---|---|---|---|
 | S + M under $25 | 7.46 | 25.42 | At LOW yes, $17.54 spare. **At HIGH no: $25.42 is $0.42 over the ceiling.** This replaces the earlier "Yes at both bounds" (which rested on $23.71 and left out Neptune and service-task hours the overlays switch on). If the earlier rows held an unitemized NAT data share, up to $0.68 less, about $24.74, which is under by $0.26 and is not a proof |
 | S + M + L under $25 | 10.32 | 38.70 | At LOW yes, with $14.68 spare. At HIGH no, $13.70 over |
-| Gate passes at HIGH after S + M | L needs A <= 10.18 | A is 25.42 | No: at HIGH rates L does not run, and S + M alone is over the ceiling |
-| Gate at LOW | L needs A <= 20.68 | A is 7.46 | Yes |
+| Gate passes at HIGH after S + M | L needs A <= 5.18 (18.5 against the $20 ceiling; it was 10.18 against $25) | A is 25.42 | No: at HIGH rates L does not run, and S + M alone is over both ceilings |
+| Gate at LOW | L needs A <= 15.68 (it was 20.68) | A is 7.46 | Yes |
+| S + M under $20 (D6) | 7.46 | 25.42 | At LOW yes, $12.54 spare. At HIGH no, $5.42 over. See "Cost ceiling lowered to 20 USD" |
 
 Endpoint range, for reference (corrected from the earlier text, which gave $2.16 to $3.24 at HIGH): at HIGH, one forgotten day of interface endpoints costs $2.88 (8 endpoints, 0.015 x 8 x 24) to $3.24 (9 endpoints, 0.015 x 9 x 24). The figure $2.16 is the 9-endpoint LOW day (0.010 x 9 x 24); the 8-endpoint LOW day is $1.92. The ceiling is therefore exceeded at HIGH, and one forgotten endpoint day would add $2.88 to $3.24 on top.
 
@@ -305,7 +375,7 @@ Plan C, no Neptune (drops a course-required service, needs human approval): D mi
 | 5 | Haiku token volume | $0.009 to $0.072 per query. 410 real queries would reach $3.7 LOW and $29 HIGH | Cap real queries at 40. Offline stub for load, latency and ablation runs. Per-run token ceiling in the runtime config (service-engineer) |
 | 6 | Interface endpoints (8 or 9) | $1.94 to $5.10 for the project, $0.70 to $2.06 more than NAT | NAT (not chosen, D2c): removes eight endpoints and their failure modes, opens an outbound internet path. The human decides |
 | 7 | S3 Vectors 128 KB PUT minimum, unbatched | up to $1.33 | Batch at least 26 vectors per PUT at 5 KB each (storage-engineer). 256 dimensions do not help here |
-| 8 | Credits and the Paid plan | unknown | Count gross usage against the $25. Whether credits cover Anthropic models on Bedrock is UNVERIFIED |
+| 8 | Credits and the Paid plan | unknown | Count gross usage against the $20 code ceiling (D6; the AWS spend limit is also $20). Whether credits cover Anthropic models on Bedrock is UNVERIFIED |
 | 9 | Billing lag | Gate decisions use stale numbers | Allow up to 24 hours (stated from memory) between a run and its reading; one run per day where possible; reserve of $1.5 |
 | 10 | Changing `vector_dimension` on a deployed environment (for example 256 to 384 for the hash embedder) | Replaces all five indexes and destroys their vectors; reloading costs up to the DynamoDB and S3 Vectors lines again ($1.28 to $6.00, whole-project values) plus the run time | Terraform refuses the change unless `acknowledge_vector_loss` is true. Use a separate environment for a 384-dimension fallback. Pick 256, 512 or 1024 once and keep it |
 | 11 | The execution timeout skips cleanup | An EMR cluster left running by a dead client: up to one m5.xlarge node-hour rate ($0.22 to $0.35) per hour per node until the 900 s idle stop, which does not start while a step runs | `pipeline_max_run_seconds` bounds the state machine at S 5400, M 7200, L 10800 s, and the per-tier `pipeline_emr_step_timeout_seconds` (S 1800, M 2700, L 3600) with `pipeline_create_cluster_timeout_seconds` (1440) makes a hung second EMR step end in its step timeout, which runs cleanup, before the execution timeout (Rule A, enforced; infra README, "Pipeline bounds"). A hung CreateCluster goes to `Failed` at 1440 s with no cleanup state; the script's stop path terminates clusters; the human's cleanup check after every run. **Accepted limitation (human decision O1, Phase 13 decisions D10):** the loader windows (`pipeline_loader_timeout_seconds` S 1800, M 2700, L 3600) are shorter than this estimate's loader hours (S 1.0, M 2.0, L 4.0 h at HIGH), and one sequential HIGH run (S 120 min, M 204 min, L 384 min) exceeds the script caps of 60, 90 and 150 minutes. The caps were kept. At the HIGH bound a run may time out, a timed-out run still wastes its spend and needs a re-run with a new approval record, and a cap is a ceiling, not a cost. No figure in this document was changed. After the S run the human re-derives the M and L caps from the measured S runtime (infra README, "Pipeline bounds") |
@@ -316,7 +386,7 @@ Plan C, no Neptune (drops a course-required service, needs human approval): D mi
 1. Neptune mode: DONE. `neptune_mode = "provisioned"` and `neptune_instance_class = "db.t4g.medium"` are the defaults; `enable_neptune = false`; Serverless maximum lowered from 2.5 to 2 NCU.
 2. Egress: the human kept `endpoints` (D2c). `bedrock-runtime` is added only when `enable_bedrock` is on. `s3vectors` and `sqs` were added to the default list (repair round 1) because the in-VPC services and loader call them. NAT stays selectable.
 3. Cloud Map: DONE. Default off.
-4. Alert thresholds: DONE as variables, absolute amounts. `budget_total_usd = 25` and `budget_alert_thresholds_usd = [10, 15, 20]`, validated, used only when `create_budgets` is true (default false until Phase 14). The module no longer uses percentage thresholds of a $25 or $50 limit. The human decides whether to add a forecast alert.
+4. Alert thresholds: DONE as variables, absolute amounts. `budget_total_usd = 20` (was 25 until decision D6) and `budget_alert_thresholds_usd = [10, 15, 20]`, validated, used only when `create_budgets` is true (default false until Phase 14). The module no longer uses percentage thresholds of a $25 or $50 limit. The human decides whether to add a forecast alert.
 5. EMR: DONE. One node, 0 core, 0 Spot, 900 s idle. The scaling cap has its own variable (default 3), validated against 1 + core + task nodes (at most 7); the elasticity overlay uses core 4 and cap 5. Per-experiment tfvars exist. The EMR EBS volume size is not set in the module; reducing it is UNVERIFIED.
 6. Kept: `use_fargate_spot = false` (no Fargate Spot price in the evidence), `service_desired_count = 0`, `log_retention_days = 3`, DynamoDB on demand with PITR off, no customer KMS key.
 7. Vector dimension: kept at 256. The cost gap to 1024 is cents. Choose by retrieval quality (D2a). 384 is for the hash-embedder fallback only and needs its own environment (threat 10).
@@ -329,7 +399,7 @@ Agents have no credentials. The human reads the Billing and Cost Management cons
 
 Per run, the human records in `docs/agent-runs/phase-NN/costs/` (the orchestrator archives it):
 1. Before the run: Cost Explorer cumulative gross cost since the account's start (Cost Explorer, monthly or daily, charge type: exclude credits), the timestamp, and the credit balance (Billing, Credits).
-2. After the run, at least one day later because of billing lag (stated from memory, not verified): the same view grouped by Service and by Usage Type, daily granularity, for the run's date range. Download the CSV and keep it unedited. Record gross cost, credits applied and net cost separately. The $25 ceiling is tested on gross cost.
+2. After the run, at least one day later because of billing lag (stated from memory, not verified): the same view grouped by Service and by Usage Type, daily granularity, for the run's date range. Download the CSV and keep it unedited. Record gross cost, credits applied and net cost separately. The $20 code ceiling (D6) is tested on gross cost.
 3. One row per run: run id, start and end in UTC, estimate LOW and HIGH from section 3, actual by service, cumulative actual, delta against the estimate, and notes (failed attempts, resources found left running).
 4. Bedrock: Anthropic models may appear as a separate service name in Cost Explorer. Record the exact names seen. Both the Billing page names and the Bedrock invocation counts are read by the human, and the runtime also logs its own token counts for cross-checking.
 5. Cost allocation tags (`cost-center`, `environment`, `owner` and the others set by `default_tags`) must be activated in Billing before they appear, and they take time to show (UNVERIFIED). Do not rely on them for attribution. Run one tier per day where possible, so service totals identify the run.
@@ -344,9 +414,9 @@ Ranked by how much each changes the total at HIGH (swing between LOW and HIGH of
 | 1 | Neptune db.t4g.medium and Serverless NCU-hour rates, and I/O volumes. Free Tier eligibility and start date | $5.9 for t4g (7.52 - 1.59), $17.3 for Serverless (20.40 - 3.11) | Price list file below; Billing console for Free Tier usage |
 | 2 | EC2 on-demand and EMR surcharge for m5.xlarge | $4.0 | Price list file below |
 | 3 | DynamoDB on-demand write and read rates (direct reading) | $3.2 volume swing, $4.4 more if the rate is stale | Price list file below |
-| 4 | Interface endpoint hourly and per-GB rates in us-east-1 (8 or 9 endpoints, 38 session hours) | $3.2 (1.94 to 5.10) | Price list file |
+| 4 | Interface endpoint hourly and per-GB rates in us-east-2 (8 or 9 endpoints, 38 session hours) | $3.2 (1.94 to 5.10) | Price list file |
 | 5 | Claude Haiku 4.5 input and output prices, including the inference-profile price | $2.5 | Bedrock console pricing, or price list file |
-| 6 | NAT hourly in us-east-1 and public IPv4 (only if the human reconsiders NAT) | $1.8 | Price list file |
+| 6 | NAT hourly in us-east-2 (verified, V9) and public IPv4 (only if the human reconsiders NAT) | $1.8 | Price list file |
 | 7 | Titan V2 price per million tokens | $1.8 | Price list file |
 | 8 | CloudWatch Logs ingestion per GB; S3 Standard storage and requests | $1.7 and $1.5 | Price list file |
 | 9 | Run hours, pairs per work, edges per work, I/O counts (assumptions, not rates) | not bounded | Measure on tier S (gate G-M) |
@@ -364,14 +434,14 @@ curl -sS -o pricelist-index.json https://pricing.us-east-1.amazonaws.com/offers/
 Then pick the offer codes from that index (expected: `AmazonEC2`, `ElasticMapReduce`, `AmazonNeptune`, `AmazonDynamoDB`, `AmazonBedrock`, `AmazonVPC`, `AmazonCloudWatch`, `AmazonS3`; these names are UNVERIFIED until the index confirms them) and fetch one file per service, for example:
 
 ```
-curl -sS -o neptune-us-east-1.json https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonNeptune/current/us-east-1/index.json
+curl -sS -o neptune-us-east-2.json https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonNeptune/current/us-east-2/index.json
 ```
 
-If the human prefers the CLI with their own profile (needs `pricing:GetProducts`; the Pricing API is served from us-east-1):
+If the human prefers the CLI with their own profile (needs `pricing:GetProducts`). The `us-east-1` in the `pricing.us-east-1.amazonaws.com` host and in `--region` below is the Pricing API's own endpoint (a read-only public price service, it deploys nothing); the prices asked for are the deployed Region's, us-east-2 (Ohio):
 
 ```
 aws pricing describe-services --region us-east-1 --query 'Services[].ServiceCode'
-aws pricing get-products --region us-east-1 --service-code AmazonEC2 --filters Type=TERM_MATCH,Field=instanceType,Value=m5.xlarge Type=TERM_MATCH,Field=location,Value="US East (N. Virginia)" Type=TERM_MATCH,Field=operatingSystem,Value=Linux Type=TERM_MATCH,Field=tenancy,Value=Shared Type=TERM_MATCH,Field=preInstalledSw,Value=NA Type=TERM_MATCH,Field=capacitystatus,Value=Used --max-results 5
+aws pricing get-products --region us-east-1 --service-code AmazonEC2 --filters Type=TERM_MATCH,Field=instanceType,Value=m5.xlarge Type=TERM_MATCH,Field=location,Value="US East (Ohio)" Type=TERM_MATCH,Field=operatingSystem,Value=Linux Type=TERM_MATCH,Field=tenancy,Value=Shared Type=TERM_MATCH,Field=preInstalledSw,Value=NA Type=TERM_MATCH,Field=capacitystatus,Value=Used --max-results 5
 ```
 
 Reading the Bedrock pricing page in a browser and pasting the Haiku 4.5 and Titan V2 rows is the simplest route, because those pages render by script and the fetch agents could not read them. The orchestrator can then update section 2.1 and move each rate from UNVERIFIED to VERIFIED with the page and label.
@@ -379,7 +449,7 @@ Reading the Bedrock pricing page in a browser and pasting the Haiku 4.5 and Tita
 Decisions for the human (D2c answered the Neptune, egress and tier-L-last questions on the earlier NAT-based figures; the egress answer should be re-read against section 0):
 1. Confirm the three sizes (5,000 / 25,000 / 100,000 works), the nesting rule and the gates, or give different sizes. Still PROPOSED.
 2. Egress: D2c kept interface endpoints. With 8 or 9 endpoints the project costs $0.70 LOW and $2.06 HIGH more than NAT and S + M HIGH is $25.42 (over the ceiling) instead of $23.41 on the same basis. Keep endpoints, or switch to NAT for run sessions (an outbound internet path). Other cheaper options are P1 to P3 in section 3a.
-3. Whether tier L stays at the end of Phase 15 behind gate G-L (decided in D2c; restated gate figure $10.18 at HIGH, and at HIGH S + M alone already exceeds it).
+3. Whether tier L stays at the end of Phase 15 behind gate G-L (decided in D2c; restated gate figure $5.18 at HIGH against the $20 ceiling, it was $10.18 against $25, and at HIGH S + M alone already exceeds it).
 4. Vector dimension (256, 512, 1024; 384 only for the hash-embedder fallback, which needs its own environment).
 5. Cap on real Bedrock queries (40 proposed).
 6. Confirm the Paid-plan upgrade is acceptable only after this estimate is read (D4). Never use "activate advanced features".

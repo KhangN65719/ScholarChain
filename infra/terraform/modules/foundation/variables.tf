@@ -4,19 +4,19 @@ variable "name_prefix" {
 }
 
 variable "create_budgets" {
-  description = "Create the project budget. Off by default: see the README budget mismatch note."
+  description = "Create the project budget. Off by default: an AWS Budget of USD 25 already exists outside Terraform (see the README, Budgets)."
   type        = bool
   default     = false
 }
 
 variable "total_usd" {
-  description = "Cumulative project ceiling in USD (instructor constraint, decision D2)."
+  description = "Cumulative ceiling in USD of the optional budget (Phase 14 decision D6: 20, the AWS-enforced project spend limit)."
   type        = number
-  default     = 25
+  default     = 20
 }
 
 variable "alert_thresholds_usd" {
-  description = "Absolute actual-spend alert thresholds in USD (instructor: 10, 15, 20)."
+  description = "Absolute actual-spend alert thresholds in USD (10, 15, 20, as on the existing USD 25 AWS Budget)."
   type        = list(number)
   default     = [10, 15, 20]
 }

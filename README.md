@@ -25,6 +25,25 @@ Ten source-controlled scripts under `scripts/` are the reproducibility interface
 | `scripts/archive-evidence.sh` | Gather evidence into a local directory, or upload it | only with `--upload-dir` and `--s3-prefix` | gather: no; upload: yes, action `archive` |
 | `scripts/cleanup.sh` | End-of-project teardown | yes | yes in apply modes, action `cleanup` |
 
+### Deployment target (Phase 14)
+
+Source: [decisions.md](docs/agent-runs/phase-14/decisions.md) D1, D5, D6, D7 and [evidence-availability-us-east-2.md](docs/agent-runs/phase-14/evidence-availability-us-east-2.md). These replace the earlier account and budget notes.
+
+- Region: `us-east-2` (Ohio) only. The account is locked to it. Other Regions need "Activate advanced features", which is irreversible and removes the spend limit. Do not use it.
+- Account: a new project AWS account on the Paid plan with USD 20 in credits. No identifier, email address or credential is recorded in this repository.
+- Spend controls: an AWS-enforced project spend limit of USD 20 with "pause idle resources" on, and an AWS Budget of USD 25 with alerts at 10, 15 and 20. The effective ceiling is the USD 20 credits and the spend limit. The operating stop is actual spend near USD 15.
+- Cost ceiling in code: decision D6 lowers `--cost-ceiling-usd` and the approval record's `COST_CEILING_USD` from 25 to 20. Whether `scripts/` already enforces 20 is unverified here: `scripts/README.md` and `scripts/lib.sh` still read 25 when this file was written.
+- LLM synthesis: the default Haiku model ID is the inference profile `us.anthropic.claude-haiku-4-5-20251001-v1:0`. Haiku 4.5 is not available in-Region in us-east-2; the profile routes across Regions on the Bedrock side, and the project sets no cross-Region configuration of its own. The embedding model is `amazon.titan-embed-text-v2:0`, with the vector dimension taken from runtime configuration (256 was used in the live check).
+- Observed by the human on 2026-11-13, not by an agent (D5, D7): a Bedrock `converse` call on the `us.` profile returned "OK"; a Titan embedding call with dimension 256 returned 256 values; Neptune `db.t4g.medium` and EMR `m5.xlarge` were confirmed in us-east-2 by read-only CLI calls. The pasted output is not in this repository.
+
+Not yet verified:
+
+- Actual AWS cost. No Billing figure has been recorded.
+- Whether the Neptune Free Tier applies to a Paid-plan account with credits (P3).
+- S3 Vectors on this account type: the Region endpoint is documented, but the service is not named on the supported-services page (R2).
+- The bulk-load path from S3 to Neptune (L1) until a real load runs.
+- Interface endpoint cost against a NAT alternative (P4).
+
 ### Non-cloud path from a clean checkout
 
 These lines run without AWS credentials (sbt and the Terraform provider download need network access). Prerequisites named by `scripts/README.md`: bash, git, python3, shellcheck, JDK 21, sbt, terraform, and Docker with a running engine for `package.sh` (not needed with `--skip-images`, and not for any dry run). Replace `<id>` with the approved 12-digit account and give `--out-dir` an absolute path outside the repository. Copied from `scripts/README.md`, "From a clean checkout".
@@ -37,9 +56,11 @@ bash scripts/package.sh --dry-run
 bash scripts/package.sh --out-dir /abs/outside/repo/package-1   # prerequisite: Docker with a running engine, unless --skip-images
 bash scripts/archive-evidence.sh --dry-run --include /abs/outside/repo/package-1
 bash scripts/archive-evidence.sh --include /abs/outside/repo/package-1
-bash scripts/plan.sh --dry-run --environment course --account-id <id> --cost-ceiling-usd 25
+bash scripts/plan.sh --dry-run --environment course --account-id <id> --cost-ceiling-usd 20
 bash scripts/run-experiment.sh --help
 ```
+
+The example differs from `scripts/README.md`, which still shows `--cost-ceiling-usd 25` as of this edit. Decision D6 lowers the code ceiling to 20; that change belongs to the infra-engineer and is not yet observed in `scripts/` (see "Deployment target" below).
 
 Notes:
 
@@ -49,7 +70,7 @@ Notes:
 
 ### Required environment variable names
 
-Names only, never values. Read from the caller: `AWS_PROFILE`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` (the AWS CLI credential chain, needed only by the cloud scripts), `HOME`, `TMPDIR`, `SCHOLARCHAIN_OPS_STATE_DIR` (marker directory override), `SCHOLARCHAIN_AGENT_RUN`, `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT` (`cleanup.sh` refuses when these show an agent). The scripts set `AWS_REGION`, `AWS_DEFAULT_REGION`, `AWS_PAGER`, `CHECKPOINT_DISABLE` and, for an experiment entry point, the `SCHOLARCHAIN_EXPERIMENT_ID`, `SCHOLARCHAIN_RUN_ID`, `SCHOLARCHAIN_RUN_DIR`, `SCHOLARCHAIN_MAX_MINUTES`, `SCHOLARCHAIN_MAX_CONCURRENCY`, `SCHOLARCHAIN_MAX_TASKS`, `SCHOLARCHAIN_REGION`, `SCHOLARCHAIN_ACCOUNT_ID` and `SCHOLARCHAIN_DATASET_SNAPSHOT`. `check.sh`, `package.sh` and a local `archive-evidence.sh` gather need no credentials.
+Names only, never values. Read from the caller: `AWS_PROFILE`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` (the AWS CLI credential chain, needed only by the cloud scripts), `HOME`, `TMPDIR`, `SCHOLARCHAIN_OPS_STATE_DIR` (marker directory override), `SCHOLARCHAIN_AGENT_RUN`, `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT` (`cleanup.sh` refuses when these show an agent). The scripts set `AWS_REGION` and `AWS_DEFAULT_REGION` (to `us-east-2`), `AWS_PAGER`, `CHECKPOINT_DISABLE` and, for an experiment entry point, the `SCHOLARCHAIN_EXPERIMENT_ID`, `SCHOLARCHAIN_RUN_ID`, `SCHOLARCHAIN_RUN_DIR`, `SCHOLARCHAIN_MAX_MINUTES`, `SCHOLARCHAIN_MAX_CONCURRENCY`, `SCHOLARCHAIN_MAX_TASKS`, `SCHOLARCHAIN_REGION`, `SCHOLARCHAIN_ACCOUNT_ID` and `SCHOLARCHAIN_DATASET_SNAPSHOT`. `check.sh`, `package.sh` and a local `archive-evidence.sh` gather need no credentials.
 
 ### Human approval points and the approval record
 

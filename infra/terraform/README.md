@@ -32,11 +32,25 @@ infra/terraform/
 - Terraform `>= 1.10.0, < 2.0.0`. The lower bound is the first release with native S3 state locking. The installed version could not be read (`terraform version` was refused), so the exact CLI version is unrecorded.
 - AWS provider `= 6.26.0`, released 2025-12-10 (decision D5), declared once in `environments/course/versions.tf`; the modules declare the source only. The pin replaced `6.20.0`, whose `validate` failed because it has no `aws_s3vectors_vector_bucket` or `aws_s3vectors_index`. Per the provider changelog the resources first appear in 6.24.0 (2025-12-02) and 6.26.0 adds the index `encryption_configuration` and `metadata_configuration` blocks; no later entry changes them. 6.26.0 is the smallest version with every argument used. It is over 11 months old; the latest 6.x at fetch time was 6.72.0 (2026-11-04). The argument schema was read from the provider docs on GitHub `main`, not the 6.26.0 tag, so `validate` is the check. The human ran `terraform init -upgrade -backend=false` on 2026-11-09 (Run 2: provider 6.26.0 installed, exit 0), which regenerated `.terraform.lock.hcl`; that file must be committed.
 
-## Defaults, and why (all chosen for the $25 ceiling, decision D2)
+## Account facts and cost limits (Phase 14 decision D1, replaces the Phase 12 account notes)
+
+| Fact | Value |
+|---|---|
+| Account | Project account "ScholarChain", a new AWS sign-up (identity kept out of the repository). The earlier account is not used |
+| Plan and credits | Paid plan with USD 20 of credits |
+| AWS-enforced project spend limit | USD 20, with "pause idle resources" on |
+| AWS Budget | USD 25 with alerts at 10, 15 and 20. Created outside Terraform. It only alerts; it is the outer alert |
+| Code ceiling | USD 20 (decision D6): `SC_PROJECT_CEILING_USD` in `scripts/lib.sh` and the `budget_total_usd` validation. It matches the AWS spend limit |
+| Operating stop | The human stops near USD 15 of actual spend |
+| Region | LOCKED to us-east-2 (Ohio). Another Region needs "Activate advanced features", which is irreversible and removes the spend limit. Never use it |
+
+The earlier text that said "$25 and $50 budgets already exist" is withdrawn: it described the previous account. `create_budgets` stays false because a USD 25 AWS Budget already exists; if it were set to true, Terraform would add a second budget capped at 20.
+
+## Defaults, and why (all chosen for the $20 code ceiling, decisions D2 and D6)
 
 | Choice | Default | Reason |
 |---|---|---|
-| Region, account | us-east-1, one account | D4 |
+| Region, account | us-east-2 (Ohio), one account. LOCKED: `var.region` refuses any other value at plan time, with a message naming Phase 14 D1 (`docs/agent-runs/phase-14/decisions.md`). `var.availability_zones` must sit inside it | Phase 14 D1 (replaces D4's us-east-1) |
 | Public exposure | none: no public subnet, IGW, load balancer or public IP | brief |
 | Egress | `endpoints` mode (the human's choice, D2c): gateway endpoints for S3 and DynamoDB, 8 interface endpoints in one AZ (9 with `bedrock-runtime` when Bedrock is on), no NAT | NAT is about $0.045 an hour plus data. See egress below and `COST_ESTIMATE.md`, which prices both |
 | Buckets | 2 (data, artifacts) instead of 7 | prefixes follow `S3Prefix` in modules/storage; lifecycle works per prefix; versioning is the only bucket-wide setting and only artifacts-vs-data needed separating |
@@ -44,13 +58,13 @@ infra/terraform/
 | DynamoDB | on-demand, PITR off, deletion protection off | no idle cost; PITR bills by size and is on in a persistent environment |
 | EMR | transient EMR on EC2, created and terminated by the state machine; one `m5.xlarge` node, 0 core, 0 Spot task nodes, 900 s idle auto-termination, managed scaling capped at 3 units through `emr_managed_scaling_max_units` (applies only with core nodes). The cap must cover every fixed node: 1 primary + core + Spot task nodes (task nodes count only with a core node), so the largest legal shape is 1 + 4 + 2 = 7 units, and the variable validates the sum (the earlier cap of 6 ignored task nodes). The elasticity run uses 4 core nodes and a cap of 5 | the Hadoop stage is MapReduce, which EMR Serverless cannot run (Spark and Hive only), so EMR on EC2 is forced; a transient cluster costs nothing between runs. Serverless is not carried because it would still need EC2 for Hadoop |
 | Spot | off; allowed only for task nodes and only with a core node | HDFS data lives on core nodes; a lost task node costs a retried task, a lost single node would fail the run |
-| Neptune | not created (`enable_neptune = false`). If enabled, `neptune_mode = "provisioned"`: one `db.t4g.medium` writer, no replica. `serverless` is selectable: 1 NCU minimum, 2 NCU maximum (was 2.5) | D2c. Serverless has no scale to zero and is the likeliest budget threat; both modes need the Paid plan and are destroyed after each run. Deletion protection and the final snapshot follow `persistent_environment` in both modes. Whether `db.t4g.medium` is orderable for engine 1.4.5.1 is unverified |
+| Neptune | not created (`enable_neptune = false`). If enabled, `neptune_mode = "provisioned"`: one `db.t4g.medium` writer, no replica. `serverless` is selectable: 1 NCU minimum, 2 NCU maximum (was 2.5) | D2c. Serverless has no scale to zero and is the likeliest budget threat; both modes need the Paid plan and are destroyed after each run. Deletion protection and the final snapshot follow `persistent_environment` in both modes. `db.t4g.medium` for engine 1.4.5.1 is confirmed orderable in us-east-2 by a human read-only CLI check on 2026-11-13 (`docs/agent-runs/phase-14/checks-3.md`) |
 | S3 Vectors | 1 bucket, 5 indexes, 256 dimensions, cosine | names from `VectorIndexes`. Dimension is open (D2a); 256 is cheapest. **Changing the dimension destroys the vectors** (next section) |
 | Runtime | 1 ECR image for 2 task definitions (fast, slow) plus a loader image; 256 CPU, 512 MiB; desired count 0; Fargate on-demand | see "Consolidation" |
 | Bedrock | off; when on, `bedrock:InvokeModel` on exact ARNs only | D2a |
 | Logs | 3 days retention | cost |
 | Cloud Map | not created (`enable_service_discovery = false`) | no ingress and nothing resolves the names; saves about $0.50 a month. With it off the ECS services carry no registry and are reached by private IP |
-| Budgets | not created (`create_budgets = false`); limit and thresholds are variables, defaults 25 and [10, 15, 20] USD | see "Budget mismatch" |
+| Budgets | not created (`create_budgets = false`); limit and thresholds are variables, defaults 20 and [10, 15, 20] USD (the limit is validated to at most 20, decision D6) | see "Budgets" |
 
 ### Egress
 
@@ -58,7 +72,7 @@ Default (`endpoints`): nothing in the VPC can reach the internet. S3 and DynamoD
 
 Why `s3vectors` and `sqs` are in the list (review finding H2): the runtime role may query S3 Vectors and send SQS messages, and the loader role may put vectors and consume SQS, and both run in the VPC. Their security groups allow egress only to the endpoint security group and the S3 and DynamoDB prefix lists, so without these two endpoints the calls cannot leave the VPC. The security-group rules are unchanged: the existing `to_endpoints` egress rule (services, loader, client, EMR nodes to the endpoint group on 443) and the endpoint group's ingress from each role already cover the new endpoints, and the services and loader get no other egress in this mode. The Step Functions service calls its targets itself and the VPC makes no Step Functions API call, so no `states` endpoint is needed.
 
-Facts and their status. S3 Vectors supports an interface endpoint, service `com.amazonaws.us-east-1.s3vectors`, private DNS name `s3vectors.us-east-1.api.aws`: VERIFIED, https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-privatelink.html. The SQS interface endpoint `com.amazonaws.us-east-1.sqs` is the standard one: not read from the docs this round, so UNVERIFIED. Whether both are offered in the AZ of the single endpoint subnet (`interface_endpoint_az_count = 1`): UNVERIFIED until a Phase 14 plan. The S3 Vectors private DNS name also has to be the name the SDK resolves, which depends on the application's endpoint configuration: UNVERIFIED.
+Facts and their status. S3 Vectors supports an interface endpoint, service `com.amazonaws.<region>.s3vectors`, private DNS name `s3vectors.<region>.api.aws` (read for the Region-neutral pattern, https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-privatelink.html; the service itself is confirmed in us-east-2, endpoint `s3vectors.us-east-2.api.aws`, https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-regions-quotas.html, but the PrivateLink service name in us-east-2 is UNVERIFIED until the first plan). The SQS interface endpoint `com.amazonaws.<region>.sqs` is the standard one: not read from the docs, so UNVERIFIED. Terraform builds every service name from `var.region` (us-east-2). Whether both are offered in the AZ of the single endpoint subnet (`interface_endpoint_az_count = 1`): UNVERIFIED until a Phase 14 plan. The S3 Vectors private DNS name also has to be the name the SDK resolves, which depends on the application's endpoint configuration: UNVERIFIED.
 
 `nat` mode builds one NAT gateway in one public subnet (public subnets exist only for it). `none` keeps only the gateway endpoints and will not run Fargate tasks (no ECR or Logs path); it is the egress setting of the session-down overlay.
 
@@ -79,7 +93,7 @@ The five index names (`*-v1`) do not include the dimension. Changing `vector_dim
 
 Rates are mostly from memory of the public pricing pages and are **not yet verified** (see `COST_ESTIMATE.md`, which marks each rate verified or unverified). Treat the numbers as order of magnitude.
 
-| Resource | Default | Idle rate (approx, us-east-1) | Note |
+| Resource | Default | Idle rate (approx; rates not verified for us-east-2, see `COST_ESTIMATE.md`, "Region migration") | Note |
 |---|---|---|---|
 | Interface endpoints (8; 9 with Bedrock) in 1 AZ | on | $0.010 to $0.015 an hour each (U6, unverified): 8 endpoints $0.08 to $0.12 an hour, $1.92 to $2.88 a day, about $58 to $86 a month; 9 endpoints $2.16 to $3.24 a day | the largest default idle item. Remove between sessions with `session-down.tfvars` (egress mode `none`) |
 | NAT gateway | off | $0.045 an hour plus data | only in `nat` mode |
@@ -105,7 +119,7 @@ Rates are mostly from memory of the public pricing pages and are **not yet verif
 | `neptune_instance_class` | `db.t4g.medium` | provisioned mode only |
 | `neptune_max_ncu` | `2` (was 2.5), range 1 to 4 | serverless mode only |
 | `enable_service_discovery` | `false` | Cloud Map namespace and service registration |
-| `budget_total_usd` | `25`, range above 0 to 25 | used only when `create_budgets` is true |
+| `budget_total_usd` | `20`, range above 0 to 20 (was 25, lowered by decision D6) | used only when `create_budgets` is true |
 | `budget_alert_thresholds_usd` | `[10, 15, 20]`, 1 to 5 values, each at most the total | used only when `create_budgets` is true |
 | `emr_core_instance_count` | `0`, range 0 to 4 (was 0 to 2) | the elasticity run needs 4 |
 | `emr_managed_scaling_max_units` | `3`, range 1 to 7, and at least 1 + core + Spot task nodes (task nodes only with a core node) | its own variable now; the default is not raised. Validated in the environment and in the module |
@@ -166,11 +180,11 @@ One rule is enforced and one is a known limitation (Phase 13, finding F1, human 
 Plain statements of what the caps mean (human decision O1):
 
 - At the estimate's HIGH bound a run may time out (S 7200 s against 5400 s, M 12240 s against 7200 s, L 23040 s against 10800 s, before the terminate allowance).
-- The estimate's HIGH hours are not a promise that the caps cover. The caps are ceilings chosen for the $25 limit, not a forecast of the run time.
+- The estimate's HIGH hours are not a promise that the caps cover. The caps are ceilings chosen under the cost ceiling (25 when they were set, 20 since decision D6; no cap was changed), not a forecast of the run time.
 - A timed-out run still wastes the spend it has accrued and needs a re-run with a new approval record (a record is single use).
 - A cap is a ceiling, not a cost. No cost figure changes with this decision.
 
-Recorded human step (Phase 14, before M runs). After the S run, the human sets the M and L values from the measured S runtime and records them as a human decision in a Phase 14 decisions file (`docs/agent-runs/phase-14/decisions.md`) before M runs. Formula, for each of the script `--max-minutes` cap, `pipeline_emr_step_timeout_seconds` and `pipeline_loader_timeout_seconds`: `value(tier) = measured S value x (works(tier) / 5,000) x 1.5`, with 25,000 works for M (factor 5) and 100,000 for L (factor 20), so the factors with margin are 7.5 and 30. The measured S value is the longest single Hadoop or Spark step for the EMR step timeout, the load time for the loader timeout, and the whole run for the cap. `pipeline_create_cluster_timeout_seconds` does not scale with works: use the measured S cluster start time x 1.5 (this is a proposal in this work order, the human may choose otherwise). `pipeline_max_run_seconds` follows the cap plus 30 minutes as today. Every result stays inside the existing validation ranges (execution 1800 to 10800 s, EMR step 300 to 7200 s, loader 300 to 7200 s, create 300 to 3600 s), Rule A must still hold, and the projected spend must stay under the $25 ceiling; a result outside a range needs a human decision to change the range, it is not clamped silently. The linear-in-works scaling is an assumption that S, M and L were not measured to satisfy.
+Recorded human step (Phase 14, before M runs). After the S run, the human sets the M and L values from the measured S runtime and records them as a human decision in a Phase 14 decisions file (`docs/agent-runs/phase-14/decisions.md`) before M runs. Formula, for each of the script `--max-minutes` cap, `pipeline_emr_step_timeout_seconds` and `pipeline_loader_timeout_seconds`: `value(tier) = measured S value x (works(tier) / 5,000) x 1.5`, with 25,000 works for M (factor 5) and 100,000 for L (factor 20), so the factors with margin are 7.5 and 30. The measured S value is the longest single Hadoop or Spark step for the EMR step timeout, the load time for the loader timeout, and the whole run for the cap. `pipeline_create_cluster_timeout_seconds` does not scale with works: use the measured S cluster start time x 1.5 (this is a proposal in this work order, the human may choose otherwise). `pipeline_max_run_seconds` follows the cap plus 30 minutes as today. Every result stays inside the existing validation ranges (execution 1800 to 10800 s, EMR step 300 to 7200 s, loader 300 to 7200 s, create 300 to 3600 s), Rule A must still hold, and the projected spend must stay under the $20 code ceiling (and, by the human's operating rule, stop near $15 of actual spend); a result outside a range needs a human decision to change the range, it is not clamped silently. The linear-in-works scaling is an assumption that S, M and L were not measured to satisfy.
 
 Arithmetic from the estimate's HIGH figures (`COST_ESTIMATE.md` section 1.2 and the Fargate rebuild; the launch overhead is inside the node-hours; the estimate has no terminate time, so 900 s is an allowance):
 
@@ -233,9 +247,9 @@ There is currently no way for `scripts/smoke-test.sh` to reach the services. The
 
 The orchestrator and human choose in Phase 14. Until then the smoke test cannot run from anywhere, and the example URLs in the script use private IPs rather than a name that would not resolve.
 
-### Budget mismatch
+### Budgets
 
-Instructor alerts are $10, $15 and $20 of a $25 cumulative ceiling. The existing AWS budgets are $25 and $50. `create_budgets` is false so nothing duplicates or contradicts them. When enabled, the module creates one budget named `<prefix>-total` with those thresholds on actual spend (credits excluded, so the figure is gross usage), with period `ANNUALLY` as the nearest fit to a cumulative project total. Enabling it, and the notification address, are Phase 14 human actions. AWS does not enforce a budget: it only alerts.
+Three separate limits exist, and only one is enforced by AWS (see "Account facts and cost limits"). The AWS-enforced project spend limit is USD 20 (pause idle resources on). The AWS Budget of USD 25 with alerts at 10, 15 and 20 is the outer alert and only notifies. The code ceiling (USD 20, decision D6) is what the scripts and the `budget_total_usd` validation enforce before any run. The human's operating stop is near USD 15 of actual spend. `create_budgets` is false so nothing duplicates the existing budget. When enabled, the module creates one more budget named `<prefix>-total` with the thresholds on actual spend (credits excluded, so the figure is gross usage), capped at 20, with period `ANNUALLY` as the nearest fit to a cumulative project total. It cannot represent the existing USD 25 budget, because the validation now stops at 20. Enabling it, and the notification address, are human actions. AWS does not enforce a budget: it only alerts.
 
 ## IAM (roles and their limits)
 
@@ -280,7 +294,7 @@ The runtime `PutItem` on evidence-bundle and query-session is an assumption (ans
 | Script syntax | `bash -n` on the seven scripts | exit 0 (human, 2026-11-09, Run 3, repair round 1 files; first time these ran). Proves syntax only. Later runs on 2026-11-11 (human): `bash -n` and `shellcheck -x` clean on the ten scripts and the harness (`checks-3.md`); the harness gave `RESULT pass=546 fail=0` with no AWS reachable. See `scripts/README.md` |
 | IAM scoped to actual resources and actions | read-only review of `modules/identity/main.tf` against this table | independent review rounds 1 and 2 done; round 2 verified H1, H2, M8 and the identity scope as fixed. `validate` does not prove IAM correctness |
 | Not public, bounded capacity | read-only review; variable validations | rounds 1 and 2: no public exposure found. Range checks exist for the pipeline timeouts and the scaling cap |
-| Cost | `COST_ESTIMATE.md` | restated for endpoint egress, provisioned Neptune and absolute thresholds in repair round 1; Neptune session hours and service-task hours restated in repair round 2 (finding N1); mostly unverified rates; S + M at the HIGH bound does not fit under $25 |
+| Cost | `COST_ESTIMATE.md` | restated for endpoint egress, provisioned Neptune and absolute thresholds in repair round 1; Neptune session hours and service-task hours restated in repair round 2 (finding N1); mostly unverified rates; S + M at the HIGH bound does not fit under $25, and so not under the $20 code ceiling either (`COST_ESTIMATE.md`, "Cost ceiling lowered to 20 USD") |
 | No unexplained stateful replacement, plan counts, plan-signed gate | `terraform plan` | deferred to Phase 14 (D3) |
 
 ## Checks to run
@@ -292,6 +306,31 @@ terraform -chdir=infra/terraform/environments/course validate
 ```
 
 `init -upgrade` is not used: no provider or version changed, the committed `.terraform.lock.hcl` already records 6.26.0, and `terraform_data` is built in and needs no provider. Run `fmt -check` and `validate` after any Terraform edit. Observed results. Latest, 2026-11-11 (human, `docs/agent-runs/phase-13/checks-1.md`, after Phase 13 work orders 01 to 05, which include the F1 timeout files): `fmt -check -recursive -diff infra/terraform` passed with no diff, `init -backend=false -input=false` succeeded (aws 6.26.0 from the lock file) and `validate` printed "The configuration is valid." `checks-3.md` did not rerun Terraform; no Terraform file is known to have changed since. Earlier, on the repair round 1 files (2026-11-09, `terraform-checks.md` Run 3): `fmt -check -recursive -diff` exit 0 with no diff and `validate` exit 0 ("Success! The configuration is valid."). **`terraform plan` has still not been run** and is a Phase 14 item (D3), so plan counts, IAM scope, cost and stateful replacements remain unobserved. The Rule B `check` block was removed in Phase 13 work order 05, so `plan` no longer prints a Rule B warning. If `validate` fails now, the three pipeline timeout variables (`pipeline_create_cluster_timeout_seconds`, `pipeline_emr_step_timeout_seconds`, `pipeline_loader_timeout_seconds`) and their wiring in `environments/course/main.tf` are the first places to look. `validate` proves syntax, types and references only; it does not prove IAM correctness, cost or exposure.
+
+## Availability checks for the human (us-east-2)
+
+Phase 14 decision D7. Read-only calls, run by the human with the `scholarchain` profile (agents never read `~/.aws` and do not run these). Each lists and describes only. They settle the two items that were marked NOT CONFIRMED, before the first plan. Status: the human ran the Neptune and EC2 checks on 2026-11-13 (`docs/agent-runs/phase-14/checks-3.md`); both passed at region level.
+
+Neptune `db.t4g.medium` for engine `1.4.5.1`, with the zones it can be placed in (expect the class and both `us-east-2a` and `us-east-2b` in the output; an empty list means the class or version is not orderable here and `neptune_instance_class` or `neptune_engine_version` must change before any plan):
+
+```
+aws neptune describe-orderable-db-instance-options --engine neptune --engine-version 1.4.5.1 --db-instance-class db.t4g.medium --region us-east-2 --profile scholarchain --query 'OrderableDBInstanceOptions[].{Class:DBInstanceClass,Version:EngineVersion,Zones:AvailabilityZones[].Name}' --output json
+```
+
+If that is empty, list what is orderable for the version, and the versions the engine offers:
+
+```
+aws neptune describe-orderable-db-instance-options --engine neptune --engine-version 1.4.5.1 --region us-east-2 --profile scholarchain --query 'OrderableDBInstanceOptions[].DBInstanceClass' --output text
+aws neptune describe-db-engine-versions --engine neptune --region us-east-2 --profile scholarchain --query 'DBEngineVersions[].EngineVersion' --output text
+```
+
+EMR primary node `m5.xlarge` (EC2 offering by zone; expect `us-east-2a` and `us-east-2b`, because the cluster uses the first app subnet and that zone must offer it):
+
+```
+aws ec2 describe-instance-type-offerings --location-type availability-zone --filters Name=instance-type,Values=m5.xlarge --region us-east-2 --profile scholarchain --query 'InstanceTypeOfferings[].Location' --output text
+```
+
+An EC2 offering shows the instance type exists in the zone. It does not prove that EMR release `emr-7.10.0` supports it there; the EMR release label stays in "Unverified items" until a plan and the first cluster launch. Record the pasted output in the Phase 14 evidence directory before the first plan.
 
 ## Remote state design (documented only, not created in Phase 12)
 
@@ -320,9 +359,11 @@ Neptune and EMR need the Paid plan (D4). Terraform creates the free parts (roles
 ## Unverified items to settle before the first plan
 
 - The S3 Vectors resource arguments against the 6.26.0 schema (read from `main`; `validate` settles it).
-- Neptune engine version `1.4.5.1` and family `neptune1.4` (must support Serverless), and `db.t4g.medium` orderable for it.
+- Neptune engine version `1.4.5.1` and family `neptune1.4` (must support Serverless): `1.4.5.1` is in the orderable list for `db.t4g.medium` in us-east-2 (human read-only CLI check, 2026-11-13, `docs/agent-runs/phase-14/checks-3.md`) and the family matches. Settled; the check did not list Availability Zones.
 - EMR release label `emr-7.10.0` and its Hadoop and Spark versions against the built jars.
-- Bedrock Haiku 4.5 profile ID, model ID and routing regions (D2a: account model access is also unverified).
+- Bedrock Haiku 4.5 in us-east-2: reachable only through a cross-Region profile (In-Region is not supported). The Geo US profile `us.anthropic.claude-haiku-4-5-20251001-v1:0` is documented for source us-east-2, routing to us-east-1, us-east-2 and us-west-2 (the us-east-1 entry in `bedrock_haiku_regions` is a routing destination only); `global.anthropic.claude-haiku-4-5-20251001-v1:0` is the Region-neutral alternative. Source: `docs/agent-runs/phase-14/evidence-availability-us-east-2.md`. The human confirmed live in us-east-2 (Phase 14 D5, relayed by the orchestrator) that this profile works and that Titan V2 returns a 256-length embedding at dimensions 256, which closes risk R1. IAM: the runtime and loader policies list the profile ARN in `var.region` plus a foundation-model ARN for each of the three destination Regions (`bedrock_haiku_regions`); all three are needed because a cross-Region call is authorized against the destination model ARN. The us-east-2-only Region guard applies to the provider and Terraform; the profile's routing to us-east-1 and us-west-2 is Bedrock-side.
+- Neptune `db.t4g.medium` in us-east-2: confirmed orderable by a human read-only CLI check on 2026-11-13 (`docs/agent-runs/phase-14/checks-3.md`, decision D7), for engine versions 1.1.1.0 up to 1.5.0.1, which includes 1.4.5.1. Exact commands in "Availability checks for the human (us-east-2)" below. Neptune and EMR are Paid-plan services, acceptable under D1.
+- EMR instance type `m5.xlarge` in us-east-2: EC2 offers it in us-east-2 (human read-only CLI check, 2026-11-13, `checks-3.md`; region-level, not per zone). The EMR per-Region page was not read, so EMR support is not confirmed; the first CreateCluster confirms it (residual risk low).
 - EMR service-role v2 tag requirement. Step Functions managed rules: the policy grants three (EMR `StepFunctionsGetEventForEMRRunJobFlowRule`, EMR `StepFunctionsGetEventForEMRAddJobFlowStepsRule`, ECS `StepFunctionsGetEventsForECSTaskRule`). Only the ECS name, with "Events" in the plural, is VERIFIED (https://docs.aws.amazon.com/step-functions/latest/dg/connect-ecs.html); the two EMR names are carried over and UNVERIFIED. The state machine uses four `.sync` integrations (createCluster, addStep, terminateCluster, runTask). Whether `terminateCluster.sync` uses an EMR managed rule is UNVERIFIED and no rule name is invented. The documented terminateCluster policy has `TerminateJobFlows` and `DescribeCluster` only, and the documentation says missing events permissions on a `.sync` task cause a delay before Step Functions notices completion, not a denial (https://docs.aws.amazon.com/step-functions/latest/dg/connect-emr.html and https://docs.aws.amazon.com/step-functions/latest/dg/service-integration-iam-templates.html). The documentation also shows a polling fallback for this case: UNVERIFIED here beyond that statement, and this repo does not rely on it.
 - Neptune bulk-loader egress (finding L1). The Neptune security group has no egress rule (Terraform removes the default allow-all), and the bulk loader reads from S3 on behalf of the cluster. A rule to the S3 prefix list is NOT added: the documented requirement for the loader (a gateway endpoint for S3 and the IAM role, versus a security-group egress rule) was not read this round, so adding it would be a guess. UNVERIFIED, flagged for the Phase 14 plan and first load.
 - S3 Vectors and SQS interface endpoints: see the Egress section for what is verified.

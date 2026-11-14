@@ -4,7 +4,7 @@
 #
 # Mode A, previous image tag (needs a plan made by plan.sh --image-tag <TAG>):
 #   bash scripts/rollback.sh --environment course --account-id 123456789012 \
-#     --cost-ceiling-usd 25 --approval-record /abs/approval.env \
+#     --cost-ceiling-usd 20 --approval-record /abs/approval.env \
 #     --image-tag <40-hex git sha> --plan-file /abs/course-<sha12>.tfplan
 #   The old tag must still exist in both ECR repositories (five images are kept).
 #   Only the saved plan is applied. The revision is verified afterwards.

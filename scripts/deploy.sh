@@ -5,7 +5,7 @@
 #
 # Usage:
 #   bash scripts/deploy.sh --environment course --account-id 123456789012 \
-#     --cost-ceiling-usd 25 --approval-record /abs/approval.env \
+#     --cost-ceiling-usd 20 --approval-record /abs/approval.env \
 #     --plan-file /abs/course-<sha12>.tfplan \
 #     --services-context /abs/dir-with-lib --loader-context /abs/dir-with-lib
 #

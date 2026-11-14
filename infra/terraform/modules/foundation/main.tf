@@ -6,9 +6,10 @@ terraform {
   }
 }
 
-# Optional because two budgets ($25 and $50) already exist in the account and
-# the instructor's alerts ($10, $15, $20 of $25) differ from them. Creating this
-# one is a Phase 14 human decision.
+# Optional because an AWS Budget of $25 with alerts at $10, $15 and $20 already
+# exists in the account, created outside Terraform (Phase 14 decision D1). This
+# resource would be a second budget, capped at the code ceiling of $20 (D6).
+# Creating it is a human decision.
 resource "aws_budgets_budget" "total" {
   count = var.create_budgets ? 1 : 0
 

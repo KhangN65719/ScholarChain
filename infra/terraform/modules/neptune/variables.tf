@@ -19,7 +19,7 @@ variable "data_bucket_arn" {
 }
 
 variable "engine_version" {
-  description = "Neptune engine version. It must support Serverless (1.2.0.1 or later). UNVERIFIED against the live orderable versions: check in Phase 14 before the first plan."
+  description = "Neptune engine version. It must support Serverless (1.2.0.1 or later). 1.4.5.1 is confirmed orderable for db.t4g.medium in us-east-2 by a human read-only CLI check on 2026-11-13 (docs/agent-runs/phase-14/checks-3.md)."
   type        = string
   default     = "1.4.5.1"
 }
@@ -42,7 +42,7 @@ variable "mode" {
 }
 
 variable "instance_class" {
-  description = "Instance class in provisioned mode. Ignored in serverless mode. UNVERIFIED: confirm that db.t4g.medium is orderable for engine_version in us-east-1 before the first plan."
+  description = "Instance class in provisioned mode. Ignored in serverless mode. db.t4g.medium is confirmed orderable in us-east-2 (engine versions 1.1.1.0 to 1.5.0.1, including 1.4.5.1) by a human read-only CLI check on 2026-11-13 (docs/agent-runs/phase-14/checks-3.md). That check listed versions, not Availability Zones: placement in us-east-2a and us-east-2b is settled by the first plan and apply."
   type        = string
   default     = "db.t4g.medium"
 }

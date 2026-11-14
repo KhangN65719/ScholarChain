@@ -17,6 +17,8 @@ Nothing was executed: no AWS, no sbt, no experiment entry point. No approval rec
 
 No manifest uses tier L, so the human's tier L spend gate (G-L) is not triggered by these drafts.
 
+Phase 14 scope (decision D8, 2026-11-13): tiers M and L are NOT approved. Experiment A (tier S) is the only manifest that fits the Phase 14 scope; B to F are tier M and stay drafts until the human records a new decision against actual Billing spend. All six manifests are set to `REGION=us-east-2` (decision D1: the account is locked to us-east-2). The code cost ceiling is 20 USD (decision D6), the AWS spend limit is 20 USD, and the human's operating stop is near 15 USD. No limit in any manifest was raised.
+
 ## Rules
 
 - Raw results are immutable. `run-experiment.sh` writes `<OUTPUT_ROOT>/<run id>/` once (`run-record.env`, `raw/`, `metrics/`, `SHA256SUMS`), makes `raw/` and `metrics/` read-only, and refuses an existing run directory. Read-only bits are not a security control. Derived plots and tables are separate files made by scripts from the raw data, never edits of it. A failed, timed-out or interrupted run keeps its record and is reported, not deleted.
@@ -64,7 +66,7 @@ Source: `infra/terraform/COST_ESTIMATE.md` (rates mostly UNVERIFIED; "LOW" is th
 | F | 30 | 0.62 | 0.31 | 0.50 | none |
 | Sum | | | 6.535 | 8.05 | |
 
-The ceilings bound the entry-point window only. The estimate rows are whole-session costs over 1 to 8 hours, so for B and D the ceiling is below the estimate's LOW or HIGH figure because the manifest caps the window at 90 minutes; the setup and teardown hours around it are not in the manifest. The $25 cumulative ceiling (`docs/agent-runs/phase-12/ratification.md`) is not checked by the script. The estimate itself puts S plus M at $25.42 at the HIGH bound and does not claim a fit, so the human reads Billing before each run (gates G-S, G-M) and records actual spend, and a ceiling here is not a forecast or a bill.
+The ceilings bound the entry-point window only. The estimate rows are whole-session costs over 1 to 8 hours, so for B and D the ceiling is below the estimate's LOW or HIGH figure because the manifest caps the window at 90 minutes; the setup and teardown hours around it are not in the manifest. The cumulative ceiling is now 20 USD (decision D6; it replaced the 25 USD of `docs/agent-runs/phase-12/ratification.md`) and the script checks only that each `SPEND_CEILING_USD` is at most `--cost-ceiling-usd`, not the cumulative figure. The estimate itself puts S plus M at $25.42 at the HIGH bound, over the 20 USD ceiling (decision D8), and does not claim a fit, so the human reads Billing before each run (gates G-S, G-M) and records actual spend, and a ceiling here is not a forecast or a bill.
 
 Known limit accepted by the human (decision O1): a pipeline run at the estimate's HIGH hours may exceed the 60 and 90 minute caps of A and B. A timed-out run still spends and needs a new approval record.
 
@@ -77,8 +79,8 @@ The same table, for every manifest, is in the work report. Short form: every one
 Not yet run by the human against the real working tree. The harness dry-ran the committed manifests in a temporary repository (`checks-3.md`, cases `8.committed-manifest.A` to `F`); that does not replace the commands below. `--print-digest` of a committed manifest now works although its entry point does not exist yet. The dry run needs a clean tree (commit these files first; other untracked files such as `docs/.DS_Store` also count as dirty) and an approval record that binds the manifest. The first line below (`--print-digest`) exits after manifest validation and prints the digests: it checks no tree and reads no approval record, so it does not stop at `clean-tree` or `approval-record`. The second line (the dry run) prints `MANIFEST_VALID` and `LIMITS`, then stops at `clean-tree` on a dirty tree, or at `approval-record` on a clean tree whose record does not bind the manifest.
 
 ```
-bash scripts/run-experiment.sh --print-digest --manifest /abs/path/to/experiments/manifests/experiment-a-baseline.manifest --environment course --account-id 123456789012 --region us-east-1 --cost-ceiling-usd 25
-bash scripts/run-experiment.sh --dry-run --manifest /abs/path/to/experiments/manifests/experiment-a-baseline.manifest --environment course --account-id 123456789012 --region us-east-1 --cost-ceiling-usd 25 --approval-record /abs/path/to/approval.env
+bash scripts/run-experiment.sh --print-digest --manifest /abs/path/to/experiments/manifests/experiment-a-baseline.manifest --environment course --account-id 123456789012 --region us-east-2 --cost-ceiling-usd 20
+bash scripts/run-experiment.sh --dry-run --manifest /abs/path/to/experiments/manifests/experiment-a-baseline.manifest --environment course --account-id 123456789012 --region us-east-2 --cost-ceiling-usd 20 --approval-record /abs/path/to/approval.env
 ```
 
 Repeat for the other five manifests. Expect `MANIFEST_VALID`, `LIMITS`, then `CHECK_SKIPPED entry-point` and `DRY_RUN_COMPLETE`.

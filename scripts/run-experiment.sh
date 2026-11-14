@@ -8,10 +8,10 @@
 #
 # Usage:
 #   bash scripts/run-experiment.sh --manifest /abs/experiment.manifest \
-#     --environment course --account-id 123456789012 --region us-east-1 \
-#     --cost-ceiling-usd 25 --approval-record /abs/approval.env [--dry-run]
+#     --environment course --account-id 123456789012 --region us-east-2 \
+#     --cost-ceiling-usd 20 --approval-record /abs/approval.env [--dry-run]
 #   Add --print-digest (no record needed) to print the digests the record must hold.
-#   --region is required here and must be us-east-1. --out-dir, when given, must
+#   --region is required here and must be us-east-2 (decision D1). --out-dir, when given, must
 #   equal the manifest's OUTPUT_ROOT; the manifest is the one place that names it.
 #
 # The manifest is a flat KEY=VALUE file, parsed and never sourced. The contract,
@@ -22,7 +22,7 @@
 #
 # Refuses: a missing, unknown or duplicated key, a limit missing, out of range or
 # above the tier cap, a spend ceiling above --cost-ceiling-usd or a projected spend
-# (burn x minutes) above the spend ceiling, a Region other than us-east-1, an
+# (burn x minutes) above the spend ceiling, a Region other than us-east-2, an
 # unknown experiment id, a tier with no overlay file, an output path inside the
 # repository, a dirty tree, an entry point that is not a tracked file, a stop
 # condition list without wall-clock, an approval record that does not bind this

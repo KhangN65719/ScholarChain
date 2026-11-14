@@ -36,7 +36,7 @@
 # Upload (a cloud write: needs an approval record with action "archive"):
 #   bash scripts/archive-evidence.sh --upload-dir /abs/evidence-<...> \
 #     --s3-prefix s3://bucket/prefix --environment course --account-id 123456789012 \
-#     --cost-ceiling-usd 25 --approval-record /abs/approval.env [--dry-run]
+#     --cost-ceiling-usd 20 --approval-record /abs/approval.env [--dry-run]
 #   The directory must be one this script made. Its MANIFEST.sha256 is re-checked
 #   file by file and the key material scan runs again. The record binds the S3
 #   prefix, the directory name and the sha256 of MANIFEST.sha256, so the human
