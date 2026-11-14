@@ -41,6 +41,23 @@ Neptune `db.t4g.medium` and EMR `m5.xlarge` in us-east-2 are confirmed by read-o
 
 Infra-engineer's table (report 02) shows S+M through 15.4 at HIGH is 25.42 and S+M+L is 38.70, both over 20; LOW is under 20 everywhere. The human's standing instruction already stages the work: foundation + S first, then read actual Billing spend, and only then decide M, the M/L caps (D10) and endpoints vs NAT (P4). So Phase 14 scope is fixed to smoke on fixtures plus the S real-data run (HIGH 5.30, LOW 1.44, both under 20 and under the 15 stop). M and L are NOT approved. They need a new recorded human decision against actual spend.
 
+## D9: Grace period is 5 s
+
+See decision-09-grace-period.md (orchestrator proposal, awaiting human ratification).
+
+## D11: Plan 2 approved in principle, apply deferred (human, via AskUserQuestion, 2026-11-14)
+
+- Clean-tree plan 2: git 4a5bbf5f54c7, 132 to add, 0 change, 0 destroy, STATEFUL_CHANGE=no, DIRTY=no, X86_64, us-east-2, ceiling USD 20, PLAN_DIGEST 7733c154f0bb6c8f4c08c426650dd0f592f95400ffbefc2f68dd411c686bb53c (logs: phase14-plan-2.log). Foundation only; Neptune and EMR are off.
+- Estimate shown to the human: idle about USD 1.92 to 2.88 per day for the interface endpoints; foundation plus smoke plus S LOW 1.44, HIGH 5.30 (rates mostly unverified); stop line USD 15.
+- Human decision: reviewed and approved in principle. Do NOT apply tonight. At the start of the next session the human re-runs the plan on the same clean tree, approves that digest, then runs apply, smoke, the S run and session-down teardown in one sitting.
+- Consequences: this digest is not an approval record and is not to be applied. A new plan digest will be shown for approval. The approval record must name script digest, arguments digest (deploy needs `--services-context` and `--loader-context`, both content-digested) and the new plan digest, and expires within 24 hours of APPROVED_AT. Nothing is applied. Spend so far: 0 USD (human confirms from Billing).
+
+## D12: Session starts tonight (human, 2026-11-14), supersedes the deferral in D11
+
+- The human starts the session tonight instead of tomorrow. Sequence in one sitting: identity check, fresh plan on the clean tree (phase14-plan-3), the human approves that digest, then apply, smoke on fixtures, bounded S real-data run, same-day session-down teardown (storage kept).
+- Plan 2's digest stays unapproved and unused. Only the plan-3 digest can be approved. Approval records are written by the human, expire within 24 hours, and are single-use.
+- Unchanged: stop at actual spend near USD 15; M, L, the caps (D10) and P4 wait for the human's pasted Billing figure; every AWS-changing command is a paste-ready `!` command run by the human.
+
 ## D4: Sequence
 
 1. us-east-2 migration and availability verification (infra-engineer, test-engineer, documentation-engineer), human re-runs fmt/validate and harness.
