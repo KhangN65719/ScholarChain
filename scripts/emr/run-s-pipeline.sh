@@ -24,6 +24,9 @@
 #               s3://<data>/semantic-context/runs/<run-id>/ (JsonlExport output)
 #               s3://<data>/reports/runs/<run-id>/          (logs and run-record.env)
 # All five prefixes are inside the prefixes the emr_ec2 role may write.
+# On a failed stage the exit trap also publishes the reports directory to
+#               s3://<data>/reports/runs/<run-id>/failed/<UTC stamp>/ (best effort, after
+#               the key-material scan) and prints FAILED_LOGS_PUBLISHED=<s3 uri>.
 #
 # Paths. Spark, ER and JsonlExport take java.nio paths, so every path handed to them is
 # a plain absolute local path, and the Hadoop job gets explicit file:/// URIs (a plain
@@ -51,6 +54,7 @@ pipeline_main() {
   xout="$work/export-out"; rep="$work/reports"
   [[ ! -e "$work" ]] || die "$work already exists: FileOutputFormat refuses an existing output directory, so a rerun needs a new run id"
   mkdir -p "$raw" "$rep"
+  register_failure_logs "$rep" "$data_bucket" "$run_id"
   kv RUN_ID "$run_id"
   kv RAW_SNAPSHOT "$snapshot"
   kv RUN_SNAPSHOTS "$snapshots"
@@ -87,6 +91,39 @@ pipeline_main() {
   stage_ok
 
   stage hadoop
+  # Single node, one run directory: the YARN containers (and the MapReduce output
+  # committer in the application master) may run as the yarn user, not as this one.
+  # Everything is under $SC_HOME/run/<id> and read or written through file:/// URIs.
+  # What is changed, and why:
+  #   /home/hadoop and $SC_HOME   a+x: traverse only, so the path can be walked; nothing
+  #                               in them becomes listable or readable.
+  #   $raw                        a+rX recursive: the inputs the map tasks read.
+  #   $work, $sout, $xout         1777 (world-writable with the sticky bit): another user
+  #                               can create its output directories here (the Hadoop
+  #                               output directory in $work, the Spark and export output
+  #                               directories in $sout and $xout) but cannot delete or
+  #                               rename entries this user owns (raw inputs, jars, reports).
+  #                               Plain a+rwx would allow that. The owner of a sticky
+  #                               directory can still remove everything in it.
+  # Directories that a task creates inside those get their modes from the umask of
+  # SC_FS_UMASK (-Dfs.permissions.umask-mode below, spark.hadoop.fs.permissions.umask-mode
+  # in spark-defaults.conf): without it a directory the driver creates with mode 755
+  # would stay unwritable for executors running as another user. No credential, no
+  # ~/.aws and nothing outside $SC_HOME/run/<id> except the traverse bit is touched.
+  local sc_home_parent="${SC_HOME%/*}"
+  kv PERMS_USER "$(id -un) uid=$(id -u) gid=$(id -g) umask=$(umask)"
+  kv PERMS_HOME_DIR_BEFORE "$sc_home_parent $(mode_of "$sc_home_parent")"
+  kv PERMS_SC_HOME_BEFORE "$SC_HOME $(mode_of "$SC_HOME")"
+  kv PERMS_RUN_DIR "$SC_HOME/run $(mode_of "$SC_HOME/run") (not changed: it must already be traversable)"
+  kv PERMS_WORK_BEFORE "$work $(mode_of "$work")"
+  sc_chmod a+x "$sc_home_parent" "$SC_HOME"
+  sc_chmod -R a+rX "$raw"
+  sc_chmod 1777 "$work"
+  kv PERMS_HOME_DIR_AFTER "$sc_home_parent $(mode_of "$sc_home_parent")"
+  kv PERMS_SC_HOME_AFTER "$SC_HOME $(mode_of "$SC_HOME")"
+  kv PERMS_WORK_AFTER "$work $(mode_of "$work")"
+  kv PERMS_FS_UMASK_MODE "$SC_FS_UMASK (-Dfs.permissions.umask-mode for Hadoop, spark.hadoop.fs.permissions.umask-mode for Spark)"
+  record_hadoop_effective_conf
   local hjar hlibs hcp hexcl="^hadoop-"
   hjar="$(main_jar "$work/jars/hadoop")"
   hlibs="$(lib_jars_csv "$work/jars/hadoop/lib" "$hexcl")"
@@ -112,9 +149,18 @@ pipeline_main() {
   # hadoop.log. UNVERIFIED: capability launch 3 kept no job id line, and this variable
   # is the one capture-side cause that was found; the application list below settles
   # the classification when the id is still missing.
+  # -Dio.compression.codecs replaces EMR's core-site list, which names the LZO codec
+  # classes that this class path lacks (S run 1, D29: "Compression codec
+  # com.hadoop.compression.lzo.LzoCodec not found", cause UNVERIFIED). It is a generic
+  # option, so it stays before the positional arguments; PipelineTool hands its
+  # Configuration to every job (ToolConfigurationPropagationSuite), so the tasks get it.
   HADOOP_ROOT_LOGGER="INFO,console" HADOOP_CLASSPATH="$hcp" JAVA_HOME="$SC_JAVA_HOME" timeout 1500 \
     hadoop jar "$hjar" scholarchain.hadoop.jobs.PipelineTool \
     -libjars "$hlibs" \
+    "-Dio.compression.codecs=$SC_CODECS" \
+    "-Dmapreduce.map.output.compress.codec=$SC_MAP_CODEC" \
+    "-Dmapreduce.output.fileoutputformat.compress=false" \
+    "-Dfs.permissions.umask-mode=$SC_FS_UMASK" \
     "-Dscholarchain.run.id=$run_id" \
     "-Dscholarchain.run.snapshots=$snapshots" \
     "-Dmapreduce.map.env=JAVA_HOME=$SC_JAVA_HOME" \
@@ -191,9 +237,11 @@ EOF
   fi
   # Container user and permissions for file: output are unknown (UNVERIFIED): record
   # them, then make the output readable by whoever runs the java.nio tools.
-  kv HADOOP_OUT_OWNER_MODE "$(stat -c '%U:%G %a' "$hout" 2>/dev/null || echo unknown)"
-  chmod -R a+rX "$hout"
-  kv HADOOP_OUT_OWNER_MODE_AFTER "$(stat -c '%U:%G %a' "$hout" 2>/dev/null || echo unknown)"
+  kv HADOOP_OUT_OWNER_MODE "$(mode_of "$hout")"
+  # Which user wrote the output files, as they stand before the chmod: "user:mode=count".
+  kv HADOOP_OUT_FILE_OWNERS_MODES "$( { find "$hout" -type f -printf '%u:%m\n' | LC_ALL=C sort | uniq -c | awk '{ printf "%s%s=%s", (NR > 1 ? " " : ""), $2, $1 }'; } 2>/dev/null || true)"
+  sc_chmod_readable_tree "$hout"
+  kv HADOOP_OUT_OWNER_MODE_AFTER "$(mode_of "$hout")"
   local snapdirs
   snapdirs="$(find "$hout" -type d -name 'snapshot=*' | LC_ALL=C sort)"
   [[ -n "$snapdirs" && "$(printf '%s\n' "$snapdirs" | wc -l | tr -d ' ')" -eq 1 ]] || die "expected exactly one snapshot=<id> directory under the Hadoop output, found: ${snapdirs:-none}"
@@ -216,7 +264,7 @@ EOF
   erdir="$(sed -n 's/^ER-BATCH output: //p' "$rep/er.log" | tail -n 1)"
   [[ -n "$erdir" && -d "$erdir" ]] || die "cannot find the ER run directory from the ER-BATCH output line"
   kv ER_RUN_DIR "$erdir"
-  chmod -R a+rX "$erout"
+  sc_chmod_readable_tree "$erout"
   stage_ok
 
   stage spark
@@ -226,6 +274,7 @@ EOF
   kv SPARK_EXCLUDED_LIB_JARS "$(lib_jars_excluded "$work/jars/spark/lib" "$sexcl")"
   mode="$(conf_value DEPLOY_MODE client '^(client|cluster)$')"
   mkdir -p "$sout"
+  sc_chmod 1777 "$sout"
   # No --master application argument: spark-submit supplies the master (work order 18 makes
   # the application honor it). Without that change the application would pick local[2].
   rc=0
@@ -244,11 +293,12 @@ EOF
   srun="$(find "$sout" -maxdepth 1 -type d -name 'run=*' | LC_ALL=C sort)"
   [[ -n "$srun" && "$(printf '%s\n' "$srun" | wc -l | tr -d ' ')" -eq 1 ]] || die "expected exactly one run=<id> directory under the Spark output, found: ${srun:-none}"
   kv SPARK_RUN_DIR "$srun"
-  chmod -R a+rX "$sout"
+  sc_chmod_readable_tree "$sout"
   stage_ok
 
   stage export
   mkdir -p "$xout"
+  sc_chmod 1777 "$xout"
   rc=0
   run_spark_submit "$rep/export.log" "$mode" scholarchain.spark.JsonlExport "$sjar" "$sjars" "$srun" "$xout/export" || rc=$?
   tail -n 15 "$rep/export.log" || true
@@ -257,7 +307,7 @@ EOF
   kv EXPORT_ON_YARN "$mode:$verdict"
   kv EXPORT_APPLICATION "${SC_LAST_APP:-none} state=${SC_LAST_STATE:-none}"
   [[ "$verdict" == "yes" ]] || die "JsonlExport did not run as a successful YARN application (exit $rc): $(last_error_line "$rep/export.log")"
-  chmod -R a+rX "$xout"
+  sc_chmod_readable_tree "$xout"
   stage_ok
 
   stage publish

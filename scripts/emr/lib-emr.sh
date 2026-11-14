@@ -32,10 +32,35 @@ HDFS_SPARK_DIR="/user/hadoop/sc/spark-${SPARK_VERSION}"
 
 SC_SECRET_RE='AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|aws_secret_''access_key|[Aa]uthorization:[[:space:]]*[Bb]earer|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}'
 
+# Compression codecs handed to every Hadoop and Spark client that reads text input
+# through the Hadoop InputFormat. EMR's core-site.xml lists the LZO codec classes
+# (com.hadoop.compression.lzo.*), which the job class path does not carry, so the first
+# CompressionCodecFactory the client builds fails with "Compression codec ... not found"
+# (S run 1, Phase 14 D29; the cause is UNVERIFIED until the next S run). Our inputs and
+# outputs are plain XML, JSONL, Parquet and text: no LZO and no Snappy (it needs native
+# libraries) is wanted. Commas are part of the value, so it cannot live in the
+# KEY=VALUE spark-yarn.conf.
+SC_CODECS="org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec,org.apache.hadoop.io.compress.BZip2Codec"
+# Map-output codec for the MapReduce jobs: zlib needs no native library. The jobs set
+# mapreduce.map.output.compress=true themselves (JobConfig.enableIntermediateCompression)
+# and keep a codec that is already configured, so this -D is what replaces whatever
+# EMR's mapred-site names (for example Snappy).
+# shellcheck disable=SC2034  # read by run-s-pipeline.sh, which sources this file
+SC_MAP_CODEC="org.apache.hadoop.io.compress.DefaultCodec"
+# fs.permissions.umask-mode for the Hadoop command and the Spark applications: see
+# write_spark_conf. Only the throwaway run directory is written through file: URIs.
+SC_FS_UMASK="000"
+
 SC_STAGE_N=0
 SC_STAGE_NAME="init"
 SC_STAGE_OPEN=0
 SC_KV=""
+
+# Set by register_failure_logs once a run has a reports directory: where sc_on_exit
+# publishes the logs when a stage fails.
+SC_FAIL_REP=""
+SC_FAIL_DATA_BUCKET=""
+SC_FAIL_RUN_ID=""
 
 # Java and Spark state set by find_java, stage_spark and write_spark_conf.
 SC_JAVA_HOME=""
@@ -62,9 +87,62 @@ stage_ok() {
 
 sc_on_exit() {
   local rc=$?
-  if [[ $rc -ne 0 && $SC_STAGE_OPEN -eq 1 ]]; then
-    printf 'STAGE[%s] %s: FAIL (exit %s)\n' "$SC_STAGE_N" "$SC_STAGE_NAME" "$rc"
+  trap - EXIT
+  set +e
+  if [[ $rc -ne 0 ]]; then
+    if [[ $SC_STAGE_OPEN -eq 1 ]]; then
+      printf 'STAGE[%s] %s: FAIL (exit %s)\n' "$SC_STAGE_N" "$SC_STAGE_NAME" "$rc"
+    fi
+    if [[ -n "$SC_FAIL_REP" ]]; then
+      kv FAILED_STAGE "$SC_STAGE_N $SC_STAGE_NAME"
+      kv FAILED_EXIT_CODE "$rc"
+      sc_publish_failed_logs || true
+    fi
   fi
+  exit "$rc"
+}
+
+# register_failure_logs REPORTS_DIR DATA_BUCKET RUN_ID: from here on a failing run
+# publishes REPORTS_DIR to s3://DATA_BUCKET/reports/runs/RUN_ID/failed/<UTC stamp>/.
+register_failure_logs() {
+  SC_FAIL_REP="$1"
+  SC_FAIL_DATA_BUCKET="$2"
+  SC_FAIL_RUN_ID="$3"
+}
+
+# sc_publish_failed_logs: best effort, called from the exit trap of a failed run. Writes
+# the key=value lines so far to run-record.env, then copies each regular file of the
+# reports directory (hadoop.log, er.log, spark.log, export.log, mapreduce-yarn-list.log,
+# whatever exists) to the failed/<stamp>/ prefix. A file that matches the key-material
+# patterns is skipped and its content is never printed. No sync, no delete. Every error
+# here is reported and swallowed, so the original exit code stands. The emr_ec2 role may
+# write reports/* (infra/terraform/modules/identity, WriteJobOutputs).
+sc_publish_failed_logs() {
+  local rep="$SC_FAIL_REP" bucket="$SC_FAIL_DATA_BUCKET" run="$SC_FAIL_RUN_ID"
+  local stamp dest f name up=0 skipped=0 failed=0
+  [[ -n "$rep" && -n "$bucket" && -n "$run" && -d "$rep" ]] || return 0
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)" || return 0
+  dest="s3://$bucket/reports/runs/$run/failed/$stamp/"
+  printf '%s' "$SC_KV" > "$rep/run-record.env" 2>/dev/null || true
+  for f in "$rep"/*; do
+    [[ -f "$f" ]] || continue
+    name="${f##*/}"
+    if grep -qE "$SC_SECRET_RE" "$f" 2>/dev/null; then
+      skipped=$((skipped + 1))
+      printf 'FAILED_LOGS_SKIPPED file=%s reason=key-material-pattern (content not printed)\n' "$name"
+      continue
+    fi
+    if timeout 300 aws s3 cp "$f" "$dest$name" --only-show-errors; then
+      up=$((up + 1))
+    else
+      failed=$((failed + 1))
+    fi
+  done
+  if [[ "$up" -gt 0 ]]; then
+    printf 'FAILED_LOGS_PUBLISHED=%s\n' "$dest"
+  fi
+  printf 'NOTE: failed-log publish: %s file(s) uploaded, %s skipped (key-material pattern), %s failed\n' "$up" "$skipped" "$failed"
+  return 0
 }
 
 # Call once at the top of main: a trap set at file level is not seen inside the
@@ -266,8 +344,14 @@ write_spark_conf() {
     printf 'spark.ui.enabled false\n'
     # EMR's core-site.xml lists the LZO codec, whose jar a Spark 4 container does not
     # have. Overriding the codec list avoids a class-not-found at startup (the problem
-    # is known for Apache Spark on EMR Hadoop configuration, UNVERIFIED here).
-    printf 'spark.hadoop.io.compression.codecs org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec,org.apache.hadoop.io.compress.BZip2Codec\n'
+    # is known for Apache Spark on EMR Hadoop configuration, UNVERIFIED here). Same
+    # value as the -Dio.compression.codecs of the Hadoop command (SC_CODECS).
+    printf 'spark.hadoop.io.compression.codecs %s\n' "$SC_CODECS"
+    # Directories and files that Hadoop file APIs create in the run directory get no
+    # permission bits removed (default 022 would make a directory the driver creates
+    # unwritable for executors that run as another user). Explicitly requested modes,
+    # such as the 700 staging directory, are unaffected: a umask only removes bits.
+    printf 'spark.hadoop.fs.permissions.umask-mode %s\n' "$SC_FS_UMASK"
     if [[ -n "$SC_JAVA_HOME" ]]; then
       printf 'spark.yarn.appMasterEnv.JAVA_HOME %s\n' "$SC_JAVA_HOME"
       printf 'spark.executorEnv.JAVA_HOME %s\n' "$SC_JAVA_HOME"
@@ -337,11 +421,26 @@ spark_verdict() {
 # last_error_line LOG: a short reason from the end of a log, for the report. The
 # non-fatal NativeCodeLoader openssl UnsatisfiedLinkError (logged while Spark uploads
 # its resources, both applications still finish) is skipped so it is never reported as
-# the failure reason.
+# the failure reason. Order: PipelineTool's own refusal line (ScholarChain pipeline not
+# started: ..., which has none of the generic words), then the last generic error line,
+# then the last three non-empty lines of the log joined with " / ". A line that matches
+# the key-material patterns is replaced by a fixed text, never printed.
 last_error_line() {
-  local l
-  l="$(grep -E 'Exception|Error|ERROR|FAILED' "$1" 2>/dev/null | grep -vE 'UnsatisfiedLinkError|buildSupportsOpenssl' | tail -n 1)" || l=""
-  clean_text "${l:-no error line found}"
+  local f="$1" l="" ex='UnsatisfiedLinkError|buildSupportsOpenssl'
+  l="$(grep -E 'ScholarChain pipeline not started' "$f" 2>/dev/null | tail -n 1)" || l=""
+  if [[ -z "$l" ]]; then
+    l="$(grep -E 'Exception|Error|ERROR|FAILED' "$f" 2>/dev/null | grep -vE "$ex" | tail -n 1)" || l=""
+  fi
+  if [[ -z "$l" ]]; then
+    l="$(grep -vE '^[[:space:]]*$' "$f" 2>/dev/null | grep -vE "$ex" | tail -n 3 | awk '{ printf "%s%s", (NR > 1 ? " / " : ""), $0 }')" || l=""
+    if [[ -n "$l" ]]; then
+      l="no error line; last non-empty lines: $l"
+    fi
+  fi
+  if [[ -n "$l" ]] && grep -qE "$SC_SECRET_RE" <<< "$l"; then
+    l="a log line matches a key-material pattern: not printed"
+  fi
+  clean_text "${l:-no error line found and the log is empty or unreadable}"
 }
 
 # first_job_id LOG: the first MapReduce job id (job_local... or job_<digits>_<digits>)
@@ -446,6 +545,70 @@ main_jar() {
   done
   [[ "$n" -eq 1 ]] || die "expected exactly one jar in $dir, found $n"
   printf '%s' "$found"
+}
+
+### Single-node permissions and recorded Hadoop settings ----------------------
+
+# mode_of PATH: owner:group and octal mode, or unknown.
+mode_of() {
+  stat -c '%U:%G %a' "$1" 2>/dev/null || echo unknown
+}
+
+# sc_chmod ARGS...: chmod, with the exact change printed first. A failure is reported
+# and never stops the run: the next stage then shows what it cost.
+sc_chmod() {
+  local rc=0
+  note "chmod $*"
+  chmod "$@" || rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    note "chmod $* failed (exit $rc): the target keeps its mode"
+  fi
+  return 0
+}
+
+# sc_chmod_readable_tree DIR: chmod -R a+rX after a stage. Entries that another user
+# (the YARN containers) created may refuse the change; that is reported, not fatal, and
+# the files are readable anyway when they were created with the umask of
+# SC_FS_UMASK.
+sc_chmod_readable_tree() {
+  local rc=0
+  chmod -R a+rX "$1" || rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    note "chmod -R a+rX $1 reported errors (exit $rc): entries owned by another user keep their mode"
+  fi
+  return 0
+}
+
+# conf_xml_value KEY: the value of KEY in core-site.xml or mapred-site.xml under
+# HADOOP_CONF_DIR (default /etc/hadoop/conf), the later file winning, or "unset". Reads
+# the node's files only, best effort, never fails. A setting that a job or a -D option
+# sets later is not seen here.
+conf_xml_value() {
+  local key="$1" dir="${HADOOP_CONF_DIR:-/etc/hadoop/conf}" k f r v=""
+  # Each dot becomes the bracket expression [.], which matches a literal dot only, so
+  # io.compression.codecs cannot match ioXcompressionYcodecs and no key matches as a
+  # prefix of a longer one (the pattern ends at </name>).
+  k="${key//./[.]}"
+  for f in core-site.xml mapred-site.xml; do
+    [[ -r "$dir/$f" ]] || continue
+    # A missing key makes grep exit 1, which pipefail turns into a failing group; the
+    # "|| true" keeps r empty, and the file is skipped above when it is absent.
+    r="$( { tr '\n' ' ' < "$dir/$f" | grep -oE "<name>[[:space:]]*${k}[[:space:]]*</name>[[:space:]]*<value>[^<]*</value>" | tail -n 1 | sed -e 's/.*<value>//' -e 's/<\/value>.*//'; } 2>/dev/null || true)"
+    if [[ -n "$r" ]]; then
+      v="$r"
+    fi
+  done
+  printf '%s' "${v:-unset}"
+}
+
+# record_hadoop_effective_conf: kv lines NODE_CONF_<KEY> for the settings that decide
+# codec and compression behavior, as the node's site files set them.
+record_hadoop_effective_conf() {
+  local key
+  for key in io.compression.codecs mapreduce.map.output.compress mapreduce.map.output.compress.codec \
+    mapreduce.output.fileoutputformat.compress mapreduce.output.fileoutputformat.compress.codec; do
+    kv "NODE_CONF_$(printf '%s' "$key" | tr 'a-z.' 'A-Z_')" "$(conf_xml_value "$key")"
+  done
 }
 
 local_file_count() {

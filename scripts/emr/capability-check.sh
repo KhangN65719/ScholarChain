@@ -72,6 +72,7 @@ capability_main() {
   kv MEMORY_MB "$(awk '/MemTotal/ { printf "%d", $2 / 1024 }' /proc/meminfo)"
   if hdfs dfs -ls / >/dev/null 2>&1; then kv HDFS_REACHABLE yes; else kv HDFS_REACHABLE no; fi
   kv MAPRED_SITE_FRAMEWORK "$( { awk '/mapreduce.framework.name/ { getline; print; exit }' /etc/hadoop/conf/mapred-site.xml 2>/dev/null || true; } | sed -e 's/<[^>]*>//g' -e 's/[[:space:]]//g')"
+  record_hadoop_effective_conf
   stage_ok
 
   stage mapreduce-probe
