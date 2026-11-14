@@ -98,6 +98,19 @@ resource "aws_iam_role_policy_attachment" "emr_service" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEMRServicePolicy_v2"
 }
 
+# EMR service-linked role (AWSServiceRoleForEMRCleanup). EMR needs it before the
+# first cluster in an account: the first launch of the capability check failed at
+# CreateCluster with VALIDATION_ERROR because the role did not exist and the
+# caller (the sfn role) may not create it. It is account-level, unconditional and
+# independent of enable_pipeline, EMR counts and Neptune, so the session-down
+# overlay leaves it in place. If the role already exists in an account, apply fails with InvalidInput "Service
+# role name AWSServiceRoleForEMRCleanup has been taken in this account"; recover
+# with `terraform import 'module.identity.aws_iam_service_linked_role.emr' <role ARN>`.
+# Full teardown (cleanup.sh) destroys it with the rest of state; see README.
+resource "aws_iam_service_linked_role" "emr" {
+  aws_service_name = "elasticmapreduce.amazonaws.com"
+}
+
 # EMR cluster nodes: S3 only. They read raw and curated data and the job jars,
 # and write the Hadoop and Spark outputs and cluster logs.
 data "aws_iam_policy_document" "ec2_trust" {

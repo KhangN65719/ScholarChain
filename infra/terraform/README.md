@@ -9,7 +9,7 @@ infra/terraform/
   modules/
     foundation     budgets (optional), cost-allocation tags (optional)
     network        VPC, 2 AZs, subnets, endpoints, security groups by role
-    identity       roles, policies, Secrets Manager entries (no values)
+    identity       roles, policies, the EMR service-linked role, Secrets Manager entries (no values)
     data_lake      data and artifacts buckets
     dynamodb       six on-demand tables, three indexes
     s3vectors      vector bucket, five indexes
@@ -99,6 +99,15 @@ Nothing here has been run: no `fmt`, `init`, `validate` or `plan` has seen these
 - Single-node scope: Spark, ER and the export use local java.nio paths, so everything lives on the primary node's disk. Report results as "data-size scaling on a single-node EMR cluster (Spark and MapReduce on YARN)". Experiment B (node elasticity) is not demonstrated; the multi-node options (EFS, Spark-only `s3a://` I/O, an HDFS or S3A rewrite) are a human decision after the S run.
 
 Unverified items of this design (each is checked by the capability check or the first S run, or needs a read of the cluster): the release label and Hadoop-only application list accepted by `RunJobFlow`; the default JDK; AWS CLI on the node; `command-runner.jar bash <script>`; Choice rules with `IsPresent` inside `And` (Step Functions evaluates them in order, UNVERIFIED) and `States.Array` with JSON paths in `Args.$`; `mapreduce.framework.name=yarn` as the cluster default; HDFS on the single node; `spark.yarn.archive` from HDFS; Spark 4 client against EMR's Hadoop configuration (the LZO codec override is a precaution); `spark.yarn.populateHadoopClasspath` false versus true; the container user for `file:` output; `-libjars` reaching tasks; Hadoop 3.5.0 client classes against 3.4.1; the scripts' own syntax (no `bash -n` or `shellcheck` was run).
+
+### EMR service-linked role (work order 39; authored, not planned, not validated)
+
+Capability-check launch 1 (2026-11-14) failed at CreateCluster: the cluster went `TERMINATED_WITH_ERRORS`, `VALIDATION_ERROR`, "Service-linked role 'AWSServiceRoleForEMRCleanup' for EMR is required". The new account had never run EMR. `aws_iam_service_linked_role.emr` (`aws_service_name = "elasticmapreduce.amazonaws.com"`) in `modules/identity` creates it. Identity, not `modules/emr`, because it is account-level IAM and the identity module is where the privilege diff is reviewed in one place; it takes no inputs and sits outside every flag the session-down overlay flips. Expected plan from the deployed state: 1 to add, 0 to change, 0 to destroy for this role, plus the image-tag effect (the tag moves to the new HEAD, so the loader and the two services task definitions are replaced with new revisions again; expected). Apply uses the human's AdministratorAccess credentials, which can create it; the `deployer` role does not need `iam:CreateServiceLinkedRole` because it never runs this apply and no IAM change was made.
+
+- If the role already exists in an account, the apply fails with an `InvalidInput` error that the role name has been taken. Recover with `terraform import 'module.identity.aws_iam_service_linked_role.emr' arn:aws:iam::<account>:role/aws-service-role/elasticmapreduce.amazonaws.com/AWSServiceRoleForEMRCleanup` and re-plan. In this account it does not exist.
+- Teardown: it is in state, so `cleanup.sh apply-destroy` deletes it (`DeleteServiceLinkedRole`), and the state-empty check needs that. The account is dedicated to the project and the role is free and recreated by this configuration, so deleting it is acceptable. The delete fails if EMR still uses the role (a live cluster); none exists at teardown. If the account were shared with other EMR users, remove it from state first (`terraform state rm`) instead.
+- Other first-use service-linked roles for the on-demand, no-Spot, managed-scaling path on emr-7.10.0: none found, none added. `AWSServiceRoleForEC2Spot` matters only for Spot (`emr_task_spot_instance_count` above 0 adds a SPOT task group), and EMR managed scaling is run by the EMR service with the existing service role. Both statements come from memory of the EMR and EC2 documentation, not read this round (the documentation tool was unavailable): UNVERIFIED. Enabling Spot later should be preceded by a check for `AWSServiceRoleForEC2Spot`.
+- UNVERIFIED until a plan: whether the provider sends the `default_tags` on this role without error. Administrator credentials allow `iam:TagRole`.
 
 ### Loader (work order 31; authored, not planned, not validated, not run)
 
@@ -315,6 +324,7 @@ No IAM user, access key or login profile is created. The roles:
 | Role | Assumed by | Allowed actions | Resources |
 |---|---|---|---|
 | `emr-service` | EMR service | AWS-managed `AmazonEMRServicePolicy_v2` (cannot be narrowed here) | acts only on resources tagged `for-use-with-amazon-emr-managed-policies` (set on VPC, app subnets, EMR security groups) |
+| `AWSServiceRoleForEMRCleanup` (service-linked, work order 39) | EMR (`elasticmapreduce.amazonaws.com`) | AWS-defined policy, not editable here | created by `aws_iam_service_linked_role.emr` in the identity module, unconditional (not tied to `enable_pipeline`, EMR counts or Neptune), so session-down keeps it. A new account has none, and the first `RunJobFlow` fails with `VALIDATION_ERROR` until it exists. Costs nothing. Full teardown (`cleanup.sh apply-destroy`) deletes it with the rest of state |
 | `emr-ec2` | EMR nodes | S3 list, get, put, delete, abort-multipart | data and artifacts buckets by prefix (raw, curated, graph in; curated, graph, semantic-context, reports, tmp, emr-logs out) |
 | `ecs-execution` | ECS agent | ECR pull; log stream writes; read three secrets | ECR repos `<prefix>-*`; log groups `/<prefix>/*`; the three secret ARNs. `ecr:GetAuthorizationToken` needs `*` |
 | `runtime` | fast and slow tasks | S3 read; DynamoDB get and query; PutItem on query-session and evidence-bundle; S3 Vectors get, query; SQS send; Neptune read-only; Bedrock invoke (flag) | prefixes, table and index ARNs, index ARNs, run-requests queue, Neptune cluster resource ID, exact model ARNs |
