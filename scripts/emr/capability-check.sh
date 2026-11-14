@@ -8,7 +8,7 @@
 #
 # Result lines (also written to capability.json, with the full log, under
 # s3://<data-bucket>/reports/capability/<UTC stamp>/):
-#   MAPREDUCE=yarn|local|absent    SPARK_ON_YARN=client:yes|no cluster:yes|no
+#   MAPREDUCE=yarn|local|mixed|unknown|absent   SPARK_ON_YARN=client:yes|no cluster:yes|no
 #   JAVA_*, HADOOP_*, AWS_CLI, DISK_*, SPARK_ARCHIVE_MODE, POPULATE_* ...
 # The script exits 0 when it finished and wrote the report, even when a capability is
 # "no": the answers are the product. It exits nonzero only when it could not stage or
@@ -17,9 +17,11 @@
 # How MAPREDUCE is decided (the evidence is recorded next to it): the hadoop-mapreduce
 # examples job "pi 1 1" is run with no framework option. If its output names a job id
 # job_local... the framework is the local runner ("MapReduce in local mode on an EMR
-# node", never distributed MapReduce). If it names job_<timestamp>_<n> and YARN lists a
-# MAPREDUCE application, the framework is YARN. No examples jar, or a job that fails,
-# is "absent" with a detail. mapreduce.framework.name from /etc/hadoop/conf is also
+# node", never distributed MapReduce). If it names exactly one job_<timestamp>_<n>, the
+# framework is YARN. Ids of both kinds are "mixed"; no id or a count other than one is
+# "unknown" (the script goes on). YARN's MAPREDUCE application list is recorded beside
+# the verdict and never changes it. No examples jar, or a job that fails, is "absent"
+# with a detail. mapreduce.framework.name from /etc/hadoop/conf is also
 # recorded, but the job output decides.
 SC_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/emr/lib-emr.sh
@@ -73,35 +75,44 @@ capability_main() {
   stage_ok
 
   stage mapreduce-probe
-  local jar="" f mrlog="$out/mapreduce-pi.log" rc=0 mr="absent" detail="" apps=""
+  local jar="" f mrlog="$out/mapreduce-pi.log" rc=0 mr="absent" detail="" mrids=""
   for f in /usr/lib/hadoop-mapreduce/hadoop-mapreduce-examples*.jar /usr/lib/hadoop/hadoop-mapreduce-examples*.jar; do
     if [[ -f "$f" ]]; then jar="$f"; break; fi
   done
   if [[ -z "$jar" ]] || ! command -v hadoop >/dev/null 2>&1; then
     detail="no hadoop-mapreduce-examples jar or no hadoop launcher"
   else
-    timeout 900 hadoop jar "$jar" pi 1 1 > "$mrlog" 2>&1 || rc=$?
+    # Stdout and stderr both go to the log. HADOOP_ROOT_LOGGER=INFO,console asks the
+    # client for its job-client INFO lines (UNVERIFIED: launch 3 kept no job id line and
+    # no missing 2>&1 or filter was found, so this variable is the suspected cause).
+    HADOOP_ROOT_LOGGER="INFO,console" timeout 900 hadoop jar "$jar" pi 1 1 > "$mrlog" 2>&1 || rc=$?
     tail -n 15 "$mrlog" || true
+    classify_job_ids "$mrlog"
     if [[ "$rc" -ne 0 ]]; then
       detail="examples job exit $rc: $(last_error_line "$mrlog")"
-    elif grep -qE 'job_local[0-9_]*' "$mrlog"; then
-      mr="local"
-      detail="job id $(grep -oE 'job_local[0-9_]+' "$mrlog" | head -n 1): MapReduce in local mode on an EMR node"
-    elif grep -qE 'job_[0-9]{10,}_[0-9]+' "$mrlog"; then
-      apps="$( { yarn application -list -appTypes MAPREDUCE -appStates ALL 2>/dev/null || true; } | grep -c 'application_' || true)"
-      if [[ "${apps:-0}" -gt 0 ]]; then
-        mr="yarn"
-        detail="job id $(grep -oE 'job_[0-9]{10,}_[0-9]+' "$mrlog" | head -n 1) and $apps MAPREDUCE application(s) listed by YARN"
-      else
-        mr="absent"
-        detail="job id looks like a cluster job but YARN lists no MAPREDUCE application: not classified as yarn"
-      fi
     else
-      detail="job exit 0 but no job id found in the output: not classified"
+      # The pi job is one MapReduce job, so one job id is expected. The verdict rests on
+      # the job id; the ResourceManager's list is recorded beside it, never instead.
+      mrids="$(yarn_mapreduce_apps "$out/mapreduce-yarn-list.log")"
+      if [[ "$SC_MR_LOCAL" -gt 0 && "$SC_MR_YARN" -gt 0 ]]; then
+        mr="mixed"
+        detail="job ids $SC_MR_IDS: YARN and local ids together"
+      elif [[ "$SC_MR_LOCAL" -gt 0 ]]; then
+        mr="local"
+        detail="job id $SC_MR_IDS: MapReduce in local mode on an EMR node"
+      elif [[ "$SC_MR_YARN" -eq 1 ]]; then
+        mr="yarn"
+        detail="job id $SC_MR_IDS in the job output"
+      else
+        mr="unknown"
+        detail="job exit 0 but $SC_MR_N job id(s) found in the output against 1 expected: not proven"
+      fi
+      detail="$detail; yarn application -list MAPREDUCE applications: ${mrids:-none} (supporting evidence only)"
     fi
   fi
   kv MAPREDUCE "$mr"
   kv MAPREDUCE_DETAIL "$detail"
+  kv MAPREDUCE_JOB_IDS "${SC_MR_IDS:-none} (count $SC_MR_N, YARN $SC_MR_YARN, local $SC_MR_LOCAL)"
   kv MAPREDUCE_SCOPE "single node: MapReduce on YARN on one node is not distributed execution"
   # Does an explicit JAVA_HOME for the task containers work? The pipeline passes it.
   if [[ -n "$jar" && -n "$SC_JAVA_HOME" && "$mr" != "absent" ]]; then
@@ -134,7 +145,8 @@ capability_main() {
     rc=0
     run_spark_submit "$out/spark-client.log" client org.apache.spark.examples.SparkPi "$examples" "" 10 || rc=$?
     tail -n 8 "$out/spark-client.log" || true
-    client="$(spark_verdict "$out/spark-client.log" "$rc")"
+    spark_verdict "$out/spark-client.log" "$rc"
+    client="$SC_LAST_VERDICT"
     if [[ "$client" == "yes" ]] && ! grep -q 'Pi is roughly' "$out/spark-client.log"; then
       client="no"
       kv SPARK_CLIENT_NOTE "exit 0 and application SUCCEEDED but no 'Pi is roughly' line"
@@ -146,7 +158,8 @@ capability_main() {
     rc=0
     run_spark_submit "$out/spark-cluster.log" cluster org.apache.spark.examples.SparkPi "$examples" "" 10 || rc=$?
     tail -n 8 "$out/spark-cluster.log" || true
-    cluster="$(spark_verdict "$out/spark-cluster.log" "$rc")"
+    spark_verdict "$out/spark-cluster.log" "$rc"
+    cluster="$SC_LAST_VERDICT"
     kv SPARK_CLUSTER_DETAIL "exit=$rc app=${SC_LAST_APP:-none} yarn_state=${SC_LAST_STATE:-none} $(detail_or_error "$cluster" "$out/spark-cluster.log")"
     stage_ok
 
@@ -154,8 +167,9 @@ capability_main() {
     write_spark_conf true
     rc=0
     run_spark_submit "$out/spark-client-populate-true.log" client org.apache.spark.examples.SparkPi "$examples" "" 10 || rc=$?
-    pop_true="$(spark_verdict "$out/spark-client-populate-true.log" "$rc")"
-    kv SPARK_POPULATE_TRUE_DETAIL "exit=$rc app=${SC_LAST_APP:-none} $(detail_or_error "$pop_true" "$out/spark-client-populate-true.log")"
+    spark_verdict "$out/spark-client-populate-true.log" "$rc"
+    pop_true="$SC_LAST_VERDICT"
+    kv SPARK_POPULATE_TRUE_DETAIL "exit=$rc app=${SC_LAST_APP:-none} yarn_state=${SC_LAST_STATE:-none} $(detail_or_error "$pop_true" "$out/spark-client-populate-true.log")"
     write_spark_conf false
     stage_ok
   fi

@@ -305,29 +305,105 @@ yarn_final_state() {
   printf '%s' "${s:-unknown}"
 }
 
-# spark_verdict LOG RC: print yes when spark-submit exited 0, a YARN application id
-# appears in the log and YARN reports it SUCCEEDED; otherwise no. Sets SC_LAST_APP.
+# spark_verdict LOG RC: judge one spark-submit run. Call it directly, never inside a
+# command substitution: a subshell would lose the variables it sets. It prints nothing
+# and always returns 0. It sets
+#   SC_LAST_VERDICT  yes when spark-submit exited 0, a YARN application id appears in
+#                    the log and YARN reports its final state SUCCEEDED; otherwise no
+#   SC_LAST_APP      the last YARN application id in the log (empty when none)
+#   SC_LAST_STATE    the YARN final state (empty when no query was made)
+# The NativeCodeLoader openssl UnsatisfiedLinkError that the resource upload logs is
+# non-fatal and plays no part here: the verdict reads only the exit status, the
+# application id and the YARN final state.
 SC_LAST_APP=""
 SC_LAST_STATE=""
+# shellcheck disable=SC2034  # SC_LAST_VERDICT is read by the sourcing scripts
+SC_LAST_VERDICT="no"
+# shellcheck disable=SC2034  # SC_LAST_VERDICT is read by the sourcing scripts
 spark_verdict() {
   local log="$1" rc="$2"
   SC_LAST_APP="$(app_id_from_log "$log")"
   SC_LAST_STATE=""
+  SC_LAST_VERDICT="no"
   if [[ "$rc" -eq 0 && -n "$SC_LAST_APP" ]]; then
     SC_LAST_STATE="$(yarn_final_state "$SC_LAST_APP")"
     if [[ "$SC_LAST_STATE" == "SUCCEEDED" ]]; then
-      printf 'yes'
-      return 0
+      SC_LAST_VERDICT="yes"
     fi
   fi
-  printf 'no'
+  return 0
 }
 
-# last_error_line LOG: a short reason from the end of a log, for the report.
+# last_error_line LOG: a short reason from the end of a log, for the report. The
+# non-fatal NativeCodeLoader openssl UnsatisfiedLinkError (logged while Spark uploads
+# its resources, both applications still finish) is skipped so it is never reported as
+# the failure reason.
 last_error_line() {
   local l
-  l="$(grep -E 'Exception|Error|ERROR|FAILED' "$1" 2>/dev/null | tail -n 1)" || l=""
+  l="$(grep -E 'Exception|Error|ERROR|FAILED' "$1" 2>/dev/null | grep -vE 'UnsatisfiedLinkError|buildSupportsOpenssl' | tail -n 1)" || l=""
   clean_text "${l:-no error line found}"
+}
+
+# first_job_id LOG: the first MapReduce job id (job_local... or job_<digits>_<digits>)
+# in a log, or nothing.
+first_job_id() {
+  local j
+  j="$(grep -oE 'job_(local)?[0-9_]+' "$1" 2>/dev/null | head -n 1)" || j=""
+  printf '%s' "$j"
+}
+
+# classify_job_ids LOG: every distinct MapReduce job id in LOG, in order of first
+# appearance, both forms: job_local<digits>_<digits> (the local runner) and
+# job_<digits>_<digits> with 10 or more leading digits (YARN). Call it directly, not in
+# a command substitution. Sets
+#   SC_MR_IDS        the ids, space separated (empty when none)
+#   SC_MR_IDS_NL     the same, one per line
+#   SC_MR_N          how many distinct ids
+#   SC_MR_YARN       how many are job_<digits>_<digits>
+#   SC_MR_LOCAL      how many are job_local...
+# shellcheck disable=SC2034  # the SC_MR_* results are read by the sourcing scripts
+SC_MR_IDS=""
+# shellcheck disable=SC2034  # read by the sourcing scripts
+SC_MR_IDS_NL=""
+# shellcheck disable=SC2034  # read by the sourcing scripts
+SC_MR_N=0
+# shellcheck disable=SC2034  # read by the sourcing scripts
+SC_MR_YARN=0
+# shellcheck disable=SC2034  # read by the sourcing scripts
+SC_MR_LOCAL=0
+# shellcheck disable=SC2034  # the SC_MR_* results are read by the sourcing scripts
+classify_job_ids() {
+  local j
+  SC_MR_IDS=""
+  SC_MR_IDS_NL=""
+  SC_MR_N=0
+  SC_MR_YARN=0
+  SC_MR_LOCAL=0
+  while IFS= read -r j; do
+    [[ -n "$j" ]] || continue
+    SC_MR_N=$((SC_MR_N + 1))
+    SC_MR_IDS="${SC_MR_IDS}${SC_MR_IDS:+ }${j}"
+    SC_MR_IDS_NL="${SC_MR_IDS_NL}${j}"$'\n'
+    case "$j" in
+      job_local*) SC_MR_LOCAL=$((SC_MR_LOCAL + 1)) ;;
+      *) SC_MR_YARN=$((SC_MR_YARN + 1)) ;;
+    esac
+  done <<EOF
+$( { grep -oE 'job_local[0-9]+_[0-9]+|job_[0-9]{10,}_[0-9]+' "$1" 2>/dev/null || true; } | awk '!seen[$0]++')
+EOF
+}
+
+# yarn_mapreduce_apps DEST: read the ResourceManager's list of MapReduce applications
+# (yarn application -list -appTypes MAPREDUCE -appStates ALL, a read only call), keep
+# the whole output in the file DEST, and print the application ids it names, one line,
+# space separated, nothing when there are none. A failure of the command is recorded in
+# DEST and never stops the script. The list has no start-time column, so the caller
+# relies on the cluster being fresh with one Hadoop stage.
+yarn_mapreduce_apps() {
+  local dest="$1" ids
+  { timeout 120 yarn application -list -appTypes MAPREDUCE -appStates ALL 2>&1 || true; } > "$dest"
+  ids="$(grep -oE 'application_[0-9]+_[0-9]+' "$dest" 2>/dev/null | LC_ALL=C sort -u | tr '\n' ' ')" || ids=""
+  printf '%s' "${ids% }"
 }
 
 ### Files and publishing -----------------------------------------------------

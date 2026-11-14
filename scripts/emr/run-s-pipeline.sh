@@ -95,8 +95,10 @@ pipeline_main() {
   kv HADOOP_EXCLUDED_LIB_JARS "$(lib_jars_excluded "$work/jars/hadoop/lib" "$hexcl")"
   # Dataset names come from the file names (openalex, crossref, orcid): PipelineTool
   # refuses a name it has no normalizer for.
-  local dargs=()
-  for f in openalex crossref orcid; do
+  # The names are listed in sorted order: the driver runs one normalization job per
+  # dataset in that order.
+  local dsets=(crossref openalex orcid) dargs=()
+  for f in "${dsets[@]}"; do
     dargs+=("$f=file://$raw/$f.jsonl")
   done
   rc=0
@@ -105,7 +107,12 @@ pipeline_main() {
   # hadoop-engineer fixes in work order 23: UNVERIFIED until the capability check or
   # this run shows it). Explicit JAVA_HOME for the AM and the tasks, in case the node
   # manager's default JDK is older than 17.
-  HADOOP_CLASSPATH="$hcp" JAVA_HOME="$SC_JAVA_HOME" timeout 1500 \
+  # HADOOP_ROOT_LOGGER=INFO,console asks the client for its job-client INFO lines (the
+  # "Running job: job_..." line that names the framework). Stdout and stderr both go to
+  # hadoop.log. UNVERIFIED: capability launch 3 kept no job id line, and this variable
+  # is the one capture-side cause that was found; the application list below settles
+  # the classification when the id is still missing.
+  HADOOP_ROOT_LOGGER="INFO,console" HADOOP_CLASSPATH="$hcp" JAVA_HOME="$SC_JAVA_HOME" timeout 1500 \
     hadoop jar "$hjar" scholarchain.hadoop.jobs.PipelineTool \
     -libjars "$hlibs" \
     "-Dscholarchain.run.id=$run_id" \
@@ -116,17 +123,72 @@ pipeline_main() {
     "file://$hout" "file://$raw/dblp-subset.xml" "${dargs[@]}" > "$rep/hadoop.log" 2>&1 || rc=$?
   tail -n 25 "$rep/hadoop.log" || true
   [[ "$rc" -eq 0 ]] || die "PipelineTool exited $rc: $(last_error_line "$rep/hadoop.log")"
-  local mr="unknown"
-  if grep -qE 'job_local[0-9_]*' "$rep/hadoop.log"; then
+  # The verdict rests on job ids, one per MapReduce job. PipelineDriver runs one job for
+  # DBLP extraction, one source-normalization job per dataset, then identifier join,
+  # blocking, candidate features, team expansion and graph export: 1 + datasets + 5 jobs.
+  # yarn needs exactly that many job_<digits>_<digits> ids and no job_local id; any
+  # job_local id is local, or mixed with YARN ids; anything else is unknown. The
+  # ResourceManager's MAPREDUCE application list is recorded next to the verdict as
+  # supporting evidence and never changes it. No verdict stops the pipeline: the human
+  # reads the report.
+  local mr="unknown" mrdetail="" mrattn="yes" mrapps="" mrapps_n=0 mrexpected mrorder="" mrn=0 mrid
+  mrexpected=$((${#dargs[@]} + 6))
+  mrorder="dblp-extraction"
+  for f in "${dsets[@]}"; do
+    mrorder="$mrorder source-normalization/$f"
+  done
+  mrorder="$mrorder identifier-join blocking candidate-features team-expansion graph-export"
+  local mrstages=()
+  read -r -a mrstages <<< "$mrorder"
+  classify_job_ids "$rep/hadoop.log"
+  mrapps="$(yarn_mapreduce_apps "$rep/mapreduce-yarn-list.log")"
+  mrapps_n="$(printf '%s' "$mrapps" | wc -w | tr -d ' ')"
+  {
+    printf '# MapReduce job ids found in hadoop.log, in order of first appearance.\n'
+    printf '# The stage column is positional and inferred: the log carries no stage name per job id.\n'
+    printf '# The driver runs the stages in this order: %s\n' "$mrorder"
+    while IFS= read -r mrid; do
+      [[ -n "$mrid" ]] || continue
+      printf '%s %s %s\n' "$((mrn + 1))" "$mrid" "${mrstages[$mrn]:-beyond-the-expected-stages}"
+      mrn=$((mrn + 1))
+    done <<EOF
+$SC_MR_IDS_NL
+EOF
+  } > "$rep/mapreduce-job-ids.txt"
+  if [[ "$SC_MR_LOCAL" -gt 0 && "$SC_MR_YARN" -gt 0 ]]; then
+    mr="mixed"
+    mrdetail="$SC_MR_YARN YARN and $SC_MR_LOCAL local job id(s) found, $mrexpected expected"
+  elif [[ "$SC_MR_LOCAL" -gt 0 ]]; then
     mr="local"
-    note "MapReduce in local mode on an EMR node (job id job_local...)"
-  elif grep -qE 'job_[0-9]{10,}_[0-9]+' "$rep/hadoop.log"; then
+    mrdetail="$SC_MR_LOCAL local job id(s) job_local... found, $mrexpected expected"
+  elif [[ "$SC_MR_YARN" -eq "$mrexpected" ]]; then
     mr="yarn"
+    mrattn="no"
+    mrdetail="$SC_MR_YARN job_<digits>_<digits> ids found for $mrexpected expected stages, 0 local"
+  else
+    mrdetail="found $SC_MR_N job id(s) ($SC_MR_YARN YARN, 0 local) against $mrexpected expected stages: not proven"
   fi
   kv MAPREDUCE "$mr"
-  kv MAPREDUCE_DETAIL "$(grep -oE 'job_(local)?[0-9_]+' "$rep/hadoop.log" | head -n 1)"
-  [[ "$mr" != "unknown" ]] || die "cannot tell the MapReduce framework from the Hadoop log"
-  yarn application -list -appTypes MAPREDUCE -appStates ALL 2>/dev/null | head -n 20 || true
+  kv MAPREDUCE_DETAIL "$mrdetail"
+  kv MAPREDUCE_STAGES_EXPECTED "$mrexpected, run in this order: $mrorder"
+  kv MAPREDUCE_STAGE_MAPPING "not mapped by the log (no stage name per job id); mapreduce-job-ids.txt lists each id with the stage at that position"
+  kv MAPREDUCE_JOB_COUNT "$SC_MR_N"
+  kv MAPREDUCE_JOBS_YARN "$SC_MR_YARN"
+  kv MAPREDUCE_JOBS_LOCAL "$SC_MR_LOCAL"
+  if [[ "${#SC_MR_IDS}" -le 380 ]]; then
+    kv MAPREDUCE_JOB_IDS "${SC_MR_IDS:-none}"
+  else
+    kv MAPREDUCE_JOB_IDS "too long for one line: $SC_MR_N ids in mapreduce-job-ids.txt"
+  fi
+  kv MAPREDUCE_JOB_IDS_FILE "mapreduce-job-ids.txt"
+  kv MAPREDUCE_APPS_YARN_LIST "count=$mrapps_n (supporting evidence only, does not set the verdict; full output in mapreduce-yarn-list.log) ids=${mrapps:-none}"
+  kv MAPREDUCE_ATTENTION "$mrattn"
+  if [[ "$mr" == "local" || "$mr" == "mixed" ]]; then
+    note "MapReduce in local mode on an EMR node ($SC_MR_LOCAL job_local... id(s) of $SC_MR_N found)"
+  fi
+  if [[ "$mrattn" == "yes" ]]; then
+    note "ATTENTION: MAPREDUCE=$mr, not yarn for every stage: $mrdetail. The YARN list shows $mrapps_n MAPREDUCE application(s). The pipeline continues; read the report before calling this run done"
+  fi
   # Container user and permissions for file: output are unknown (UNVERIFIED): record
   # them, then make the output readable by whoever runs the java.nio tools.
   kv HADOOP_OUT_OWNER_MODE "$(stat -c '%U:%G %a' "$hout" 2>/dev/null || echo unknown)"
@@ -170,7 +232,8 @@ pipeline_main() {
   run_spark_submit "$rep/spark.log" "$mode" scholarchain.spark.CollaborationPipeline "$sjar" "$sjars" \
     --er-run "$erdir" --hadoop-root "$snapdir" --out-root "$sout" || rc=$?
   tail -n 20 "$rep/spark.log" || true
-  verdict="$(spark_verdict "$rep/spark.log" "$rc")"
+  spark_verdict "$rep/spark.log" "$rc"
+  verdict="$SC_LAST_VERDICT"
   kv SPARK_ON_YARN "$mode:$verdict"
   kv SPARK_APPLICATION "${SC_LAST_APP:-none} state=${SC_LAST_STATE:-none}"
   [[ "$verdict" == "yes" ]] || die "CollaborationPipeline did not run as a successful YARN application (exit $rc): $(last_error_line "$rep/spark.log")"
@@ -189,8 +252,10 @@ pipeline_main() {
   rc=0
   run_spark_submit "$rep/export.log" "$mode" scholarchain.spark.JsonlExport "$sjar" "$sjars" "$srun" "$xout/export" || rc=$?
   tail -n 15 "$rep/export.log" || true
-  verdict="$(spark_verdict "$rep/export.log" "$rc")"
+  spark_verdict "$rep/export.log" "$rc"
+  verdict="$SC_LAST_VERDICT"
   kv EXPORT_ON_YARN "$mode:$verdict"
+  kv EXPORT_APPLICATION "${SC_LAST_APP:-none} state=${SC_LAST_STATE:-none}"
   [[ "$verdict" == "yes" ]] || die "JsonlExport did not run as a successful YARN application (exit $rc): $(last_error_line "$rep/export.log")"
   chmod -R a+rX "$xout"
   stage_ok
@@ -209,7 +274,11 @@ pipeline_main() {
   publish "$xout" "s3://$data_bucket/semantic-context/runs/$run_id/"
   publish "$rep" "s3://$data_bucket/reports/runs/$run_id/"
   stage_ok
-  printf 'PIPELINE_COMPLETE run_id=%s MAPREDUCE=%s SPARK_ON_YARN=%s:yes\n' "$run_id" "$mr" "$mode"
+  if [[ "$mrattn" == "yes" ]]; then
+    note "ATTENTION: MAPREDUCE=$mr, not yarn for every stage (see MAPREDUCE_DETAIL in run-record.env)"
+  fi
+  printf 'PIPELINE_COMPLETE run_id=%s MAPREDUCE=%s mr_jobs_found=%s mr_jobs_yarn=%s mr_jobs_local=%s mr_jobs_expected=%s mr_yarn_list_apps=%s SPARK_ON_YARN=%s:yes\n' \
+    "$run_id" "$mr" "$SC_MR_N" "$SC_MR_YARN" "$SC_MR_LOCAL" "$mrexpected" "$mrapps_n" "$mode"
 }
 
 pipeline_main "$@"
