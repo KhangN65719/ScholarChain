@@ -98,6 +98,30 @@ resource "aws_iam_role_policy_attachment" "emr_service" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEMRServicePolicy_v2"
 }
 
+# Work order 40: AmazonEMRServicePolicy_v2 allows iam:PassRole only for a role named
+# EMR_EC2_DefaultRole. Ours is named ${name_prefix}-emr-ec2, so the service role
+# needs this narrow grant to pass it to EC2 when it launches the nodes. Same
+# PassedToService condition as the managed policy's PassRoleForEC2 statement.
+data "aws_iam_policy_document" "emr_service_pass_node" {
+  statement {
+    sid       = "PassNodeRoleToEc2"
+    actions   = ["iam:PassRole"]
+    resources = [aws_iam_role.emr_ec2.arn]
+
+    condition {
+      test     = "StringLike"
+      variable = "iam:PassedToService"
+      values   = ["ec2.amazonaws.com*"]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "emr_service_pass_node" {
+  name   = "pass-node-role"
+  role   = aws_iam_role.emr_service.id
+  policy = data.aws_iam_policy_document.emr_service_pass_node.json
+}
+
 # EMR service-linked role (AWSServiceRoleForEMRCleanup). EMR needs it before the
 # first cluster in an account: the first launch of the capability check failed at
 # CreateCluster with VALIDATION_ERROR because the role did not exist and the
@@ -480,6 +504,30 @@ data "aws_iam_policy_document" "sfn" {
       "elasticmapreduce:AddTags",
     ]
     resources = [local.emr_cluster_arn]
+  }
+
+  # Work order 41: scoped AddTags for the tag RunJobFlow sends with Tags. Whether
+  # RunJobFlow with Tags needs elasticmapreduce:AddTags is UNVERIFIED, so it is
+  # granted here rather than found out at launch. RequestTag StringEquals is needed
+  # beside ForAllValues, which is true for an empty key set. EmrManageClusters above
+  # already allows AddTags on cluster/* unconditionally, so this statement adds no
+  # effective permission (statements are ORed).
+  statement {
+    sid       = "EmrTagClusterForManagedPolicy"
+    actions   = ["elasticmapreduce:AddTags"]
+    resources = [local.emr_cluster_arn]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/for-use-with-amazon-emr-managed-policies"
+      values   = ["true"]
+    }
+
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "aws:TagKeys"
+      values   = ["for-use-with-amazon-emr-managed-policies"]
+    }
   }
 
   statement {

@@ -27,6 +27,12 @@ locals {
   script_prefix = "s3://${var.artifacts_bucket}/bootstrap/"
   script_dir    = "/home/hadoop/sc"
 
+  # AmazonEMRServicePolicy_v2 lets the service role create instances, volumes and
+  # network interfaces only when the request carries this tag (work order 40). EMR
+  # propagates a cluster user tag to those resources. The subnet and security groups
+  # carry the same tag from the network module.
+  emr_cluster_tags = [{ Key = "for-use-with-amazon-emr-managed-policies", Value = "true" }]
+
   on_failure = [{
     ErrorEquals = ["States.ALL"]
     ResultPath  = "$.error"
@@ -92,7 +98,7 @@ locals {
       CreateCluster = {
         Type           = "Task"
         Resource       = "arn:aws:states:::elasticmapreduce:createCluster.sync"
-        Parameters     = var.cluster_definition
+        Parameters     = merge(var.cluster_definition, { Tags = local.emr_cluster_tags })
         ResultPath     = "$.cluster"
         TimeoutSeconds = var.create_cluster_timeout_seconds
         Next           = "FetchScripts"
