@@ -38,8 +38,15 @@
 #                     burn * max-minutes / 60 exceeds --spend-ceiling-usd.
 #   --input-file      execution input JSON, no secrets; scanned before use. Contract:
 #                     {"mode":"capability-check"} or {"mode":"pipeline","snapshot":ID,
-#                     "snapshots":SPEC,"run_id":ID,"loader_command":[...]}; any other
+#                     "snapshots":SPEC,"run_id":RUNSLUG,"loader_command":[...]}; any other
 #                     shape is refused (scripts/README.md, "Execution input contract").
+#                     RUNSLUG is exactly run-v1- plus a lower-case canonical UUID (43
+#                     characters), the path-safe form of the stable run id run:v1:<uuid>
+#                     that core requires. Make one with
+#                       printf 'run-v1-%s' "$(uuidgen | tr 'A-Z' 'a-z')"
+#                     Any other run_id is refused before the approval record is read, in a
+#                     real run, a dry run and --print-digest. A last loader_command element
+#                     that starts with run- must equal run_id.
 #
 # Run record: a real run creates <out-dir>/pipeline-<UTC stamp>-<size>.record.env
 # once (mode 600, outside the repository, never overwritten) and appends to it. It
@@ -166,6 +173,32 @@ if mode == "pipeline":
     cmd = data.get("loader_command")
     if not isinstance(cmd, list) or not cmd or not all(isinstance(x, str) and x for x in cmd):
         sys.exit("loader_command must be a non-empty list of non-empty strings")
+    # The run id must be the path-safe slug of a stable run identifier: run-v1-UUID.
+    # The on-node script turns it into run:v1:UUID for -Dscholarchain.run.id, and the
+    # core StableIds check refuses any other shape inside the Hadoop job (S run 2), after
+    # a cluster launch. Checked here so it is refused before any spend. fullmatch, so a
+    # trailing newline does not pass; lower-case only, as the core UUID pattern is.
+    # No apostrophe and no escaped quote in this block: it sits in a heredoc inside a
+    # command substitution, which bash 3.2 parses with quote counting.
+    run_slug = re.compile(r"run-v1-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+    run_id = data["run_id"]
+    if not run_slug.fullmatch(run_id):
+        sq = chr(39)
+        dq = chr(34)
+        sys.exit(
+            "EVIDENCE: run_id must be exactly run-v1- followed by a lower-case canonical UUID "
+            "(8-4-4-4-12 hex, 43 characters), for example run-v1-3f2b8c1e-5a47-4d0e-9b6a-1c2d3e4f5a6b; "
+            "make one with: printf " + sq + "run-v1-%s" + sq + " " + dq + chr(36)
+            + "(uuidgen | tr " + sq + "A-Z" + sq + " " + sq + "a-z" + sq + ")" + dq + " (got " + str(len(run_id)) + " characters; the value is not printed)"
+        )
+    # A last loader argument that looks like a run id must be the id of this run: a
+    # different one would make the loader read the export of another run. The element is
+    # not echoed, because the key-material scan has not run yet.
+    if cmd[-1].startswith("run-") and cmd[-1] != run_id:
+        sys.exit(
+            "EVIDENCE: the last element of loader_command starts with run- but is not equal to run_id; "
+            "the loader would read the export of another run (the element is not printed)"
+        )
 print("\n".join(out))
 PY
 )" || die "execution input refused (see the line above); contract in scripts/README.md, Execution input contract"

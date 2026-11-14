@@ -595,7 +595,12 @@ PIPE_IN="$REC/pipeline-input.json"
 # {"mode":"capability-check"} or mode pipeline with snapshot, snapshots, run_id, loader_command.
 PI_SNAP="harness-snap"
 PI_SNAPS="dblp=harness-snap,openalex=harness-snap,crossref=harness-snap,orcid=harness-snap"
-PI_RUN="harness-run-1"
+# Work order 46 (run id shape): in pipeline mode run_id must be exactly run-v1- plus a
+# lower-case canonical UUID (43 characters), the path-safe slug of the stable run id
+# run:v1:<uuid>. PI_RUN is the valid example id; PI_RUN_OTHER is a second valid id.
+PI_UUID="3f2b8c1e-5a47-4d0e-9b6a-1c2d3e4f5a6b"
+PI_RUN="run-v1-$PI_UUID"
+PI_RUN_OTHER="run-v1-9d8c7b6a-1f2e-4a3b-8c5d-0e1f2a3b4c5d"
 printf '{"mode":"pipeline","snapshot":"%s","snapshots":"%s","run_id":"%s","loader_command":["loader","--run","%s"]}\n' "$PI_SNAP" "$PI_SNAPS" "$PI_RUN" "$PI_RUN" > "$PIPE_IN"
 INCL_DIR="$REC/incl"
 mkdir -p "$INCL_DIR"
@@ -2376,7 +2381,10 @@ PI_TAIL=(--size small --max-minutes 45 --spend-ceiling-usd 0.50 --hourly-burn-us
 J_SNAP="\"$PI_SNAP\""
 J_SNAPS="\"$PI_SNAPS\""
 J_RUN="\"$PI_RUN\""
-J_LOAD='["loader","--run","harness-run-1"]'
+# The last loader element carries the run id, as the real loader argument does: it starts
+# with run- and equals run_id, so every accepted case here also exercises the "equal is
+# accepted" side of the loader_command check (work order 46).
+J_LOAD="[\"loader\",\"--run\",\"$PI_RUN\"]"
 # shellcheck disable=SC2016
 J_CMDSUB='"$(id)"'
 
@@ -2453,15 +2461,11 @@ a_dry_common
 a_out "DATASET_SNAPSHOT=$PI_SNAP snapshots=$PI_SNAPS run_id=$PI_RUN"
 case_end
 
-# Boundaries: 64 characters for an id and 300 for the snapshots spec are accepted.
+# Boundaries: 300 characters for the snapshots spec are accepted. A 64-character run id was
+# accepted before work order 46; it passes the old character and length rule and is now
+# refused by the shape rule (the new text, naming the required shape).
 RUN64="$(pi_rep 64)"
-printf '%s\n' "$(pi_json "$J_SNAP" "$J_SNAPS" "\"$RUN64\"" "$J_LOAD")" > "$REC/pi-run64.json"
-pi_dry_with "$REC/pi-run64.json" "$REC/pi-run64.env"
-case_begin "14.pipeline.input.run-id-64-chars-accepted"
-a_dry_common
-a_out "run_id=$RUN64"
-a_out "OUTPUT_PREFIX=curated/runs/$RUN64/ (key prefix in the data bucket)"
-case_end
+pi_refuse run-id-64-chars-refused-with-the-shape-text "$(pi_json "$J_SNAP" "$J_SNAPS" "\"$RUN64\"" "$J_LOAD")" "run_id must be exactly run-v1- followed by a lower-case canonical UUID"
 SNAPS300="$(pi_rep 300)"
 printf '%s\n' "$(pi_json "$J_SNAP" "\"$SNAPS300\"" "$J_RUN" "$J_LOAD")" > "$REC/pi-snaps300.json"
 pi_dry_with "$REC/pi-snaps300.json" "$REC/pi-snaps300.env"
@@ -2532,6 +2536,141 @@ pi_refuse snapshot-dot-dot "$(pi_json '".."' "$J_SNAPS" "$J_RUN" "$J_LOAD")" "sn
 pi_refuse run-id-trailing-newline "$(pi_json "$J_SNAP" "$J_SNAPS" '"run1\n"' "$J_LOAD")" "run_id is missing or not valid"
 pi_refuse snapshot-trailing-newline "$(pi_json '"snap1\n"' "$J_SNAPS" "$J_RUN" "$J_LOAD")" "snapshot is missing or not valid"
 pi_refuse snapshots-trailing-newline "$(pi_json "$J_SNAP" '"dblp=a\n"' "$J_RUN" "$J_LOAD")" "snapshots is missing or not valid"
+
+# Work order 46: the run id shape. In pipeline mode run_id must be exactly run-v1- plus a
+# lower-case canonical UUID (8-4-4-4-12 hex, 43 characters). Order of the checks in the
+# script's Python block: the old character and length rule (run_id is missing or not valid),
+# then the loader_command shape, then the shape rule (the text below), then the loader
+# mismatch rule. Each refusal comes before the approval record is read, in a real run
+# (before identity-check), in a dry run and under --print-digest, and calls no stub.
+PI_SHAPE_TEXT="run_id must be exactly run-v1- followed by a lower-case canonical UUID"
+PI_LOADER_TEXT="the last element of loader_command starts with run- but is not equal to run_id"
+
+# pi_shape_refuse ID JSON FRAGMENT [NOPRINT]: three cases, one per mode. NOPRINT, when
+# given, is text that must not appear on stdout or stderr.
+pi_shape_refuse() {
+  local id="$1" json="$2" frag="$3" noprint="${4:-}" f="$REC/pis-$1.json" mode
+  printf '%s' "$json" > "$f"
+  common_args "$ACCT" us-east-2 "$CEIL"
+  SN=run-bounded-pipeline
+  for mode in real dry digest; do
+    case "$mode" in
+      real) A=("${CA[@]}" "${PI_TAIL[@]}" --input-file "$f" --approval-record "$REC/pipeline.env") ;;
+      dry) A=(--dry-run "${CA[@]}" "${PI_TAIL[@]}" --input-file "$f" --approval-record "$REC/pipeline.env") ;;
+      digest) A=(--print-digest "${CA[@]}" "${PI_TAIL[@]}" --input-file "$f") ;;
+    esac
+    run_build
+    case_begin "14.pipeline.run-id-shape.$id.$mode"
+    a_refused "$frag"
+    a_err "execution input refused"
+    a_not_out "INPUT_MODE="
+    a_not_out "DATASET_SNAPSHOT="
+    a_not_out "SCRIPT_DIGEST="
+    a_not_out "ARGS_DIGEST="
+    a_not_out "identity-check"
+    a_not_out "IDENTITY_OK"
+    a_not_out "EXECUTION_ARN="
+    if [ -n "$noprint" ] && grep -qF -- "$noprint" "$OUT" "$ERR"; then note_fail "the text that must not be printed was printed"; fi
+    if [ "$frag" = "$PI_SHAPE_TEXT" ]; then
+      a_err "characters; the value is not printed)"
+      if grep -qF -- "(got: " "$ERR"; then note_fail "stderr holds the old (got: <value>) echo"; fi
+    fi
+    if [ -n "${5:-}" ]; then a_err "$5"; fi
+    case_end
+  done
+}
+
+# pi_accept ID JSON RUNID: a dry run with a record accepts this input and prints RUNID.
+pi_accept() {
+  local id="$1" json="$2" want="$3" f="$REC/pia-$1.json"
+  printf '%s\n' "$json" > "$f"
+  pi_dry_with "$f" "$REC/pia-$id.env"
+  case_begin "14.pipeline.run-id-shape.$id"
+  a_dry_common
+  a_out "INPUT_MODE=pipeline"
+  a_out "APPROVAL_VERIFIED action=pipeline"
+  a_out "APPROVAL_NOT_CONSUMED dry-run"
+  a_out_re " run_id=$want\$"
+  case_end
+}
+
+PI_UUID_UPPER="$(printf '%s' "$PI_UUID" | tr 'a-f' 'A-F')"
+# Refused with the new text: path-safe by the old rule, wrong by the shape rule.
+pi_shape_refuse path-safe-wrong-shape "$(pi_json "$J_SNAP" "$J_SNAPS" '"s-20261114-2"' "$J_LOAD")" "$PI_SHAPE_TEXT"
+pi_shape_refuse name-64-chars "$(pi_json "$J_SNAP" "$J_SNAPS" "\"$(pi_rep 64)\"" "$J_LOAD")" "$PI_SHAPE_TEXT"
+pi_shape_refuse uppercase-uuid "$(pi_json "$J_SNAP" "$J_SNAPS" "\"run-v1-$PI_UUID_UPPER\"" "$J_LOAD")" "$PI_SHAPE_TEXT"
+pi_shape_refuse uppercase-prefix "$(pi_json "$J_SNAP" "$J_SNAPS" "\"RUN-V1-$PI_UUID\"" "$J_LOAD")" "$PI_SHAPE_TEXT"
+pi_shape_refuse wrong-version-tag "$(pi_json "$J_SNAP" "$J_SNAPS" "\"run-v2-$PI_UUID\"" "$J_LOAD")" "$PI_SHAPE_TEXT"
+pi_shape_refuse uuid-last-group-one-short-42-chars "$(pi_json "$J_SNAP" "$J_SNAPS" "\"${PI_RUN%?}\"" "$J_LOAD")" "$PI_SHAPE_TEXT"
+pi_shape_refuse uuid-last-group-one-long-44-chars "$(pi_json "$J_SNAP" "$J_SNAPS" "\"${PI_RUN}a\"" "$J_LOAD")" "$PI_SHAPE_TEXT"
+pi_shape_refuse bare-uuid-without-the-prefix "$(pi_json "$J_SNAP" "$J_SNAPS" "\"$PI_UUID\"" "$J_LOAD")" "$PI_SHAPE_TEXT"
+# Key material as the run id: AKIA plus 16 upper-case characters is path-safe by the old
+# rule (20 characters), so it reaches the shape rule, which must not echo it (the
+# key-material scan has not run yet). FAKE_AKIA is built from two halves, as elsewhere.
+pi_shape_refuse akia-shaped-run-id-is-never-printed "$(pi_json "$J_SNAP" "$J_SNAPS" "\"$FAKE_AKIA\"" "$J_LOAD")" "$PI_SHAPE_TEXT" "$FAKE_AKIA" "(got 20 characters; the value is not printed)"
+# Refused by the old character rule, which runs first: a final newline (the JSON escape
+# \n) and the stable colon form itself (a colon is not path-safe).
+pi_shape_refuse valid-looking-id-with-trailing-newline "$(pi_json "$J_SNAP" "$J_SNAPS" "\"$PI_RUN\\n\"" "$J_LOAD")" "run_id is missing or not valid"
+pi_shape_refuse stable-colon-form-is-not-the-slug "$(pi_json "$J_SNAP" "$J_SNAPS" "\"run:v1:$PI_UUID\"" "$J_LOAD")" "run_id is missing or not valid"
+
+# loader_command: a last element that starts with run- must equal run_id. The element is
+# never printed (the key-material scan has not run yet).
+pi_shape_refuse loader-last-element-is-another-run-id "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "[\"loader\",\"--run\",\"$PI_RUN_OTHER\"]")" "$PI_LOADER_TEXT" "$PI_RUN_OTHER"
+pi_shape_refuse loader-last-element-is-bare-run-dash "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" '["loader","run-"]')" "$PI_LOADER_TEXT"
+pi_shape_refuse loader-last-element-run-dash-with-key-material "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "[\"loader\",\"run-$FAKE_AKIA\"]")" "$PI_LOADER_TEXT" "$FAKE_AKIA"
+
+# Accepted: the last element equals run_id (J_LOAD), is not a run- value, differs only in
+# the case of the prefix, or a different run id sits in an earlier position.
+pi_accept loader-last-element-equals-run-id "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "$J_LOAD")" "$PI_RUN"
+pi_accept loader-last-element-not-a-run-value "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" '["loader","--run","harness-run-1"]')" "$PI_RUN"
+pi_accept loader-last-element-differs-only-in-prefix-case "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "[\"loader\",\"Run-v1-${PI_RUN_OTHER#run-v1-}\"]")" "$PI_RUN"
+pi_accept loader-earlier-element-is-another-run-id "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "[\"loader\",\"$PI_RUN_OTHER\",\"--flag\"]")" "$PI_RUN"
+pi_accept loader-single-element-equals-run-id "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "[\"$PI_RUN\"]")" "$PI_RUN"
+
+# Boundary: exactly 43 characters of the right shape is accepted (all f, a different valid id).
+RUN_ALLF="run-v1-ffffffff-ffff-ffff-ffff-ffffffffffff"
+pi_accept valid-id-43-chars-all-f-accepted "$(pi_json "$J_SNAP" "$J_SNAPS" "\"$RUN_ALLF\"" "[\"loader\",\"--run\",\"$RUN_ALLF\"]")" "$RUN_ALLF"
+
+# --print-digest accepts a valid id, and the digest follows the id (the input file hash is
+# in the digested arguments).
+common_args "$ACCT" us-east-2 "$CEIL"
+SN=run-bounded-pipeline
+A=(--print-digest "${CA[@]}" "${PI_TAIL[@]}" --input-file "$PIPE_IN")
+run_build
+PV_RC=$RC
+PV_S1="$(sed -n 's/^SCRIPT_DIGEST=//p' "$OUT" | head -n 1)"
+PV_A1="$(sed -n 's/^ARGS_DIGEST=//p' "$OUT" | head -n 1)"
+case_begin "14.pipeline.run-id-shape.valid-id-print-digest-accepted"
+a_rc 0
+a_out_re '^SCRIPT_DIGEST=[0-9a-f]{64}$'
+a_out_re '^ARGS_DIGEST=[0-9a-f]{64}$'
+a_trip_empty
+case_end
+pi_json "$J_SNAP" "$J_SNAPS" "\"$PI_RUN_OTHER\"" "[\"loader\",\"--run\",\"$PI_RUN_OTHER\"]" > "$REC/pi-other-valid.json"
+A=(--print-digest "${CA[@]}" "${PI_TAIL[@]}" --input-file "$REC/pi-other-valid.json")
+run_build
+PV_S2="$(sed -n 's/^SCRIPT_DIGEST=//p' "$OUT" | head -n 1)"
+PV_A2="$(sed -n 's/^ARGS_DIGEST=//p' "$OUT" | head -n 1)"
+case_begin "14.pipeline.run-id-shape.print-digest-follows-the-run-id"
+a_rc 0
+[ "$PV_RC" -eq 0 ] || note_fail "the first --print-digest exited $PV_RC"
+if ! is_hex64 "$PV_A1" || ! is_hex64 "$PV_A2"; then note_fail "an ARGS_DIGEST is not 64 hex"; fi
+[ "$PV_A1" != "$PV_A2" ] || note_fail "ARGS_DIGEST did not change with the run id"
+[ "$PV_S1" = "$PV_S2" ] || note_fail "SCRIPT_DIGEST changed with the run id"
+a_trip_empty
+case_end
+
+# capability-check mode has no run_id and is still accepted, also under --print-digest.
+A=(--print-digest "${CA[@]}" "${PI_TAIL[@]}" --input-file "$REC/pi-capability.json")
+run_build
+case_begin "14.pipeline.run-id-shape.capability-check-needs-no-run-id-print-digest"
+a_rc 0
+a_out_re '^SCRIPT_DIGEST=[0-9a-f]{64}$'
+a_out_re '^ARGS_DIGEST=[0-9a-f]{64}$'
+a_not_out "run_id="
+if grep -qF -- "$PI_SHAPE_TEXT" "$ERR"; then note_fail "the run id shape rule fired for capability-check"; fi
+a_trip_empty
+case_end
 
 # The old shape is refused in a real run and with --print-digest too, before any call.
 printf '{"hadoop_args":[],"spark_args":[],"loader_command":[]}\n' > "$REC/pi-old-shape.json"
@@ -2611,6 +2750,15 @@ static_pipeline_cases() {
   static_begin "14.pipeline.static.old-free-form-lists-are-not-accepted"
   f_has_not "$c" 'hadoop_args'
   f_has_not "$c" 'spark_args'
+  case_end
+  static_begin "14.pipeline.static.run-id-shape-is-a-lower-case-fullmatch-checked-before-the-approval-record"
+  f_has "$c" 'run_slug = re.compile(r"run-v1-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")'
+  f_has "$c" 'run_slug.fullmatch(run_id)'
+  f_has_not_re "$c" '[.](match|search)[(]'
+  f_has_not_re "$c" 'IGNORECASE|re[.]I[^a-z]|[(][?]i[)]'
+  f_before "$c" 'run_slug.fullmatch(run_id)' 'verify_approval pipeline "$EXTRA" "n/a" "n/a"'
+  f_before "$c" 'run_slug.fullmatch(run_id)' 'verify_identity'
+  f_has "$c" 'the last element of loader_command starts with run- but is not equal to run_id'
   case_end
 }
 static_pipeline_cases
@@ -3081,6 +3229,95 @@ case_end
 static_begin "14.emr.run-s-pipeline.single-node-scope-wording"
 f_has "$emr_run" 'data-size scaling on a single-node EMR cluster (Spark and MapReduce on YARN)'
 case_end
+
+# Work order 46: the on-node side of the run id shape. The slug (run-v1-<uuid>) stays the
+# work directory, the S3 prefixes and the loader argument; only -Dscholarchain.run.id gets
+# the stable form run:v1:<uuid> that core's StableIds requires.
+# SC2016: every single-quoted string below is a literal fragment of a node script that
+# f_has, f_before, f_has_not and f_count_is search for as text; the $ must not expand.
+# A function, so that one directive covers the whole block (as static_pipeline_cases does).
+# shellcheck disable=SC2016
+static_run_id_emr_cases() {
+static_begin "14.emr.run-s-pipeline.validates-the-run-id-shape-before-any-stage-work"
+f_has "$emr_run" 'validate_run_id "$run_id"'
+f_before "$emr_run" 'validate_run_id "$run_id"' 'work="$SC_HOME/run/$run_id"'
+f_before "$emr_run" 'validate_run_id "$run_id"' 'mkdir -p "$raw" "$rep"'
+f_before "$emr_run" 'validate_run_id "$run_id"' 'register_failure_logs'
+f_before "$emr_run" 'validate_run_id "$run_id"' 'find_java'
+f_before "$emr_run" 'validate_run_id "$run_id"' 'aws s3 cp'
+case_end
+
+static_begin "14.emr.run-s-pipeline.run-id-option-takes-the-stable-form"
+f_has "$emr_run" 'local stable_run_id="$SC_STABLE_RUN_ID"'
+f_has "$emr_run" '"-Dscholarchain.run.id=$stable_run_id"'
+f_count_is "$emr_run" '-Dscholarchain.run.id=' 1
+f_has_not_re "$emr_run" 'run[.]id=[^[:space:]]*[$][{]?run_id'
+case_end
+
+static_begin "14.emr.run-s-pipeline.prints-run-id-stable-next-to-the-slug"
+f_has "$emr_run" 'kv RUN_ID "$run_id"'
+f_has "$emr_run" 'kv RUN_ID_STABLE "$stable_run_id"'
+f_before "$emr_run" 'kv RUN_ID "$run_id"' 'kv RUN_ID_STABLE "$stable_run_id"'
+case_end
+
+static_begin "14.emr.run-s-pipeline.slug-stays-the-work-directory-and-the-s3-prefix"
+f_has "$emr_run" 'work="$SC_HOME/run/$run_id"'
+f_has "$emr_run" 's3://$data_bucket/curated/runs/$run_id/hadoop/'
+f_has "$emr_run" 's3://$data_bucket/graph/runs/$run_id/'
+f_has "$emr_run" 's3://$data_bucket/semantic-context/runs/$run_id/'
+f_has "$emr_run" 's3://$data_bucket/reports/runs/$run_id/'
+f_has_not "$emr_run" 'runs/$stable_run_id'
+f_has_not "$emr_run" 'run/$stable_run_id'
+case_end
+
+static_begin "14.emr.no-scholarchain-run-id-option-takes-the-slug-in-any-script"
+emr_slug_line="$(grep -h 'scholarchain[.]run[.]id' "$emr_cap" "$emr_run" "$emr_lib" "$emr_boot" | grep -vF 'stable_run_id' | head -n 1)"
+[ -z "$emr_slug_line" ] || note_fail "a code line names scholarchain.run.id without the stable form: $(printf '%s' "$emr_slug_line" | cut -c1-120)"
+case_end
+
+static_begin "14.emr.lib-emr.validate-run-id-is-the-lower-case-slug-pattern-and-derives-the-stable-id"
+f_has "$emr_lib" '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+f_has "$emr_lib" '^run-v1-('
+f_has "$emr_lib" 'SC_STABLE_RUN_ID="run:v1:${BASH_REMATCH[1]}"'
+f_has "$emr_lib" 'run-id must be exactly run-v1- followed by a lower-case canonical UUID'
+f_has_not "$emr_lib" 'nocasematch'
+f_has_not "$emr_lib" 'A-F'
+case_end
+}
+static_run_id_emr_cases
+
+# validate_run_id from the real lib-emr.sh, sourced in a child shell (sourcing reads and
+# defines only; no stub is called). SC_STABLE_RUN_ID is printed on success.
+# emr_vr ID VALUE [EXPECTED_STABLE]: no EXPECTED_STABLE means a refusal is expected.
+# SC2016: the bash -c program is single-quoted on purpose; the child shell expands $1 and $2.
+# shellcheck disable=SC2016
+emr_vr() {
+  local id="$1" val="$2" want="${3:-}"
+  run bash -c 'source "$1" && validate_run_id "$2" && printf "%s" "$SC_STABLE_RUN_ID"' _ "$EMR_DIR/lib-emr.sh" "$val"
+  case_begin "14.emr.lib-emr.validate_run_id.$id"
+  if [ -n "$want" ]; then
+    a_rc 0
+    [ "$(cat "$OUT")" = "$want" ] || note_fail "SC_STABLE_RUN_ID is not $want"
+  else
+    a_rc_nonzero
+    a_err_evidence
+    a_err "run-id must be exactly run-v1- followed by a lower-case canonical UUID"
+    [ ! -s "$OUT" ] || note_fail "stdout is not empty on a refusal"
+  fi
+  a_trip_empty
+  case_end
+}
+emr_vr valid-id-gives-the-stable-form "$PI_RUN" "run:v1:$PI_UUID"
+emr_vr valid-all-f-id-gives-the-stable-form "$RUN_ALLF" "run:v1:ffffffff-ffff-ffff-ffff-ffffffffffff"
+emr_vr path-safe-wrong-shape-refused "s-20261114-2"
+emr_vr empty-refused ""
+emr_vr name-64-chars-refused "$(pi_rep 64)"
+emr_vr uppercase-uuid-refused "run-v1-$PI_UUID_UPPER"
+emr_vr wrong-version-tag-refused "run-v2-$PI_UUID"
+emr_vr last-group-one-short-refused "${PI_RUN%?}"
+emr_vr last-group-one-long-refused "${PI_RUN}a"
+emr_vr trailing-newline-refused "$PI_RUN"$'\n'
+emr_vr stable-colon-form-refused "run:v1:$PI_UUID"
 
 static_begin "14.emr.capability-check.scope-lines-say-not-distributed"
 f_has "$emr_cap" 'kv MAPREDUCE_SCOPE "single node: MapReduce on YARN on one node is not distributed execution"'

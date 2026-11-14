@@ -14,7 +14,11 @@
 #     snapshot   id of the raw/<snapshot>/ input prefix (A-Za-z0-9._-)
 #     snapshots  the value of -Dscholarchain.run.snapshots, naming exactly dblp plus the
 #                supplied datasets, e.g. dblp=2026-11-05,openalex=2026-11-07,...
-#     run-id     pinned with -Dscholarchain.run.id (otherwise each launch gets a new id)
+#     run-id     the path-safe slug run-v1-<lower-case UUID> (43 characters), anything else is
+#                refused. The slug names the work directory and the S3 prefixes; the Hadoop
+#                command gets the stable form run:v1:<uuid> with -Dscholarchain.run.id (the
+#                form core requires). Make one with
+#                  printf 'run-v1-%s' "$(uuidgen | tr 'A-Z' 'a-z')"
 #
 # Inputs read:  s3://<data>/raw/<snapshot>/{dblp-subset.xml,openalex.jsonl,crossref.jsonl,orcid.jsonl}
 #               s3://<artifacts>/jars/{hadoop,entity-resolution,spark}/ (thin jar + lib/)
@@ -49,6 +53,8 @@ pipeline_main() {
   validate_id snapshot "$snapshot"
   validate_snapshots "$snapshots"
   validate_id run-id "$run_id"
+  validate_run_id "$run_id"
+  local stable_run_id="$SC_STABLE_RUN_ID"
   work="$SC_HOME/run/$run_id"
   raw="$work/raw"; hout="$work/hadoop-out"; erout="$work/er-out"; sout="$work/spark-out"
   xout="$work/export-out"; rep="$work/reports"
@@ -56,6 +62,7 @@ pipeline_main() {
   mkdir -p "$raw" "$rep"
   register_failure_logs "$rep" "$data_bucket" "$run_id"
   kv RUN_ID "$run_id"
+  kv RUN_ID_STABLE "$stable_run_id"
   kv RAW_SNAPSHOT "$snapshot"
   kv RUN_SNAPSHOTS "$snapshots"
   kv RUN_USER "$(id -un) uid=$(id -u) gid=$(id -g)"
@@ -161,7 +168,7 @@ pipeline_main() {
     "-Dmapreduce.map.output.compress.codec=$SC_MAP_CODEC" \
     "-Dmapreduce.output.fileoutputformat.compress=false" \
     "-Dfs.permissions.umask-mode=$SC_FS_UMASK" \
-    "-Dscholarchain.run.id=$run_id" \
+    "-Dscholarchain.run.id=$stable_run_id" \
     "-Dscholarchain.run.snapshots=$snapshots" \
     "-Dmapreduce.map.env=JAVA_HOME=$SC_JAVA_HOME" \
     "-Dmapreduce.reduce.env=JAVA_HOME=$SC_JAVA_HOME" \

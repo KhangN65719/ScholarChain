@@ -203,6 +203,23 @@ validate_id() {
   [[ "$value" != "." && "$value" != ".." ]] || die "$name must not be . or .."
 }
 
+# validate_run_id VALUE: the run id argument must be the path-safe slug of a stable run
+# identifier, run-v1-<lower-case canonical UUID> (43 characters). The Hadoop jobs build
+# provenance from -Dscholarchain.run.id and core's StableIds refuses anything but
+# run:v1:<uuid> (S run 2, D29), so a free-form id is refused here, before any stage runs.
+# Sets SC_STABLE_RUN_ID to run:v1:<uuid>. Call it directly, not in a command substitution,
+# so the variable survives. The slug stays the S3 prefix component, the work directory
+# name and the loader argument; only -Dscholarchain.run.id gets the stable form.
+SC_RUN_SLUG_RE='^run-v1-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$'
+# shellcheck disable=SC2034  # read by run-s-pipeline.sh, which sources this file
+SC_STABLE_RUN_ID=""
+validate_run_id() {
+  local value="$1"
+  [[ "$value" =~ $SC_RUN_SLUG_RE ]] || die "run-id must be exactly run-v1- followed by a lower-case canonical UUID (8-4-4-4-12 hex, 43 characters), for example run-v1-3f2b8c1e-5a47-4d0e-9b6a-1c2d3e4f5a6b; make one with: printf 'run-v1-%s' \"\$(uuidgen | tr 'A-Z' 'a-z')\""
+  # shellcheck disable=SC2034  # read by run-s-pipeline.sh, which sources this file
+  SC_STABLE_RUN_ID="run:v1:${BASH_REMATCH[1]}"
+}
+
 validate_bucket() {
   local name="$1" value="$2"
   [[ "$value" =~ ^[a-z0-9][a-z0-9.-]{2,62}$ ]] || die "$name is not a bucket name"
