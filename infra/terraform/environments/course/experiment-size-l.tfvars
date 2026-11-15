@@ -23,7 +23,9 @@ service_desired_count = 2
 #     The estimate's HIGH Hadoop + Spark time is 2.4 h - 0.4 h = 2.0 h = 7200 s.
 #   Loader 3600 s, unchanged. The estimate's HIGH loader time is 4.0 h = 14400 s,
 #     which is also above the 7200 s range of the loader variable.
-# Rule A: 1440 + 2 x 3600 + 300 = 8940 <= 10800 (holds, 1860 s of slack).
+# Rule A (work order 49 changed it to create + 1 x EMR step + 600, one long step plus
+# the 300 s fetch step and 300 s margin): 1440 + 3600 + 600 = 5640 <= 10800 (holds,
+# 5160 s of slack). The old form 1440 + 2 x 3600 + 300 = 8940 over-counted the step.
 # Known limitation, accepted by human decision O1 (phase 13 D10), not enforced:
 # 1440 + 2 x 3600 + 900 + 3600 = 13140 > 10800. At the estimate's HIGH bound
 # (23040 s) a run may time out. A cap is a ceiling, not a cost.

@@ -3361,6 +3361,1113 @@ for emr_f in "$EMR_DIR"/*; do
 done
 case_end
 
+### 14.emr and 14.terraform: work orders 48 and 49 ----------------------------------------------
+# The MapReduce verdict from the ResourceManager application count (D30, D31), the job id
+# sources, STAGE_SECONDS_ lines, the progress checkpoints, the publish count, the two Spark
+# executors and Rule A. Static cases read the scripts as text. Dynamic cases source the real
+# lib-emr.sh in a child shell (a bash program under $CODE_DIR) with shell functions standing in
+# for timeout, yarn, mapred and aws, so no stub on PATH is reached and the tripwire stays
+# empty. The verdict itself is an inline block of run-s-pipeline.sh, which cannot be sourced
+# (it runs pipeline_main); it is cut out of the real file by markers and run with the real
+# lib-emr.sh helpers that feed it. No loosened expectation: the old verdict cases of work
+# order 43 do not exist in this file (it asserted only the "local mode" wording, which stays).
+
+EMR_FX="$WORK/emr-fx"
+mkdir -p "$EMR_FX"
+MR_TS=1794701635353
+MR_TS_OTHER=1700000000000
+MR_BLOCK="$CODE_DIR/mr-verdict-block.sh"
+PG_FN="$CODE_DIR/progress-fn.sh"
+
+# extract_verdict_block: the lines of run-s-pipeline.sh from "mrkind=..." up to, not including,
+# the first later line that holds kv MAPREDUCE "$mr" (the verdict decision itself).
+# SC2016: the awk markers are single-quoted on purpose, the $ is text of the node script.
+# shellcheck disable=SC2016
+extract_verdict_block() {
+  awk -v s='mrkind=$((SC_MR_YARN + mrapps_n))' -v e='kv MAPREDUCE "$mr"' 'f == 0 && index($0, s) { f = 1 } f == 1 && index($0, e) { exit } f == 1 { print }' "$emr_run" > "$MR_BLOCK"
+}
+extract_verdict_block
+
+# extract_fn FILE NAME OUT: the function NAME (from "NAME() {" in column 1 to the "}" in column 1).
+extract_fn() {
+  awk -v start="$2() {" 'index($0, start) == 1 { f = 1 } f { print } f && $0 == "}" { exit }' "$1" > "$3"
+}
+extract_fn "$emr_lib" sc_publish_progress "$PG_FN"
+
+# Child program 1: the helpers that feed the verdict, then the real verdict block.
+cat > "$CODE_DIR/mr-chain.sh" <<'EOF'
+LIB="$1"; BLOCK="$2"; FIX="$3"; EXPECTED="$4"
+source "$LIB"
+timeout() { shift; "$@"; }
+yarn() { if [ -f "$FIX/yarn.txt" ]; then cat "$FIX/yarn.txt"; fi; return 0; }
+mapred() {
+  if [ "${3:-}" = "all" ]; then
+    if [ -f "$FIX/mapred-all.txt" ]; then cat "$FIX/mapred-all.txt"; fi
+  else
+    if [ -f "$FIX/mapred-list.txt" ]; then cat "$FIX/mapred-list.txt"; fi
+  fi
+  return 0
+}
+rep="$FIX/reports"
+mkdir -p "$rep"
+classify_job_ids "$FIX/hadoop.log"
+mrapps="$(yarn_mapreduce_apps "$rep/mapreduce-yarn-list.log")"
+mrapps_n="$(words_in "$mrapps")"
+choose_mapreduce_job_ids "$EXPECTED" "$mrapps" "$rep/mapreduce-job-list.log"
+mr="unknown"; mrdetail=""; mrattn="yes"; mrproof="none"; mrexpected="$EXPECTED"
+eval "$(cat "$BLOCK")"
+printf 'MR=%s\n' "$mr"
+printf 'PROOF=%s\n' "$mrproof"
+printf 'ATTN=%s\n' "$mrattn"
+printf 'SRC=%s\n' "$SC_MRF_SOURCE"
+printf 'N=%s\n' "$SC_MRF_N"
+printf 'IDS=%s\n' "$SC_MRF_IDS"
+printf 'APPS_N=%s\n' "$mrapps_n"
+printf 'LOCAL=%s\n' "$SC_MR_LOCAL"
+printf 'YARN=%s\n' "$SC_MR_YARN"
+printf 'DETAIL=%s\n' "$mrdetail"
+EOF
+
+# Child program 2: the small pure helpers.
+cat > "$CODE_DIR/fn-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"
+source "$LIB"
+printf 'DERIVE1=%s\n' "$(derive_job_ids "application_1794701635353_0001 application_1794701635353_0002")"
+printf 'DERIVE2=%s\n' "$(derive_job_ids "")"
+printf 'DERIVE3=%s\n' "$(derive_job_ids "application_x_1 foo application_17_9")"
+printf 'WORDS0=%s\n' "$(words_in "")"
+printf 'WORDS3=%s\n' "$(words_in "a b c")"
+printf 'SORTED=%s\n' "$(job_ids_in_file "$FIX/jobs.txt")"
+classify_job_ids "$FIX/classify.log"
+printf 'CLS_N=%s\n' "$SC_MR_N"
+printf 'CLS_YARN=%s\n' "$SC_MR_YARN"
+printf 'CLS_LOCAL=%s\n' "$SC_MR_LOCAL"
+printf 'CLS_IDS=%s\n' "$SC_MR_IDS"
+EOF
+
+# Child program 3: stage and the exit trap with a controlled SECONDS counter.
+cat > "$CODE_DIR/stage-child.sh" <<'EOF'
+LIB="$1"; MODE="$2"
+source "$LIB"
+SC_T0=0
+if [ "$MODE" = "ok" ]; then
+  SECONDS=1000
+  stage alpha-beta
+  SECONDS=1042
+  stage_ok
+  record_total_seconds STAGE_SECONDS_TOTAL
+else
+  install_trap
+  SECONDS=500
+  stage boom-stage
+  SECONDS=507
+  false
+fi
+EOF
+
+# Child program 4: sc_publish_progress and stage_ok with aws and timeout replaced by functions
+# that log every call (CALLS) and copy every uploaded file (UPLOADS). MODE: ok, fail (aws
+# exits 1), unregistered, nodir (reports directory missing) or stages (stage and stage_ok).
+# CAP and BUDGET (environment) lower SC_PROGRESS_MAX_BYTES and SC_PROGRESS_BUDGET_SECONDS.
+cat > "$CODE_DIR/progress-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"; MODE="$3"
+source "$LIB"
+UPLOADS="$FIX/uploads"
+CALLS="$FIX/calls.log"
+mkdir -p "$UPLOADS"
+: > "$CALLS"
+timeout() { printf 'TIMEOUT %s\n' "$1" >> "$CALLS"; shift; "$@"; }
+aws() {
+  if [ "$MODE" = "fail" ]; then
+    printf 'AWS-FAILED %s\n' "$*" >> "$CALLS"
+    return 1
+  fi
+  printf 'AWS %s\n' "$*" >> "$CALLS"
+  if [ "${1:-}" = "s3" ] && [ "${2:-}" = "cp" ]; then
+    cp "$3" "$UPLOADS/${4##*/}"
+  fi
+  return 0
+}
+if [ -n "${CAP:-}" ]; then SC_PROGRESS_MAX_BYTES="$CAP"; fi
+if [ -n "${BUDGET:-}" ]; then SC_PROGRESS_BUDGET_SECONDS="$BUDGET"; fi
+SC_KV=$'RUN_ID=abc\nMAPREDUCE=yarn\n'
+case "$MODE" in
+  unregistered) ;;
+  nodir) register_failure_logs "$FIX/no-such-dir" data-bucket run-v1-x ;;
+  *) register_failure_logs "$FIX/reports" data-bucket run-v1-x ;;
+esac
+if [ "$MODE" = "stages" ]; then
+  stage one-a
+  stage_ok
+  stage publish
+  stage_ok
+else
+  SC_STAGE_N=3
+  SC_STAGE_NAME=hadoop
+  rc=0
+  sc_publish_progress "checkpoint-1" || rc=$?
+  printf 'RC=%s\n' "$rc"
+fi
+EOF
+
+# Child program 5: publish with an aws function that answers s3 ls from a fixture.
+cat > "$CODE_DIR/publish-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"; DIR="$3"; URI="$4"
+source "$LIB"
+aws() {
+  if [ "${1:-}" = "s3" ] && [ "${2:-}" = "ls" ]; then
+    cat "$FIX/ls.txt"
+    return 0
+  fi
+  printf 'AWS %s\n' "$*" >> "$FIX/calls.log"
+  return 0
+}
+publish "$DIR" "$URI"
+printf 'RC=%s\n' "$?"
+EOF
+
+# Child program 6: write_spark_conf under a temporary SC_HOME.
+cat > "$CODE_DIR/sparkconf-child.sh" <<'EOF'
+SC_HOME="$2"
+source "$1"
+SC_ARCHIVE_URI="hdfs://harness/spark-jars.zip"
+write_spark_conf false
+cat "$SC_SPARK_CONF_DIR/spark-defaults.conf"
+EOF
+
+### Static cases: run-s-pipeline.sh and lib-emr.sh as text.
+# SC2016: every single-quoted string below is a literal fragment of a node script that
+# f_has, f_before and f_count_is search for as text; the $ must not expand.
+# shellcheck disable=SC2016
+static_wo50_cases() {
+  local k tl pl cl blk_n
+  static_begin "14.emr.verdict.block-extracted-and-never-stops-the-run"
+  blk_n="$(wc -l < "$MR_BLOCK" | tr -d ' ')"
+  [ "${blk_n:-0}" -ge 15 ] || note_fail "the verdict block cut out of run-s-pipeline.sh has ${blk_n:-0} line(s)"
+  f_has "$MR_BLOCK" 'mr="mixed"'
+  f_has "$MR_BLOCK" 'mr="local"'
+  f_has "$MR_BLOCK" 'mr="yarn"'
+  f_has_not_re "$MR_BLOCK" '(^|[^a-z_])(die|exit|return)([^a-z_]|$)'
+  case_end
+
+  static_begin "14.emr.verdict.expected-stage-count-is-datasets-plus-six-and-the-order-is-recorded"
+  f_has "$emr_run" 'local dsets=(crossref openalex orcid) dargs=()'
+  f_has "$emr_run" 'mrexpected=$((${#dargs[@]} + 6))'
+  f_has "$emr_run" 'mrorder="dblp-extraction"'
+  f_has "$emr_run" 'mrorder="$mrorder source-normalization/$f"'
+  f_has "$emr_run" 'mrorder="$mrorder identifier-join blocking candidate-features team-expansion graph-export"'
+  case_end
+
+  static_begin "14.emr.verdict.call-order-hadoop-then-classify-then-list-then-choose-then-verdict"
+  f_before "$emr_run" 'hadoop jar "$hjar"' 'classify_job_ids "$rep/hadoop.log"'
+  f_before "$emr_run" '[[ "$rc" -eq 0 ]] || die "PipelineTool exited $rc' 'classify_job_ids "$rep/hadoop.log"'
+  f_before "$emr_run" 'classify_job_ids "$rep/hadoop.log"' 'mrapps="$(yarn_mapreduce_apps "$rep/mapreduce-yarn-list.log")"'
+  f_before "$emr_run" 'mrapps="$(yarn_mapreduce_apps' 'choose_mapreduce_job_ids "$mrexpected" "$mrapps" "$rep/mapreduce-job-list.log"'
+  f_before "$emr_run" 'choose_mapreduce_job_ids "$mrexpected"' 'mrkind=$((SC_MR_YARN + mrapps_n))'
+  f_before "$emr_run" 'mrkind=$((SC_MR_YARN + mrapps_n))' 'kv MAPREDUCE "$mr"'
+  case_end
+
+  static_begin "14.emr.verdict.local-and-mixed-come-first-and-yarn-needs-the-application-count"
+  f_has "$emr_run" 'local mr="unknown" mrdetail="" mrattn="yes" mrproof="none"'
+  f_before "$emr_run" 'mr="mixed"' 'mr="local"'
+  f_before "$emr_run" 'mr="local"' 'mr="yarn"'
+  f_has "$emr_run" 'if [[ "$SC_MR_LOCAL" -gt 0 && "$mrkind" -gt 0 ]]; then'
+  f_has "$emr_run" 'elif [[ "$mrapps_n" -eq "$mrexpected" ]]; then'
+  f_before "$emr_run" 'elif [[ "$mrapps_n" -eq "$mrexpected" ]]; then' 'mr="yarn"'
+  f_count_is "$emr_run" 'mrattn="no"' 1
+  f_before "$emr_run" 'mr="yarn"' 'mrattn="no"'
+  f_has "$emr_run" 'mrproof="resourcemanager-application-ids"'
+  f_has "$emr_run" 'if [[ "$SC_MR_YARN" -eq "$mrexpected" ]]; then'
+  f_has "$emr_run" 'mrproof="job-ids-in-log"'
+  case_end
+
+  static_begin "14.emr.verdict.record-keys-name-the-proof-the-source-and-the-attention"
+  for k in MAPREDUCE MAPREDUCE_PROOF MAPREDUCE_DETAIL MAPREDUCE_STAGES_EXPECTED MAPREDUCE_STAGE_MAPPING MAPREDUCE_JOB_COUNT MAPREDUCE_JOBS_YARN MAPREDUCE_JOBS_LOCAL MAPREDUCE_JOB_IDS_SOURCE MAPREDUCE_JOB_IDS MAPREDUCE_JOB_IDS_FILE MAPREDUCE_APPS_YARN_LIST MAPREDUCE_ATTENTION; do
+    f_has "$emr_run" "kv $k \""
+  done
+  f_has "$emr_run" 'kv MAPREDUCE_PROOF "$mrproof"'
+  f_has "$emr_run" 'kv MAPREDUCE_ATTENTION "$mrattn"'
+  f_has "$emr_run" 'kv MAPREDUCE_JOB_IDS_SOURCE "$SC_MRF_SOURCE"'
+  f_has "$emr_run" 'kv MAPREDUCE_JOB_IDS "${SC_MRF_IDS:-none}"'
+  f_has "$emr_run" 'positional and inferred, not read from any log'
+  case_end
+
+  static_begin "14.emr.job-ids.source-labels-and-the-derivation-note-in-run-s-pipeline"
+  f_has "$emr_run" 'hadoop-log) printf'
+  f_has "$emr_run" 'mapred-job-list) printf'
+  f_has "$emr_run" 'derived-from-application-ids) printf'
+  f_has "$emr_run" 'The ids are DERIVED, not observed: job_<ts>_<n> is the ResourceManager application id application_<ts>_<n>'
+  f_count_is "$emr_run" 'kv MAPREDUCE_JOB_IDS_DERIVATION' 1
+  f_before "$emr_run" 'if [[ "$SC_MRF_SOURCE" == "derived-from-application-ids" ]]; then' 'kv MAPREDUCE_JOB_IDS_DERIVATION'
+  f_has "$emr_run" 'a Hadoop naming property, not an observation in the log'
+  case_end
+
+  static_begin "14.emr.verdict.attention-note-whenever-the-verdict-is-not-yarn"
+  f_count_is "$emr_run" 'if [[ "$mrattn" == "yes" ]]; then' 2
+  f_has "$emr_run" 'note "ATTENTION: MAPREDUCE=$mr, not yarn for every stage: $mrdetail.'
+  f_has "$emr_run" 'note "ATTENTION: MAPREDUCE=$mr, not yarn for every stage (see MAPREDUCE_DETAIL in run-record.env)"'
+  f_has "$emr_run" 'if [[ "$mr" == "local" || "$mr" == "mixed" ]]; then'
+  f_has "$emr_run" 'MapReduce in local mode on an EMR node ($SC_MR_LOCAL job_local... id(s) of $SC_MR_N found)'
+  case_end
+
+  static_begin "14.emr.progress.checkpoint-right-after-the-classification-and-before-the-chmod"
+  f_count_is "$emr_run" 'sc_publish_progress "after-hadoop-classification" || true' 1
+  f_before "$emr_run" 'kv MAPREDUCE_ATTENTION "$mrattn"' 'sc_publish_progress "after-hadoop-classification" || true'
+  f_before "$emr_run" 'sc_publish_progress "after-hadoop-classification" || true' 'sc_chmod_readable_tree "$hout"'
+  case_end
+
+  static_begin "14.emr.progress.failure-logs-are-registered-before-the-first-stage-ok"
+  f_before "$emr_run" 'register_failure_logs "$rep" "$data_bucket" "$run_id"' 'stage_ok'
+  f_before "$emr_run" 'mkdir -p "$raw" "$rep"' 'register_failure_logs "$rep" "$data_bucket" "$run_id"'
+  case_end
+
+  static_begin "14.emr.stage-seconds.run-s-pipeline-records-the-total-before-and-after-publish"
+  f_count_is "$emr_run" 'record_total_seconds STAGE_SECONDS_TOTAL' 2
+  f_count_is "$emr_run" 'record_total_seconds STAGE_SECONDS_TOTAL_BEFORE_PUBLISH' 1
+  f_before "$emr_run" 'record_total_seconds STAGE_SECONDS_TOTAL_BEFORE_PUBLISH' 'write_json "$rep/run-record.json"'
+  f_before "$emr_run" 'write_json "$rep/run-record.json"' 'publish "$rep" "s3://$data_bucket/reports/runs/$run_id/"'
+  tl="$(grep -nF -- 'record_total_seconds STAGE_SECONDS_TOTAL' "$emr_run" | tail -n 1 | cut -d: -f1)"
+  pl="$(line_of "$emr_run" 'publish "$rep" "s3://$data_bucket/reports/runs/$run_id/"')"
+  cl="$(line_of "$emr_run" 'PIPELINE_COMPLETE')"
+  if [ -z "$tl" ] || [ -z "$pl" ] || [ -z "$cl" ]; then
+    note_fail "a line was not found (total $tl, publish $pl, complete $cl)"
+  else
+    [ "$tl" -gt "$pl" ] || note_fail "the final total (line $tl) is not after the last publish (line $pl)"
+    [ "$tl" -lt "$cl" ] || note_fail "the final total (line $tl) is not before PIPELINE_COMPLETE (line $cl)"
+  fi
+  case_end
+
+  static_begin "14.emr.pipeline-complete.line-carries-the-proof-the-source-and-total-seconds"
+  f_count_is "$emr_run" 'PIPELINE_COMPLETE' 1
+  f_has "$emr_run" 'PIPELINE_COMPLETE run_id=%s MAPREDUCE=%s mr_jobs_found=%s mr_jobs_yarn=%s mr_jobs_local=%s mr_jobs_expected=%s mr_yarn_list_apps=%s SPARK_ON_YARN=%s:yes mr_proof=%s mr_job_ids_source=%s total_seconds=%s'
+  f_has "$emr_run" '"$run_id" "$mr" "$SC_MRF_N" "$SC_MR_YARN" "$SC_MR_LOCAL" "$mrexpected" "$mrapps_n" "$mode" "$mrproof" "$SC_MRF_SOURCE" "$((SECONDS - SC_T0))"'
+  case_end
+
+  static_begin "14.emr.lib-emr.stage-ok-keeps-the-marker-and-adds-the-stage-seconds"
+  f_has "$emr_lib" 'SC_STAGE_T0=$SECONDS'
+  f_has "$emr_lib" "printf 'STAGE[%s] %s: ok\\n' \"\$SC_STAGE_N\" \"\$SC_STAGE_NAME\""
+  f_has "$emr_lib" 'kv "STAGE_SECONDS_$(stage_key)" "$elapsed"'
+  f_before "$emr_lib" "printf 'STAGE[%s] %s: ok" 'kv "STAGE_SECONDS_$(stage_key)" "$elapsed"'
+  f_has "$emr_lib" "tr 'a-z-' 'A-Z_'"
+  f_has "$emr_lib" 'if [[ "$SC_STAGE_NAME" != "publish" ]]; then'
+  f_has "$emr_lib" 'sc_publish_progress "after-stage-$SC_STAGE_N-$SC_STAGE_NAME" || true'
+  f_has "$emr_lib" 'kv "STAGE_SECONDS_$(stage_key)" "$((SECONDS - SC_STAGE_T0)) (stage failed)"'
+  f_has "$emr_lib" 'record_total_seconds STAGE_SECONDS_TOTAL_AT_FAILURE'
+  case_end
+
+  static_begin "14.emr.lib-emr.job-id-sources-in-order-with-their-labels-and-the-tie-rule"
+  f_has "$emr_lib" 'SC_MRF_SOURCE="hadoop-log"'
+  f_has "$emr_lib" 'SC_MRF_SOURCE="mapred-job-list"'
+  f_has "$emr_lib" 'SC_MRF_SOURCE="derived-from-application-ids"'
+  f_has "$emr_lib" 'SC_MRF_SOURCE="none"'
+  f_before "$emr_lib" 'SC_MRF_SOURCE="hadoop-log"' 'SC_MRF_SOURCE="mapred-job-list"'
+  f_before "$emr_lib" 'SC_MRF_SOURCE="mapred-job-list"' 'SC_MRF_SOURCE="derived-from-application-ids"'
+  f_count_is "$emr_lib" 'if [[ "$SC_MRF_N" -lt "$expected" ]]; then' 2
+  f_count_is "$emr_lib" 'if [[ "$n" -gt "$SC_MRF_N" ]]; then' 2
+  f_has "$emr_lib" "sed -n 's/^application_\\([0-9][0-9]*_[0-9][0-9]*\\)\$/job_\\1/p'"
+  case_end
+
+  static_begin "14.emr.lib-emr.sc_publish_progress.is-a-best-effort-scanned-per-file-copy"
+  f_has "$PG_FN" 'dest="s3://$bucket/reports/runs/$run/progress/"'
+  f_has "$PG_FN" '[[ -n "$rep" && -n "$bucket" && -n "$run" && -d "$rep" ]] || return 0'
+  f_count_is "$PG_FN" 'aws s3 cp' 1
+  f_has "$PG_FN" 'timeout "$remaining" aws s3 cp "$src" "$dest$name" --only-show-errors'
+  f_before "$PG_FN" 'grep -qE "$SC_SECRET_RE" "$src"' 'timeout "$remaining" aws s3 cp'
+  f_has "$PG_FN" 'deadline=$((SECONDS + SC_PROGRESS_BUDGET_SECONDS))'
+  for k in '--sse-c' '--delete' 's3 sync' 's3 rm' 's3 mv' '--recursive' 'delete-object'; do
+    f_has_not "$PG_FN" "$k"
+  done
+  f_has_not_re "$PG_FN" '(^|[^a-z_])(die|exit)([^a-z_]|$)'
+  f_count_is "$emr_lib" '[[ -n "$rep" && -n "$bucket" && -n "$run" && -d "$rep" ]] || return 0' 2
+  case_end
+
+  static_begin "14.emr.lib-emr.publish.count-leaves-out-the-progress-and-failed-keys-of-the-reports-prefix"
+  f_has "$emr_lib" 'remote_n="$(aws s3 ls "$uri" --recursive | awk'
+  f_has "$emr_lib" '$0 ~ " reports/runs/[^/]+/(progress|failed)/" { next } { n++ } END { print n + 0 }'
+  f_has "$emr_lib" "aws s3 cp \"\$dir\" \"\$uri\" --recursive --exclude '_work/*' --only-show-errors"
+  f_has "$emr_lib" '[[ "$local_n" -eq "$remote_n" ]] || die "object count differs for $uri: local $local_n, listed $remote_n"'
+  case_end
+}
+static_wo50_cases
+
+### Dynamic cases: the helpers that feed the verdict.
+
+mr_new() {
+  MR_FIX="$EMR_FX/mr-$1"
+  rm -rf "$MR_FIX"
+  mkdir -p "$MR_FIX"
+  : > "$MR_FIX/hadoop.log"
+}
+
+# mr_log_yarn N REPEAT: N job_<ts>_<seq> ids in hadoop.log, each REPEAT times.
+mr_log_yarn() {
+  local i=1 r
+  while [ "$i" -le "$1" ]; do
+    r=0
+    while [ "$r" -lt "$2" ]; do
+      printf 'INFO mapreduce.Job: Running job: job_%s_%04d\n' "$MR_TS" "$i" >> "$MR_FIX/hadoop.log"
+      r=$((r + 1))
+    done
+    i=$((i + 1))
+  done
+}
+
+mr_log_local() {
+  local i=1
+  while [ "$i" -le "$1" ]; do
+    printf 'INFO mapreduce.Job: Running job: job_local1517040254_%04d\n' "$i" >> "$MR_FIX/hadoop.log"
+    i=$((i + 1))
+  done
+}
+
+# mr_yarn_list N: the output of the ResourceManager list: a header and N application lines.
+mr_yarn_list() {
+  local i=1
+  printf 'Total number of applications (application-types: [MAPREDUCE], states: [NEW, SUBMITTED, RUNNING, FINISHED, FAILED, KILLED] and tags: []):%s\n' "$1" > "$MR_FIX/yarn.txt"
+  while [ "$i" -le "$1" ]; do
+    printf 'application_%s_%04d\tPipelineTool-step\thadoop\tMAPREDUCE\tdefault\tFINISHED\tSUCCEEDED\t100%%\tN/A\n' "$MR_TS" "$i" >> "$MR_FIX/yarn.txt"
+    i=$((i + 1))
+  done
+}
+
+# mr_mapred FILE N TS: a mapred job -list style file (mapred-all.txt or mapred-list.txt).
+mr_mapred() {
+  local i=1
+  printf 'Total jobs:%s\n' "$2" > "$MR_FIX/$1"
+  while [ "$i" -le "$2" ]; do
+    printf 'job_%s_%04d\tSUCCEEDED\t1794701635999\thadoop\tDEFAULT\n' "$3" "$i" >> "$MR_FIX/$1"
+    i=$((i + 1))
+  done
+}
+
+# mr_ids TS N: "job_<ts>_0001 job_<ts>_0002 ..." as the record prints them.
+mr_ids() {
+  local i=1 out=""
+  while [ "$i" -le "$2" ]; do
+    out="${out}${out:+ }$(printf 'job_%s_%04d' "$1" "$i")"
+    i=$((i + 1))
+  done
+  printf '%s' "$out"
+}
+
+mr_run() {
+  run bash "$CODE_DIR/mr-chain.sh" "$EMR_DIR/lib-emr.sh" "$MR_BLOCK" "$MR_FIX" "$1"
+}
+
+mr_ok() {
+  a_rc 0
+  a_trip_empty
+  [ ! -s "$ERR" ] || note_fail "stderr is not empty: $(head -n 1 "$ERR" | cut -c1-140)"
+}
+
+# mr_expect MR PROOF ATTN SRC N
+mr_expect() {
+  a_out_re "^MR=$1\$"
+  a_out_re "^PROOF=$2\$"
+  a_out_re "^ATTN=$3\$"
+  a_out_re "^SRC=$4\$"
+  a_out_re "^N=$5\$"
+}
+
+# yarn: the ResourceManager lists exactly the expected number of applications, nothing local.
+mr_new yarn-rm-count-no-job-ids
+mr_yarn_list 9
+mr_run 9
+case_begin "14.emr.verdict.yarn-by-resourcemanager-application-count-with-no-job-id-in-the-log"
+mr_ok
+mr_expect yarn resourcemanager-application-ids no derived-from-application-ids 9
+a_out "IDS=$(mr_ids "$MR_TS" 9)"
+a_out_re '^APPS_N=9$'
+a_out_re '^YARN=0$'
+a_out_re '^LOCAL=0$'
+a_out "DETAIL=9 MAPREDUCE applications on the ResourceManager for 9 expected stages, 0 job_local id in the log, 0 job id(s) in the log"
+grep -qF "application_${MR_TS}_0009" "$MR_FIX/reports/mapreduce-yarn-list.log" || note_fail "the full list output was not kept in mapreduce-yarn-list.log"
+case_end
+
+mr_new yarn-job-ids-in-log
+mr_log_yarn 9 2
+mr_yarn_list 9
+mr_run 9
+case_begin "14.emr.verdict.yarn-proof-is-job-ids-in-log-when-the-log-holds-all-nine-ids"
+mr_ok
+mr_expect yarn job-ids-in-log no hadoop-log 9
+a_out "IDS=$(mr_ids "$MR_TS" 9)"
+a_out_re '^YARN=9$'
+a_out "DETAIL=9 MAPREDUCE applications on the ResourceManager for 9 expected stages, 0 job_local id in the log, 9 job id(s) in the log"
+case_end
+
+mr_new log-wins-over-the-other-sources
+mr_log_yarn 9 1
+mr_mapred mapred-all.txt 9 "$MR_TS_OTHER"
+mr_yarn_list 9
+mr_run 9
+case_begin "14.emr.job-ids.the-hadoop-log-wins-when-it-holds-all-expected-ids"
+mr_ok
+mr_expect yarn job-ids-in-log no hadoop-log 9
+a_out "IDS=$(mr_ids "$MR_TS" 9)"
+a_not_out "$MR_TS_OTHER"
+case_end
+
+mr_new mapred-list-all
+mr_mapred mapred-all.txt 9 "$MR_TS_OTHER"
+mr_yarn_list 9
+mr_run 9
+case_begin "14.emr.job-ids.source-mapred-job-list-all-when-the-log-holds-none"
+mr_ok
+mr_expect yarn resourcemanager-application-ids no mapred-job-list 9
+a_out "IDS=$(mr_ids "$MR_TS_OTHER" 9)"
+case_end
+
+mr_new mapred-list-fallback
+mr_mapred mapred-list.txt 9 "$MR_TS_OTHER"
+mr_yarn_list 9
+mr_run 9
+case_begin "14.emr.job-ids.source-mapred-job-list-without-all-when-the-first-call-gives-no-id"
+mr_ok
+mr_expect yarn resourcemanager-application-ids no mapred-job-list 9
+a_out "IDS=$(mr_ids "$MR_TS_OTHER" 9)"
+grep -qF 'mapred job -list all gave no job id; trying mapred job -list' "$MR_FIX/reports/mapreduce-job-list.log" || note_fail "mapreduce-job-list.log does not record the fallback to mapred job -list"
+case_end
+
+mr_new partial-log-derives
+mr_log_yarn 3 1
+mr_yarn_list 9
+mr_run 9
+case_begin "14.emr.job-ids.source-derived-from-application-ids-when-the-log-holds-only-some"
+mr_ok
+mr_expect yarn resourcemanager-application-ids no derived-from-application-ids 9
+a_out "IDS=$(mr_ids "$MR_TS" 9)"
+a_out_re '^YARN=3$'
+a_out "DETAIL=9 MAPREDUCE applications on the ResourceManager for 9 expected stages, 0 job_local id in the log, 3 job id(s) in the log"
+case_end
+
+mr_new tie-keeps-the-earlier-source
+mr_log_yarn 3 1
+mr_mapred mapred-all.txt 3 "$MR_TS_OTHER"
+mr_run 9
+case_begin "14.emr.job-ids.a-tie-keeps-the-earlier-source-and-nine-ids-in-the-log-alone-do-not-prove-yarn"
+mr_ok
+mr_expect unknown none yes hadoop-log 3
+a_out "IDS=$(mr_ids "$MR_TS" 3)"
+a_not_out "$MR_TS_OTHER"
+case_end
+
+# local, mixed and unknown.
+mr_new local-only
+mr_log_local 9
+mr_run 9
+case_begin "14.emr.verdict.local-when-only-job-local-ids-appear"
+mr_ok
+mr_expect local none yes hadoop-log 9
+a_out_re '^LOCAL=9$'
+a_out "DETAIL=9 local job id(s) job_local... found, no YARN job or application seen, 9 expected"
+case_end
+
+mr_new mixed-local-and-applications
+mr_log_local 1
+mr_yarn_list 9
+mr_run 9
+case_begin "14.emr.verdict.mixed-when-a-local-id-meets-nine-resourcemanager-applications-never-yarn"
+mr_ok
+mr_expect mixed none yes derived-from-application-ids 9
+a_out "DETAIL=1 local job id(s) job_local... and YARN evidence together (0 YARN job id(s) in the log, 9 MAPREDUCE application(s) on the ResourceManager), 9 expected"
+case_end
+
+mr_new mixed-local-and-yarn-log-ids
+mr_log_local 1
+mr_log_yarn 2 1
+mr_run 9
+case_begin "14.emr.verdict.mixed-when-a-local-id-meets-yarn-job-ids-in-the-log-without-a-list"
+mr_ok
+mr_expect mixed none yes hadoop-log 3
+a_out "DETAIL=1 local job id(s) job_local... and YARN evidence together (2 YARN job id(s) in the log, 0 MAPREDUCE application(s) on the ResourceManager), 9 expected"
+case_end
+
+mr_new unknown-empty-list
+printf 'Total number of applications (application-types: [MAPREDUCE], states: [NEW, SUBMITTED, RUNNING, FINISHED, FAILED, KILLED] and tags: []):0\n' > "$MR_FIX/yarn.txt"
+mr_run 9
+case_begin "14.emr.verdict.unknown-for-an-empty-list-with-the-counts-in-the-detail"
+mr_ok
+mr_expect unknown none yes none 0
+a_out_re '^APPS_N=0$'
+a_out "DETAIL=the ResourceManager lists 0 MAPREDUCE application(s) against 9 expected (empty or a different count), 0 job id(s) and 0 local id(s) in the log: not proven"
+case_end
+
+mr_new unknown-eight
+mr_log_yarn 2 1
+mr_yarn_list 8
+mr_run 9
+case_begin "14.emr.verdict.unknown-for-eight-applications-against-nine-expected"
+mr_ok
+mr_expect unknown none yes derived-from-application-ids 8
+a_out_re '^APPS_N=8$'
+a_out "DETAIL=the ResourceManager lists 8 MAPREDUCE application(s) against 9 expected (empty or a different count), 2 job id(s) and 0 local id(s) in the log: not proven"
+case_end
+
+mr_new unknown-ten
+mr_yarn_list 10
+mr_run 9
+case_begin "14.emr.verdict.unknown-for-ten-applications-against-nine-expected"
+mr_ok
+mr_expect unknown none yes derived-from-application-ids 10
+a_out "DETAIL=the ResourceManager lists 10 MAPREDUCE application(s) against 9 expected (empty or a different count), 0 job id(s) and 0 local id(s) in the log: not proven"
+case_end
+
+mr_new unknown-log-ids-without-a-list
+mr_log_yarn 9 1
+mr_run 9
+case_begin "14.emr.verdict.unknown-when-nine-yarn-job-ids-are-in-the-log-but-the-list-is-empty"
+mr_ok
+mr_expect unknown none yes hadoop-log 9
+a_out "DETAIL=the ResourceManager lists 0 MAPREDUCE application(s) against 9 expected (empty or a different count), 9 job id(s) and 0 local id(s) in the log: not proven"
+case_end
+
+mr_new expected-three-yarn
+mr_yarn_list 3
+mr_run 3
+case_begin "14.emr.verdict.the-expected-count-is-the-argument-not-a-literal-nine-yarn-for-three-of-three"
+mr_ok
+mr_expect yarn resourcemanager-application-ids no derived-from-application-ids 3
+a_out "DETAIL=3 MAPREDUCE applications on the ResourceManager for 3 expected stages, 0 job_local id in the log, 0 job id(s) in the log"
+case_end
+
+mr_new expected-three-unknown
+mr_yarn_list 9
+mr_run 3
+case_begin "14.emr.verdict.the-expected-count-is-the-argument-not-a-literal-nine-unknown-for-nine-of-three"
+mr_ok
+mr_expect unknown none yes derived-from-application-ids 9
+a_out "DETAIL=the ResourceManager lists 9 MAPREDUCE application(s) against 3 expected (empty or a different count), 0 job id(s) and 0 local id(s) in the log: not proven"
+case_end
+
+# The small pure helpers, one child run, four cases.
+mkdir -p "$EMR_FX/fn"
+printf 'job_1794701635353_10\njob_1794701635353_2\njob_1794701635352_100\njob_1794701635353_2\njob_12_3\nnot a job id\n' > "$EMR_FX/fn/jobs.txt"
+{
+  printf 'INFO Running job: job_local1517040254_0001\n'
+  printf 'INFO Running job: job_local1517040254_0001\n'
+  printf 'INFO Running job: job_local1517040254_0001\n'
+  printf 'INFO Running job: job_1794701635353_0001\n'
+  printf 'INFO Job job_1794701635353_0001 completed\n'
+  printf 'INFO Running job: job_1794701635353_0002\n'
+  printf 'INFO short id job_123_1 is not a job id of a cluster\n'
+} > "$EMR_FX/fn/classify.log"
+run bash "$CODE_DIR/fn-child.sh" "$EMR_DIR/lib-emr.sh" "$EMR_FX/fn"
+case_begin "14.emr.job-ids.derive-job-ids-replaces-the-prefix-and-drops-anything-else"
+mr_ok
+a_out "DERIVE1=job_1794701635353_0001 job_1794701635353_0002"
+a_out_re '^DERIVE2=$'
+a_out "DERIVE3=job_17_9"
+case_end
+case_begin "14.emr.job-ids.words-in-counts-space-separated-words"
+a_out_re '^WORDS0=0$'
+a_out_re '^WORDS3=3$'
+case_end
+case_begin "14.emr.job-ids.job-ids-in-file-sorts-numerically-drops-duplicates-and-short-ids"
+a_out "SORTED=job_1794701635352_100 job_1794701635353_2 job_1794701635353_10"
+case_end
+case_begin "14.emr.job-ids.classify-job-ids-counts-distinct-ids-by-kind-in-order-of-first-appearance"
+a_out_re '^CLS_N=3$'
+a_out_re '^CLS_YARN=2$'
+a_out_re '^CLS_LOCAL=1$'
+a_out "CLS_IDS=job_local1517040254_0001 job_1794701635353_0001 job_1794701635353_0002"
+case_end
+
+### Dynamic cases: stage seconds and the exit trap.
+
+run bash "$CODE_DIR/stage-child.sh" "$EMR_DIR/lib-emr.sh" ok
+case_begin "14.emr.stage-seconds.stage-ok-prints-the-unchanged-marker-then-the-seconds-and-no-checkpoint-unregistered"
+a_rc 0
+a_trip_empty
+a_order 'STAGE[1] alpha-beta: start' 'STAGE[1] alpha-beta: ok' 'STAGE_SECONDS_ALPHA_BETA='
+a_out_re '^STAGE_SECONDS_ALPHA_BETA=4[1-3]$'
+a_out_re '^STAGE_SECONDS_TOTAL=104[1-4]$'
+a_not_out 'progress checkpoint'
+a_not_out 'PROGRESS_'
+case_end
+
+run bash "$CODE_DIR/stage-child.sh" "$EMR_DIR/lib-emr.sh" fail
+case_begin "14.emr.stage-seconds.a-failed-stage-records-its-seconds-and-the-total-at-failure-and-keeps-the-exit-code"
+a_rc 1
+a_trip_empty
+a_out 'STAGE[1] boom-stage: FAIL (exit 1)'
+a_out_re '^STAGE_SECONDS_BOOM_STAGE=[6-9] \(stage failed\)$'
+a_out_re '^STAGE_SECONDS_TOTAL_AT_FAILURE=50[7-9]$'
+a_not_out 'FAILED_STAGE='
+case_end
+
+### Dynamic cases: sc_publish_progress and stage_ok checkpoints.
+
+pg_new() {
+  PG_FIX="$EMR_FX/pg-$1"
+  rm -rf "$PG_FIX"
+  mkdir -p "$PG_FIX/reports/sub"
+  printf 'hadoop line\n' > "$PG_FIX/reports/hadoop.log"
+  printf 'er line\n' > "$PG_FIX/reports/er.log"
+  printf 'inner\n' > "$PG_FIX/reports/sub/inner.log"
+  printf 'note %s\n' "$FAKE_AKIA" > "$PG_FIX/reports/secret.log"
+  awk 'BEGIN { for (i = 1; i <= 40; i++) printf "0123456789abcdef line %02d\n", i }' > "$PG_FIX/reports/big.log"
+  {
+    awk 'BEGIN { for (i = 1; i <= 40; i++) printf "filler filler filler line %02d\n", i }'
+    printf 'tail %s\n' "$FAKE_AKIA"
+  } > "$PG_FIX/reports/bigsecret.log"
+}
+
+# pg_run MODE [NAME=VALUE ...]
+pg_run() {
+  local mode="$1"
+  shift
+  run env "$@" bash "$CODE_DIR/progress-child.sh" "$EMR_DIR/lib-emr.sh" "$PG_FIX" "$mode"
+}
+
+pg_new ok
+pg_run ok CAP=400
+case_begin "14.emr.progress.checkpoint-reports-what-it-uploaded-skipped-and-never-prints-key-material"
+a_rc 0
+a_trip_empty
+a_out_re '^RC=0$'
+a_out "PROGRESS_PUBLISHED=s3://data-bucket/reports/runs/run-v1-x/progress/ checkpoint=checkpoint-1"
+a_out "NOTE: progress checkpoint checkpoint-1: 5 file(s) uploaded, 2 skipped, 0 failed"
+a_out "PROGRESS_SKIPPED file=secret.log reason=key-material-pattern (content not printed)"
+a_out "PROGRESS_SKIPPED file=bigsecret.log.tail reason=key-material-pattern (content not printed)"
+if grep -qF -- "$FAKE_AKIA" "$OUT" "$ERR"; then note_fail "the matched text was printed"; fi
+case_end
+
+case_begin "14.emr.progress.uploads-only-the-small-files-the-tail-of-a-large-one-and-never-a-secret-or-a-directory"
+PG_UP="$PG_FIX/uploads"
+PG_NAMES="$(find "$PG_UP" -type f | sed 's|.*/||' | sort | tr '\n' ' ')"
+[ "$PG_NAMES" = "big.log.tail er.log hadoop.log progress.env run-record.env " ] || note_fail "uploaded names: $PG_NAMES"
+grep -qx 'RUN_ID=abc' "$PG_UP/run-record.env" || note_fail "run-record.env lacks the key=value lines so far"
+grep -qx 'CHECKPOINT=checkpoint-1' "$PG_UP/progress.env" || note_fail "progress.env lacks CHECKPOINT=checkpoint-1"
+grep -qx 'STAGE=3 hadoop open=0' "$PG_UP/progress.env" || note_fail "progress.env lacks the stage line"
+grep -qE '^UPDATED_UTC=[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' "$PG_UP/progress.env" || note_fail "progress.env lacks a UTC time"
+grep -qE '^ELAPSED_SECONDS=[0-9]+$' "$PG_UP/progress.env" || note_fail "progress.env lacks ELAPSED_SECONDS"
+grep -qF 'NOTE=latest checkpoint only' "$PG_UP/progress.env" || note_fail "progress.env lacks the latest-only note"
+if ! tail -c 400 "$PG_FIX/reports/big.log" | cmp -s - "$PG_UP/big.log.tail"; then note_fail "big.log.tail is not the last 400 bytes of big.log"; fi
+if grep -rqF -- "$FAKE_AKIA" "$PG_UP"; then note_fail "key material was uploaded"; fi
+case_end
+
+case_begin "14.emr.progress.every-call-is-one-timed-aws-s3-cp-of-one-file-to-the-progress-prefix"
+PG_CALLS="$PG_FIX/calls.log"
+[ "$(grep -c '^AWS ' "$PG_CALLS")" = "5" ] || note_fail "expected 5 aws calls, found $(grep -c '^AWS ' "$PG_CALLS")"
+[ "$(grep -c '^TIMEOUT ' "$PG_CALLS")" = "5" ] || note_fail "expected 5 timeout wrappers, found $(grep -c '^TIMEOUT ' "$PG_CALLS")"
+PG_BAD="$(grep '^AWS ' "$PG_CALLS" | grep -vE '^AWS s3 cp [^ ]+ s3://data-bucket/reports/runs/run-v1-x/progress/[A-Za-z0-9._-]+ --only-show-errors$' | head -n 1)"
+[ -z "$PG_BAD" ] || note_fail "an aws call has another shape: $PG_BAD"
+PG_TO="$(awk '$1 == "TIMEOUT" && ($2 < 1 || $2 > 60) { print }' "$PG_CALLS" | head -n 1)"
+[ -z "$PG_TO" ] || note_fail "a timeout is outside 1 to 60 seconds: $PG_TO"
+case_end
+
+pg_new fail
+pg_run fail CAP=400
+case_begin "14.emr.progress.aws-failures-are-counted-and-swallowed-the-checkpoint-still-returns-zero"
+a_rc 0
+a_trip_empty
+a_out_re '^RC=0$'
+a_out "NOTE: progress checkpoint checkpoint-1: 0 file(s) uploaded, 2 skipped, 5 failed"
+a_not_out "PROGRESS_PUBLISHED="
+[ "$(grep -c '^AWS-FAILED ' "$PG_FIX/calls.log")" = "5" ] || note_fail "expected 5 failed aws calls"
+if grep -qF -- "$FAKE_AKIA" "$OUT" "$ERR"; then note_fail "the matched text was printed"; fi
+case_end
+
+pg_new budget
+pg_run ok CAP=400 BUDGET=0
+case_begin "14.emr.progress.an-exhausted-time-budget-calls-no-aws-and-still-returns-zero"
+a_rc 0
+a_trip_empty
+a_out_re '^RC=0$'
+a_out "NOTE: progress checkpoint checkpoint-1: 0 file(s) uploaded, 2 skipped, 5 failed"
+[ "$(grep -c '^AWS' "$PG_FIX/calls.log")" = "0" ] || note_fail "aws was called with no time budget left"
+case_end
+
+pg_new unregistered
+pg_run unregistered
+case_begin "14.emr.progress.does-nothing-before-register-failure-logs-ran"
+a_rc 0
+a_trip_empty
+[ "$(cat "$OUT")" = "RC=0" ] || note_fail "stdout is not exactly RC=0"
+[ ! -s "$PG_FIX/calls.log" ] || note_fail "a call was made before register_failure_logs"
+case_end
+
+pg_new nodir
+pg_run nodir
+case_begin "14.emr.progress.does-nothing-when-the-reports-directory-is-missing"
+a_rc 0
+a_trip_empty
+[ "$(cat "$OUT")" = "RC=0" ] || note_fail "stdout is not exactly RC=0"
+[ ! -s "$PG_FIX/calls.log" ] || note_fail "a call was made with no reports directory"
+case_end
+
+pg_new stages
+pg_run stages
+case_begin "14.emr.progress.stage-ok-checkpoints-after-every-stage-but-the-publish-stage"
+a_rc 0
+a_trip_empty
+a_order 'STAGE[1] one-a: start' 'STAGE[1] one-a: ok' 'STAGE_SECONDS_ONE_A=' 'PROGRESS_PUBLISHED=' 'STAGE[2] publish: start' 'STAGE[2] publish: ok' 'STAGE_SECONDS_PUBLISH='
+a_out_re '^STAGE_SECONDS_ONE_A=[0-9]+$'
+a_out 'checkpoint=after-stage-1-one-a'
+a_not_out 'after-stage-2-publish'
+[ "$(grep -c '^NOTE: progress checkpoint' "$OUT")" = "1" ] || note_fail "expected exactly one checkpoint note"
+grep -q '^STAGE_SECONDS_ONE_A=' "$PG_FIX/uploads/run-record.env" || note_fail "the checkpoint's run-record.env lacks the stage seconds just recorded"
+case_end
+
+### Dynamic cases: the publish count.
+
+pb_new() {
+  PB_FIX="$EMR_FX/pb-$1"
+  rm -rf "$PB_FIX"
+  mkdir -p "$PB_FIX/out"
+  : > "$PB_FIX/ls.txt"
+  printf 'a\n' > "$PB_FIX/out/a.txt"
+  printf 'b\n' > "$PB_FIX/out/b.txt"
+}
+pb_ls() {
+  printf '2026-11-15 00:00:00 %9d %s\n' 10 "$1" >> "$PB_FIX/ls.txt"
+}
+pb_run() {
+  run bash "$CODE_DIR/publish-child.sh" "$EMR_DIR/lib-emr.sh" "$PB_FIX" "$PB_FIX/out" "$1"
+}
+PB_REP="s3://harness-bucket/reports/runs/r1/"
+
+pb_new ok
+pb_ls reports/runs/r1/a.txt
+pb_ls reports/runs/r1/b.txt
+pb_ls reports/runs/r1/progress/run-record.env
+pb_ls reports/runs/r1/progress/progress.env
+pb_ls reports/runs/r1/progress/hadoop.log
+pb_ls reports/runs/r1/failed/20261115T000000Z/hadoop.log
+pb_ls reports/runs/r1/failed/20261115T000000Z/run-record.env
+pb_run "$PB_REP"
+case_begin "14.emr.publish-count.progress-and-failed-keys-of-the-reports-prefix-are-not-counted"
+mr_ok
+a_out "PUBLISHED uri=${PB_REP} files_local=2 objects_listed=2"
+a_out_re '^RC=0$'
+case_end
+case_begin "14.emr.publish-count.the-copy-is-recursive-skips-work-and-uses-no-sync-or-delete"
+grep -qF -- "AWS s3 cp $PB_FIX/out $PB_REP --recursive --exclude _work/* --only-show-errors" "$PB_FIX/calls.log" || note_fail "the aws copy call has another shape: $(head -n 1 "$PB_FIX/calls.log")"
+[ "$(grep -c '^AWS ' "$PB_FIX/calls.log")" = "1" ] || note_fail "publish made more than one aws call besides the listing"
+case_end
+
+pb_new extra
+pb_ls reports/runs/r1/a.txt
+pb_ls reports/runs/r1/b.txt
+pb_ls reports/runs/r1/c.txt
+pb_ls reports/runs/r1/progress/progress.env
+pb_run "$PB_REP"
+case_begin "14.emr.publish-count.an-extra-object-outside-progress-and-failed-is-refused"
+a_rc 1
+a_err_evidence
+a_err "object count differs for ${PB_REP}: local 2, listed 3"
+a_not_out "RC=0"
+a_trip_empty
+case_end
+
+pb_new progressive
+pb_ls reports/runs/r1/a.txt
+pb_ls reports/runs/r1/b.txt
+pb_ls reports/runs/r1/progressive/x.log
+pb_run "$PB_REP"
+case_begin "14.emr.publish-count.a-prefix-that-only-starts-with-progress-is-counted"
+a_rc 1
+a_err "object count differs for ${PB_REP}: local 2, listed 3"
+a_trip_empty
+case_end
+
+pb_new missing
+pb_ls reports/runs/r1/a.txt
+pb_ls reports/runs/r1/progress/run-record.env
+pb_ls reports/runs/r1/progress/progress.env
+pb_ls reports/runs/r1/failed/20261115T000000Z/hadoop.log
+pb_run "$PB_REP"
+case_begin "14.emr.publish-count.progress-keys-do-not-hide-a-missing-object"
+a_rc 1
+a_err "object count differs for ${PB_REP}: local 2, listed 1"
+a_trip_empty
+case_end
+
+pb_new other-prefix
+mkdir -p "$PB_FIX/out/failed"
+printf 'c\n' > "$PB_FIX/out/failed/c.txt"
+pb_ls curated/runs/r1/hadoop/a.txt
+pb_ls curated/runs/r1/hadoop/b.txt
+pb_ls curated/runs/r1/hadoop/failed/c.txt
+pb_run "s3://harness-bucket/curated/runs/r1/hadoop/"
+case_begin "14.emr.publish-count.outside-the-reports-prefix-a-failed-directory-is-counted"
+mr_ok
+a_out "PUBLISHED uri=s3://harness-bucket/curated/runs/r1/hadoop/ files_local=3 objects_listed=3"
+case_end
+
+### Dynamic cases: the Spark executor settings.
+
+sp_new() {
+  SP_HOME="$EMR_FX/sp-$1"
+  rm -rf "$SP_HOME"
+  mkdir -p "$SP_HOME"
+}
+sp_run() {
+  run bash "$CODE_DIR/sparkconf-child.sh" "$EMR_DIR/lib-emr.sh" "$SP_HOME"
+}
+# conf_val FILE KEY: the value of the one KEY=VALUE line (comment lines never start with KEY).
+conf_val() {
+  sed -n "s/^$2=\\(.*\\)\$/\\1/p" "$1" | head -n 1
+}
+
+sp_new defaults
+sp_run
+cp "$OUT" "$EMR_FX/spark-defaults-from-code.conf"
+case_begin "14.emr.spark-conf.defaults-are-two-executors-of-two-cores-and-3g-with-dynamic-allocation-off"
+mr_ok
+a_out_re '^spark\.executor\.instances 2$'
+a_out_re '^spark\.executor\.cores 2$'
+a_out_re '^spark\.executor\.memory 3g$'
+a_out_re '^spark\.driver\.memory 2g$'
+a_out_re '^spark\.yarn\.am\.memory 1g$'
+a_out_re '^spark\.dynamicAllocation\.enabled false$'
+a_out_re '^spark\.yarn\.populateHadoopClasspath false$'
+a_out_re '^spark\.ui\.enabled false$'
+a_out_re '^spark\.hadoop\.fs\.permissions\.umask-mode 000$'
+[ "$(grep -c '^spark\.executor\.instances ' "$OUT")" = "1" ] || note_fail "spark.executor.instances is not set exactly once"
+a_not_out "spark.dynamicAllocation.enabled true"
+case_end
+
+sp_new real-file
+cp "$EMR_DIR/spark-yarn.conf" "$SP_HOME/spark-yarn.conf"
+sp_run
+case_begin "14.emr.spark-conf.the-real-spark-yarn-conf-and-the-defaults-in-the-code-agree"
+mr_ok
+cmp -s "$OUT" "$EMR_FX/spark-defaults-from-code.conf" || note_fail "spark-defaults.conf from scripts/emr/spark-yarn.conf differs from the one the code defaults give"
+a_out_re '^spark\.executor\.instances 2$'
+a_out_re '^spark\.executor\.memory 3g$'
+case_end
+
+# The container arithmetic of work order 49, computed from the file: a heap in g or m plus
+# max(384 MB, 10 percent) as overhead, per executor, plus the application master.
+mb_of() {
+  case "$1" in
+    *g) printf '%s' $((${1%g} * 1024)) ;;
+    *m) printf '%s' "${1%m}" ;;
+    *) printf '%s' 0 ;;
+  esac
+}
+container_mb() {
+  local heap ov
+  heap="$(mb_of "$1")"
+  ov=$((heap / 10))
+  if [ "$ov" -lt 384 ]; then ov=384; fi
+  printf '%s' $((heap + ov))
+}
+static_begin "14.emr.spark-conf.container-arithmetic-from-the-file-fits-the-node-and-the-comment-states-it"
+SP_CONF="$EMR_DIR/spark-yarn.conf"
+SP_EI="$(conf_val "$SP_CONF" EXECUTOR_INSTANCES)"
+SP_EC="$(conf_val "$SP_CONF" EXECUTOR_CORES)"
+SP_EM="$(conf_val "$SP_CONF" EXECUTOR_MEMORY)"
+SP_AM="$(conf_val "$SP_CONF" AM_MEMORY)"
+[ "$SP_EI" = "2" ] || note_fail "EXECUTOR_INSTANCES is '$SP_EI', expected 2"
+[ "$SP_EC" = "2" ] || note_fail "EXECUTOR_CORES is '$SP_EC', expected 2"
+[ "$SP_EM" = "3g" ] || note_fail "EXECUTOR_MEMORY is '$SP_EM', expected 3g"
+if [ -n "$SP_EI" ] && [ -n "$SP_EC" ] && [ -n "$SP_EM" ] && [ -n "$SP_AM" ]; then
+  SP_TOTAL=$((SP_EI * $(container_mb "$SP_EM") + $(container_mb "$SP_AM")))
+  [ "$SP_TOTAL" -le 12288 ] || note_fail "the containers ask $SP_TOTAL MB, above the believed node manager limit of 12288 MB"
+  [ $((SP_EI * SP_EC)) -le 4 ] || note_fail "$SP_EI executors of $SP_EC cores ask more than the 4 vCPUs of an m5.xlarge"
+  f_has "$SP_CONF" "total asked of the node manager $SP_TOTAL MB"
+else
+  note_fail "a key is missing from spark-yarn.conf"
+fi
+case_end
+
+sp_new override
+printf 'EXECUTOR_INSTANCES=3\n' > "$SP_HOME/spark-yarn.conf"
+sp_run
+case_begin "14.emr.spark-conf.a-value-in-the-conf-file-overrides-the-default"
+mr_ok
+a_out_re '^spark\.executor\.instances 3$'
+a_out_re '^spark\.executor\.cores 2$'
+case_end
+
+sp_new bad-instances
+printf 'EXECUTOR_INSTANCES=two\n' > "$SP_HOME/spark-yarn.conf"
+sp_run
+case_begin "14.emr.spark-conf.a-non-numeric-instance-count-is-refused"
+a_rc 1
+a_err "spark-yarn.conf: EXECUTOR_INSTANCES has an invalid value"
+[ ! -s "$OUT" ] || note_fail "stdout is not empty on a refusal"
+a_trip_empty
+case_end
+
+sp_new bad-memory
+printf 'EXECUTOR_MEMORY=3\n' > "$SP_HOME/spark-yarn.conf"
+sp_run
+case_begin "14.emr.spark-conf.executor-memory-without-a-unit-is-refused"
+a_rc 1
+a_err "spark-yarn.conf: EXECUTOR_MEMORY has an invalid value"
+a_trip_empty
+case_end
+
+sp_new bad-cores
+printf 'EXECUTOR_CORES=2.5\n' > "$SP_HOME/spark-yarn.conf"
+sp_run
+case_begin "14.emr.spark-conf.a-decimal-core-count-is-refused"
+a_rc 1
+a_err "spark-yarn.conf: EXECUTOR_CORES has an invalid value"
+a_trip_empty
+case_end
+
+sp_new comments
+printf '# EXECUTOR_INSTANCES=9\n\n   # EXECUTOR_CORES=9\n' > "$SP_HOME/spark-yarn.conf"
+sp_run
+case_begin "14.emr.spark-conf.comment-and-blank-lines-never-set-a-value"
+mr_ok
+a_out_re '^spark\.executor\.instances 2$'
+a_out_re '^spark\.executor\.cores 2$'
+case_end
+
+### Terraform: Rule A and the S overlay (work order 49), read as text.
+
+TF_DIR="$REAL_ROOT/infra/terraform"
+WF_VARS="$TF_DIR/modules/workflow/variables.tf"
+CRS_VARS="$TF_DIR/environments/course/variables.tf"
+TF_S="$TF_DIR/environments/course/experiment-size-s.tfvars"
+TF_M="$TF_DIR/environments/course/experiment-size-m.tfvars"
+TF_L="$TF_DIR/environments/course/experiment-size-l.tfvars"
+
+# tf_num FILE NAME: the last numeric assignment "NAME = N" outside comment lines.
+tf_num() {
+  grep -v '^[[:space:]]*#' "$1" | sed -n "s/^$2[[:space:]]*=[[:space:]]*\\([0-9][0-9]*\\)[[:space:]]*\$/\\1/p" | tail -n 1
+}
+tf_count() {
+  grep -cE "^$2[[:space:]]*=" "$1"
+}
+# tf_def_in FILE VARIABLE: the default of a variable block, as the text after the "=".
+tf_def_in() {
+  awk -v v="$2" '
+    $0 ~ "^variable \"" v "\" " { f = 1; next }
+    f && /^}/ { exit }
+    f && /^[[:space:]]*default[[:space:]]*=/ { sub(/^[^=]*=[[:space:]]*/, ""); print; exit }
+  ' "$1"
+}
+tf_is_num() {
+  case "$1" in
+    "" | *[!0-9]*) return 1 ;;
+  esac
+  return 0
+}
+# tf_rule_a MAX CREATE STEP: succeeds when MAX >= CREATE + STEP + 600 (all whole numbers).
+tf_rule_a() {
+  tf_is_num "$1" || return 1
+  tf_is_num "$2" || return 1
+  tf_is_num "$3" || return 1
+  [ "$1" -ge $((${2} + ${3} + 600)) ]
+}
+# tf_overlay FILE: sets TF_MAX, TF_CREATE, TF_STEP and TF_LOAD from the overlay.
+tf_overlay() {
+  TF_MAX="$(tf_num "$1" pipeline_max_run_seconds)"
+  TF_CREATE="$(tf_num "$1" pipeline_create_cluster_timeout_seconds)"
+  TF_STEP="$(tf_num "$1" pipeline_emr_step_timeout_seconds)"
+  TF_LOAD="$(tf_num "$1" pipeline_loader_timeout_seconds)"
+}
+
+static_begin "14.terraform.rule-a.the-workflow-module-counts-the-one-step-once-plus-600"
+f_has "$WF_VARS" 'condition     = var.max_run_seconds >= var.create_cluster_timeout_seconds + var.emr_step_timeout_seconds + 600'
+f_has "$WF_VARS" 'Rule A: max_run_seconds must be at least create_cluster_timeout_seconds + emr_step_timeout_seconds + 600'
+f_has_not_re "$WF_VARS" '2[[:space:]]*\*[[:space:]]*var[.]emr_step_timeout_seconds|var[.]emr_step_timeout_seconds[[:space:]]*\*[[:space:]]*2'
+f_has_not "$WF_VARS" 'var.emr_step_timeout_seconds + 300'
+f_has "$WF_VARS" 'condition     = var.max_run_seconds >= 1800 && var.max_run_seconds <= 10800'
+case_end
+
+static_begin "14.terraform.rule-a.module-defaults-pass-it-and-agree-with-the-course-variables"
+TF_WD_MAX="$(tf_def_in "$WF_VARS" max_run_seconds)"
+TF_WD_CREATE="$(tf_def_in "$WF_VARS" create_cluster_timeout_seconds)"
+TF_WD_STEP="$(tf_def_in "$WF_VARS" emr_step_timeout_seconds)"
+TF_CD_MAX="$(tf_def_in "$CRS_VARS" pipeline_max_run_seconds)"
+TF_CD_CREATE="$(tf_def_in "$CRS_VARS" pipeline_create_cluster_timeout_seconds)"
+TF_CD_STEP="$(tf_def_in "$CRS_VARS" pipeline_emr_step_timeout_seconds)"
+[ "$TF_WD_MAX" = "$TF_CD_MAX" ] || note_fail "max run default differs: module $TF_WD_MAX, course $TF_CD_MAX"
+[ "$TF_WD_CREATE" = "$TF_CD_CREATE" ] || note_fail "create default differs: module $TF_WD_CREATE, course $TF_CD_CREATE"
+[ "$TF_WD_STEP" = "$TF_CD_STEP" ] || note_fail "step default differs: module $TF_WD_STEP, course $TF_CD_STEP"
+tf_rule_a "$TF_WD_MAX" "$TF_WD_CREATE" "$TF_WD_STEP" || note_fail "the module defaults $TF_WD_MAX, $TF_WD_CREATE, $TF_WD_STEP fail Rule A"
+case_end
+
+static_begin "14.terraform.s-overlay.timeouts-are-7200-1440-3600-1800"
+tf_overlay "$TF_S"
+[ "$TF_MAX" = "7200" ] || note_fail "pipeline_max_run_seconds is '$TF_MAX', expected 7200"
+[ "$TF_CREATE" = "1440" ] || note_fail "pipeline_create_cluster_timeout_seconds is '$TF_CREATE', expected 1440"
+[ "$TF_STEP" = "3600" ] || note_fail "pipeline_emr_step_timeout_seconds is '$TF_STEP', expected 3600"
+[ "$TF_LOAD" = "1800" ] || note_fail "pipeline_loader_timeout_seconds is '$TF_LOAD', expected 1800"
+case_end
+
+static_begin "14.terraform.s-overlay.passes-rule-a-from-its-own-values"
+tf_overlay "$TF_S"
+tf_rule_a "$TF_MAX" "$TF_CREATE" "$TF_STEP" || note_fail "S fails Rule A: $TF_MAX < $TF_CREATE + $TF_STEP + 600"
+case_end
+
+static_begin "14.terraform.m-overlay.passes-rule-a-from-its-own-values"
+tf_overlay "$TF_M"
+tf_rule_a "$TF_MAX" "$TF_CREATE" "$TF_STEP" || note_fail "M fails Rule A: '$TF_MAX' < '$TF_CREATE' + '$TF_STEP' + 600"
+case_end
+
+static_begin "14.terraform.l-overlay.passes-rule-a-from-its-own-values"
+tf_overlay "$TF_L"
+tf_rule_a "$TF_MAX" "$TF_CREATE" "$TF_STEP" || note_fail "L fails Rule A: '$TF_MAX' < '$TF_CREATE' + '$TF_STEP' + 600"
+case_end
+
+static_begin "14.terraform.overlays.set-each-pipeline-variable-exactly-once"
+for tf_o in "$TF_S" "$TF_M" "$TF_L"; do
+  for tf_v in pipeline_max_run_seconds pipeline_create_cluster_timeout_seconds pipeline_emr_step_timeout_seconds pipeline_loader_timeout_seconds; do
+    [ "$(tf_count "$tf_o" "$tf_v")" = "1" ] || note_fail "${tf_o##*/} sets $tf_v $(tf_count "$tf_o" "$tf_v") times"
+  done
+done
+case_end
+
+static_begin "14.terraform.overlays.stay-inside-the-variable-ranges"
+f_has "$CRS_VARS" 'condition     = var.pipeline_max_run_seconds >= 1800 && var.pipeline_max_run_seconds <= 10800'
+f_has "$CRS_VARS" 'condition     = var.pipeline_create_cluster_timeout_seconds >= 300 && var.pipeline_create_cluster_timeout_seconds <= 3600'
+f_has "$CRS_VARS" 'condition     = var.pipeline_emr_step_timeout_seconds >= 300 && var.pipeline_emr_step_timeout_seconds <= 7200'
+f_has "$CRS_VARS" 'condition     = var.pipeline_loader_timeout_seconds >= 300 && var.pipeline_loader_timeout_seconds <= 7200'
+for tf_o in "$TF_S" "$TF_M" "$TF_L"; do
+  tf_overlay "$tf_o"
+  if tf_is_num "$TF_MAX" && tf_is_num "$TF_CREATE" && tf_is_num "$TF_STEP" && tf_is_num "$TF_LOAD"; then
+    { [ "$TF_MAX" -ge 1800 ] && [ "$TF_MAX" -le 10800 ]; } || note_fail "${tf_o##*/}: max run $TF_MAX is outside 1800 to 10800"
+    { [ "$TF_CREATE" -ge 300 ] && [ "$TF_CREATE" -le 3600 ]; } || note_fail "${tf_o##*/}: create $TF_CREATE is outside 300 to 3600"
+    { [ "$TF_STEP" -ge 300 ] && [ "$TF_STEP" -le 7200 ]; } || note_fail "${tf_o##*/}: step $TF_STEP is outside 300 to 7200"
+    { [ "$TF_LOAD" -ge 300 ] && [ "$TF_LOAD" -le 7200 ]; } || note_fail "${tf_o##*/}: loader $TF_LOAD is outside 300 to 7200"
+  else
+    note_fail "${tf_o##*/}: a pipeline value could not be read as a whole number"
+  fi
+done
+case_end
+
+static_begin "14.terraform.rule-a.the-evaluator-in-this-harness-is-exact-at-the-boundary"
+tf_rule_a 5640 1440 3600 || note_fail "the exact boundary 5640 = 1440 + 3600 + 600 was refused"
+if tf_rule_a 5639 1440 3600; then note_fail "one below the boundary was accepted"; fi
+if tf_rule_a "" 1440 3600; then note_fail "an empty maximum was accepted"; fi
+if tf_rule_a 7200 1440 "3600s"; then note_fail "a non-numeric step was accepted"; fi
+case_end
+
+static_begin "14.terraform.s-overlay.comment-arithmetic-and-the-module-worst-case-figure-match-the-values"
+tf_overlay "$TF_S"
+if tf_is_num "$TF_MAX" && tf_is_num "$TF_CREATE" && tf_is_num "$TF_STEP" && tf_is_num "$TF_LOAD"; then
+  f_has "$TF_S" "$TF_CREATE + $TF_STEP + 600 = $((TF_CREATE + TF_STEP + 600)) <= $TF_MAX"
+  f_has "$TF_S" "$TF_CREATE + 300 + $TF_STEP + 900 + $TF_LOAD = $((TF_CREATE + 300 + TF_STEP + 900 + TF_LOAD)) > $TF_MAX"
+  f_has "$WF_VARS" "S overlay: $((TF_CREATE + 300 + TF_STEP + 900 + TF_LOAD)) against $TF_MAX"
+else
+  note_fail "a pipeline value of the S overlay could not be read as a whole number"
+fi
+case_end
+
+static_begin "14.terraform.m-and-l-overlays.comment-arithmetic-matches-the-values"
+tf_overlay "$TF_M"
+if tf_is_num "$TF_MAX" && tf_is_num "$TF_CREATE" && tf_is_num "$TF_STEP"; then
+  f_has "$TF_M" "$TF_CREATE + $TF_STEP + 600 = $((TF_CREATE + TF_STEP + 600)) <= $TF_MAX"
+else
+  note_fail "a pipeline value of the M overlay could not be read as a whole number"
+fi
+tf_overlay "$TF_L"
+if tf_is_num "$TF_MAX" && tf_is_num "$TF_CREATE" && tf_is_num "$TF_STEP"; then
+  f_has "$TF_L" "$TF_CREATE + $TF_STEP + 600 = $((TF_CREATE + TF_STEP + 600)) <= $TF_MAX"
+else
+  note_fail "a pipeline value of the L overlay could not be read as a whole number"
+fi
+case_end
+
 ### Case 12: secrets, the tripwire and the real repository ---------------------------------
 
 SECRET_RE='AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIV''ATE KEY-----|aws_secret_''access_key'

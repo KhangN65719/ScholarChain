@@ -371,7 +371,7 @@ variable "deployer_require_mfa" {
 ### Pipeline bounds
 
 variable "pipeline_max_run_seconds" {
-  description = "Timeout of one whole pipeline execution, 1800 to 10800 seconds. Default 10800 (the 150-minute tier L script cap plus 30 minutes). Set per run in the experiment tfvars: S 5400, M 7200, L 10800. When it fires, CleanupOnFailure does NOT run (same as StopExecution): an EMR cluster left behind falls to the 900 s idle auto-termination and to the human's cleanup. Rule A (enforced in the workflow module): pipeline_create_cluster_timeout_seconds + 2 x pipeline_emr_step_timeout_seconds + 300 must not exceed this value. Known limitation, not enforced (human decision O1, phase 13 D10): create + 2 x EMR step + 900 + pipeline_loader_timeout_seconds exceeds it on every tier (infra README, Pipeline bounds)."
+  description = "Timeout of one whole pipeline execution, 1800 to 10800 seconds. Default 10800 (the 150-minute tier L script cap plus 30 minutes). Set per run in the experiment tfvars: S 7200 (work order 49; was 5400), M 7200, L 10800. When it fires, CleanupOnFailure does NOT run (same as StopExecution): an EMR cluster left behind falls to the 900 s idle auto-termination and to the human's cleanup. Rule A (enforced in the workflow module, changed in work order 49): pipeline_create_cluster_timeout_seconds + pipeline_emr_step_timeout_seconds + 600 must not exceed this value. Known limitation, not enforced (human decision O1, phase 13 D10): create + 300 (fetch) + EMR step + 900 + pipeline_loader_timeout_seconds can exceed it (infra README, Pipeline bounds). The S overlay now sets 7200 (work order 49)."
   type        = number
   default     = 10800
 
@@ -393,7 +393,7 @@ variable "pipeline_create_cluster_timeout_seconds" {
 }
 
 variable "pipeline_emr_step_timeout_seconds" {
-  description = "Timeout of the Hadoop step and of the Spark step, each, 300 to 7200 seconds. Default 3600. Set per tier in the experiment tfvars: S 1800, M 2700, L 3600 (unchanged from repair round 2; the estimate's HIGH Hadoop plus Spark time is S 2160, M 3600, L 7200 s, which does not fit under the current execution timeouts: accepted under human decision O1, see the infra README, Pipeline bounds). On timeout the execution goes to CleanupOnFailure and then Failed. A legitimate single step longer than this value is stopped. Tied to pipeline_max_run_seconds by Rule A (checked in the workflow module)."
+  description = "Timeout of the one pipeline script step (Hadoop, ER, Spark, export and publish together), 300 to 7200 seconds. Default 3600. Set per tier in the experiment tfvars: S 3600 (work order 49; was 1800), M 2700, L 3600 (M and L unchanged from repair round 2; the estimate's HIGH Hadoop plus Spark time is S 2160, M 3600, L 7200 s, which does not fit under the current execution timeouts: accepted under human decision O1, see the infra README, Pipeline bounds). On timeout the execution goes to CleanupOnFailure and then Failed. A legitimate single step longer than this value is stopped. Tied to pipeline_max_run_seconds by Rule A (checked in the workflow module)."
   type        = number
   default     = 3600
 

@@ -55,6 +55,14 @@ SC_STAGE_N=0
 SC_STAGE_NAME="init"
 SC_STAGE_OPEN=0
 SC_KV=""
+# Elapsed-time bookkeeping (bash's SECONDS counter): the script start, and the start of
+# the open stage. Every stage records STAGE_SECONDS_<NAME>, which sizes the step cap.
+SC_T0=$SECONDS
+SC_STAGE_T0=$SECONDS
+# A checkpoint file larger than this is uploaded as its last SC_PROGRESS_MAX_BYTES bytes.
+SC_PROGRESS_MAX_BYTES=2097152
+# The whole checkpoint upload (every file together) gets at most this many seconds.
+SC_PROGRESS_BUDGET_SECONDS=60
 
 # Set by register_failure_logs once a run has a reports directory: where sc_on_exit
 # publishes the logs when a stage fails.
@@ -77,12 +85,33 @@ stage() {
   SC_STAGE_N=$((SC_STAGE_N + 1))
   SC_STAGE_NAME="$1"
   SC_STAGE_OPEN=1
+  SC_STAGE_T0=$SECONDS
   printf 'STAGE[%s] %s: start\n' "$SC_STAGE_N" "$SC_STAGE_NAME"
 }
 
+# stage_key: the open stage's name as a record key part (spark-stage -> SPARK_STAGE).
+stage_key() {
+  printf '%s' "$SC_STAGE_NAME" | tr 'a-z-' 'A-Z_'
+}
+
+# record_total_seconds KEY: KEY=<seconds since the script started>.
+record_total_seconds() {
+  kv "$1" "$((SECONDS - SC_T0))"
+}
+
+# stage_ok: the marker line is unchanged (the harness and the logs grep it); the elapsed
+# seconds of the stage follow as STAGE_SECONDS_<NAME>=<n>. After a stage of a registered
+# run (see register_failure_logs) a progress checkpoint is published, best effort, so a
+# kill from outside (the state machine's step timeout) still leaves the evidence up to
+# the last finished stage. The publish stage is the end of the run and is not checkpointed.
 stage_ok() {
+  local elapsed=$((SECONDS - SC_STAGE_T0))
   printf 'STAGE[%s] %s: ok\n' "$SC_STAGE_N" "$SC_STAGE_NAME"
   SC_STAGE_OPEN=0
+  kv "STAGE_SECONDS_$(stage_key)" "$elapsed"
+  if [[ "$SC_STAGE_NAME" != "publish" ]]; then
+    sc_publish_progress "after-stage-$SC_STAGE_N-$SC_STAGE_NAME" || true
+  fi
 }
 
 sc_on_exit() {
@@ -92,7 +121,9 @@ sc_on_exit() {
   if [[ $rc -ne 0 ]]; then
     if [[ $SC_STAGE_OPEN -eq 1 ]]; then
       printf 'STAGE[%s] %s: FAIL (exit %s)\n' "$SC_STAGE_N" "$SC_STAGE_NAME" "$rc"
+      kv "STAGE_SECONDS_$(stage_key)" "$((SECONDS - SC_STAGE_T0)) (stage failed)"
     fi
+    record_total_seconds STAGE_SECONDS_TOTAL_AT_FAILURE
     if [[ -n "$SC_FAIL_REP" ]]; then
       kv FAILED_STAGE "$SC_STAGE_N $SC_STAGE_NAME"
       kv FAILED_EXIT_CODE "$rc"
@@ -142,6 +173,84 @@ sc_publish_failed_logs() {
     printf 'FAILED_LOGS_PUBLISHED=%s\n' "$dest"
   fi
   printf 'NOTE: failed-log publish: %s file(s) uploaded, %s skipped (key-material pattern), %s failed\n' "$up" "$skipped" "$failed"
+  return 0
+}
+
+# sc_publish_progress LABEL: best-effort checkpoint of a run in progress (work order 48),
+# to s3://<data>/reports/runs/<run-id>/progress/. The prefix holds the LATEST checkpoint:
+# the same keys are overwritten each time (the bucket has versioning off), so after a
+# kill from outside, which skips the exit trap, it shows the state at the last finished
+# stage. Files: run-record.env (the key=value lines so far), progress.env (which
+# checkpoint, when, seconds elapsed) and every regular file of the reports directory
+# that exists (hadoop.log, er.log, mapreduce-*.log and so on). A file larger than
+# SC_PROGRESS_MAX_BYTES is uploaded as its last SC_PROGRESS_MAX_BYTES bytes under the
+# name <file>.tail. The large outputs (Hadoop, ER, Spark and export results) are never
+# part of it. The same key-material scan as the failure path: a file that matches is
+# skipped and its content is never printed. One aws s3 cp per file, no recursive copy
+# and no sync, no delete; the whole upload gets at most SC_PROGRESS_BUDGET_SECONDS, each
+# call under timeout. Every error is reported and swallowed: it returns 0 always, so it
+# can never abort the run. It does nothing before register_failure_logs ran (the
+# capability check never registers).
+sc_publish_progress() {
+  local label="${1:-checkpoint}" rep="$SC_FAIL_REP" bucket="$SC_FAIL_DATA_BUCKET" run="$SC_FAIL_RUN_ID"
+  local dest f name src tmp sz remaining deadline up=0 skipped=0 failed=0 files=()
+  [[ -n "$rep" && -n "$bucket" && -n "$run" && -d "$rep" ]] || return 0
+  dest="s3://$bucket/reports/runs/$run/progress/"
+  printf '%s' "$SC_KV" > "$rep/run-record.env" 2>/dev/null || true
+  {
+    printf 'CHECKPOINT=%s\n' "$label"
+    printf 'STAGE=%s %s open=%s\n' "$SC_STAGE_N" "$SC_STAGE_NAME" "$SC_STAGE_OPEN"
+    printf 'UPDATED_UTC=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)"
+    printf 'ELAPSED_SECONDS=%s\n' "$((SECONDS - SC_T0))"
+    printf 'NOTE=latest checkpoint only; the final record is under reports/runs/%s/ when the run ends\n' "$run"
+  } > "$rep/progress.env" 2>/dev/null || true
+  files=("$rep/run-record.env" "$rep/progress.env")
+  for f in "$rep"/*; do
+    [[ -f "$f" ]] || continue
+    name="${f##*/}"
+    [[ "$name" != "run-record.env" && "$name" != "progress.env" ]] || continue
+    files+=("$f")
+  done
+  deadline=$((SECONDS + SC_PROGRESS_BUDGET_SECONDS))
+  for f in "${files[@]}"; do
+    [[ -f "$f" ]] || continue
+    name="${f##*/}"
+    src="$f"
+    tmp=""
+    sz="$(wc -c < "$f" 2>/dev/null | tr -d ' ')" || sz=0
+    if [[ "${sz:-0}" -gt "$SC_PROGRESS_MAX_BYTES" ]]; then
+      tmp="$(mktemp 2>/dev/null)" || tmp=""
+      if [[ -z "$tmp" ]]; then
+        skipped=$((skipped + 1))
+        continue
+      fi
+      tail -c "$SC_PROGRESS_MAX_BYTES" "$f" > "$tmp" 2>/dev/null || true
+      src="$tmp"
+      name="$name.tail"
+    fi
+    if grep -qE "$SC_SECRET_RE" "$src" 2>/dev/null; then
+      skipped=$((skipped + 1))
+      printf 'PROGRESS_SKIPPED file=%s reason=key-material-pattern (content not printed)\n' "$name"
+    else
+      remaining=$((deadline - SECONDS))
+      if [[ "$remaining" -gt 0 ]]; then
+        if timeout "$remaining" aws s3 cp "$src" "$dest$name" --only-show-errors; then
+          up=$((up + 1))
+        else
+          failed=$((failed + 1))
+        fi
+      else
+        failed=$((failed + 1))
+      fi
+    fi
+    if [[ -n "$tmp" ]]; then
+      rm -f "$tmp" 2>/dev/null || true
+    fi
+  done
+  if [[ "$up" -gt 0 ]]; then
+    printf 'PROGRESS_PUBLISHED=%s checkpoint=%s\n' "$dest" "$label"
+  fi
+  printf 'NOTE: progress checkpoint %s: %s file(s) uploaded, %s skipped, %s failed\n' "$label" "$up" "$skipped" "$failed"
   return 0
 }
 
@@ -344,9 +453,9 @@ stage_spark() {
 write_spark_conf() {
   local populate="$1" dm em ec ei am
   dm="$(conf_value DRIVER_MEMORY 2g '^[0-9]+[gm]$')"
-  em="$(conf_value EXECUTOR_MEMORY 4g '^[0-9]+[gm]$')"
+  em="$(conf_value EXECUTOR_MEMORY 3g '^[0-9]+[gm]$')"
   ec="$(conf_value EXECUTOR_CORES 2 '^[0-9]+$')"
-  ei="$(conf_value EXECUTOR_INSTANCES 1 '^[0-9]+$')"
+  ei="$(conf_value EXECUTOR_INSTANCES 2 '^[0-9]+$')"
   am="$(conf_value AM_MEMORY 1g '^[0-9]+[gm]$')"
   mkdir -p "$SC_SPARK_CONF_DIR"
   {
@@ -522,6 +631,87 @@ yarn_mapreduce_apps() {
   printf '%s' "${ids% }"
 }
 
+# job_ids_in_file FILE: every job_<digits>_<digits> in FILE, one line, space separated,
+# ordered by timestamp then sequence, no duplicates. Never fails.
+job_ids_in_file() {
+  local out
+  out="$( { grep -oE 'job_[0-9]{10,}_[0-9]+' "$1" 2>/dev/null || true; } | LC_ALL=C sort -t_ -k2,2n -k3,3n -u | tr '\n' ' ')"
+  printf '%s' "${out% }"
+}
+
+# mapred_job_list_ids DEST: best effort, never fails. Runs "mapred job -list all" under a
+# 60 s timeout and, when that gives no job id (not usable on this cluster), "mapred job
+# -list". The whole output of both goes to DEST. Prints the ids found, one line, space
+# separated. UNVERIFIED on EMR 7.10.0: whether the command lists finished jobs there.
+mapred_job_list_ids() {
+  local dest="$1" ids
+  { timeout 60 mapred job -list all 2>&1 || true; } > "$dest"
+  ids="$(job_ids_in_file "$dest")"
+  if [[ -z "$ids" ]]; then
+    { printf '\n# mapred job -list all gave no job id; trying mapred job -list\n'; timeout 60 mapred job -list 2>&1 || true; } >> "$dest"
+    ids="$(job_ids_in_file "$dest")"
+  fi
+  printf '%s' "$ids"
+}
+
+# derive_job_ids APPS: job_<ts>_<n> for each application_<ts>_<n> in the space separated
+# list APPS. A MapReduce job id is its application id with the prefix application_
+# replaced by job_ (a naming property of Hadoop, not an observation in a log).
+derive_job_ids() {
+  local out
+  out="$(printf '%s' "$1" | tr ' ' '\n' | sed -n 's/^application_\([0-9][0-9]*_[0-9][0-9]*\)$/job_\1/p' | tr '\n' ' ')"
+  printf '%s' "${out% }"
+}
+
+# words_in TEXT: how many space separated words.
+words_in() {
+  printf '%s' "$1" | wc -w | tr -d ' '
+}
+
+# choose_mapreduce_job_ids EXPECTED APPS LISTLOG: the real job ids of the Hadoop stage,
+# from the first source that yields at least EXPECTED of them, else from the source that
+# yields the most (ties go to the earlier source). Call classify_job_ids on the Hadoop
+# log first. Call it directly, not in a command substitution. Sources, in order:
+#   hadoop-log                    the ids found in the Hadoop log (classify_job_ids)
+#   mapred-job-list               mapred job -list all (or mapred job -list), parsed
+#   derived-from-application-ids  job_<ts>_<n> derived from each application id APPS
+# Sets SC_MRF_IDS (space separated), SC_MRF_N and SC_MRF_SOURCE (none when no id at all).
+# shellcheck disable=SC2034  # the SC_MRF_* results are read by the sourcing scripts
+SC_MRF_IDS=""
+# shellcheck disable=SC2034  # read by the sourcing scripts
+SC_MRF_N=0
+# shellcheck disable=SC2034  # read by the sourcing scripts
+SC_MRF_SOURCE="none"
+# shellcheck disable=SC2034  # the SC_MRF_* results are read by the sourcing scripts
+choose_mapreduce_job_ids() {
+  local expected="$1" apps="$2" listlog="$3" cand n
+  SC_MRF_IDS="$SC_MR_IDS"
+  SC_MRF_N="$SC_MR_N"
+  SC_MRF_SOURCE="hadoop-log"
+  if [[ "$SC_MRF_N" -eq 0 ]]; then
+    SC_MRF_SOURCE="none"
+  fi
+  if [[ "$SC_MRF_N" -lt "$expected" ]]; then
+    cand="$(mapred_job_list_ids "$listlog")"
+    n="$(words_in "$cand")"
+    if [[ "$n" -gt "$SC_MRF_N" ]]; then
+      SC_MRF_IDS="$cand"
+      SC_MRF_N="$n"
+      SC_MRF_SOURCE="mapred-job-list"
+    fi
+  fi
+  if [[ "$SC_MRF_N" -lt "$expected" ]]; then
+    cand="$(derive_job_ids "$apps")"
+    n="$(words_in "$cand")"
+    if [[ "$n" -gt "$SC_MRF_N" ]]; then
+      SC_MRF_IDS="$cand"
+      SC_MRF_N="$n"
+      SC_MRF_SOURCE="derived-from-application-ids"
+    fi
+  fi
+  return 0
+}
+
 ### Files and publishing -----------------------------------------------------
 
 # lib_jars_csv DIR EXCLUDE_ERE: comma list of the jars in DIR (not recursive) whose
@@ -640,7 +830,11 @@ publish() {
   [[ -d "$dir" ]] || die "nothing to publish: $dir"
   local_n="$(local_file_count "$dir")"
   aws s3 cp "$dir" "$uri" --recursive --exclude '_work/*' --only-show-errors
-  remote_n="$(aws s3 ls "$uri" --recursive | wc -l | tr -d ' ')"
+  # The reports prefix also holds the progress/ checkpoint and any failed/<stamp>/ copy
+  # (sc_publish_progress, sc_publish_failed_logs): they are not part of this copy, so
+  # they are left out of the count. awk exits 0 on an empty list, and pipefail still
+  # reports a failing aws call.
+  remote_n="$(aws s3 ls "$uri" --recursive | awk '$0 ~ " reports/runs/[^/]+/(progress|failed)/" { next } { n++ } END { print n + 0 }')"
   printf 'PUBLISHED uri=%s files_local=%s objects_listed=%s\n' "$uri" "$local_n" "$remote_n"
   [[ "$local_n" -eq "$remote_n" ]] || die "object count differs for $uri: local $local_n, listed $remote_n"
 }

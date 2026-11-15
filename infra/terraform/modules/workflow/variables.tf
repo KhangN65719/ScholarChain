@@ -61,7 +61,7 @@ variable "create_cluster_timeout_seconds" {
 }
 
 variable "emr_step_timeout_seconds" {
-  description = "TimeoutSeconds of the one long EMR script step (CapabilityStep or PipelineStep), 300 to 7200 seconds (default 3600). The script-fetch step has its own fixed 300 s. Rule A below still counts 2 x this value, which now over-covers a run (one long step plus the 300 s fetch). On timeout the step raises States.Timeout, which is caught and routed to CleanupOnFailure (terminate the cluster, itself bounded at 900 s) and then Failed. Whether a timed-out step also stops the EMR step on the cluster is UNVERIFIED; the termination ends it either way. The value must be at least the longest legitimate single step, because a longer step is stopped and cleaned up. See max_run_seconds for the rule that ties it to the execution timeout."
+  description = "TimeoutSeconds of the one long EMR script step (CapabilityStep or PipelineStep), 300 to 7200 seconds (default 3600). The script-fetch step has its own fixed 300 s. Rule A below counts this value once plus the 300 s fetch step (work order 49; it used to count 2 x this value, which over-covered a run of one long step). On timeout the step raises States.Timeout, which is caught and routed to CleanupOnFailure (terminate the cluster, itself bounded at 900 s) and then Failed. Whether a timed-out step also stops the EMR step on the cluster is UNVERIFIED; the termination ends it either way. The value must be at least the longest legitimate single step, because a longer step is stopped and cleaned up. See max_run_seconds for the rule that ties it to the execution timeout."
   type        = number
   default     = 3600
 
@@ -83,7 +83,7 @@ variable "loader_timeout_seconds" {
 }
 
 variable "max_run_seconds" {
-  description = "Timeout of the whole execution, 1800 to 10800 seconds (default 10800, 180 minutes: the 150-minute tier L script cap plus 30 minutes of margin). Pass the bound per run through the experiment tfvars (S 5400, M 7200, L 10800). WARNING: when the execution-level timeout fires, the execution ends as TIMED_OUT and CleanupOnFailure does NOT run, as it does not after StopExecution. If the client dies, a running cluster is left to the EMR idle auto-termination (900 s, which starts only once no step is running) and to the human's cleanup. This bound limits how long the state machine itself can run, nothing more. Two rules tie it to the step timeouts. Rule A (enforced here): create_cluster_timeout_seconds + 2 x emr_step_timeout_seconds + 300 must not exceed this value, so a Hadoop step that runs to its limit followed by a hung Spark step is cut by its own timeout and reaches CleanupOnFailure before this bound. The 300 s is the margin for the cleanup state to issue the terminate call. Known limitation, not enforced (human decision O1, phase 13 D10): create + 2 x EMR step + 900 (TerminateCluster) + loader timeout exceeds this value on every tier, so a run whose steps all take their full timeout, or a run at the estimate's HIGH bound, can end as TIMED_OUT in the loader or terminate segment. Recorded in infra/terraform/README.md, Pipeline bounds."
+  description = "Timeout of the whole execution, 1800 to 10800 seconds (default 10800, 180 minutes: the 150-minute tier L script cap plus 30 minutes of margin). Pass the bound per run through the experiment tfvars (S 7200 since work order 49, M 7200, L 10800). WARNING: when the execution-level timeout fires, the execution ends as TIMED_OUT and CleanupOnFailure does NOT run, as it does not after StopExecution. If the client dies, a running cluster is left to the EMR idle auto-termination (900 s, which starts only once no step is running) and to the human's cleanup. This bound limits how long the state machine itself can run, nothing more. Two rules tie it to the step timeouts. Rule A (enforced here, changed in work order 49): create_cluster_timeout_seconds + emr_step_timeout_seconds + 600 must not exceed this value, so the one long EMR step that runs to its limit is cut by its own timeout and reaches CleanupOnFailure before this bound. The 600 s is the fixed 300 s fetch step plus 300 s of margin for the cleanup state to issue the terminate call. Known limitation, not enforced (human decision O1, phase 13 D10): create + 300 (fetch) + EMR step + 900 (TerminateCluster) + loader timeout can exceed this value (S overlay: 8040 against 7200), so a run whose segments all take their full timeout, or a run at the estimate's HIGH bound, can end as TIMED_OUT in the loader or terminate segment. Recorded in infra/terraform/README.md, Pipeline bounds."
   type        = number
   default     = 10800
 
@@ -93,8 +93,8 @@ variable "max_run_seconds" {
   }
 
   validation {
-    condition     = var.max_run_seconds >= var.create_cluster_timeout_seconds + 2 * var.emr_step_timeout_seconds + 300
-    error_message = "Rule A: max_run_seconds must be at least create_cluster_timeout_seconds + 2 x emr_step_timeout_seconds + 300, otherwise a hung second EMR step ends in the execution timeout and CleanupOnFailure is skipped."
+    condition     = var.max_run_seconds >= var.create_cluster_timeout_seconds + var.emr_step_timeout_seconds + 600
+    error_message = "Rule A: max_run_seconds must be at least create_cluster_timeout_seconds + emr_step_timeout_seconds + 600 (300 s fetch step plus 300 s cleanup margin), otherwise a hung EMR step ends in the execution timeout and CleanupOnFailure is skipped."
   }
 }
 

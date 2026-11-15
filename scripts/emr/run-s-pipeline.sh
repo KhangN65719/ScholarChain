@@ -28,6 +28,12 @@
 #               s3://<data>/semantic-context/runs/<run-id>/ (JsonlExport output)
 #               s3://<data>/reports/runs/<run-id>/          (logs and run-record.env)
 # All five prefixes are inside the prefixes the emr_ec2 role may write.
+# After every finished stage (and after the Hadoop classification) a progress checkpoint
+#               s3://<data>/reports/runs/<run-id>/progress/ is overwritten with run-record.env,
+#               progress.env and the small logs so far, best effort (at most 60 s, never
+#               aborts): a kill from outside, which skips the exit trap, still leaves the
+#               evidence up to the last finished stage. STAGE_SECONDS_<NAME>= lines give
+#               each stage's elapsed seconds.
 # On a failed stage the exit trap also publishes the reports directory to
 #               s3://<data>/reports/runs/<run-id>/failed/<UTC stamp>/ (best effort, after
 #               the key-material scan) and prints FAILED_LOGS_PUBLISHED=<s3 uri>.
@@ -151,11 +157,15 @@ pipeline_main() {
   # hadoop-engineer fixes in work order 23: UNVERIFIED until the capability check or
   # this run shows it). Explicit JAVA_HOME for the AM and the tasks, in case the node
   # manager's default JDK is older than 17.
-  # HADOOP_ROOT_LOGGER=INFO,console asks the client for its job-client INFO lines (the
-  # "Running job: job_..." line that names the framework). Stdout and stderr both go to
-  # hadoop.log. UNVERIFIED: capability launch 3 kept no job id line, and this variable
-  # is the one capture-side cause that was found; the application list below settles
-  # the classification when the id is still missing.
+  # HADOOP_ROOT_LOGGER=INFO,console is what the Hadoop 3 shell scripts already default
+  # to for a client command (read from memory of hadoop-functions.sh, UNVERIFIED on this
+  # node), so it changed nothing: S run 3 kept no job id line in hadoop.log although
+  # PipelineDriver waits with waitForCompletion(true), whose "Running job: job_..." line
+  # is an INFO message. The cause is therefore not this variable but the logging
+  # configuration of the client JVM (a log4j file or a second slf4j binding on the
+  # class path), UNVERIFIED. The job ids are recovered below from mapred job -list, then
+  # derived from the ResourceManager's application ids.
+  # Stdout and stderr both go to hadoop.log.
   # -Dio.compression.codecs replaces EMR's core-site list, which names the LZO codec
   # classes that this class path lacks (S run 1, D29: "Compression codec
   # com.hadoop.compression.lzo.LzoCodec not found", cause UNVERIFIED). It is a generic
@@ -176,15 +186,22 @@ pipeline_main() {
     "file://$hout" "file://$raw/dblp-subset.xml" "${dargs[@]}" > "$rep/hadoop.log" 2>&1 || rc=$?
   tail -n 25 "$rep/hadoop.log" || true
   [[ "$rc" -eq 0 ]] || die "PipelineTool exited $rc: $(last_error_line "$rep/hadoop.log")"
-  # The verdict rests on job ids, one per MapReduce job. PipelineDriver runs one job for
-  # DBLP extraction, one source-normalization job per dataset, then identifier join,
-  # blocking, candidate features, team expansion and graph export: 1 + datasets + 5 jobs.
-  # yarn needs exactly that many job_<digits>_<digits> ids and no job_local id; any
-  # job_local id is local, or mixed with YARN ids; anything else is unknown. The
-  # ResourceManager's MAPREDUCE application list is recorded next to the verdict as
-  # supporting evidence and never changes it. No verdict stops the pipeline: the human
-  # reads the report.
-  local mr="unknown" mrdetail="" mrattn="yes" mrapps="" mrapps_n=0 mrexpected mrorder="" mrn=0 mrid
+  # The verdict (work order 48, human decision D30, replaces the work order 43 rule).
+  # PipelineDriver runs one job for DBLP extraction, one source-normalization job per
+  # dataset, then identifier join, blocking, candidate features, team expansion and
+  # graph export: 1 + datasets + 5 jobs. The ResourceManager's MAPREDUCE application
+  # list proves YARN execution (the local runner never registers with it):
+  #   yarn     the list holds exactly the expected number of applications and no
+  #            job_local id appears in the log. MAPREDUCE_PROOF is job-ids-in-log when the
+  #            log also carried all expected job ids, else resourcemanager-application-ids.
+  #   local    a job_local id appears in the log and neither the log nor the list shows a
+  #            YARN job or application ("MapReduce in local mode on an EMR node").
+  #   mixed    a job_local id appears together with YARN job ids or applications.
+  #   unknown  anything else: the list is empty or its count differs from the expected one.
+  # The real job ids are recorded separately (choose_mapreduce_job_ids), with their
+  # source, and never change the verdict. No verdict stops the pipeline: the human reads
+  # the report.
+  local mr="unknown" mrdetail="" mrattn="yes" mrproof="none" mrapps="" mrapps_n=0 mrexpected mrorder="" mrn=0 mrid mrkind
   mrexpected=$((${#dargs[@]} + 6))
   mrorder="dblp-extraction"
   for f in "${dsets[@]}"; do
@@ -195,46 +212,58 @@ pipeline_main() {
   read -r -a mrstages <<< "$mrorder"
   classify_job_ids "$rep/hadoop.log"
   mrapps="$(yarn_mapreduce_apps "$rep/mapreduce-yarn-list.log")"
-  mrapps_n="$(printf '%s' "$mrapps" | wc -w | tr -d ' ')"
+  mrapps_n="$(words_in "$mrapps")"
+  choose_mapreduce_job_ids "$mrexpected" "$mrapps" "$rep/mapreduce-job-list.log"
+  local mrfound=()
+  read -r -a mrfound <<< "$SC_MRF_IDS"
   {
-    printf '# MapReduce job ids found in hadoop.log, in order of first appearance.\n'
-    printf '# The stage column is positional and inferred: the log carries no stage name per job id.\n'
+    printf '# MapReduce job ids of the Hadoop stage. Source: %s\n' "$SC_MRF_SOURCE"
+    case "$SC_MRF_SOURCE" in
+      hadoop-log) printf '# The ids were found in hadoop.log, in order of first appearance.\n' ;;
+      mapred-job-list) printf '# The ids come from mapred job -list (see mapreduce-job-list.log), sorted by timestamp and sequence.\n' ;;
+      derived-from-application-ids) printf '# The ids are DERIVED, not observed: job_<ts>_<n> is the ResourceManager application id application_<ts>_<n> with the prefix replaced (a Hadoop naming property).\n' ;;
+      *) printf '# No job id was found by any source.\n' ;;
+    esac
+    printf '# The stage column is positional and inferred: no source names the stage of a job id.\n'
     printf '# The driver runs the stages in this order: %s\n' "$mrorder"
-    while IFS= read -r mrid; do
-      [[ -n "$mrid" ]] || continue
+    for mrid in ${mrfound[@]+"${mrfound[@]}"}; do
       printf '%s %s %s\n' "$((mrn + 1))" "$mrid" "${mrstages[$mrn]:-beyond-the-expected-stages}"
       mrn=$((mrn + 1))
-    done <<EOF
-$SC_MR_IDS_NL
-EOF
+    done
   } > "$rep/mapreduce-job-ids.txt"
-  if [[ "$SC_MR_LOCAL" -gt 0 && "$SC_MR_YARN" -gt 0 ]]; then
+  mrkind=$((SC_MR_YARN + mrapps_n))
+  if [[ "$SC_MR_LOCAL" -gt 0 && "$mrkind" -gt 0 ]]; then
     mr="mixed"
-    mrdetail="$SC_MR_YARN YARN and $SC_MR_LOCAL local job id(s) found, $mrexpected expected"
+    mrdetail="$SC_MR_LOCAL local job id(s) job_local... and YARN evidence together ($SC_MR_YARN YARN job id(s) in the log, $mrapps_n MAPREDUCE application(s) on the ResourceManager), $mrexpected expected"
   elif [[ "$SC_MR_LOCAL" -gt 0 ]]; then
     mr="local"
-    mrdetail="$SC_MR_LOCAL local job id(s) job_local... found, $mrexpected expected"
-  elif [[ "$SC_MR_YARN" -eq "$mrexpected" ]]; then
+    mrdetail="$SC_MR_LOCAL local job id(s) job_local... found, no YARN job or application seen, $mrexpected expected"
+  elif [[ "$mrapps_n" -eq "$mrexpected" ]]; then
     mr="yarn"
     mrattn="no"
-    mrdetail="$SC_MR_YARN job_<digits>_<digits> ids found for $mrexpected expected stages, 0 local"
+    mrproof="resourcemanager-application-ids"
+    if [[ "$SC_MR_YARN" -eq "$mrexpected" ]]; then
+      mrproof="job-ids-in-log"
+    fi
+    mrdetail="$mrapps_n MAPREDUCE applications on the ResourceManager for $mrexpected expected stages, 0 job_local id in the log, $SC_MR_YARN job id(s) in the log"
   else
-    mrdetail="found $SC_MR_N job id(s) ($SC_MR_YARN YARN, 0 local) against $mrexpected expected stages: not proven"
+    mrdetail="the ResourceManager lists $mrapps_n MAPREDUCE application(s) against $mrexpected expected (empty or a different count), $SC_MR_YARN job id(s) and $SC_MR_LOCAL local id(s) in the log: not proven"
   fi
   kv MAPREDUCE "$mr"
+  kv MAPREDUCE_PROOF "$mrproof"
   kv MAPREDUCE_DETAIL "$mrdetail"
   kv MAPREDUCE_STAGES_EXPECTED "$mrexpected, run in this order: $mrorder"
-  kv MAPREDUCE_STAGE_MAPPING "not mapped by the log (no stage name per job id); mapreduce-job-ids.txt lists each id with the stage at that position"
-  kv MAPREDUCE_JOB_COUNT "$SC_MR_N"
+  kv MAPREDUCE_STAGE_MAPPING "positional and inferred, not read from any log; mapreduce-job-ids.txt lists each id with the stage at that position"
+  kv MAPREDUCE_JOB_COUNT "$SC_MRF_N"
   kv MAPREDUCE_JOBS_YARN "$SC_MR_YARN"
   kv MAPREDUCE_JOBS_LOCAL "$SC_MR_LOCAL"
-  if [[ "${#SC_MR_IDS}" -le 380 ]]; then
-    kv MAPREDUCE_JOB_IDS "${SC_MR_IDS:-none}"
-  else
-    kv MAPREDUCE_JOB_IDS "too long for one line: $SC_MR_N ids in mapreduce-job-ids.txt"
+  kv MAPREDUCE_JOB_IDS_SOURCE "$SC_MRF_SOURCE"
+  if [[ "$SC_MRF_SOURCE" == "derived-from-application-ids" ]]; then
+    kv MAPREDUCE_JOB_IDS_DERIVATION "job_<ts>_<n> is application_<ts>_<n> with the prefix replaced: a Hadoop naming property, not an observation in the log"
   fi
-  kv MAPREDUCE_JOB_IDS_FILE "mapreduce-job-ids.txt"
-  kv MAPREDUCE_APPS_YARN_LIST "count=$mrapps_n (supporting evidence only, does not set the verdict; full output in mapreduce-yarn-list.log) ids=${mrapps:-none}"
+  kv MAPREDUCE_JOB_IDS "${SC_MRF_IDS:-none}"
+  kv MAPREDUCE_JOB_IDS_FILE "mapreduce-job-ids.txt (the full list; MAPREDUCE_JOB_IDS is cut at 400 characters)"
+  kv MAPREDUCE_APPS_YARN_LIST "count=$mrapps_n (the proof for yarn when equal to the expected count; full output in mapreduce-yarn-list.log) ids=${mrapps:-none}"
   kv MAPREDUCE_ATTENTION "$mrattn"
   if [[ "$mr" == "local" || "$mr" == "mixed" ]]; then
     note "MapReduce in local mode on an EMR node ($SC_MR_LOCAL job_local... id(s) of $SC_MR_N found)"
@@ -242,6 +271,9 @@ EOF
   if [[ "$mrattn" == "yes" ]]; then
     note "ATTENTION: MAPREDUCE=$mr, not yarn for every stage: $mrdetail. The YARN list shows $mrapps_n MAPREDUCE application(s). The pipeline continues; read the report before calling this run done"
   fi
+  # Checkpoint right after the classification: the verdict, the job ids and the
+  # ResourceManager list are then in s3 even if a later stage is killed from outside.
+  sc_publish_progress "after-hadoop-classification" || true
   # Container user and permissions for file: output are unknown (UNVERIFIED): record
   # them, then make the output readable by whoever runs the java.nio tools.
   kv HADOOP_OUT_OWNER_MODE "$(mode_of "$hout")"
@@ -319,6 +351,9 @@ EOF
 
   stage publish
   kv RUN_RESULT_PREFIXES "curated/runs/$run_id/ graph/runs/$run_id/ semantic-context/runs/$run_id/ reports/runs/$run_id/"
+  # The published record cannot hold the publish stage's own seconds or the final total:
+  # both are printed on stdout after the copy (STAGE_SECONDS_PUBLISH, STAGE_SECONDS_TOTAL).
+  record_total_seconds STAGE_SECONDS_TOTAL_BEFORE_PUBLISH
   write_json "$rep/run-record.json"
   printf '%s' "$SC_KV" > "$rep/run-record.env"
   local lf
@@ -331,11 +366,12 @@ EOF
   publish "$xout" "s3://$data_bucket/semantic-context/runs/$run_id/"
   publish "$rep" "s3://$data_bucket/reports/runs/$run_id/"
   stage_ok
+  record_total_seconds STAGE_SECONDS_TOTAL
   if [[ "$mrattn" == "yes" ]]; then
     note "ATTENTION: MAPREDUCE=$mr, not yarn for every stage (see MAPREDUCE_DETAIL in run-record.env)"
   fi
-  printf 'PIPELINE_COMPLETE run_id=%s MAPREDUCE=%s mr_jobs_found=%s mr_jobs_yarn=%s mr_jobs_local=%s mr_jobs_expected=%s mr_yarn_list_apps=%s SPARK_ON_YARN=%s:yes\n' \
-    "$run_id" "$mr" "$SC_MR_N" "$SC_MR_YARN" "$SC_MR_LOCAL" "$mrexpected" "$mrapps_n" "$mode"
+  printf 'PIPELINE_COMPLETE run_id=%s MAPREDUCE=%s mr_jobs_found=%s mr_jobs_yarn=%s mr_jobs_local=%s mr_jobs_expected=%s mr_yarn_list_apps=%s SPARK_ON_YARN=%s:yes mr_proof=%s mr_job_ids_source=%s total_seconds=%s\n' \
+    "$run_id" "$mr" "$SC_MRF_N" "$SC_MR_YARN" "$SC_MR_LOCAL" "$mrexpected" "$mrapps_n" "$mode" "$mrproof" "$SC_MRF_SOURCE" "$((SECONDS - SC_T0))"
 }
 
 pipeline_main "$@"

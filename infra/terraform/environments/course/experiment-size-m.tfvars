@@ -20,7 +20,9 @@ service_desired_count = 1
 #   EMR step (Hadoop and Spark, each) 2700 s = half the script cap, unchanged.
 #     The estimate's HIGH Hadoop + Spark time is 1.4 h - 0.4 h = 1.0 h = 3600 s.
 #   Loader 2700 s, unchanged. The estimate's HIGH loader time is 2.0 h = 7200 s.
-# Rule A: 1440 + 2 x 2700 + 300 = 7140 <= 7200 (holds, 60 s of slack).
+# Rule A (work order 49 changed it to create + 1 x EMR step + 600, one long step plus
+# the 300 s fetch step and 300 s margin): 1440 + 2700 + 600 = 4740 <= 7200 (holds,
+# 2460 s of slack). The old form 1440 + 2 x 2700 + 300 = 7140 over-counted the step.
 # Known limitation, accepted by human decision O1 (phase 13 D10), not enforced:
 # 1440 + 2 x 2700 + 900 + 2700 = 10440 > 7200. At the estimate's HIGH bound
 # (12240 s) a run may time out. A cap is a ceiling, not a cost.

@@ -17,8 +17,8 @@ locals {
   cleanup_timeout_seconds   = 900
 
   # The script-fetch step copies a few small files from S3. Its own fixed bound, not a
-  # variable. Rule A below still uses 2 x emr_step_timeout_seconds, which now
-  # over-covers: a run has one long step plus this 300 s step.
+  # variable. Rule A (variables.tf, max_run_seconds) counts it once, inside its fixed
+  # 600 s: this 300 s step plus 300 s of cleanup margin.
   fetch_timeout_seconds = 300
 
   # On-node scripts live under this key prefix of the artifacts bucket
@@ -265,7 +265,7 @@ locals {
   }
 }
 
-# No Rule B check. The sum create + 2 x EMR step + terminate + loader exceeds
+# No Rule B check. The sum create + fetch + EMR step + terminate + loader can exceed
 # max_run_seconds on every tier by design: it is the accepted human decision O1
 # (phase 13 decisions D10), recorded as a known limitation in README "Pipeline
 # bounds". A warning that fires on every plan would only teach readers to ignore
