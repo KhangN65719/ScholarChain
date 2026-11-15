@@ -5143,6 +5143,213 @@ a_trip_empty
 [ ! -s "$FP_CALLS" ] || note_fail "a call was made with no reports directory"
 case_end
 
+### Work order 61: the export output committer (follows infra-engineer work order 60, S run 5) ---
+# S run 5 failed in the export stage with ClassNotFoundException for EMR's
+# org.apache.hadoop.mapred.DirectFileOutputCommitter, named by the node's mapred-site key
+# mapred.output.committer.class (UNVERIFIED: the node file was not read). write_spark_conf now
+# writes the Hadoop default for that key. Nothing here runs a Spark job: the generated
+# spark-defaults.conf, the scripts as text and the README paragraph are read. No case of work
+# orders 50 to 59 was changed.
+
+WO61_LINE='spark.hadoop.mapred.output.committer.class org.apache.hadoop.mapred.FileOutputCommitter'
+WO61_KEY_RE='^spark\.hadoop\.mapred\.output\.committer\.class '
+
+# Child program: write_spark_conf with the populate flag (argument 3) and SC_JAVA_HOME (argument 4,
+# may be empty) chosen by the caller. The capability check calls it with true, the pipeline with
+# the value of POPULATE_HADOOP_CLASSPATH.
+cat > "$CODE_DIR/sparkconf-variant-child.sh" <<'EOF'
+SC_HOME="$2"
+source "$1"
+SC_ARCHIVE_URI="hdfs://harness/spark-jars.zip"
+SC_JAVA_HOME="$4"
+write_spark_conf "$3"
+cat "$SC_SPARK_CONF_DIR/spark-defaults.conf"
+EOF
+
+# Child program: conf_xml_value for the old-API committer key, with HADOOP_CONF_DIR set by the caller.
+cat > "$CODE_DIR/conf-xml-child.sh" <<'EOF'
+LIB="$1"
+export HADOOP_CONF_DIR="$2"
+source "$LIB"
+printf 'V=%s\n' "$(conf_xml_value mapred.output.committer.class)"
+EOF
+
+# wo61_conf_expect: the spark-defaults.conf on stdout holds the committer line exactly once, no
+# other line sets that key, nothing names the EMR class, and the line follows the umask line.
+# SC2016: the single-quoted strings are literal text that grep and f_before search for.
+# shellcheck disable=SC2016
+wo61_conf_expect() {
+  mr_ok
+  [ "$(grep -cxF -- "$WO61_LINE" "$OUT")" = "1" ] || note_fail "the committer line is not present exactly once"
+  [ "$(grep -c -- "$WO61_KEY_RE" "$OUT")" = "1" ] || note_fail "the committer key is not set by exactly one line"
+  if grep -qF -- 'DirectFileOutputCommitter' "$OUT"; then note_fail "spark-defaults.conf names DirectFileOutputCommitter"; fi
+  f_before "$OUT" 'spark.hadoop.fs.permissions.umask-mode 000' "$WO61_LINE"
+}
+
+# Dynamic: the generated spark-defaults.conf (item a).
+sp_new wo61-defaults
+sp_run
+case_begin "14.emr.spark-conf.export-committer-line-is-in-the-defaults-exactly-once-after-the-umask-line"
+wo61_conf_expect
+case_end
+
+sp_new wo61-real-file
+cp "$EMR_DIR/spark-yarn.conf" "$SP_HOME/spark-yarn.conf"
+sp_run
+case_begin "14.emr.spark-conf.export-committer-line-is-in-the-real-spark-yarn-conf-output-exactly-once"
+wo61_conf_expect
+case_end
+
+sp_new wo61-populate-true
+run bash "$CODE_DIR/sparkconf-variant-child.sh" "$EMR_DIR/lib-emr.sh" "$SP_HOME" true ""
+case_begin "14.emr.spark-conf.export-committer-line-is-written-with-populate-true-as-the-capability-check-does"
+wo61_conf_expect
+a_out_re '^spark\.yarn\.populateHadoopClasspath true$'
+case_end
+
+sp_new wo61-java-home
+run bash "$CODE_DIR/sparkconf-variant-child.sh" "$EMR_DIR/lib-emr.sh" "$SP_HOME" false /opt/harness-jdk
+case_begin "14.emr.spark-conf.export-committer-line-is-written-once-when-a-java-home-is-set-too"
+wo61_conf_expect
+a_out_re '^spark\.yarn\.appMasterEnv\.JAVA_HOME /opt/harness-jdk$'
+a_out_re '^spark\.executorEnv\.JAVA_HOME /opt/harness-jdk$'
+case_end
+
+# Dynamic: conf_xml_value, the reader behind the evidence line (item c). Present, absent, and a
+# key that only resembles it (a different character in place of a dot, a longer key).
+mkdir -p "$EMR_FX/cx-present" "$EMR_FX/cx-lookalike" "$EMR_FX/cx-empty"
+cat > "$EMR_FX/cx-present/mapred-site.xml" <<'EOF'
+<configuration>
+  <property>
+    <name>mapred.output.committer.class</name>
+    <value>org.apache.hadoop.mapred.DirectFileOutputCommitter</value>
+  </property>
+</configuration>
+EOF
+cat > "$EMR_FX/cx-lookalike/mapred-site.xml" <<'EOF'
+<configuration>
+  <property>
+    <name>mapredXoutput.committer.class</name>
+    <value>org.apache.hadoop.mapred.DirectFileOutputCommitter</value>
+  </property>
+  <property>
+    <name>mapred.output.committer.class.extra</name>
+    <value>org.apache.hadoop.mapred.DirectFileOutputCommitter</value>
+  </property>
+</configuration>
+EOF
+run bash "$CODE_DIR/conf-xml-child.sh" "$EMR_DIR/lib-emr.sh" "$EMR_FX/cx-present"
+case_begin "14.emr.conf-xml-value.reads-the-old-api-committer-class-from-mapred-site-xml"
+mr_ok
+a_out_re '^V=org\.apache\.hadoop\.mapred\.DirectFileOutputCommitter$'
+case_end
+run bash "$CODE_DIR/conf-xml-child.sh" "$EMR_DIR/lib-emr.sh" "$EMR_FX/cx-lookalike"
+case_begin "14.emr.conf-xml-value.a-lookalike-key-is-not-the-committer-key-and-gives-unset"
+mr_ok
+a_out_re '^V=unset$'
+case_end
+run bash "$CODE_DIR/conf-xml-child.sh" "$EMR_DIR/lib-emr.sh" "$EMR_FX/cx-empty"
+case_begin "14.emr.conf-xml-value.no-site-files-gives-unset"
+mr_ok
+a_out_re '^V=unset$'
+case_end
+
+# Static: scripts/emr/*.sh and scripts/README.md as text (items b, c and d).
+# SC2016: the single-quoted strings are literal fragments of node scripts and of the README that
+# f_has, f_before and f_count_is search for as text; the $ and the backticks must not expand.
+# shellcheck disable=SC2016
+static_wo61_cases() {
+  local f n c tok rd="$REAL_ROOT/scripts/README.md" para="$CODE_DIR/readme-wo60-paragraph.txt"
+  local sl kl ol hl stages_between
+
+  # b: no code line of any scripts/emr/*.sh names an EMR-only class or file system, or the LZO
+  # codec package. Read in full: no code line names any of the four, so the allowed set is empty.
+  # The existing codec override lines (SC_CODECS in lib-emr.sh, its use in write_spark_conf and the
+  # -Dio.compression.codecs option of run-s-pipeline.sh) name only org.apache.hadoop.io.compress
+  # classes. com.hadoop.compression appears in comments only (lib-emr.sh and run-s-pipeline.sh), and
+  # the only com.amazon-like text is java-<n>-amazon-corretto-devel in install-java-bootstrap.sh,
+  # which is not com.amazon. Comment-only lines are excluded as code_of defines them.
+  for f in "$EMR_DIR"/*.sh; do
+    [ -f "$f" ] || continue
+    n="${f##*/}"
+    c="$(code_of "$f")"
+    static_begin "14.emr.$n.no-emr-only-class-on-any-code-line"
+    for tok in DirectFileOutputCommitter EmrFileSystem com.amazon com.hadoop.compression; do
+      f_has_not "$c" "$tok"
+    done
+    case_end
+  done
+
+  static_begin "14.emr.lib-emr.the-codec-and-committer-lines-name-only-hadoop-core-classes"
+  f_has "$emr_lib" 'SC_CODECS="org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec,org.apache.hadoop.io.compress.BZip2Codec"'
+  f_has "$emr_lib" "printf 'spark.hadoop.mapred.output.committer.class %s\\n' \"org.apache.hadoop.mapred.FileOutputCommitter\""
+  f_count_is "$emr_lib" 'org.apache.hadoop.mapred.FileOutputCommitter' 1
+  f_count_is "$emr_lib" 'spark.hadoop.mapred.output.committer.class' 1
+  case_end
+
+  # c: the evidence line sits in the spark-stage stage, after the stage_spark call and before that
+  # stage's own stage_ok (the first stage_ok of the file is the validate-arguments one, so the
+  # stage_ok is searched for after the stage_spark line), and before the next stage starts.
+  static_begin "14.emr.run-s-pipeline.node-committer-class-is-recorded-in-the-spark-stage-after-stage-spark-before-its-stage-ok"
+  f_has "$emr_run" 'kv NODE_CONF_MAPRED_OUTPUT_COMMITTER_CLASS "$(conf_xml_value mapred.output.committer.class)"'
+  f_count_is "$emr_run" 'kv NODE_CONF_MAPRED_OUTPUT_COMMITTER_CLASS' 1
+  f_count_is "$emr_run" 'mapred.output.committer.class' 1
+  f_before "$emr_run" 'stage spark-stage' 'stage_spark "$artifacts_bucket"'
+  f_before "$emr_run" 'stage_spark "$artifacts_bucket"' 'kv NODE_CONF_MAPRED_OUTPUT_COMMITTER_CLASS'
+  f_before "$emr_run" 'kv NODE_CONF_MAPRED_OUTPUT_COMMITTER_CLASS' 'stage hadoop'
+  sl="$(line_of "$emr_run" 'stage_spark "$artifacts_bucket"')"
+  kl="$(line_of "$emr_run" 'kv NODE_CONF_MAPRED_OUTPUT_COMMITTER_CLASS')"
+  hl="$(line_of "$emr_run" 'stage hadoop')"
+  if [ -z "$sl" ] || [ -z "$kl" ] || [ -z "$hl" ]; then
+    note_fail "a line was not found (stage_spark $sl, kv $kl, stage hadoop $hl)"
+  else
+    ol="$(awk -v s="$sl" 'NR > s && $0 ~ /^[[:space:]]*stage_ok[[:space:]]*$/ { print NR; exit }' "$emr_run")"
+    if [ -z "$ol" ]; then
+      note_fail "no stage_ok after the stage_spark call"
+    else
+      [ "$kl" -lt "$ol" ] || note_fail "the kv line (line $kl) is not before the stage's first stage_ok (line $ol)"
+      [ "$ol" -lt "$hl" ] || note_fail "the spark-stage stage_ok (line $ol) is not before the hadoop stage (line $hl)"
+      stages_between="$(awk -v a="$sl" -v b="$ol" 'NR > a && NR < b && $0 ~ /^[[:space:]]*stage[[:space:]]/ { n++ } END { print n + 0 }' "$emr_run")"
+      [ "$stages_between" = "0" ] || note_fail "another stage starts between stage_spark and its stage_ok"
+    fi
+  fi
+  case_end
+
+  # d: the README paragraph. It is one line that starts with the heading text.
+  awk 'index($0, "Export output committer (work order 60") == 1' "$rd" > "$para"
+
+  static_begin "14.emr.readme-export-committer-paragraph-states-the-failed-stage-the-cause-and-the-fix"
+  [ "$(wc -l < "$para" | tr -d ' ')" = "1" ] || note_fail "scripts/README.md does not hold exactly one 'Export output committer (work order 60' paragraph"
+  f_before "$rd" 'Export output committer (work order 60' '### S3 key layout'
+  f_has "$para" 'then failed at stage 8, `export`, after 35 s (`FAILED_STAGE=8 export`, `FAILED_EXIT_CODE=1`, `EXPORT_ON_YARN=client:no`)'
+  f_has "$para" 'Nothing was published, because `publish` comes after `export`'
+  f_has "$para" 'ClassNotFoundException: Class org.apache.hadoop.mapred.DirectFileOutputCommitter not found'
+  f_has "$para" 'the old mapred API, which builds its output committer from `mapred.output.committer.class`'
+  f_has "$para" 'our Spark 4.0.5 jars (the same set as the archive) do not carry it'
+  f_has "$para" '`write_spark_conf` now adds `spark.hadoop.mapred.output.committer.class org.apache.hadoop.mapred.FileOutputCommitter` to the one `spark-defaults.conf`'
+  f_has "$para" "the value is Hadoop's own default for the key"
+  f_has "$para" 'so it applies to CollaborationPipeline, JsonlExport and the capability check alike'
+  case_end
+
+  static_begin "14.emr.readme-export-committer-paragraph-does-not-claim-the-node-value-was-observed"
+  f_has "$para" "The node's \`mapred-site.xml\` was not read"
+  f_has "$para" 'so that the file sets the key is inferred, not observed'
+  f_has "$para" 'The stage records `NODE_CONF_MAPRED_OUTPUT_COMMITTER_CLASS`'
+  f_has "$para" 'so the next run shows what the node names'
+  f_has "$para" 'Whether the override clears the export is UNVERIFIED until S run 6 records `EXPORT_ON_YARN=client:yes`.'
+  f_has "$para" 'Export output committer (work order 60, S run 5; written, not run on a node)'
+  f_has "$para" 'The human reported (not an agent run) that `bash -n` on `scripts/emr/lib-emr.sh`, `scripts/emr/run-s-pipeline.sh` and `tests/scripts/run.sh` and `shellcheck -x` on all three exit 0 (log phase14-static-checks-20.log), and that the harness ended `RESULT pass=1084 fail=0` with `SKIPPED_CASES 0` (log phase14-harness-10.log).'
+  f_has "$para" "Nothing about the node, Spark's application of the key, or the class's presence in the 4.0.5 jars has been observed."
+  f_has_not "$para" 'pending the human'
+  f_has_not "$para" 'the Spark 4 archive does not carry it'
+  f_has_not "$para" 'the Spark 4.0.5 archive does not carry it'
+  f_has_not_re "$para" "node.s (value|key) (is|was) (observed|seen)"
+  f_has_not_re "$para" 'observed (on|in|from) the node'
+  f_has_not_re "$para" '(fix|change|committer line) (is|was) (verified|confirmed)'
+  case_end
+}
+static_wo61_cases
+
 ### Case 12: secrets, the tripwire and the real repository ---------------------------------
 
 SECRET_RE='AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIV''ATE KEY-----|aws_secret_''access_key'

@@ -509,6 +509,17 @@ write_spark_conf() {
     # unwritable for executors that run as another user). Explicitly requested modes,
     # such as the 700 staging directory, are unaffected: a umask only removes bits.
     printf 'spark.hadoop.fs.permissions.umask-mode %s\n' "$SC_FS_UMASK"
+    # The old mapred API (RDD saveAsTextFile, which JsonlExport uses for its JSON Lines
+    # parts) reads its output committer from mapred.output.committer.class. S run 5 failed
+    # in the export stage with "ClassNotFoundException: Class
+    # org.apache.hadoop.mapred.DirectFileOutputCommitter not found": the class is EMR's own
+    # (its mapred-site.xml names it, UNVERIFIED on the node: the failure names the class,
+    # the file was not read) and our Spark 4.0.5 jars (the same set as the archive) do not
+    # carry it. Hadoop's default
+    # for this key is the committer below, so this line only restores the default and
+    # changes nothing for the Dataset and Parquet writers, which use the new mapreduce API.
+    # spark.hadoop.* is applied after the site files, so it wins over the node's value.
+    printf 'spark.hadoop.mapred.output.committer.class %s\n' "org.apache.hadoop.mapred.FileOutputCommitter"
     if [[ -n "$SC_JAVA_HOME" ]]; then
       printf 'spark.yarn.appMasterEnv.JAVA_HOME %s\n' "$SC_JAVA_HOME"
       printf 'spark.executorEnv.JAVA_HOME %s\n' "$SC_JAVA_HOME"

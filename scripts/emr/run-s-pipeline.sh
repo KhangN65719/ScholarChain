@@ -101,6 +101,10 @@ pipeline_main() {
   stage_spark "$artifacts_bucket"
   write_spark_conf "$(conf_value POPULATE_HADOOP_CLASSPATH false '^(true|false)$')"
   kv POPULATE_HADOOP_CLASSPATH "$(conf_value POPULATE_HADOOP_CLASSPATH false '^(true|false)$')"
+  # What the node's site files name for the old-API output committer (S run 5, export
+  # stage): recorded as evidence only. spark-defaults.conf overrides it for both Spark
+  # applications (write_spark_conf).
+  kv NODE_CONF_MAPRED_OUTPUT_COMMITTER_CLASS "$(conf_xml_value mapred.output.committer.class)"
   stage_ok
 
   stage hadoop
