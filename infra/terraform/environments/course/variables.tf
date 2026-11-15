@@ -382,7 +382,7 @@ variable "pipeline_max_run_seconds" {
 }
 
 variable "pipeline_create_cluster_timeout_seconds" {
-  description = "Timeout of the CreateCluster step, 300 to 3600 seconds. Default and all tiers 1440 (0.4 h, the HIGH cluster launch overhead of COST_ESTIMATE.md section 1.2). On timeout the execution goes to Failed with NO cleanup state (only the Hadoop and Spark steps route to CleanupOnFailure). Whether Step Functions terminates the half-created cluster is UNVERIFIED."
+  description = "Timeout of the CreateCluster step, 300 to 3600 seconds. Default and all tiers 1440 (0.4 h, the HIGH cluster launch overhead of COST_ESTIMATE.md section 1.2). On timeout the execution goes to Failed with NO cleanup state (FetchScripts, ChooseStep with no matching mode, CapabilityStep and PipelineStep route to CleanupOnFailure; CreateCluster, TerminateCluster and RunLoader go straight to Failed). Whether Step Functions terminates the half-created cluster is UNVERIFIED."
   type        = number
   default     = 1440
 

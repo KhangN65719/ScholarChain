@@ -171,7 +171,7 @@ pipeline_main() {
   # com.hadoop.compression.lzo.LzoCodec not found", cause UNVERIFIED). It is a generic
   # option, so it stays before the positional arguments; PipelineTool hands its
   # Configuration to every job (ToolConfigurationPropagationSuite), so the tasks get it.
-  HADOOP_ROOT_LOGGER="INFO,console" HADOOP_CLASSPATH="$hcp" JAVA_HOME="$SC_JAVA_HOME" timeout 1500 \
+  HADOOP_ROOT_LOGGER="INFO,console" HADOOP_CLASSPATH="$hcp" JAVA_HOME="$SC_JAVA_HOME" timeout -k 30 1500 \
     hadoop jar "$hjar" scholarchain.hadoop.jobs.PipelineTool \
     -libjars "$hlibs" \
     "-Dio.compression.codecs=$SC_CODECS" \
@@ -295,7 +295,7 @@ pipeline_main() {
   mkdir -p "$erout"
   rc=0
   # Ceiling, not an expectation: ER took about 103 s in S run 4. Override with SC_ER_TIMEOUT.
-  timeout "${SC_ER_TIMEOUT:-3000}" "$SC_JAVA_HOME/bin/java" -Xmx3g -cp "$ejar:$elibs/*" scholarchain.er.ErBatch \
+  timeout -k 30 "${SC_ER_TIMEOUT:-3000}" "$SC_JAVA_HOME/bin/java" -Xmx3g -cp "$ejar:$elibs/*" scholarchain.er.ErBatch \
     --run-root "$snapdir" --out-root "$erout" > "$rep/er.log" 2>&1 || rc=$?
   tail -n 15 "$rep/er.log" || true
   [[ "$rc" -eq 0 ]] || die "ErBatch exited $rc: $(last_error_line "$rep/er.log")"

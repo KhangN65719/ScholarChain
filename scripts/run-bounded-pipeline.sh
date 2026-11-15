@@ -109,7 +109,7 @@ case "$SIZE" in
   large) SIZE_CAP_MINUTES=150 ;;
   *) die "size must be small, medium or large, got: $SIZE" ;;
 esac
-[[ "$MAX_MINUTES" =~ ^[0-9]+$ ]] || die "--max-minutes must be a whole number"
+[[ "$MAX_MINUTES" =~ ^(0|[1-9][0-9]*)$ ]] || die "--max-minutes must be a whole number (no leading zero, which bash would read as octal)"
 [[ "$MAX_MINUTES" -ge 1 && "$MAX_MINUTES" -le "$SIZE_CAP_MINUTES" ]] || die "--max-minutes must be 1 to $SIZE_CAP_MINUTES for size $SIZE (provisional cap)"
 validate_number "$SPEND_CEILING"
 validate_number "$HOURLY_BURN"

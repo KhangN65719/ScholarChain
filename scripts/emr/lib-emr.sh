@@ -63,6 +63,10 @@ SC_STAGE_T0=$SECONDS
 SC_PROGRESS_MAX_BYTES=2097152
 # The whole checkpoint upload (every file together) gets at most this many seconds.
 SC_PROGRESS_BUDGET_SECONDS=60
+# The whole failure-path publish (sc_publish_failed_logs, every file together) gets at
+# most this many seconds, a shared deadline; each upload call gets the smaller of 300 s
+# and the time left. Override with SC_FAILED_PUBLISH_BUDGET_SECONDS (a whole number with no leading zero, else 600; a leading zero would be read as octal in the arithmetic).
+SC_FAILED_PUBLISH_BUDGET_SECONDS="${SC_FAILED_PUBLISH_BUDGET_SECONDS:-600}"
 
 # Set by register_failure_logs once a run has a reports directory: where sc_on_exit
 # publishes the logs when a stage fails.
@@ -148,14 +152,28 @@ register_failure_logs() {
 # patterns is skipped and its content is never printed. No sync, no delete. Every error
 # here is reported and swallowed, so the original exit code stands. The emr_ec2 role may
 # write reports/* (infra/terraform/modules/identity, WriteJobOutputs).
+# Time budget: one shared deadline of SC_FAILED_PUBLISH_BUDGET_SECONDS (default 600) for
+# the whole publish; each upload call gets the smaller of 300 s and the time left. Once the
+# budget is spent the remaining files are not uploaded: each is named in a
+# FAILED_LOGS_SKIPPED ... reason=time-budget-spent line. run-record.env goes first, so the
+# key=value record is the file a spent budget is least likely to cost.
 sc_publish_failed_logs() {
   local rep="$SC_FAIL_REP" bucket="$SC_FAIL_DATA_BUCKET" run="$SC_FAIL_RUN_ID"
-  local stamp dest f name up=0 skipped=0 failed=0
+  local stamp dest f name up=0 skipped=0 failed=0 budget_skipped=0 budget deadline remaining per files=()
   [[ -n "$rep" && -n "$bucket" && -n "$run" && -d "$rep" ]] || return 0
   stamp="$(date -u +%Y%m%dT%H%M%SZ)" || return 0
   dest="s3://$bucket/reports/runs/$run/failed/$stamp/"
   printf '%s' "$SC_KV" > "$rep/run-record.env" 2>/dev/null || true
+  budget="$SC_FAILED_PUBLISH_BUDGET_SECONDS"
+  [[ "$budget" =~ ^(0|[1-9][0-9]*)$ ]] || budget=600
+  deadline=$((SECONDS + budget))
+  files=("$rep/run-record.env")
   for f in "$rep"/*; do
+    [[ -f "$f" ]] || continue
+    [[ "${f##*/}" != "run-record.env" ]] || continue
+    files+=("$f")
+  done
+  for f in "${files[@]}"; do
     [[ -f "$f" ]] || continue
     name="${f##*/}"
     if grep -qE "$SC_SECRET_RE" "$f" 2>/dev/null; then
@@ -163,7 +181,17 @@ sc_publish_failed_logs() {
       printf 'FAILED_LOGS_SKIPPED file=%s reason=key-material-pattern (content not printed)\n' "$name"
       continue
     fi
-    if timeout 300 aws s3 cp "$f" "$dest$name" --only-show-errors; then
+    remaining=$((deadline - SECONDS))
+    if [[ "$remaining" -le 0 ]]; then
+      budget_skipped=$((budget_skipped + 1))
+      printf 'FAILED_LOGS_SKIPPED file=%s reason=time-budget-spent (budget %s s)\n' "$name" "$budget"
+      continue
+    fi
+    per=300
+    if [[ "$remaining" -lt "$per" ]]; then
+      per="$remaining"
+    fi
+    if timeout "$per" aws s3 cp "$f" "$dest$name" --only-show-errors; then
       up=$((up + 1))
     else
       failed=$((failed + 1))
@@ -173,6 +201,9 @@ sc_publish_failed_logs() {
     printf 'FAILED_LOGS_PUBLISHED=%s\n' "$dest"
   fi
   printf 'NOTE: failed-log publish: %s file(s) uploaded, %s skipped (key-material pattern), %s failed\n' "$up" "$skipped" "$failed"
+  if [[ "$budget_skipped" -gt 0 ]]; then
+    printf 'NOTE: failed-log publish: %s file(s) not uploaded, time budget of %s s spent\n' "$budget_skipped" "$budget"
+  fi
   return 0
 }
 
@@ -494,7 +525,11 @@ write_spark_conf() {
 # done, so the pipeline application needs about 2,100 to 2,400 s on this node. The limit
 # applies to every call of this function, so it also bounds the export stage and each
 # SparkPi of the capability check. It is a ceiling per call, not an expected duration;
-# the Terraform step cap is the outer bound of the whole script.
+# the Terraform step cap is the outer bound of the whole script. The limit sends TERM and,
+# 30 s later, KILL (timeout -k 30), so a spark-submit that ignores TERM cannot outlive it.
+# Per the coreutils manual, the exit status is 124 when the command ended on the TERM sent
+# at the limit and 137 when it needed the KILL after the 30 s grace. Neither is observed on
+# a node: S run 4 exited cleanly on TERM, so 124 has not been seen either.
 run_spark_submit() {
   local log="$1" mode="$2" class="$3" appjar="$4" jars="$5"
   shift 5
@@ -507,17 +542,19 @@ run_spark_submit() {
     SPARK_HOME="$SPARK_HOME" SPARK_CONF_DIR="$SC_SPARK_CONF_DIR" \
     HADOOP_CONF_DIR=/etc/hadoop/conf YARN_CONF_DIR=/etc/hadoop/conf \
     JAVA_HOME="$SC_JAVA_HOME" \
-    timeout "${SC_SPARK_TIMEOUT:-3000}" "${cmd[@]}" > "$log" 2>&1
+    timeout -k 30 "${SC_SPARK_TIMEOUT:-3000}" "${cmd[@]}" > "$log" 2>&1
 }
 
 app_id_from_log() {
   grep -oE 'application_[0-9]+_[0-9]+' "$1" | tail -n 1 || true
 }
 
-# yarn_final_state APP_ID: SUCCEEDED, FAILED, KILLED, UNDEFINED or unknown.
+# yarn_final_state APP_ID: SUCCEEDED, FAILED, KILLED, UNDEFINED or unknown. The query runs
+# under timeout 120; when it times out (or fails) the pipeline status is non-zero, s is
+# reset to empty and the result is unknown, which spark_verdict treats as not SUCCEEDED.
 yarn_final_state() {
   local s
-  s="$(yarn application -status "$1" 2>/dev/null | awk -F' : ' '/Final-State/ { gsub(/[[:space:]]/, "", $2); print $2; exit }')" || s=""
+  s="$(timeout 120 yarn application -status "$1" 2>/dev/null | awk -F' : ' '/Final-State/ { gsub(/[[:space:]]/, "", $2); print $2; exit }')" || s=""
   printf '%s' "${s:-unknown}"
 }
 

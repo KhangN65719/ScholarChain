@@ -1343,6 +1343,56 @@ pipe_case input-missing "must be an existing absolute path" small 60 0.75 0.60 f
 printf '{"mode":"pipeline","snapshot":"%s","snapshots":"%s","run_id":"%s","loader_command":["loader","%s"]}\n' "$PI_SNAP" "$PI_SNAPS" "$PI_RUN" "$FAKE_AKIA" > "$REC/pipeline-secret-input.json"
 pipe_case input-key-material "possible credential material" small 60 0.75 0.60 first-failure "$REC/pipeline-secret-input.json"
 
+# Work order 59 (follows infra-engineer work order 58): --max-minutes is validated with
+# ^(0|[1-9][0-9]*)$, so a leading zero is refused with its own text (bash would read 08 as a
+# bad octal number and 010 as 8) and never reaches the range message; 0 is still a whole
+# number and still gets the range message (the minutes-zero case above).
+PIPE_MIN_TEXT="--max-minutes must be a whole number (no leading zero, which bash would read as octal)"
+pipe_minutes_refuse() {
+  local id="$1" minutes="$2"
+  common_args "$ACCT" us-east-2 "$CEIL"
+  SN=run-bounded-pipeline
+  A=(--dry-run "${CA[@]}" --size large --max-minutes "$minutes" --spend-ceiling-usd 5.00 --hourly-burn-usd 0.60 --stop-on first-failure --input-file "$PIPE_IN" --approval-record "$REC/pipeline.env")
+  run_build
+  case_begin "5.pipeline.$id"
+  a_refused "$PIPE_MIN_TEXT"
+  if grep -qF -- "must be 1 to" "$ERR"; then note_fail "the range message was printed for a value that is not a whole number"; fi
+  a_not_out "PROJECTED_SPEND_USD"
+  a_not_out "LIMITS "
+  case_end
+}
+pipe_minutes_refuse minutes-leading-zero-08-refused-as-not-a-whole-number 08
+pipe_minutes_refuse minutes-leading-zero-010-refused-not-read-as-octal-8 010
+pipe_minutes_refuse minutes-double-zero-refused-as-not-a-whole-number 00
+
+pipe_case minutes-zero-is-still-a-whole-number-and-gets-the-range-message "must be 1 to 150 for size large" large 0 5.00 0.60 first-failure "$PIPE_IN"
+case_begin "5.pipeline.minutes-zero-does-not-get-the-whole-number-message"
+if grep -qF -- "whole number" "$ERR"; then note_fail "the whole-number message was printed for 0"; fi
+case_end
+
+# pipe_minutes_accept ID SIZE MINUTES SPEND BURN PROJECTED: --print-digest, a record for it,
+# then the dry run with the record. A value with no leading zero is accepted as before.
+pipe_minutes_accept() {
+  local id="$1" size="$2" minutes="$3" spend="$4" burn="$5" proj="$6" f="$REC/pipeline-min-$1.env"
+  common_args "$ACCT" us-east-2 "$CEIL"
+  SN=run-bounded-pipeline
+  A=(--print-digest "${CA[@]}" --size "$size" --max-minutes "$minutes" --spend-ceiling-usd "$spend" --hourly-burn-usd "$burn" --stop-on first-failure --input-file "$PIPE_IN")
+  run_build
+  rec_base pipeline "$(sed -n 's/^SCRIPT_DIGEST=//p' "$OUT" | head -n 1)" "$(sed -n 's/^ARGS_DIGEST=//p' "$OUT" | head -n 1)" n/a n/a
+  rec_write "$f"
+  A=(--dry-run "${CA[@]}" --size "$size" --max-minutes "$minutes" --spend-ceiling-usd "$spend" --hourly-burn-usd "$burn" --stop-on first-failure --input-file "$PIPE_IN" --approval-record "$f")
+  run_build
+  case_begin "5.pipeline.$id"
+  a_dry_common
+  a_out "LIMITS size=$size max_minutes=$minutes spend_ceiling_usd=$spend hourly_burn_usd=$burn stop_on=first-failure cost_ceiling_usd=$CEIL"
+  a_out "PROJECTED_SPEND_USD=$proj CEILING_USD=$spend"
+  a_out "APPROVAL_VERIFIED action=pipeline"
+  if grep -qF -- "whole number" "$ERR"; then note_fail "the whole-number message was printed for a valid value"; fi
+  case_end
+}
+pipe_minutes_accept minutes-90-large-still-accepted large 90 1.00 0.62 0.93
+pipe_minutes_accept minutes-110-large-the-s-run-5-command-still-accepted large 110 1.20 0.62 1.14
+
 # run-bounded-pipeline.sh: the input, limits and output markers of validate-params
 # (printed in a dry run too). The digest and size are computed here, not read back.
 build pipeline dry "$REC/pipeline.env"
@@ -4453,19 +4503,76 @@ else
 fi
 case_end
 
+# Work order 59 (D33): the S run 5 sequential totals in the S overlay comment, each computed
+# here from the overlay values and the run's own inputs (creation observed at 660 s, the fetch
+# step 300 s, the step estimate 3300 and 3900 s, terminate 900 s; the loader and the step cap
+# are read from the file) and never written twice. The O1 worst case (creation at its timeout)
+# is read from the file as before and must differ from the third total by exactly the
+# difference between the creation timeout and the 660 s.
+static_begin "14.terraform.s-overlay.s-run-5-sequential-totals-are-computed-from-the-values-and-the-o1-worst-case-is-read-from-the-file"
+tf_overlay "$TF_S"
+if tf_is_num "$TF_MAX" && tf_is_num "$TF_CREATE" && tf_is_num "$TF_STEP" && tf_is_num "$TF_LOAD"; then
+  s5_low=$((660 + 300 + 3300 + 900 + TF_LOAD))
+  s5_high=$((660 + 300 + 3900 + 900 + TF_LOAD))
+  s5_cap=$((660 + 300 + TF_STEP + 900 + TF_LOAD))
+  s5_o1=$((TF_CREATE + 300 + TF_STEP + 900 + TF_LOAD))
+  f_has "$TF_S" "660 + 300 + 3300 + 900 + $TF_LOAD = $s5_low s at the low step estimate, $s5_high s"
+  f_has "$TF_S" "at 3900 s, and 660 + 300 + $TF_STEP + 900 + $TF_LOAD = $s5_cap s with the step at its $TF_STEP s cap"
+  f_has "$TF_S" "the O1 worst case below, $s5_o1 s)"
+  f_has "$TF_S" "the sequential worst case $TF_CREATE + 300 + $TF_STEP + 900 + $TF_LOAD = $s5_o1 > $TF_MAX"
+  [ "$s5_cap" = "8460" ] || note_fail "the third total from the values is $s5_cap, D33 says 8460"
+  [ "$s5_o1" -gt "$s5_cap" ] || note_fail "the O1 worst case $s5_o1 is not above the third total $s5_cap"
+  [ $((s5_o1 - s5_cap)) -eq $((TF_CREATE - 660)) ] || note_fail "the O1 worst case and the third total differ by $((s5_o1 - s5_cap)), not by the creation timeout minus 660 s ($((TF_CREATE - 660)))"
+  { [ "$s5_low" -lt "$s5_high" ] && [ "$s5_high" -lt "$s5_cap" ]; } || note_fail "the totals are not in rising order: $s5_low, $s5_high, $s5_cap"
+  [ "$s5_cap" -gt "$TF_MAX" ] || note_fail "the third total $s5_cap no longer exceeds the execution timeout $TF_MAX, so the accepted limitation text would be stale"
+else
+  note_fail "a pipeline value of the S overlay could not be read as a whole number"
+fi
+case_end
+
+# Work order 59: the infra README sentence about the repair round 2 values is true for M, L
+# and the S loader and says so for the S step, with the S values read from the overlay.
+static_begin "14.terraform.readme-says-which-timeouts-keep-their-repair-round-2-values"
+tf_overlay "$TF_S"
+TF_README="$TF_DIR/README.md"
+if tf_is_num "$TF_STEP" && tf_is_num "$TF_LOAD"; then
+  f_has "$TF_README" "The M and L EMR step and loader timeouts keep their repair round 2 values, and so does the S loader ($TF_LOAD s); the S EMR step does not (1800 s, then 3600 s, now $TF_STEP s)."
+else
+  note_fail "a pipeline value of the S overlay could not be read as a whole number"
+fi
+f_has_not "$TF_README" "The EMR step and loader timeouts keep their repair round 2 values"
+case_end
+
+# tf_ml_comment FILE LABEL SIGN: the M or L overlay comment states Rule A, its slack and the
+# sequential worst case (create + 300 + step + 900 + loader) as the values give them. SIGN is
+# over (the worst case exceeds the maximum, so the comment must say O1 DOES apply) or within
+# (it does not, so the comment must say O1 does NOT apply). The figures are computed from the
+# values read, never written twice.
+tf_ml_comment() {
+  local ra wc
+  tf_overlay "$1"
+  if ! { tf_is_num "$TF_MAX" && tf_is_num "$TF_CREATE" && tf_is_num "$TF_STEP" && tf_is_num "$TF_LOAD"; }; then
+    note_fail "a pipeline value of the $2 overlay could not be read as a whole number"
+    return 0
+  fi
+  ra=$((TF_CREATE + TF_STEP + 600))
+  wc=$((TF_CREATE + 300 + TF_STEP + 900 + TF_LOAD))
+  f_has "$1" "$TF_CREATE + $TF_STEP + 600 = $ra <= $TF_MAX"
+  f_has "$1" "$((TF_MAX - ra)) s of slack"
+  if [ "$wc" -gt "$TF_MAX" ]; then
+    [ "$3" = "over" ] || note_fail "$2: the worst case $wc exceeds $TF_MAX, expected it to stay within"
+    f_has "$1" "$TF_CREATE + 300 + $TF_STEP + 900 + $TF_LOAD = $wc > $TF_MAX ($((wc - TF_MAX)) s over)"
+    f_has "$1" "DOES apply to $2"
+  else
+    [ "$3" = "within" ] || note_fail "$2: the worst case $wc stays within $TF_MAX, expected it to exceed it"
+    f_has "$1" "$TF_CREATE + 300 + $TF_STEP + 900 + $TF_LOAD = $wc <= $TF_MAX ($((TF_MAX - wc)) s of slack)"
+    f_has "$1" "does NOT apply to $2"
+  fi
+}
+
 static_begin "14.terraform.m-and-l-overlays.comment-arithmetic-matches-the-values"
-tf_overlay "$TF_M"
-if tf_is_num "$TF_MAX" && tf_is_num "$TF_CREATE" && tf_is_num "$TF_STEP"; then
-  f_has "$TF_M" "$TF_CREATE + $TF_STEP + 600 = $((TF_CREATE + TF_STEP + 600)) <= $TF_MAX"
-else
-  note_fail "a pipeline value of the M overlay could not be read as a whole number"
-fi
-tf_overlay "$TF_L"
-if tf_is_num "$TF_MAX" && tf_is_num "$TF_CREATE" && tf_is_num "$TF_STEP"; then
-  f_has "$TF_L" "$TF_CREATE + $TF_STEP + 600 = $((TF_CREATE + TF_STEP + 600)) <= $TF_MAX"
-else
-  note_fail "a pipeline value of the L overlay could not be read as a whole number"
-fi
+tf_ml_comment "$TF_M" M over
+tf_ml_comment "$TF_L" L within
 case_end
 
 ### Work order 54: the on-node time limits and the S step cap (D32) -------------------------
@@ -4480,7 +4587,7 @@ static_wo54_cases() {
   local pre_spark=874 want_ra=6840 want_wc=9240
 
   static_begin "14.emr.timeouts.spark-limit-default-is-3000-overridable-with-sc-spark-timeout-and-status-124-is-documented"
-  f_has "$emr_lib" 'timeout "${SC_SPARK_TIMEOUT:-3000}" "${cmd[@]}"'
+  f_has "$emr_lib" 'timeout -k 30 "${SC_SPARK_TIMEOUT:-3000}" "${cmd[@]}"'
   f_has_not "$emr_lib" 'SC_SPARK_TIMEOUT:-1500'
   f_has "$EMR_DIR/lib-emr.sh" 'Returns the exit status (124 on the time limit).'
   f_has "$EMR_DIR/lib-emr.sh" 'The time limit is SC_SPARK_TIMEOUT seconds, default 3000 (was 1500).'
@@ -4490,11 +4597,11 @@ static_wo54_cases() {
   er_line="$(grep -F 'scholarchain.er.ErBatch' "$emr_run" | head -n 1)"
   [ -n "$er_line" ] || note_fail "no code line of run-s-pipeline.sh runs scholarchain.er.ErBatch"
   case "$er_line" in
-    *'timeout "${SC_ER_TIMEOUT:-3000}" '*) ;;
-    *) note_fail "the ErBatch line does not use timeout with the SC_ER_TIMEOUT default 3000: $er_line" ;;
+    *'timeout -k 30 "${SC_ER_TIMEOUT:-3000}" '*) ;;
+    *) note_fail "the ErBatch line does not use timeout -k 30 with the SC_ER_TIMEOUT default 3000: $er_line" ;;
   esac
   case "$er_line" in
-    *'timeout 1500'*) note_fail "the ErBatch line still carries the literal timeout 1500: $er_line" ;;
+    *'timeout 1500'* | *'timeout -k 30 1500'*) note_fail "the ErBatch line still carries the literal 1500 limit: $er_line" ;;
     *) ;;
   esac
   f_has_not "$emr_run" 'SC_ER_TIMEOUT:-1500'
@@ -4502,8 +4609,8 @@ static_wo54_cases() {
   case_end
 
   static_begin "14.emr.timeouts.hadoop-stage-limit-stays-1500-and-comes-before-the-er-line"
-  f_has "$emr_run" 'HADOOP_CLASSPATH="$hcp" JAVA_HOME="$SC_JAVA_HOME" timeout 1500'
-  f_before "$emr_run" 'timeout 1500' 'timeout "${SC_ER_TIMEOUT:-3000}"'
+  f_has "$emr_run" 'HADOOP_CLASSPATH="$hcp" JAVA_HOME="$SC_JAVA_HOME" timeout -k 30 1500'
+  f_before "$emr_run" 'timeout -k 30 1500' 'timeout -k 30 "${SC_ER_TIMEOUT:-3000}"'
   case_end
 
   static_begin "14.terraform.s-overlay.rule-a-and-worst-case-figures-in-the-text-are-read-from-the-files-and-match-d32"
@@ -4545,6 +4652,496 @@ static_wo54_cases() {
   case_end
 }
 static_wo54_cases
+
+### Work order 56: the review repairs of work order 55 (D33) ----------------------------------
+# -k 30 on the three long timeouts, yarn_final_state under timeout 120, and the failure-path
+# publish (sc_publish_failed_logs, sc_on_exit) with its shared time budget. Static cases read
+# the scripts and scripts/README.md as text. Dynamic cases source the real lib-emr.sh in a
+# child shell (a bash program under $CODE_DIR) with shell functions standing in for timeout,
+# aws and yarn, as the progress cases above do, so no stub on PATH is reached and the tripwire
+# stays empty. run_spark_submit reaches timeout through env, which a function cannot stand in
+# for, so that child puts a one-line timeout script first on its PATH. Nothing here runs a real
+# timeout, so what GNU timeout does with -k (exit 124, or 137 after a KILL) stays a documented
+# claim, as the README says.
+
+# yarn_final_state and spark_verdict with timeout and yarn replaced by functions. MODE:
+# succeeded, failed, yarn-fails (yarn exits 1), timeout (timeout exits 124 and never runs
+# yarn) or timeout-late (yarn prints SUCCEEDED, then timeout exits 124).
+cat > "$CODE_DIR/yarn-state-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"; MODE="$3"
+source "$LIB"
+CALLS="$FIX/calls.log"
+: > "$CALLS"
+timeout() {
+  local r
+  printf 'TIMEOUT %s\n' "$1" >> "$CALLS"
+  if [ "$MODE" = "timeout" ]; then return 124; fi
+  shift
+  r=0
+  "$@" || r=$?
+  if [ "$MODE" = "timeout-late" ]; then return 124; fi
+  return "$r"
+}
+yarn() {
+  printf 'YARN %s\n' "$*" >> "$CALLS"
+  case "$MODE" in
+    succeeded | timeout-late) printf 'Application Report : \n\tFinal-State : SUCCEEDED\n' ;;
+    failed) printf 'Application Report : \n\tFinal-State : FAILED\n' ;;
+    yarn-fails) return 1 ;;
+  esac
+  return 0
+}
+printf 'STATE=%s\n' "$(yarn_final_state application_1794701635353_0001)"
+spark_verdict "$FIX/spark.log" 0
+printf 'VERDICT=%s\n' "$SC_LAST_VERDICT"
+printf 'VSTATE=%s\n' "$SC_LAST_STATE"
+EOF
+
+# sc_publish_failed_logs, directly (MODE direct) or through the exit trap of a failed stage
+# (MODE exit, exit code EXITCODE), with timeout and aws replaced by functions that log every
+# call (CALLS) and copy every uploaded file (UPLOADS). Environment: AWSFAIL=1 makes aws exit 1;
+# TICK adds that many seconds to the SECONDS counter on every aws call (a stub clock, so a
+# time budget can be spent without waiting); SC_FAILED_PUBLISH_BUDGET_SECONDS is read by
+# lib-emr.sh when it is sourced. MODE unregistered and nodir never reach a reports directory.
+cat > "$CODE_DIR/failed-publish-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"; MODE="$3"
+source "$LIB"
+UPLOADS="$FIX/uploads"
+CALLS="$FIX/calls.log"
+mkdir -p "$UPLOADS"
+: > "$CALLS"
+timeout() { printf 'TIMEOUT %s\n' "$1" >> "$CALLS"; shift; "$@"; }
+aws() {
+  if [ "${AWSFAIL:-0}" = "1" ]; then
+    printf 'AWS-FAILED %s\n' "$*" >> "$CALLS"
+    SECONDS=$((SECONDS + ${TICK:-0}))
+    return 1
+  fi
+  printf 'AWS %s\n' "$*" >> "$CALLS"
+  if [ "${1:-}" = "s3" ] && [ "${2:-}" = "cp" ]; then
+    cp "$3" "$UPLOADS/${4##*/}"
+  fi
+  SECONDS=$((SECONDS + ${TICK:-0}))
+  return 0
+}
+SC_KV=$'RUN_ID=abc\nMAPREDUCE=yarn\n'
+case "$MODE" in
+  unregistered) ;;
+  nodir) register_failure_logs "$FIX/no-such-dir" data-bucket run-v1-x ;;
+  *) register_failure_logs "$FIX/reports" data-bucket run-v1-x ;;
+esac
+if [ "$MODE" = "exit" ]; then
+  install_trap
+  SC_T0=0
+  SECONDS=500
+  stage boom-stage
+  SECONDS=507
+  exit "${EXITCODE:-7}"
+fi
+rc=0
+sc_publish_failed_logs || rc=$?
+printf 'RC=%s\n' "$rc"
+EOF
+
+# run_spark_submit with a spark-submit script of its own and a timeout script that logs its
+# arguments, drops the -k option and the duration and runs the rest (or exits 124 when a file
+# named limit sits beside the calls log).
+SS_TPL="$EMR_FX/ss-tpl"
+mkdir -p "$SS_TPL"
+cat > "$SS_TPL/timeout" <<'EOF'
+#!/bin/sh
+printf 'TIMEOUT-ARGS %s\n' "$*" >> "${0%/*}/../calls.log"
+if [ -f "${0%/*}/../limit" ]; then exit 124; fi
+if [ "$1" = "-k" ]; then shift 2; fi
+shift
+exec "$@"
+EOF
+cat > "$SS_TPL/spark-submit" <<'EOF'
+#!/bin/sh
+printf 'SPARK-SUBMIT %s\n' "$*" >> "${0%/*}/../../calls.log"
+printf 'INFO Client: Submitted application application_1794701635353_0001\n'
+exit 0
+EOF
+chmod 755 "$SS_TPL/timeout" "$SS_TPL/spark-submit"
+cat > "$CODE_DIR/spark-submit-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"
+source "$LIB"
+PATH="$FIX/bin:$PATH"
+export PATH
+SPARK_HOME="$FIX/spark"
+rc=0
+run_spark_submit "$FIX/spark.log" client scholarchain.spark.CollaborationPipeline /app.jar "/a.jar,/b.jar" --out-root /out || rc=$?
+printf 'RC=%s\n' "$rc"
+EOF
+
+# shellcheck disable=SC2016
+static_wo56_cases() {
+  local fp_fn="$CODE_DIR/failed-publish-fn.sh" rd="$REAL_ROOT/scripts/README.md" k
+  extract_fn "$emr_lib" sc_publish_failed_logs "$fp_fn"
+
+  static_begin "14.emr.timeouts.k-30-is-on-the-spark-hadoop-and-er-calls-and-no-bare-form-is-left"
+  f_has "$emr_lib" 'timeout -k 30 "${SC_SPARK_TIMEOUT:-3000}" "${cmd[@]}"'
+  f_has "$emr_run" 'JAVA_HOME="$SC_JAVA_HOME" timeout -k 30 1500'
+  f_has "$emr_run" 'timeout -k 30 "${SC_ER_TIMEOUT:-3000}" "$SC_JAVA_HOME/bin/java"'
+  f_has_not "$emr_lib" 'timeout "${SC_SPARK_TIMEOUT'
+  f_has_not "$emr_run" 'timeout 1500'
+  f_has_not "$emr_run" 'timeout "${SC_ER_TIMEOUT'
+  f_count_is "$emr_lib" 'timeout -k 30 ' 1
+  f_count_is "$emr_run" 'timeout -k 30 ' 2
+  case_end
+
+  static_begin "14.emr.timeouts.readme-documents-k-30-status-124-and-the-137-claim-as-not-observed"
+  f_has "$rd" '`-k 30` sends KILL 30 s after the TERM that the time limit sends'
+  f_has "$rd" 'Every stage under `timeout` catches the status (`|| rc=$?`) and calls `die`, and `die` always exits 1, so `sc_on_exit` records `FAILED_EXIT_CODE=1` for a timed-out stage'
+  f_has "$rd" 'The 124 appears only in the text that `die` writes to stderr, which is the EMR step log'
+  f_has "$rd" '`STAGE_SECONDS_<STAGE>=<n> (stage failed)` with n equal to the stage limit'
+  f_has "$rd" 'From the GNU coreutils manual, not observed on the node'
+  f_has "$rd" 'makes `timeout -k` exit 137, so that text would read 137 instead of 124; the recorded `FAILED_EXIT_CODE` stays 1 either way.'
+  f_has_not "$rd" 'A timeout exits 124, which the stage reports as a failure'
+  f_has_not "$rd" 'would report `FAILED_EXIT_CODE=137`'
+  case_end
+
+  static_begin "14.emr.timeouts.readme-limit-table-names-the-same-commands-as-the-code"
+  f_has "$rd" '| Hadoop | `timeout -k 30 1500` |'
+  f_has "$rd" '`timeout -k 30 "${SC_ER_TIMEOUT:-3000}"`'
+  f_has "$rd" '`timeout -k 30 "${SC_SPARK_TIMEOUT:-3000}"`'
+  f_has "$rd" '`timeout 120` per `yarn application -status`; a timeout gives `unknown`, which is not `SUCCEEDED`'
+  f_has "$rd" '`SC_FAILED_PUBLISH_BUDGET_SECONDS` (a whole number with no leading zero, else 600)'
+  f_has_not "$rd" '(digits, else 600)'
+  f_has "$rd" 'FAILED_LOGS_SKIPPED file=<name> reason=time-budget-spent'
+  case_end
+
+  static_begin "14.emr.lib-emr.yarn_final_state.is-wrapped-in-timeout-120-and-resets-to-unknown-on-failure"
+  f_has "$emr_lib" 'timeout 120 yarn application -status "$1"'
+  f_has "$emr_lib" '|| s=""'
+  case_end
+
+  static_begin "14.emr.lib-emr.sc_publish_failed_logs.is-a-budgeted-best-effort-scanned-per-file-copy-under-the-failed-stamp"
+  f_has "$emr_lib" 'SC_FAILED_PUBLISH_BUDGET_SECONDS="${SC_FAILED_PUBLISH_BUDGET_SECONDS:-600}"'
+  f_has "$fp_fn" 'dest="s3://$bucket/reports/runs/$run/failed/$stamp/"'
+  f_has "$fp_fn" '[[ -n "$rep" && -n "$bucket" && -n "$run" && -d "$rep" ]] || return 0'
+  f_count_is "$fp_fn" 'aws s3 cp' 1
+  f_has "$fp_fn" 'timeout "$per" aws s3 cp "$f" "$dest$name" --only-show-errors'
+  f_has "$fp_fn" '[[ "$budget" =~ ^(0|[1-9][0-9]*)$ ]] || budget=600'
+  f_has_not "$fp_fn" '=~ ^[0-9]+$'
+  f_has "$fp_fn" 'deadline=$((SECONDS + budget))'
+  f_has "$fp_fn" 'per=300'
+  f_has "$fp_fn" 'if [[ "$remaining" -lt "$per" ]]; then'
+  f_has "$fp_fn" 'per="$remaining"'
+  f_has "$fp_fn" 'reason=time-budget-spent (budget %s s)'
+  f_has "$fp_fn" 'reason=key-material-pattern (content not printed)'
+  f_has "$fp_fn" 'FAILED_LOGS_PUBLISHED=%s'
+  f_before "$fp_fn" 'files=("$rep/run-record.env")' 'for f in "$rep"/*; do'
+  f_before "$fp_fn" 'grep -qE "$SC_SECRET_RE" "$f"' 'remaining=$((deadline - SECONDS))'
+  f_before "$fp_fn" 'remaining=$((deadline - SECONDS))' 'timeout "$per" aws s3 cp'
+  for k in '--sse-c' '--delete' 's3 sync' 's3 rm' 's3 mv' '--recursive' 'delete-object'; do
+    f_has_not "$fp_fn" "$k"
+  done
+  f_has_not_re "$fp_fn" '(^|[^a-z_])(die|exit)([^a-z_]|$)'
+  case_end
+
+  static_begin "14.emr.lib-emr.sc_on_exit.records-the-failed-stage-and-exit-code-before-the-publish-and-exits-with-the-original-code"
+  f_has "$emr_lib" 'kv FAILED_STAGE "$SC_STAGE_N $SC_STAGE_NAME"'
+  f_has "$emr_lib" 'kv FAILED_EXIT_CODE "$rc"'
+  f_has "$emr_lib" 'sc_publish_failed_logs || true'
+  f_before "$emr_lib" 'if [[ -n "$SC_FAIL_REP" ]]; then' 'kv FAILED_STAGE'
+  f_before "$emr_lib" 'kv FAILED_STAGE' 'kv FAILED_EXIT_CODE'
+  f_before "$emr_lib" 'kv FAILED_EXIT_CODE' 'sc_publish_failed_logs || true'
+  f_before "$emr_lib" 'sc_publish_failed_logs || true' 'exit "$rc"'
+  case_end
+}
+static_wo56_cases
+
+### Dynamic cases: yarn_final_state and the Spark verdict under a limit.
+
+yn_new() {
+  YN_FIX="$EMR_FX/yn-$1"
+  rm -rf "$YN_FIX"
+  mkdir -p "$YN_FIX"
+  printf 'INFO Client: Submitted application application_1794701635353_0001\n' > "$YN_FIX/spark.log"
+}
+yn_run() {
+  run bash "$CODE_DIR/yarn-state-child.sh" "$EMR_DIR/lib-emr.sh" "$YN_FIX" "$1"
+}
+# yn_expect STATE VERDICT YARN_CALLS: yarn_final_state and spark_verdict each ran under
+# timeout 120 (two TIMEOUT lines), and yarn was called YARN_CALLS times.
+yn_expect() {
+  mr_ok
+  a_out_re "^STATE=$1\$"
+  a_out_re "^VERDICT=$2\$"
+  a_out_re "^VSTATE=$1\$"
+  [ "$(grep -c '^TIMEOUT 120$' "$YN_FIX/calls.log")" = "2" ] || note_fail "expected two timeout 120 wrappers, found $(grep -c '^TIMEOUT 120$' "$YN_FIX/calls.log")"
+  [ "$(grep -c '^TIMEOUT ' "$YN_FIX/calls.log")" = "2" ] || note_fail "a timeout wrapper other than 120 was used"
+  [ "$(grep -c '^YARN application -status application_1794701635353_0001$' "$YN_FIX/calls.log")" = "$3" ] || note_fail "yarn was not called $3 time(s) with application -status and the application id"
+}
+
+yn_new succeeded
+yn_run succeeded
+case_begin "14.emr.yarn-final-state.succeeded-gives-succeeded-and-the-verdict-yes-under-timeout-120"
+yn_expect SUCCEEDED yes 2
+case_end
+
+yn_new failed
+yn_run failed
+case_begin "14.emr.yarn-final-state.a-failed-final-state-is-passed-through-and-the-verdict-is-no"
+yn_expect FAILED no 2
+case_end
+
+yn_new yarn-fails
+yn_run yarn-fails
+case_begin "14.emr.yarn-final-state.a-failing-yarn-gives-unknown-and-the-verdict-is-no"
+yn_expect unknown no 2
+case_end
+
+yn_new timeout
+yn_run timeout
+case_begin "14.emr.yarn-final-state.a-timeout-exit-124-gives-unknown-and-the-verdict-is-no"
+yn_expect unknown no 0
+case_end
+
+yn_new timeout-late
+yn_run timeout-late
+case_begin "14.emr.yarn-final-state.a-timeout-after-partial-output-still-gives-unknown-never-succeeded"
+yn_expect unknown no 2
+case_end
+
+### Dynamic cases: run_spark_submit under timeout -k 30.
+
+ss_new() {
+  SS_FIX="$EMR_FX/ss-$1"
+  rm -rf "$SS_FIX"
+  mkdir -p "$SS_FIX/bin" "$SS_FIX/spark/bin"
+  cp "$SS_TPL/timeout" "$SS_FIX/bin/timeout"
+  cp "$SS_TPL/spark-submit" "$SS_FIX/spark/bin/spark-submit"
+  chmod 755 "$SS_FIX/bin/timeout" "$SS_FIX/spark/bin/spark-submit"
+  : > "$SS_FIX/calls.log"
+}
+
+ss_new default
+run env -u SC_SPARK_TIMEOUT bash "$CODE_DIR/spark-submit-child.sh" "$EMR_DIR/lib-emr.sh" "$SS_FIX"
+case_begin "14.emr.timeouts.run-spark-submit-runs-the-command-under-timeout-k-30-3000-by-default"
+mr_ok
+a_out_re '^RC=0$'
+grep -qF -- "TIMEOUT-ARGS -k 30 3000 $SS_FIX/spark/bin/spark-submit --master yarn --deploy-mode client --class scholarchain.spark.CollaborationPipeline --jars /a.jar,/b.jar /app.jar --out-root /out" "$SS_FIX/calls.log" || note_fail "timeout was not called with -k 30 3000 and the spark-submit command: $(head -n 1 "$SS_FIX/calls.log")"
+grep -qF -- "SPARK-SUBMIT --master yarn --deploy-mode client --class scholarchain.spark.CollaborationPipeline" "$SS_FIX/calls.log" || note_fail "spark-submit was not run behind the timeout"
+grep -qF -- "application_1794701635353_0001" "$SS_FIX/spark.log" || note_fail "the spark-submit output did not reach the log file"
+case_end
+
+ss_new override
+run env SC_SPARK_TIMEOUT=77 bash "$CODE_DIR/spark-submit-child.sh" "$EMR_DIR/lib-emr.sh" "$SS_FIX"
+case_begin "14.emr.timeouts.run-spark-submit-limit-follows-sc-spark-timeout-and-keeps-k-30"
+mr_ok
+a_out_re '^RC=0$'
+grep -qF -- "TIMEOUT-ARGS -k 30 77 $SS_FIX/spark/bin/spark-submit " "$SS_FIX/calls.log" || note_fail "SC_SPARK_TIMEOUT=77 did not give -k 30 77: $(head -n 1 "$SS_FIX/calls.log")"
+case_end
+
+ss_new limit
+: > "$SS_FIX/limit"
+run env -u SC_SPARK_TIMEOUT bash "$CODE_DIR/spark-submit-child.sh" "$EMR_DIR/lib-emr.sh" "$SS_FIX"
+case_begin "14.emr.timeouts.run-spark-submit-returns-the-timeout-status-124-when-the-limit-is-reached"
+mr_ok
+a_out_re '^RC=124$'
+grep -qF -- "TIMEOUT-ARGS -k 30 3000 " "$SS_FIX/calls.log" || note_fail "timeout was not called with -k 30 3000"
+if grep -qF -- "SPARK-SUBMIT" "$SS_FIX/calls.log"; then note_fail "spark-submit ran although the limit was reached first"; fi
+case_end
+
+### Dynamic cases: the failure-path publish and the exit trap.
+
+fp_new() {
+  FP_FIX="$EMR_FX/fp-$1"
+  FP_CALLS="$FP_FIX/calls.log"
+  rm -rf "$FP_FIX"
+  mkdir -p "$FP_FIX/reports/sub"
+  printf 'hadoop line\n' > "$FP_FIX/reports/hadoop.log"
+  printf 'er line\n' > "$FP_FIX/reports/er.log"
+  printf 'zz line\n' > "$FP_FIX/reports/zz.log"
+  printf 'inner\n' > "$FP_FIX/reports/sub/inner.log"
+  printf 'note %s\n' "$FAKE_AKIA" > "$FP_FIX/reports/secret.log"
+}
+# fp_run MODE [NAME=VALUE ...]
+fp_run() {
+  local mode="$1"
+  shift
+  run env "$@" bash "$CODE_DIR/failed-publish-child.sh" "$EMR_DIR/lib-emr.sh" "$FP_FIX" "$mode"
+}
+fp_names() {
+  find "$FP_FIX/uploads" -type f 2> /dev/null | sed 's|.*/||' | sort | tr '\n' ' '
+}
+FP_STAMP_URI_RE='^FAILED_LOGS_PUBLISHED=s3://data-bucket/reports/runs/run-v1-x/failed/[0-9]{8}T[0-9]{6}Z/$'
+
+fp_new exit-ok
+fp_run exit EXITCODE=7
+case_begin "14.emr.failed-publish.a-failed-registered-stage-records-the-stage-and-exit-code-then-publishes-and-the-exit-code-stands"
+a_rc 7
+a_trip_empty
+a_order 'STAGE[1] boom-stage: FAIL (exit 7)' 'STAGE_SECONDS_TOTAL_AT_FAILURE=' 'FAILED_STAGE=1 boom-stage' 'FAILED_EXIT_CODE=7' 'FAILED_LOGS_PUBLISHED=' 'NOTE: failed-log publish:'
+a_out_re "$FP_STAMP_URI_RE"
+[ ! -s "$ERR" ] || note_fail "stderr is not empty: $(head -n 1 "$ERR" | cut -c1-140)"
+grep -qx 'FAILED_STAGE=1 boom-stage' "$FP_FIX/uploads/run-record.env" || note_fail "the uploaded run-record.env lacks FAILED_STAGE=1 boom-stage"
+grep -qx 'FAILED_EXIT_CODE=7' "$FP_FIX/uploads/run-record.env" || note_fail "the uploaded run-record.env lacks FAILED_EXIT_CODE=7"
+grep -qx 'RUN_ID=abc' "$FP_FIX/uploads/run-record.env" || note_fail "the uploaded run-record.env lacks the key=value lines recorded before"
+case_end
+
+case_begin "14.emr.failed-publish.uploads-only-under-the-failed-stamp-prefix-run-record-first-one-cp-per-file-and-no-sync-delete-or-sse-c"
+[ "$(grep -c '^AWS ' "$FP_CALLS")" = "4" ] || note_fail "expected 4 aws calls, found $(grep -c '^AWS ' "$FP_CALLS")"
+FP_BAD="$(grep '^AWS ' "$FP_CALLS" | grep -vE '^AWS s3 cp [^ ]+ s3://data-bucket/reports/runs/run-v1-x/failed/[0-9]{8}T[0-9]{6}Z/[A-Za-z0-9._-]+ --only-show-errors$' | head -n 1)"
+[ -z "$FP_BAD" ] || note_fail "an aws call has another shape: $FP_BAD"
+grep '^AWS ' "$FP_CALLS" | head -n 1 | grep -qE '/failed/[0-9]{8}T[0-9]{6}Z/run-record\.env --only-show-errors$' || note_fail "the first upload is not run-record.env"
+[ "$(grep '^AWS ' "$FP_CALLS" | awk '{ print $5 }' | sed 's|[^/]*$||' | sort -u | wc -l | tr -d ' ')" = "1" ] || note_fail "the uploads do not share one failed/<stamp>/ prefix"
+[ "$(grep -c 'progress' "$FP_CALLS")" = "0" ] || note_fail "a call names the progress prefix"
+if grep -qE -- '--sse-c|--delete|sync|--recursive|s3 rm|s3 mv' "$FP_CALLS"; then note_fail "a call uses sync, delete, recursive or sse-c"; fi
+[ "$(fp_names)" = "er.log hadoop.log run-record.env zz.log " ] || note_fail "uploaded names: $(fp_names)"
+case_end
+
+case_begin "14.emr.failed-publish.a-file-with-key-material-is-skipped-and-its-text-is-never-printed-or-uploaded"
+a_out "FAILED_LOGS_SKIPPED file=secret.log reason=key-material-pattern (content not printed)"
+a_out "NOTE: failed-log publish: 4 file(s) uploaded, 1 skipped (key-material pattern), 0 failed"
+if grep -qF -- "$FAKE_AKIA" "$OUT" "$ERR"; then note_fail "the matched text was printed"; fi
+if grep -rqF -- "$FAKE_AKIA" "$FP_FIX/uploads"; then note_fail "key material was uploaded"; fi
+if grep -qF -- "secret.log" "$FP_CALLS"; then note_fail "an aws call names secret.log"; fi
+case_end
+
+case_begin "14.emr.failed-publish.every-upload-is-timed-and-the-per-call-limit-is-300-while-the-budget-is-untouched"
+[ "$(grep -c '^TIMEOUT ' "$FP_CALLS")" = "4" ] || note_fail "expected 4 timeout wrappers, found $(grep -c '^TIMEOUT ' "$FP_CALLS")"
+FP_TO="$(awk '$1 == "TIMEOUT" && $2 != 300 { print }' "$FP_CALLS" | head -n 1)"
+[ -z "$FP_TO" ] || note_fail "a per-call limit is not 300 with the whole budget left: $FP_TO"
+case_end
+
+fp_new direct-fail
+fp_run direct AWSFAIL=1
+case_begin "14.emr.failed-publish.aws-failures-are-counted-and-swallowed-the-function-still-returns-zero"
+a_rc 0
+a_trip_empty
+a_out_re '^RC=0$'
+a_out "NOTE: failed-log publish: 0 file(s) uploaded, 1 skipped (key-material pattern), 4 failed"
+a_not_out "FAILED_LOGS_PUBLISHED="
+[ "$(grep -c '^AWS-FAILED ' "$FP_CALLS")" = "4" ] || note_fail "expected 4 failed aws calls, found $(grep -c '^AWS-FAILED ' "$FP_CALLS")"
+if grep -qF -- "$FAKE_AKIA" "$OUT" "$ERR"; then note_fail "the matched text was printed"; fi
+case_end
+
+# This is a unit test of sc_on_exit: the child ends with a direct "exit 124", so the trap sees
+# 124 and must keep it whatever the publish does. It does not model a timed-out stage. In the
+# real script a stage under timeout catches the status (|| rc=$?) and calls die, which always
+# exits 1, so a timed-out stage records FAILED_EXIT_CODE=1 (scripts/README.md, "On-node time
+# limits"; S run 4, D32). The 124 here is only a value the trap must pass through unchanged.
+fp_new exit-fail
+fp_run exit AWSFAIL=1 EXITCODE=124
+case_begin "14.emr.failed-publish.a-failing-aws-in-the-exit-trap-does-not-change-the-original-exit-code-124"
+a_rc 124
+a_trip_empty
+a_out 'FAILED_STAGE=1 boom-stage'
+a_out 'FAILED_EXIT_CODE=124'
+a_out "NOTE: failed-log publish: 0 file(s) uploaded, 1 skipped (key-material pattern), 4 failed"
+a_not_out "FAILED_LOGS_PUBLISHED="
+case_end
+
+# fp_clock_expect: the stub clock (TICK=250 on every upload) spends a 600 s budget. The limits
+# of the three calls are 300 (350 left, so the limit stays 300), 300 and the time left (about
+# 100, a second or so less when the clock ticks over), and the fourth upload candidate, zz.log,
+# is skipped with the budget text and the NOTE with the count.
+fp_clock_expect() {
+  local t1="" t2="" t3="" t4=""
+  a_rc 0
+  a_trip_empty
+  a_out_re '^RC=0$'
+  read -r t1 t2 t3 t4 <<< "$(awk '$1 == "TIMEOUT" { printf "%s ", $2 }' "$FP_CALLS")"
+  [ "$t1" = "300" ] || note_fail "the first per-call limit is '$t1', expected 300"
+  [ "$t2" = "300" ] || note_fail "the second per-call limit is '$t2', expected 300 (350 s were left)"
+  { tf_is_num "$t3" && [ "$t3" -ge 95 ] && [ "$t3" -le 100 ]; } || note_fail "the third per-call limit is '$t3', expected the time left (95 to 100)"
+  [ -z "$t4" ] || note_fail "a fourth upload was timed ($t4) after the budget was spent"
+  a_out "FAILED_LOGS_SKIPPED file=zz.log reason=time-budget-spent (budget 600 s)"
+  a_out "NOTE: failed-log publish: 1 file(s) not uploaded, time budget of 600 s spent"
+  a_out "NOTE: failed-log publish: 3 file(s) uploaded, 1 skipped (key-material pattern), 0 failed"
+  a_out_re "$FP_STAMP_URI_RE"
+  grep '^AWS ' "$FP_CALLS" | head -n 1 | grep -qE '/failed/[0-9]{8}T[0-9]{6}Z/run-record\.env --only-show-errors$' || note_fail "the first upload is not run-record.env"
+  [ "$(fp_names)" = "er.log hadoop.log run-record.env " ] || note_fail "uploaded names: $(fp_names)"
+  if grep -qF -- "zz.log" "$FP_CALLS"; then note_fail "zz.log was uploaded with no budget left"; fi
+}
+
+fp_new clock
+fp_run direct TICK=250
+case_begin "14.emr.failed-publish.each-call-gets-the-smaller-of-300-and-the-time-left-and-a-spent-budget-skips-the-rest-with-a-note"
+fp_clock_expect
+case_end
+
+fp_new budget-abc
+fp_run direct SC_FAILED_PUBLISH_BUDGET_SECONDS=abc TICK=250
+case_begin "14.emr.failed-publish.a-non-numeric-budget-abc-falls-back-to-600"
+fp_clock_expect
+a_not_out "budget abc"
+case_end
+
+fp_new budget-negative
+fp_run direct SC_FAILED_PUBLISH_BUDGET_SECONDS=-5 TICK=250
+case_begin "14.emr.failed-publish.a-negative-budget-minus-5-falls-back-to-600"
+fp_clock_expect
+a_not_out "budget -5"
+case_end
+
+# Work order 59: a leading zero is not a whole number here (bash would read 08 and 09 as bad
+# octal, "value too great for base", and 0600 as 384 s), so it falls back to 600 like abc and
+# -5. The same clock expectations as the abc case hold, stderr stays empty, and the budget
+# text never shows the rejected value.
+fp_new budget-08
+fp_run direct SC_FAILED_PUBLISH_BUDGET_SECONDS=08 TICK=250
+case_begin "14.emr.failed-publish.a-budget-with-a-leading-zero-08-falls-back-to-600"
+fp_clock_expect
+a_not_out "budget 08"
+[ ! -s "$ERR" ] || note_fail "stderr is not empty: $(head -n 1 "$ERR" | cut -c1-140)"
+case_end
+
+fp_new budget-09
+fp_run direct SC_FAILED_PUBLISH_BUDGET_SECONDS=09 TICK=250
+case_begin "14.emr.failed-publish.a-budget-with-a-leading-zero-09-falls-back-to-600"
+fp_clock_expect
+a_not_out "budget 09"
+[ ! -s "$ERR" ] || note_fail "stderr is not empty: $(head -n 1 "$ERR" | cut -c1-140)"
+case_end
+
+fp_new budget-0600
+fp_run direct SC_FAILED_PUBLISH_BUDGET_SECONDS=0600 TICK=250
+case_begin "14.emr.failed-publish.a-budget-of-0600-falls-back-to-600-not-the-octal-384"
+fp_clock_expect
+a_not_out "budget 0600"
+a_not_out "budget 384"
+[ ! -s "$ERR" ] || note_fail "stderr is not empty: $(head -n 1 "$ERR" | cut -c1-140)"
+case_end
+
+fp_new budget-zero
+fp_run direct SC_FAILED_PUBLISH_BUDGET_SECONDS=0
+case_begin "14.emr.failed-publish.a-budget-of-zero-skips-every-file-calls-no-aws-prints-the-note-and-returns-zero"
+a_rc 0
+a_trip_empty
+a_out_re '^RC=0$'
+a_out "FAILED_LOGS_SKIPPED file=run-record.env reason=time-budget-spent (budget 0 s)"
+a_out "FAILED_LOGS_SKIPPED file=er.log reason=time-budget-spent (budget 0 s)"
+a_out "FAILED_LOGS_SKIPPED file=hadoop.log reason=time-budget-spent (budget 0 s)"
+a_out "FAILED_LOGS_SKIPPED file=zz.log reason=time-budget-spent (budget 0 s)"
+a_out "FAILED_LOGS_SKIPPED file=secret.log reason=key-material-pattern (content not printed)"
+a_out "NOTE: failed-log publish: 4 file(s) not uploaded, time budget of 0 s spent"
+a_out "NOTE: failed-log publish: 0 file(s) uploaded, 1 skipped (key-material pattern), 0 failed"
+a_not_out "FAILED_LOGS_PUBLISHED="
+[ ! -s "$FP_CALLS" ] || note_fail "aws or timeout was called with no budget: $(head -n 1 "$FP_CALLS")"
+if grep -qF -- "$FAKE_AKIA" "$OUT" "$ERR"; then note_fail "the matched text was printed"; fi
+case_end
+
+fp_new unregistered
+fp_run unregistered
+case_begin "14.emr.failed-publish.does-nothing-before-register-failure-logs-ran"
+a_rc 0
+a_trip_empty
+[ "$(cat "$OUT")" = "RC=0" ] || note_fail "stdout is not exactly RC=0"
+[ ! -s "$FP_CALLS" ] || note_fail "a call was made before register_failure_logs"
+case_end
+
+fp_new nodir
+fp_run nodir
+case_begin "14.emr.failed-publish.does-nothing-when-the-reports-directory-is-missing"
+a_rc 0
+a_trip_empty
+[ "$(cat "$OUT")" = "RC=0" ] || note_fail "stdout is not exactly RC=0"
+[ ! -s "$FP_CALLS" ] || note_fail "a call was made with no reports directory"
+case_end
 
 ### Case 12: secrets, the tripwire and the real repository ---------------------------------
 
