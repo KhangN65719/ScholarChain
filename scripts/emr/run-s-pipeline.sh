@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 # run-s-pipeline.sh: the processing half of the S run, on the EMR primary node as one
 # command-runner.jar step. Copies inputs and jars from S3, then runs in order:
-#   1. Hadoop    hadoop jar <thin jar> scholarchain.hadoop.jobs.PipelineTool (MapReduce)
-#   2. ER        java -cp ... scholarchain.er.ErBatch --run-root --out-root
-#   3. Spark     spark-submit --master yarn (Spark 4.0.5 distribution) CollaborationPipeline
-#   4. Export    spark-submit --master yarn JsonlExport
-#   5. publish   copy the results to run prefixes in the data bucket
+# The steps below are listed in order of execution. The letters are not the STAGE[n] numbers
+# (the export is stage 8):
+#   a. preflight (a sub-step of the spark-stage stage, before the Hadoop stage, about 40 s,
+#                at most 90 s): class-valued configuration, the four job main classes and one
+#                text and one Parquet write, in one spark-shell; see scripts/README.md
+#   b. Hadoop    hadoop jar <thin jar> scholarchain.hadoop.jobs.PipelineTool (MapReduce)
+#   c. ER        java -cp ... scholarchain.er.ErBatch --run-root --out-root
+#   d. Spark     spark-submit --master yarn (Spark 4.0.5 distribution) CollaborationPipeline
+#   e. Export    spark-submit --master yarn JsonlExport
+#   f. publish   copy the results to run prefixes in the data bucket
 # Written, not executed: every command below is UNVERIFIED until the first cluster, and
 # the first S run waits for scripts/emr/capability-check.sh to pass.
 #
@@ -105,6 +110,10 @@ pipeline_main() {
   # stage): recorded as evidence only. spark-defaults.conf overrides it for both Spark
   # applications (write_spark_conf).
   kv NODE_CONF_MAPRED_OUTPUT_COMMITTER_CLASS "$(conf_xml_value mapred.output.committer.class)"
+  # Fail here, in about 40 s, when a class the Spark applications or the job jars need is
+  # missing, instead of at the export stage an hour later (S run 5). A sub-step of this
+  # stage on purpose: the stage numbers, and FAILED_STAGE=8 for the export, stay as they were.
+  run_preflight "$work" "$rep"
   stage_ok
 
   stage hadoop
@@ -141,7 +150,7 @@ pipeline_main() {
   kv PERMS_WORK_AFTER "$work $(mode_of "$work")"
   kv PERMS_FS_UMASK_MODE "$SC_FS_UMASK (-Dfs.permissions.umask-mode for Hadoop, spark.hadoop.fs.permissions.umask-mode for Spark)"
   record_hadoop_effective_conf
-  local hjar hlibs hcp hexcl="^hadoop-"
+  local hjar hlibs hcp hexcl="$SC_HADOOP_LIB_EXCLUDE"
   hjar="$(main_jar "$work/jars/hadoop")"
   hlibs="$(lib_jars_csv "$work/jars/hadoop/lib" "$hexcl")"
   hcp="$(printf '%s' "$hlibs" | tr ',' ':')"
@@ -312,7 +321,7 @@ pipeline_main() {
   stage_ok
 
   stage spark
-  local sjar sjars sexcl="^(spark-|hadoop-)" mode verdict
+  local sjar sjars sexcl="$SC_SPARK_LIB_EXCLUDE" mode verdict
   sjar="$(main_jar "$work/jars/spark")"
   sjars="$(lib_jars_csv "$work/jars/spark/lib" "$sexcl")"
   kv SPARK_EXCLUDED_LIB_JARS "$(lib_jars_excluded "$work/jars/spark/lib" "$sexcl")"

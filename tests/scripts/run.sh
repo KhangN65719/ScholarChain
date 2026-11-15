@@ -4786,7 +4786,10 @@ static_wo56_cases() {
   f_has_not "$emr_lib" 'timeout "${SC_SPARK_TIMEOUT'
   f_has_not "$emr_run" 'timeout 1500'
   f_has_not "$emr_run" 'timeout "${SC_ER_TIMEOUT'
-  f_count_is "$emr_lib" 'timeout -k 30 ' 1
+  # Work order 65: lib-emr.sh now holds two bare-free timeout -k 30 calls, the Spark one and the
+  # on-node preflight's (run_preflight). The run script's count of 2 is unchanged.
+  f_count_is "$emr_lib" 'timeout -k 30 ' 2
+  f_has "$emr_lib" 'timeout -k 30 "$remaining" "$SPARK_HOME/bin/spark-shell"'
   f_count_is "$emr_run" 'timeout -k 30 ' 2
   case_end
 
@@ -5274,11 +5277,65 @@ static_wo61_cases() {
     n="${f##*/}"
     c="$(code_of "$f")"
     static_begin "14.emr.$n.no-emr-only-class-on-any-code-line"
-    for tok in DirectFileOutputCommitter EmrFileSystem com.amazon com.hadoop.compression; do
-      f_has_not "$c" "$tok"
-    done
+    if [ "$n" = "rehearse-preflight.sh" ]; then
+      # The local rehearsal (never uploaded, never run on a node) writes minimal fake node site
+      # files shaped like the EMR findings. Its EMR-only names are data of one helper: they may
+      # appear only as the value argument of an xml_prop call, never in any other code line.
+      # Work order 79: the scenario nooverride (infra work order 78) must recognise the EMR committer in the
+      # evaluate result, so two more code lines name DirectFileOutputCommitter: the verdict grep of the
+      # no-override branch and the REASON text of that branch (the why= line). Nothing else may. These two
+      # are the whole allowance and each is counted once, so a third name is still refused.
+      tok="$(grep -E 'DirectFileOutputCommitter|EmrFileSystem|com\.amazon|com\.hadoop\.compression' "$c" | grep -vE '^[[:space:]]*xml_prop ' | grep -vF -e ".*DirectFileOutputCommitter' \"\$result\"" -e 'why="expected a failed preflight with ')"
+      [ -z "$tok" ] || note_fail "an EMR-only name is on a code line that is not an xml_prop call or the nooverride verdict: $tok"
+      [ "$(grep -cF -- ".*DirectFileOutputCommitter' \"\$result\"" "$c")" = "1" ] || note_fail "the nooverride verdict grep that names DirectFileOutputCommitter is not on exactly one code line"
+      [ "$(grep -cF -- 'why="expected a failed preflight with ' "$c")" = "1" ] || note_fail "the nooverride REASON line is not on exactly one code line"
+      [ "$(awk '/DirectFileOutputCommitter|EmrFileSystem|com\.amazon|com\.hadoop\.compression/ { k++ } END { print k + 0 }' "$c")" -ge 1 ] || note_fail "no EMR-only name found: the fake node file shape changed, review this case"
+      # Work order 83 (review advisory A-i): the two allowed lines may name DirectFileOutputCommitter and
+      # nothing else EMR-only. The first filter above lets any line that holds the verdict-grep text or
+      # the why= text through, so a file system or a codec package on those same lines would pass it.
+      tok="$(grep -F -e ".*DirectFileOutputCommitter' \"\$result\"" -e 'why="expected a failed preflight with ' "$c" | grep -E 'EmrFileSystem|com\.amazon|com\.hadoop\.compression' || true)"
+      [ -z "$tok" ] || note_fail "an allowed nooverride line names more than DirectFileOutputCommitter: $tok"
+      [ "$(grep -F -e ".*DirectFileOutputCommitter' \"\$result\"" -e 'why="expected a failed preflight with ' "$c" | grep -o 'DirectFileOutputCommitter' | wc -l | tr -d ' ')" = "2" ] || note_fail "the two allowed lines do not name DirectFileOutputCommitter exactly once each"
+    else
+      for tok in DirectFileOutputCommitter EmrFileSystem com.amazon com.hadoop.compression; do
+        f_has_not "$c" "$tok"
+      done
+    fi
     case_end
   done
+
+  # Work order 71: the local preflight rehearsal (text only; the harness never runs it).
+  static_begin "14.emr.rehearse-preflight.refuses-bash-3-and-a-root-in-the-repo-and-reaches-no-aws"
+  f="$EMR_DIR/rehearse-preflight.sh"
+  if [ -f "$f" ]; then
+    c="$(code_of "$f")"
+    f_has "$f" '#!/usr/bin/env bash'
+    f_has "$f" 'if [ -z "${BASH_VERSINFO:-}" ] || [ "${BASH_VERSINFO[0]}" -lt 4 ]; then'
+    f_has "$f" 'REFUSED: this is bash %s.'
+    f_has "$f" 'does not re-exec itself into a shell it has not been given.'
+    f_before "$f" '"${BASH_VERSINFO[0]}" -lt 4' 'set -euo pipefail'
+    f_before "$f" 'set -euo pipefail' 'source "$LIB"'
+    f_before "$f" '"${BASH_VERSINFO[0]}" -lt 4' 'source "$LIB"'
+    f_has "$f" '"$REPO"/*) refuse "the rehearsal root $ROOT is inside the repository $REPO; choose a directory outside it" ;;'
+    f_before "$f" '"$REPO"/*) refuse' 'mkdir -p "$RUN"'
+    f_has "$f" 'export AWS_EC2_METADATA_DISABLED=true'
+    f_has_not_re "$c" '(^|[[:space:];|&(`])(aws|terraform|curl|wget|ssh|scp|sudo|rsync)[[:space:]]'
+    f_has_not "$c" '$HOME'
+    # shellcheck disable=SC2088 # literal needle: the script must not contain the text "~/", not an expansion
+    f_has_not "$c" '~/'
+    f_has_not "$c" '.aws/'
+    f_has_not "$c" 's3://'
+    # Work order 79: infra work order 78 removes AWS_CONFIG_FILE, AWS_SHARED_CREDENTIALS_FILE,
+    # AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_ARN from the spark-shell environment, so their names are
+    # now on one code line (the env -u line). They must never be assigned or expanded; the
+    # work order 79 case "unsets-the-aws-file-and-role-variables" pins the -u form and the count.
+    f_has_not_re "$c" 'AWS_(CONFIG_FILE|SHARED_CREDENTIALS_FILE|WEB_IDENTITY_TOKEN_FILE|ROLE_ARN)='
+    f_has_not_re "$c" '[$][{]?AWS_'
+    f_has "$f" '-u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN -u AWS_PROFILE'
+  else
+    note_fail "scripts/emr/rehearse-preflight.sh does not exist"
+  fi
+  case_end
 
   static_begin "14.emr.lib-emr.the-codec-and-committer-lines-name-only-hadoop-core-classes"
   f_has "$emr_lib" 'SC_CODECS="org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec,org.apache.hadoop.io.compress.BZip2Codec"'
@@ -5349,6 +5406,2798 @@ static_wo61_cases() {
   case_end
 }
 static_wo61_cases
+
+### Work order 65: the on-node preflight (follows infra-engineer work order 64, S run 5) -----
+# run_preflight (lib-emr.sh) runs inside the spark-stage stage of run-s-pipeline.sh: one
+# spark-shell on local[2] that loads every class-valued configuration value and the four job
+# main classes and does one old-API and one Parquet write. Nothing here runs Spark: the real
+# lib-emr.sh is read as text, or sourced in a child shell (a bash program under $CODE_DIR) with
+# a fake spark-shell, a fake hadoop and a fake timeout script first on the child's PATH, because
+# env execs timeout and a shell function cannot stand in for it. The fake timeout logs its
+# arguments, never waits and exits 124 or 137 on request; the fake spark-shell logs its
+# arguments, its environment and its directory and copies a prepared result file to
+# SC_PREFLIGHT_RESULT. No stub on PATH is reached, so the tripwire stays empty. What a real
+# timeout does at the KILL, whether the Scala script compiles, and what a node answers, stay
+# unobserved: the cases below read the shell around the Scala text, not the Scala's behaviour.
+# No case of work orders 50 to 61 was loosened; one count was updated (the k-30 case above).
+
+EMR_RUN_RAW="$EMR_DIR/run-s-pipeline.sh"
+PF_SCALA="$CODE_DIR/preflight-scala.txt"
+PF_RUN_FN="$CODE_DIR/preflight-run-fn.sh"
+PF_SS_FN="$CODE_DIR/preflight-ss-fn.sh"
+PF_TG_FN="$CODE_DIR/preflight-targets-fn.sh"
+PF_EV_FN="$CODE_DIR/preflight-evaluate-fn.sh"
+PF_README_SEC="$CODE_DIR/readme-wo64-section.txt"
+# The here-document of preflight_write_script, from the line after its opener to the terminator.
+awk '/<<.SC_PREFLIGHT_SCALA.$/ { f = 1; next } $0 == "SC_PREFLIGHT_SCALA" { f = 0 } f { print }' "$emr_lib" > "$PF_SCALA"
+extract_fn "$emr_lib" run_preflight "$PF_RUN_FN"
+extract_fn "$emr_lib" run_spark_submit "$PF_SS_FN"
+extract_fn "$emr_lib" preflight_write_targets "$PF_TG_FN"
+extract_fn "$emr_lib" preflight_evaluate "$PF_EV_FN"
+# The README section: from its heading up to, not including, the next ### heading.
+awk 'index($0, "### On-node preflight (work order 64") == 1 { f = 1; print; next } f && index($0, "### ") == 1 { exit } f { print }' "$REAL_ROOT/scripts/README.md" > "$PF_README_SEC"
+
+# commas N: a whole number up to 999999 as the README writes it (1,440).
+commas() {
+  if [ "$1" -ge 1000 ]; then
+    printf '%s,%03d' "$(($1 / 1000))" "$(($1 % 1000))"
+  else
+    printf '%s' "$1"
+  fi
+}
+
+# SC2016: the single-quoted strings are literal fragments of node scripts, of the Scala text and
+# of the README that f_has, f_has_not, f_before and f_count_is search for as text; the $ and the
+# backticks must not expand.
+# shellcheck disable=SC2016
+static_wo65_cases() {
+  local rd="$REAL_ROOT/scripts/README.md" k val needle fn envs tg
+  local sl wl kl pl ol hl names n between lim grace spark_t rows total ra lo hi spare floor
+  local pre_spark=874
+
+  lim="$(sed -n 's/^SC_PREFLIGHT_LIMIT_SECONDS=\([0-9][0-9]*\)$/\1/p' "$emr_lib" | head -n 1)"
+  floor="$(sed -n 's/^SC_PREFLIGHT_FLOOR_SECONDS=\([0-9][0-9]*\)$/\1/p' "$emr_lib" | head -n 1)"
+  grace="$(sed -n 's/.*timeout -k \([0-9][0-9]*\) "\$remaining".*/\1/p' "$emr_lib" | head -n 1)"
+  spark_t="$(sed -n 's/.*SC_SPARK_TIMEOUT:-\([0-9][0-9]*\)}.*/\1/p' "$emr_lib" | head -n 1)"
+  rows="$(sed -n 's/^SC_PREFLIGHT_ROWS=\([0-9][0-9]*\)$/\1/p' "$emr_lib" | head -n 1)"
+
+  static_begin "14.emr.preflight.runs-inside-spark-stage-and-adds-no-stage"
+  f_count_is "$emr_run" 'run_preflight' 1
+  f_has "$emr_run" 'run_preflight "$work" "$rep"'
+  f_count_is "$emr_lib" 'run_preflight' 1
+  f_has "$EMR_RUN_RAW" 'sub-step of the spark-stage stage'
+  sl="$(line_of "$emr_run" 'stage spark-stage')"
+  wl="$(line_of "$emr_run" 'write_spark_conf "')"
+  kl="$(line_of "$emr_run" 'kv NODE_CONF_MAPRED_OUTPUT_COMMITTER_CLASS')"
+  pl="$(line_of "$emr_run" 'run_preflight "$work" "$rep"')"
+  hl="$(line_of "$emr_run" 'stage hadoop')"
+  if [ -z "$sl" ] || [ -z "$wl" ] || [ -z "$kl" ] || [ -z "$pl" ] || [ -z "$hl" ]; then
+    note_fail "a line was not found (stage spark-stage $sl, write_spark_conf $wl, kv $kl, run_preflight $pl, stage hadoop $hl)"
+  else
+    ol="$(awk -v s="$pl" 'NR > s && $0 ~ /^[[:space:]]*stage_ok[[:space:]]*$/ { print NR; exit }' "$emr_run")"
+    if [ -z "$ol" ]; then
+      note_fail "no stage_ok after the run_preflight call"
+    else
+      [ "$sl" -lt "$wl" ] || note_fail "write_spark_conf (line $wl) is not after stage spark-stage (line $sl)"
+      [ "$wl" -lt "$pl" ] || note_fail "run_preflight (line $pl) is not after write_spark_conf (line $wl)"
+      [ "$kl" -lt "$pl" ] || note_fail "run_preflight (line $pl) is not after the NODE_CONF record (line $kl)"
+      [ "$pl" -lt "$ol" ] || note_fail "the stage_ok (line $ol) is not after run_preflight (line $pl)"
+      [ "$ol" -lt "$hl" ] || note_fail "the stage_ok (line $ol) is not before stage hadoop (line $hl)"
+      between="$(awk -v a="$sl" -v b="$ol" 'NR > a && NR < b && $0 ~ /^[[:space:]]*stage[[:space:]]/ { n++ } END { print n + 0 }' "$emr_run")"
+      [ "$between" = "0" ] || note_fail "another stage starts between stage spark-stage and its stage_ok"
+    fi
+  fi
+  names="$(awk '$1 == "stage" { printf "%s%s", (c++ ? " " : ""), $2 }' "$emr_run")"
+  [ "$names" = "validate-arguments java fetch-inputs spark-stage hadoop entity-resolution spark export publish" ] || note_fail "the stage list changed: $names"
+  n="$(awk '$1 == "stage" { c++; if ($2 == "export") { print c; exit } }' "$emr_run")"
+  [ "$n" = "8" ] || note_fail "the export is stage '$n', not 8 (FAILED_STAGE=8 export must keep its meaning)"
+  n="$(awk '$1 == "stage" { c++; if ($2 == "spark-stage") { print c; exit } }' "$emr_run")"
+  [ "$n" = "4" ] || note_fail "spark-stage is stage '$n', not 4 (a preflight failure reads FAILED_STAGE=4 spark-stage)"
+  case_end
+
+  static_begin "14.emr.preflight.limit-and-kill-grace-total-at-most-90"
+  if tf_is_num "$lim" && tf_is_num "$grace"; then
+    [ "$lim" -le 60 ] || note_fail "SC_PREFLIGHT_LIMIT_SECONDS is $lim, above 60"
+    [ "$lim" -ge 10 ] || note_fail "SC_PREFLIGHT_LIMIT_SECONDS is $lim, below the 10 s the JVM start needs"
+    [ $((lim + grace)) -le 90 ] || note_fail "the limit $lim plus the kill grace $grace is above 90 s"
+  else
+    note_fail "the limit '$lim' or the kill grace '$grace' could not be read"
+  fi
+  f_count_is "$emr_lib" 'timeout -k 30 "$remaining"' 1
+  f_count_is "$emr_lib" 'timeout -k 30 ' 2
+  f_count_is "$emr_lib" '${SC_PREFLIGHT_TIMEOUT' 1
+  f_has "$emr_lib" 'limit="${SC_PREFLIGHT_TIMEOUT:-$SC_PREFLIGHT_LIMIT_SECONDS}"'
+  # Work order 67 (F2, F3): the floor joins the validation, and the class path command has a KILL grace.
+  if tf_is_num "$floor"; then
+    [ "$floor" -ge 10 ] || note_fail "SC_PREFLIGHT_FLOOR_SECONDS is $floor, below the 10 s the JVM start needs"
+    if tf_is_num "$lim"; then [ "$floor" -le "$lim" ] || note_fail "the floor $floor is above the limit $lim"; fi
+  else
+    note_fail "SC_PREFLIGHT_FLOOR_SECONDS could not be read: '$floor'"
+  fi
+  f_has "$emr_lib" '[[ "$limit" =~ ^[1-9][0-9]?$ && "$limit" -ge "$SC_PREFLIGHT_FLOOR_SECONDS" && "$limit" -le "$SC_PREFLIGHT_LIMIT_SECONDS" ]]'
+  f_has "$emr_lib" 'SC_PREFLIGHT_TIMEOUT must be a whole number from $SC_PREFLIGHT_FLOOR_SECONDS to $SC_PREFLIGHT_LIMIT_SECONDS with no leading zero'
+  f_has_not "$emr_lib" 'SC_PREFLIGHT_TIMEOUT must be a whole number from 1 to'
+  f_has "$emr_lib" 'remaining=$((limit - (SECONDS - t0)))'
+  f_has "$emr_lib" '[[ "$remaining" -ge 10 ]]'
+  f_has "$emr_lib" 'timeout -k 5 20 hadoop classpath --glob'
+  f_has_not "$emr_lib" 'timeout 20 hadoop'
+  f_before "$PF_RUN_FN" 'SC_PREFLIGHT_LIMIT_SECONDS" ]]' 'mkdir -p "$pf/data"'
+  f_before "$PF_RUN_FN" 'mkdir -p "$pf/data"' 'remaining=$((limit'
+  f_before "$PF_RUN_FN" 'preflight_write_targets "$pf/targets.tsv" "$work"' 'remaining=$((limit'
+  case_end
+
+  static_begin "14.emr.preflight.main-classes-match-the-run-script"
+  for k in HADOOP ER SPARK EXPORT; do
+    val="$(sed -n 's/^SC_PREFLIGHT_MAIN_'"$k"'="\(.*\)"$/\1/p' "$emr_lib" | head -n 1)"
+    case "$k" in
+      HADOOP) needle='hadoop jar "$hjar" '"$val" ;;
+      ER) needle='-cp "$ejar:$elibs/*" '"$val" ;;
+      SPARK) needle='run_spark_submit "$rep/spark.log" "$mode" '"$val" ;;
+      *) needle='run_spark_submit "$rep/export.log" "$mode" '"$val" ;;
+    esac
+    if printf '%s' "$val" | grep -qE '^scholarchain(\.[A-Za-z0-9_]+)+$'; then
+      f_has "$emr_run" "$needle"
+      f_count_is "$emr_run" "$val" 1
+      f_count_is "$emr_lib" "$val" 1
+    else
+      note_fail "SC_PREFLIGHT_MAIN_$k is '$val', not a scholarchain class name"
+    fi
+  done
+  case_end
+
+  static_begin "14.emr.preflight.exclusion-constants-are-what-the-stages-use"
+  f_has "$emr_lib" 'SC_HADOOP_LIB_EXCLUDE="^hadoop-"'
+  f_has "$emr_lib" 'SC_SPARK_LIB_EXCLUDE="^(spark-|hadoop-)"'
+  f_count_is "$emr_lib" 'SC_HADOOP_LIB_EXCLUDE=' 1
+  f_count_is "$emr_lib" 'SC_SPARK_LIB_EXCLUDE=' 1
+  f_has "$emr_run" 'hexcl="$SC_HADOOP_LIB_EXCLUDE"'
+  f_has "$emr_run" 'sexcl="$SC_SPARK_LIB_EXCLUDE"'
+  f_has "$emr_run" 'lib_jars_csv "$work/jars/hadoop/lib" "$hexcl"'
+  f_has "$emr_run" 'lib_jars_excluded "$work/jars/hadoop/lib" "$hexcl"'
+  f_has "$emr_run" 'lib_jars_csv "$work/jars/spark/lib" "$sexcl"'
+  f_has "$emr_run" 'lib_jars_excluded "$work/jars/spark/lib" "$sexcl"'
+  f_has_not "$emr_run" '^hadoop-'
+  f_has_not "$emr_run" '^(spark-'
+  f_has "$PF_TG_FN" 'lib_jars_csv "$work/jars/hadoop/lib" "$SC_HADOOP_LIB_EXCLUDE"'
+  f_has "$PF_TG_FN" 'lib_jars_csv "$work/jars/spark/lib" "$SC_SPARK_LIB_EXCLUDE"'
+  f_has "$PF_TG_FN" "lib_jars_csv \"\$work/jars/entity-resolution/lib\" '^\$'"
+  f_has "$PF_TG_FN" 'lib_jars_csv "$SPARK_HOME/jars" '"'^\$'"
+  f_has_not "$PF_TG_FN" '^hadoop-'
+  f_has_not "$PF_TG_FN" '^(spark-'
+  case_end
+
+  static_begin "14.emr.preflight.env-matches-run-spark-submit"
+  for k in 'env -u HADOOP_CLASSPATH -u SPARK_DIST_CLASSPATH -u SPARK_EXTRA_CLASSPATH' 'SPARK_HOME="$SPARK_HOME" SPARK_CONF_DIR="$SC_SPARK_CONF_DIR"' 'HADOOP_CONF_DIR=/etc/hadoop/conf YARN_CONF_DIR=/etc/hadoop/conf' 'JAVA_HOME="$SC_JAVA_HOME"'; do
+    f_has "$PF_SS_FN" "$k"
+    f_has "$PF_RUN_FN" "$k"
+  done
+  f_has_not "$PF_RUN_FN" 'HADOOP_CLASSPATH='
+  f_has_not "$PF_RUN_FN" 'SPARK_DIST_CLASSPATH='
+  f_has_not "$PF_RUN_FN" 'SPARK_EXTRA_CLASSPATH='
+  f_has "$PF_RUN_FN" '--master "local[2]"'
+  # Work order 75: no -i; the script is the here-string ':load <script>' on stdin.
+  f_has "$PF_RUN_FN" '--conf spark.sql.catalogImplementation=in-memory <<< ":load $scala"'
+  f_has_not "$PF_RUN_FN" '-i "$scala"'
+  f_has_not "$PF_RUN_FN" '--master yarn'
+  f_has_not "$PF_RUN_FN" 'spark-submit'
+  f_has "$PF_RUN_FN" 'cd "$pf" && env -u HADOOP_CLASSPATH'
+  case_end
+
+  static_begin "14.emr.preflight.script-keeps-its-controls"
+  f_has "$emr_lib" "<<'SC_PREFLIGHT_SCALA'"
+  if [ "$(wc -l < "$PF_SCALA" | tr -d ' ')" -lt 100 ]; then note_fail "the Scala here-document cut out of lib-emr.sh has fewer than 100 lines"; fi
+  for k in 'emit("CONTROL positive ' 'emit("CONTROL negative ' 'emit("DONE")' 'Class.forName(name, false' 'getMethod("main"' 'Modifier.isStatic' \
+    'loads("org.apache.hadoop.fs.FileSystem", sparkLoader).isEmpty' 'loads("scholarchain.preflight.NoSuchClassForTheControl", sparkLoader).isDefined' \
+    'new URLClassLoader(urls, ClassLoader.getPlatformClassLoader)' 'if (own) None else exemptReason(key)' \
+    'private val usedSchemes = Set("file", "hdfs", "viewfs")' 'emit("SITE_FILES ' 'emit("OVERLAY ' 'emit("OVERRIDDEN ' 'emit("EXEMPT ' \
+    'emit("FAIL config ' 'emit("FAIL target ' 'emit("ERROR ' 'emit("TARGET ' 'emit("SUMMARY keys=' 'saveAsTextFile(oldUri)' 'write.parquet(pqUri)' \
+    'PreflightRun.run()' 'sys.exit(0)'; do
+    f_has "$PF_SCALA" "$k"
+  done
+  f_count_is "$PF_SCALA" 'emit("DONE")' 1
+  f_count_is "$PF_SCALA" 'Class.forName(' 2
+  f_count_is "$PF_SCALA" ', false, loader)' 2
+  f_has_not "$PF_SCALA" 'Class.forName(name)'
+  f_has_not "$PF_SCALA" 'Class.forName(name, true'
+  f_has_not "$PF_SCALA" 'Class.forName(f(1))'
+  f_has_not "$PF_SCALA" 'Class.forName(f(1), true'
+  # f_before reads the first line that holds a needle, and in the Scala text 'checkTargets()' and
+  # 'smoke()' first occur in their own definitions ("private def checkTargets(): Unit"), which
+  # sit above run(). The order is therefore read at the call sites, with needles a definition
+  # line cannot hold: "try { " opens only the two guarded calls in run(), and the smoke call is
+  # the one line indented six spaces (every definition is indented two after "private def").
+  # Each needle must be on exactly one line, so the first match is that call and nothing else.
+  f_count_is "$PF_SCALA" 'try { checkConfig(sparkLoader) }' 1
+  f_count_is "$PF_SCALA" 'try { checkTargets() }' 1
+  f_count_is "$PF_SCALA" '      smoke()' 1
+  f_count_is "$PF_SCALA" '    finally {' 1
+  f_has_not "$PF_SCALA" 'def checkConfig(sparkLoader'
+  f_has "$PF_SCALA" 'private def checkTargets(): Unit'
+  f_has "$PF_SCALA" 'private def smoke(): Unit'
+  f_before "$PF_SCALA" 'emit("CONTROL positive ' 'try { checkConfig(sparkLoader) }'
+  f_before "$PF_SCALA" 'emit("CONTROL negative ' 'try { checkConfig(sparkLoader) }'
+  f_before "$PF_SCALA" 'try { checkConfig(sparkLoader) }' 'try { checkTargets() }'
+  f_before "$PF_SCALA" 'try { checkTargets() }' '      smoke()'
+  f_before "$PF_SCALA" '      smoke()' 'emit("SUMMARY keys='
+  f_before "$PF_SCALA" 'emit("SUMMARY keys=' '    finally {'
+  f_before "$PF_SCALA" '    finally {' 'emit("DONE")'
+  f_before "$PF_SCALA" 'emit("DONE")' 'PreflightRun.run()'
+  f_before "$PF_SCALA" 'private def checkTargets(): Unit' 'private def smoke(): Unit'
+  f_before "$PF_SCALA" 'private def smoke(): Unit' 'def run(): Unit'
+  case_end
+
+  static_begin "14.emr.preflight.script-reads-only-its-own-environment-and-holds-no-secret-pattern-and-no-s3-uri"
+  envs="$(grep -oE 'sys\.env(\.getOrElse)?\("[A-Z_]+"' "$PF_SCALA" | sed 's/.*("\([A-Z_]*\)"/\1/' | sort -u | tr '\n' ' ')"
+  [ "$envs" = "HADOOP_CONF_DIR SC_PREFLIGHT_DATA SC_PREFLIGHT_DIR SC_PREFLIGHT_RESULT SC_PREFLIGHT_ROWS " ] || note_fail "the Scala reads these environment variables: $envs"
+  n="$(grep -c 'sys\.env' "$PF_SCALA")"
+  k="$(grep -cE 'sys\.env(\.getOrElse)?\("[A-Z_]+"' "$PF_SCALA")"
+  [ "$n" = "$k" ] || note_fail "$n line(s) use sys.env, $k of them in the one-variable forms: the environment may be read whole"
+  f_has_not "$PF_SCALA" 'System.getenv'
+  f_has_not "$PF_SCALA" 'sys.props'
+  f_has_not_re "$PF_SCALA" "$EMR_KEY_RE"
+  f_has_not_re "$PF_SCALA" 'AWS_|[Ss]ecret|[Pp]assword|[Cc]redential'
+  for k in 's3://' 's3a://' 's3n://' 'hdfs://'; do
+    f_has_not "$PF_SCALA" "$k"
+    f_has_not "$PF_RUN_FN" "$k"
+    f_has_not "$PF_TG_FN" "$k"
+    f_has_not "$PF_EV_FN" "$k"
+  done
+  case_end
+
+  static_begin "14.emr.preflight.script-writes-only-the-result-and-the-smoke-data"
+  f_count_is "$PF_SCALA" 'new PrintWriter(' 1
+  f_count_is "$PF_SCALA" 'Files.newBufferedWriter(' 1
+  f_count_is "$PF_SCALA" 'saveAsTextFile(' 1
+  f_count_is "$PF_SCALA" '.write.parquet(' 1
+  f_has "$PF_SCALA" 'Files.newBufferedWriter(Paths.get(sys.env("SC_PREFLIGHT_RESULT")))'
+  f_has "$PF_SCALA" 'private val data = sys.env("SC_PREFLIGHT_DATA")'
+  f_has "$PF_SCALA" 'val base = data.stripSuffix("/")'
+  f_has "$PF_SCALA" 'val oldUri = "file://" + base + "/old"'
+  f_has "$PF_SCALA" 'val pqUri = "file://" + base + "/pq"'
+  for k in 'Files.write(' 'Files.delete' 'Files.createFile' 'Files.copy' 'Files.move' 'FileWriter' 'FileOutputStream' 'FileUtils' 'ProcessBuilder' 'Runtime.getRuntime' 'sys.process' '.delete(' 'deleteIfExists' 'saveAsHadoopFile' 'saveAsObjectFile'; do
+    f_has_not "$PF_SCALA" "$k"
+  done
+  case_end
+
+  static_begin "14.emr.preflight.shell-functions-write-only-under-work-preflight-and-reports"
+  f_has "$PF_RUN_FN" 'pf="$1/preflight"'
+  f_has "$PF_RUN_FN" 'scala="$rep/preflight.scala" result="$rep/preflight-result.txt" plog="$rep/preflight.log"'
+  f_has "$PF_RUN_FN" 'mkdir -p "$pf/data"'
+  f_has "$PF_RUN_FN" 'rm -rf "${pf:?}/data"'
+  f_count_is "$PF_RUN_FN" 'mkdir' 1
+  f_count_is "$PF_RUN_FN" 'rm -' 1
+  f_has "$PF_RUN_FN" 'preflight_write_script "$scala"'
+  f_has "$PF_RUN_FN" 'preflight_write_targets "$pf/targets.tsv" "$work"'
+  f_has "$PF_RUN_FN" 'SC_PREFLIGHT_DIR="$pf" SC_PREFLIGHT_DATA="$pf/data" SC_PREFLIGHT_RESULT="$result" SC_PREFLIGHT_ROWS="$SC_PREFLIGHT_ROWS"'
+  tg="$(grep -oE '>[[:space:]]*"[^"]*"' "$PF_RUN_FN" | tr '\n' ' ')"
+  [ "$tg" = '> "$plog" ' ] || note_fail "run_preflight redirects to: $tg"
+  tg="$(grep -oE '>[[:space:]]*"[^"]*"' "$PF_TG_FN" | tr '\n' ' ')"
+  [ "$tg" = '> "$file" ' ] || note_fail "preflight_write_targets redirects to: $tg"
+  f_has "$emr_lib" 'cat > "$1" <<'"'SC_PREFLIGHT_SCALA'"
+  f_count_is "$emr_lib" 'cat > "$1" <<' 1
+  for fn in "$PF_RUN_FN" "$PF_TG_FN" "$PF_EV_FN"; do
+    f_has_not_re "$fn" '(^|[[:space:];|&(])(cp|mv|tee|chmod|chown|sudo|curl|wget|aws|hdfs|yarn)[[:space:]]'
+  done
+  f_has_not "$PF_TG_FN" 'mkdir'
+  f_has_not "$PF_EV_FN" 'mkdir'
+  f_has_not "$PF_TG_FN" 'rm -'
+  f_has_not "$PF_EV_FN" 'rm -'
+  case_end
+
+  static_begin "14.emr.preflight.evaluate-checks-in-order-and-never-reads-the-exit-status"
+  f_has "$PF_EV_FN" '[[ -s "$result" ]] || die "preflight wrote no result'
+  f_has "$PF_EV_FN" "grep -qx 'DONE' \"\$result\" || die \"preflight did not reach DONE"
+  f_has "$PF_EV_FN" "fails=\"\$(grep -E '^(FAIL|ERROR) ' \"\$result\" || true)\""
+  f_has "$PF_EV_FN" "grep -qx 'CONTROL positive OK' \"\$result\""
+  f_has "$PF_EV_FN" "grep -qx 'CONTROL negative OK' \"\$result\""
+  f_has "$PF_EV_FN" '[[ " $line " == *" core-site.xml "* ]]'
+  f_has "$PF_EV_FN" 'grep -qxF -- "OVERLAY ${k#spark.hadoop.} $v" "$result"'
+  f_has "$PF_EV_FN" '[[ "$overlay_n" -ge 1 ]]'
+  f_has "$PF_EV_FN" 'for label in hadoop er spark export; do'
+  f_has "$PF_EV_FN" 'grep -qx "TARGET $label OK" "$result"'
+  f_has "$PF_EV_FN" 'for label in old-api parquet; do'
+  f_has "$PF_EV_FN" 'grep -qx "SMOKE $label OK rows=$rows" "$result"'
+  f_has "$PF_EV_FN" '[[ "${keys:-0}" -ge 1 && "${classes:-0}" -ge 1 ]]'
+  f_has "$PF_EV_FN" 'kv PREFLIGHT_RESULT failed'
+  f_has "$PF_EV_FN" 'kv PREFLIGHT_FAILED_COUNT "$nfail"'
+  f_has "$PF_EV_FN" 'kv PREFLIGHT_FIRST_FAILURE "$first"'
+  f_has "$PF_EV_FN" 'kv PREFLIGHT_RESULT ok'
+  f_before "$PF_EV_FN" 'kv PREFLIGHT_FIRST_FAILURE "$first"' 'die "preflight: $nfail check(s) failed'
+  f_before "$PF_EV_FN" '[[ -s "$result" ]]' "grep -qx 'DONE'"
+  f_before "$PF_EV_FN" "grep -qx 'DONE'" 'grep -E '"'^(FAIL|ERROR) '"
+  f_before "$PF_EV_FN" 'grep -E '"'^(FAIL|ERROR) '" "grep -qx 'CONTROL positive OK'"
+  f_before "$PF_EV_FN" "grep -qx 'CONTROL positive OK'" "grep -qx 'CONTROL negative OK'"
+  f_before "$PF_EV_FN" "grep -qx 'CONTROL negative OK'" 'core-site.xml'
+  f_before "$PF_EV_FN" 'core-site.xml' 'OVERLAY ${k#spark.hadoop.}'
+  f_before "$PF_EV_FN" 'OVERLAY ${k#spark.hadoop.}' 'for label in hadoop er spark export; do'
+  f_before "$PF_EV_FN" 'for label in hadoop er spark export; do' 'for label in old-api parquet; do'
+  f_before "$PF_EV_FN" 'for label in old-api parquet; do' 'checked no class-valued key'
+  f_before "$PF_EV_FN" 'checked no class-valued key' 'kv PREFLIGHT_RESULT ok'
+  f_has_not_re "$PF_EV_FN" '"\$rc" -(eq|ne|gt|lt)'
+  f_has_not_re "$PF_EV_FN" '"\$3" -(eq|ne|gt|lt)'
+  case_end
+
+  static_begin "14.emr.preflight.run-preflight-judges-only-the-timeout-statuses-and-removes-the-data-first"
+  f_has "$PF_RUN_FN" ') > "$plog" 2>&1 || rc=$?'
+  f_has_not "$PF_RUN_FN" '2>&1 < /dev/null || rc=$?'
+  f_has_not "$PF_RUN_FN" '< /dev/null'
+  f_has "$PF_RUN_FN" '[[ "$rc" -eq 124 || "$rc" -eq 137 ]]'
+  f_has "$PF_RUN_FN" 'kv PREFLIGHT_RESULT "timed out (exit $rc, JVM limit $remaining s)"'
+  f_has "$PF_RUN_FN" 'die "preflight timed out (exit $rc) after $((SECONDS - t0)) s'
+  f_has "$PF_RUN_FN" 'preflight_evaluate "$result" "$plog" "$rc"'
+  f_has "$PF_RUN_FN" 'kv PREFLIGHT_LIMIT_SECONDS "$limit"'
+  f_has "$PF_RUN_FN" 'kv PREFLIGHT_SECONDS "$((SECONDS - t0))"'
+  f_has_not_re "$PF_RUN_FN" '"\$rc" -(ne|gt|lt)'
+  f_has_not_re "$PF_RUN_FN" '"\$rc" -eq [0-9]+ \]\] *\|\| *(die|exit)'
+  f_before "$PF_RUN_FN" 'mkdir -p "$pf/data"' 'preflight_write_script "$scala"'
+  f_before "$PF_RUN_FN" 'preflight_write_script "$scala"' 'preflight_write_targets'
+  f_before "$PF_RUN_FN" 'preflight_write_targets' 'kv PREFLIGHT_CLASSPATH_ENTRIES'
+  f_before "$PF_RUN_FN" 'rm -rf "${pf:?}/data"' '[[ "$rc" -eq 124'
+  f_before "$PF_RUN_FN" '[[ "$rc" -eq 124' 'preflight_evaluate "$result"'
+  f_before "$PF_RUN_FN" 'preflight_evaluate "$result"' 'kv PREFLIGHT_LIMIT_SECONDS'
+  case_end
+
+  static_begin "14.emr.capability-check.does-not-call-the-preflight"
+  for k in 'run_preflight' 'preflight_write' 'preflight_evaluate' 'PREFLIGHT_' 'SC_PREFLIGHT'; do
+    f_has_not "$emr_cap" "$k"
+  done
+  f_has "$emr_cap" 'write_spark_conf'
+  case_end
+
+  static_begin "14.terraform.preflight.fits-the-s-step-cap"
+  tf_overlay "$TF_S"
+  if tf_is_num "$lim" && tf_is_num "$grace" && tf_is_num "$spark_t" && tf_is_num "$TF_MAX" && tf_is_num "$TF_CREATE" && tf_is_num "$TF_STEP" && tf_is_num "$TF_LOAD"; then
+    total=$((lim + grace + pre_spark + spark_t))
+    [ "$total" -lt "$TF_STEP" ] || note_fail "the preflight limit $lim + $grace + $pre_spark s before Spark + the Spark limit $spark_t = $total is not under the S step cap $TF_STEP"
+    ra=$((TF_CREATE + TF_STEP + 600))
+    [ "$ra" -le "$TF_MAX" ] || note_fail "Rule A $TF_CREATE + $TF_STEP + 600 = $ra exceeds the maximum $TF_MAX"
+    [ "$ra" = "6840" ] || note_fail "Rule A for S is $ra, D32 says 6840"
+    f_has "$TF_S" "$TF_CREATE + $TF_STEP + 600 = $ra <= $TF_MAX"
+    f_has "$PF_README_SEC" "Rule A (create $(commas "$TF_CREATE") + step $(commas "$TF_STEP") + 600 = $(commas "$ra") <= $(commas "$TF_MAX"))"
+    f_has "$PF_README_SEC" "the S overlay values ($(commas "$TF_MAX"), $(commas "$TF_CREATE"), $(commas "$TF_STEP"), $(commas "$TF_LOAD")) are unchanged"
+    lo=$((3300 + lim + grace))
+    hi=$((3900 + lim + grace))
+    spare=$((TF_STEP - hi))
+    f_has "$PF_README_SEC" "The step is expected at 3,300 to 3,900 s and is now $(commas "$lo") to $(commas "$hi") s at most, under the $(commas "$TF_STEP") s cap with $spare s to spare"
+    [ "$hi" -lt "$TF_STEP" ] || note_fail "the step at its upper estimate plus the preflight, $hi, is not under the step cap $TF_STEP"
+  else
+    note_fail "a figure could not be read: limit '$lim', grace '$grace', Spark '$spark_t', overlay '$TF_MAX' '$TF_CREATE' '$TF_STEP' '$TF_LOAD'"
+  fi
+  case_end
+
+  static_begin "14.emr.preflight.readme-section-exists-before-s3-key-layout-and-says-not-run-on-a-node"
+  f_count_is "$rd" '### On-node preflight' 1
+  # Work order 79: the heading now says what rehearsal 3 did (compiled and ran locally with stand-ins)
+  # and still that nothing about a node is observed.
+  f_has "$rd" '### On-node preflight (work order 64, S run 5; compiled and run locally in rehearsal 3 with stand-ins, not run on a node, nothing about a node is observed)'
+  f_before "$rd" 'Export output committer (work order 60' '### On-node preflight (work order 64'
+  f_before "$rd" '### On-node preflight (work order 64' '### S3 key layout'
+  if [ "$(wc -l < "$PF_README_SEC" | tr -d ' ')" -lt 10 ]; then note_fail "the README section has fewer than 10 lines"; fi
+  f_has "$PF_README_SEC" 'A preflight failure reads `FAILED_STAGE=4 spark-stage`'
+  f_has "$PF_README_SEC" '`PREFLIGHT_RESULT=failed`'
+  f_has "$PF_README_SEC" '`PREFLIGHT_FIRST_FAILURE=`'
+  f_has "$PF_README_SEC" 'It is a sub-step, not a numbered stage: the stage numbers do not change, so the export stays stage 8 and `FAILED_STAGE=8 export` still means what it meant.'
+  f_has "$PF_README_SEC" '`capability-check.sh` is not changed and does not call it'
+  # Work order 75: the sentence 'The script has never been compiled by anything.' is gone from the
+  # README (work order 74 rewrote the paragraph); the same claim is now 'nothing has compiled it yet'.
+  f_has "$PF_README_SEC" 'nothing has compiled it yet'
+  f_has "$PF_README_SEC" "SMOKE old-api OK rows=$rows"
+  f_has "$PF_README_SEC" "SMOKE parquet OK rows=$rows"
+  f_has "$PF_README_SEC" 'The exit status of `spark-shell` is not used'
+  f_has "$PF_README_SEC" 'only 124 and 137 (the time limit) are read'
+  f_has "$PF_README_SEC" '`STAGE_SECONDS_SPARK_STAGE` now includes the preflight.'
+  for k in 'preflight.log' 'preflight-result.txt' 'preflight.scala'; do
+    f_has "$PF_README_SEC" "\`$k\`"
+  done
+  f_has "$PF_README_SEC" 'The harness cannot reach any of it'
+  case_end
+
+  static_begin "14.emr.preflight.readme-claims-nothing-observed"
+  # Work order 79: 'UNVERIFIED: no part of it has run.' became 'UNVERIFIED on a node: no part of it has run
+  # there (the local rehearsal's seconds are a laptop's, not the node's)'.
+  f_has "$PF_README_SEC" 'UNVERIFIED on a node: no part of it has run there'
+  f_has_not "$PF_README_SEC" 'UNVERIFIED: no part of it has run.'
+  f_has "$PF_README_SEC" 'This list is a judgement from Hadoop'"'"'s key names, not from the node'"'"'s files'
+  f_has "$PF_README_SEC" 'that proves the Scala compiles and runs on the Scala shell, not that the node passes'
+  f_has_not_re "$PF_README_SEC" '[Pp]reflight (passed|passes|was observed|was verified|has run|ran on)'
+  f_has_not_re "$PF_README_SEC" '(is|was|were|are) (observed|verified|confirmed|measured) (on|in|from) (the|a|an|S run 6) (node|cluster|run)'
+  f_has_not_re "$PF_README_SEC" 'observed (on|in|from) the node'
+  f_has_not_re "$PF_README_SEC" '(measured|took|ran in) [0-9]+ s'
+  f_has_not "$PF_README_SEC" 'pending the human'
+  case_end
+
+  static_begin "14.emr.preflight.readme-limit-table-row-and-figures-follow-the-code"
+  if tf_is_num "$lim" && tf_is_num "$grace" && tf_is_num "$floor"; then
+    f_has "$rd" '| On-node preflight (work order 64, see "On-node preflight") | `timeout -k '"$grace"' "$remaining"` with a '"$lim"' s limit shared with the class path build, so at most '"$((lim + grace))"' s with the KILL grace | `lib-emr.sh`, `run_preflight` | `SC_PREFLIGHT_TIMEOUT` ('"$floor"' to '"$lim"') | n/a |'
+    f_has "$PF_README_SEC" 'A hard ceiling of '"$((lim + grace))"' s: `timeout -k '"$grace"'` with a limit of '"$lim"' s counted from the start of the sub-step'
+    f_has "$PF_README_SEC" '`SC_PREFLIGHT_TIMEOUT` lowers it, from '"$floor"' to '"$lim"' with no leading zero (nothing in the state machine sets it)'
+    f_has "$PF_README_SEC" 'a smaller value is refused up front with `SC_PREFLIGHT_TIMEOUT must be a whole number from '"$floor"' to '"$lim"'`'
+  else
+    note_fail "the limit '$lim', the kill grace '$grace' or the floor '$floor' could not be read"
+  fi
+  case_end
+}
+static_wo65_cases
+
+### Work order 68: the harness impact of infra-engineer work order 67 (static cases) ---------
+# F2: the floor of 15 s for SC_PREFLIGHT_TIMEOUT. F3: timeout -k 5 20 hadoop classpath --glob.
+# F4: the first failure is cut by parameter expansion, not by a pipe that closes early. F7: a
+# class that only a node site file names is a WARN (report only), a key that our spark-defaults
+# sets stays a hard FAIL. F5, F6, A3: comments, README text and the lettered header of
+# run-s-pipeline.sh. Each needle is anchored to a call site or a whole line, and each is counted
+# or tested for absence where a definition or a comment could hold the same words (the first
+# occurrence of a name in a file is often its definition, as work order 66 found).
+# SC2016: the single-quoted strings are literal fragments of node scripts, of the Scala text and
+# of the README that f_has, f_has_not, f_before and f_count_is search for as text.
+# shellcheck disable=SC2016
+static_wo68_cases() {
+  local rd="$REAL_ROOT/scripts/README.md" lib_raw="$EMR_DIR/lib-emr.sh" hdr="$CODE_DIR/run-s-header.txt"
+  local k lim floor grace kg ch fl wl lp pf_first
+
+  lim="$(sed -n 's/^SC_PREFLIGHT_LIMIT_SECONDS=\([0-9][0-9]*\)$/\1/p' "$emr_lib" | head -n 1)"
+  floor="$(sed -n 's/^SC_PREFLIGHT_FLOOR_SECONDS=\([0-9][0-9]*\)$/\1/p' "$emr_lib" | head -n 1)"
+  grace="$(sed -n 's/.*timeout -k \([0-9][0-9]*\) "\$remaining".*/\1/p' "$emr_lib" | head -n 1)"
+
+  static_begin "14.emr.preflight.floor-is-15-and-the-refusal-text-says-why"
+  if tf_is_num "$floor"; then
+    [ "$floor" = "15" ] || note_fail "SC_PREFLIGHT_FLOOR_SECONDS is $floor, work order 67 and the README say 15"
+  else
+    note_fail "SC_PREFLIGHT_FLOOR_SECONDS could not be read: '$floor'"
+  fi
+  f_has "$emr_lib" 'SC_PREFLIGHT_FLOOR_SECONDS=15'
+  f_count_is "$emr_lib" 'SC_PREFLIGHT_FLOOR_SECONDS=' 1
+  f_has "$PF_RUN_FN" '"$limit" -ge "$SC_PREFLIGHT_FLOOR_SECONDS"'
+  f_has "$PF_RUN_FN" 'the floor of 15 is chosen because the JVM compile and run is estimated at 15 to 25 s, and below it a pass is not plausible'
+  f_has_not "$PF_RUN_FN" 'a smaller limit cannot leave 10 s for the JVM'
+  f_has "$REAL_ROOT/scripts/README.md" 'because the floor of 15 is chosen on the estimate that the JVM compile and run takes 15 to 25 s, and below it a pass is not plausible'
+  f_has_not "$REAL_ROOT/scripts/README.md" 'because under 10 s would be left for the JVM after the class paths'
+  f_has_not "$lib_raw" 'a smaller limit cannot leave 10 s for the JVM'
+  f_has_not "$PF_RUN_FN" 'whole number from 1 to'
+  f_has_not "$lib_raw" 'whole number from 1 to'
+  case_end
+
+  static_begin "14.emr.preflight.hadoop-classpath-has-its-own-kill-grace-and-stays-inside-the-sub-step-budget"
+  f_has "$PF_TG_FN" 'timeout -k 5 20 hadoop classpath --glob'
+  f_count_is "$PF_TG_FN" 'timeout ' 1
+  f_has_not_re "$PF_TG_FN" 'timeout [0-9]'
+  f_has "$PF_TG_FN" 'die "preflight: hadoop classpath --glob failed or took over 20 s"'
+  kg="$(sed -n 's/.*timeout -k \([0-9][0-9]*\) [0-9][0-9]* hadoop classpath --glob.*/\1/p' "$PF_TG_FN" | head -n 1)"
+  ch="$(sed -n 's/.*timeout -k [0-9][0-9]* \([0-9][0-9]*\) hadoop classpath --glob.*/\1/p' "$PF_TG_FN" | head -n 1)"
+  if tf_is_num "$kg" && tf_is_num "$ch" && tf_is_num "$lim" && tf_is_num "$grace"; then
+    [ "$kg" -ge 1 ] || note_fail "the class path KILL grace is $kg"
+    [ $((ch + kg)) -le $((lim - 10)) ] || note_fail "the class path command can take $((ch + kg)) s, which leaves under 10 s of the $lim s limit"
+    [ $((lim + grace)) -le 90 ] || note_fail "the limit $lim plus the JVM kill grace $grace is above 90 s"
+    f_has "$PF_README_SEC" 'The class path command has its own KILL grace (`-k '"$kg"'`), so it ends at most '"$((ch + kg))"' s after it starts even if `hadoop` ignores TERM'
+    f_has "$PF_README_SEC" 'so the worst case stays '"$lim"' + '"$grace"' = '"$((lim + grace))"' s'
+  else
+    note_fail "a figure could not be read: class path grace '$kg', class path limit '$ch', limit '$lim', JVM grace '$grace'"
+  fi
+  case_end
+
+  # F7: the Scala text. checkValue gets a hard flag. The FAIL emit is guarded by it, the WARN
+  # emit is not and is the last branch, the node key loop passes the flag own (our key), and the
+  # class-like spark.* loop passes true. Counted, so a second emit elsewhere cannot hide.
+  static_begin "14.emr.preflight.scala-fails-hard-only-for-keys-our-spark-defaults-sets-and-warns-for-node-only-keys"
+  f_has "$PF_SCALA" 'private def checkValue(loader: ClassLoader, key: String, value: String, reason: Option[String], hard: Boolean): Unit'
+  f_count_is "$PF_SCALA" 'emit("FAIL config ' 1
+  f_count_is "$PF_SCALA" 'emit("WARN config ' 1
+  f_count_is "$PF_SCALA" 'emit("EXEMPT ' 1
+  fl="$(grep -F 'emit("FAIL config ' "$PF_SCALA" | head -n 1)"
+  wl="$(grep -F 'emit("WARN config ' "$PF_SCALA" | head -n 1)"
+  case "$fl" in
+    *'if (hard)'*) ;;
+    *) note_fail "the FAIL config emit is not guarded by hard: $fl" ;;
+  esac
+  case "$wl" in
+    *hard*) note_fail "the WARN config emit is guarded by hard: $wl" ;;
+    *'warnKeys += key'*) ;;
+    *) note_fail "the WARN config emit does not record the key in warnKeys: $wl" ;;
+  esac
+  f_has "$PF_SCALA" 'else if (hard) emit("FAIL config '
+  f_has "$PF_SCALA" 'else { warnKeys += key; emit("WARN config '
+  f_before "$PF_SCALA" 'emit("EXEMPT ' 'emit("FAIL config '
+  f_before "$PF_SCALA" 'emit("FAIL config ' 'emit("WARN config '
+  f_count_is "$PF_SCALA" 'checkValue(loader, key, value, ' 2
+  f_has "$PF_SCALA" 'val own = ours.contains(key)'
+  f_has "$PF_SCALA" 'checkValue(loader, key, value, if (own) None else exemptReason(key), own)'
+  f_has_not "$PF_SCALA" 'if (ours.contains(key)) None else exemptReason(key)'
+  lp="$(awk 'index($0, "for ((key, value) <- sparkConf") > 0 { getline; print; exit }' "$PF_SCALA")"
+  case "$lp" in
+    *'checkValue(loader, key, value, None, true)'*) ;;
+    *) note_fail "the class-like spark.* loop does not pass true: '$lp'" ;;
+  esac
+  f_count_is "$PF_SCALA" 'checkValue(loader, key, value, None, true)' 1
+  f_has "$PF_SCALA" 'if (!hard) nodeChecked += 1'
+  f_has "$PF_SCALA" 'private val warnKeys = scala.collection.mutable.LinkedHashSet[String]()'
+  f_has "$PF_SCALA" 'if (line.startsWith("WARN ")) println(line)'
+  f_count_is "$PF_SCALA" 'emit("SUMMARY keys=" + checkedKeys + " classes=" + seen.size + " exempt=" + exemptCount + " nodechecked=" + nodeChecked + " nodewarn=" + warnKeys.size)' 1
+  f_has "$PF_SCALA" '" nodechecked=" + nodeChecked'
+  f_has "$PF_SCALA" '" nodewarn=" + warnKeys.size'
+  case_end
+
+  # F4 and F7 in preflight_evaluate: the record keys, their order, the notes after the record,
+  # no pass rule on the node key count, and the first failure by parameter expansion.
+  static_begin "14.emr.preflight.evaluate-records-the-node-key-counts-in-order-notes-the-warn-lines-after-them-and-cuts-the-first-failure-without-a-pipe"
+  pf_first="first=\"\${fails%%\$'\\n'*}\""
+  f_has "$PF_EV_FN" "$pf_first"
+  f_count_is "$PF_EV_FN" 'first=' 1
+  f_has_not "$PF_EV_FN" '"$fails" | head'
+  f_has "$PF_EV_FN" 's/.*nodechecked=\([0-9][0-9]*\).*/\1/p'
+  f_has "$PF_EV_FN" 'kv PREFLIGHT_NODE_KEYS_CHECKED "${nodechecked:-unknown}"'
+  f_has "$PF_EV_FN" 'kv PREFLIGHT_NODE_KEYS_WARN "$warn_n: $warn_keys"'
+  f_count_is "$PF_EV_FN" '$1 == "WARN" && !seen[$3]++' 2
+  f_has "$PF_EV_FN" "grep '^WARN ' \"\$result\" | head -n 20"
+  f_has "$PF_EV_FN" 'note "preflight ${w:0:300} (report only, node site file key not set by spark-defaults.conf; see preflight-result.txt)"'
+  f_before "$PF_EV_FN" 'kv PREFLIGHT_UNLOADABLE_EXEMPT' 'kv PREFLIGHT_NODE_KEYS_CHECKED'
+  f_before "$PF_EV_FN" 'kv PREFLIGHT_NODE_KEYS_CHECKED' 'kv PREFLIGHT_NODE_KEYS_WARN'
+  f_before "$PF_EV_FN" 'kv PREFLIGHT_NODE_KEYS_WARN' 'kv PREFLIGHT_OVERLAY_KEYS_PROVEN'
+  f_before "$PF_EV_FN" 'kv PREFLIGHT_OVERLAY_KEYS_PROVEN' 'kv PREFLIGHT_TARGETS'
+  f_before "$PF_EV_FN" 'kv PREFLIGHT_TARGETS' 'kv PREFLIGHT_SMOKE'
+  f_before "$PF_EV_FN" 'kv PREFLIGHT_SMOKE' 'note "preflight '
+  f_before "$PF_EV_FN" 'checked no class-valued key' 'kv PREFLIGHT_NODE_KEYS_CHECKED'
+  f_has_not_re "$PF_EV_FN" 'nodechecked[^"]*" -(eq|ne|ge|gt|le|lt)'
+  f_has_not_re "$PF_EV_FN" 'warn_n"? -(eq|ne|ge|gt|le|lt)'
+  case_end
+
+  awk 'index($0, "SC_SCRIPT_DIR=") == 1 { exit } { print }' "$EMR_RUN_RAW" > "$hdr"
+  static_begin "14.emr.run-s-pipeline.header-letters-the-steps-a-to-f-and-has-no-numbered-lines"
+  if [ "$(wc -l < "$hdr" | tr -d ' ')" -lt 10 ]; then note_fail "the header cut out of run-s-pipeline.sh has fewer than 10 lines"; fi
+  f_has_not_re "$hdr" '^#   [0-9]+\.'
+  for k in 'a. preflight' 'b. Hadoop ' 'c. ER ' 'd. Spark ' 'e. Export ' 'f. publish '; do
+    f_count_is "$hdr" "#   $k" 1
+  done
+  f_before "$hdr" '#   a. preflight' '#   b. Hadoop '
+  f_before "$hdr" '#   b. Hadoop ' '#   c. ER '
+  f_before "$hdr" '#   c. ER ' '#   d. Spark '
+  f_before "$hdr" '#   d. Spark ' '#   e. Export '
+  f_before "$hdr" '#   e. Export ' '#   f. publish '
+  f_has "$hdr" 'The letters are not the STAGE[n] numbers'
+  f_has "$hdr" '(the export is stage 8):'
+  f_has "$hdr" 'a sub-step of the spark-stage stage'
+  case_end
+
+  static_begin "14.emr.preflight.readme-and-lib-text-state-the-floor-the-class-path-grace-the-report-only-rule-and-what-it-gives-up"
+  f_has "$rd" '`SC_PREFLIGHT_TIMEOUT` (15 to 60)'
+  f_has "$PF_README_SEC" 'timeout -k 5 20 hadoop classpath --glob'
+  f_has "$PF_README_SEC" 'with no leading zero'
+  f_has "$PF_README_SEC" 'What report only gives up.'
+  f_has "$PF_README_SEC" 'is recorded as `WARN config <key> <class> <why>` and does NOT fail the run'
+  f_has "$PF_README_SEC" 'is a hard failure (`FAIL config <key> <class> <why>`)'
+  f_has "$PF_README_SEC" 'A `WARN` line is not a failure: a run with WARN lines still records `PREFLIGHT_RESULT=ok`.'
+  f_has "$PF_README_SEC" 'Every other class that fails to load for a node-only key is a `WARN`'
+  f_has "$PF_README_SEC" '`PREFLIGHT_NODE_KEYS_CHECKED`'
+  f_has "$PF_README_SEC" '`PREFLIGHT_NODE_KEYS_WARN`'
+  f_has "$PF_README_SEC" "does not prove that the node's keys were examined"
+  f_has "$PF_README_SEC" 'the `NOTE: preflight WARN ...` lines on the step log'
+  f_has "$PF_README_SEC" 'a new upload record, a new deploy of the S session, a new run id and a new pipeline record'
+  f_has "$PF_README_SEC" 'the REPL compiles the preflight script on the node'
+  f_has "$PF_README_SEC" 'inferred, not observed'
+  f_has "$PF_README_SEC" 'ServiceLoader'
+  f_has_not "$PF_README_SEC" 'no compile step'
+  f_has_not "$PF_README_SEC" ' 1 to 60'
+  f_has_not "$PF_README_SEC" 'timeout 20 hadoop'
+  f_has_not "$rd" '`SC_PREFLIGHT_TIMEOUT` (1 to 60)'
+  f_has "$lib_raw" 'the REPL compiles the script on the node'
+  # Work order 83: infra work order 82 rewrote the evaluate comment to the rehearsal 4 observation, so the
+  # old 'INFERRED, not observed, that the REPL keeps going after an error in the script and exits 0' needle
+  # is stale. It is replaced by the two comment lines that now state it (the wrap is after 'Java'), and the
+  # old inferred wording must be gone.
+  f_has "$lib_raw" 'observed locally (rehearsal 4, scenario nocompile: stand-ins, Spark 4.0.5, Scala 2.13.16, Java'
+  f_has "$lib_raw" '21, not on a node) that the REPL keeps going after a compile error in the script and exits 0'
+  f_has_not "$lib_raw" 'INFERRED, not observed, that the REPL keeps going'
+  f_has_not "$lib_raw" 'no compile step'
+  case_end
+}
+static_wo68_cases
+
+### Work order 75: the harness impact of infra-engineer work order 74 (static cases) ----------
+# The defect, observed locally (phase14-rehearse-probe-1.log, phase14-rehearse-preflight-1.log): with
+# stdin from /dev/null, `spark-shell -i FILE` and `-I FILE` never interpret FILE (the REPL reads EOF
+# and quits first), so the old launch was a silent no-op. `:load FILE` fed on stdin works. The launch
+# of run_preflight (lib-emr.sh) and of the rehearsal (rehearse-preflight.sh) is now
+#   timeout -k 30 N spark-shell --master local[2] --conf spark.sql.catalogImplementation=in-memory <<< ":load $scala"
+# These cases read the text of the launch (the line with the spark-shell path and the two after it)
+# and refuse the old forms; the dynamic cases further down run run_preflight against a fake
+# spark-shell that, like the real REPL, takes the script only from a one-line ':load' stdin.
+# SC2016: the single-quoted strings are literal fragments of node scripts and of the README that
+# f_has, f_has_not, f_before and f_count_is search for as text.
+# shellcheck disable=SC2016
+static_wo75_cases() {
+  local rd="$REAL_ROOT/scripts/README.md" lib_raw="$EMR_DIR/lib-emr.sh" reh_raw="$EMR_DIR/rehearse-preflight.sh"
+  local lib_launch="$CODE_DIR/launch-lib.txt" reh_launch="$CODE_DIR/launch-rehearse.txt" reh_code=""
+
+  # The launch text: the line that starts the spark-shell command, then the next two lines.
+  awk 'index($0, "bin/spark-shell\" --master") > 0 { print; getline; print; getline; print; exit }' "$emr_lib" > "$lib_launch"
+  if [ -f "$reh_raw" ]; then
+    reh_code="$(code_of "$reh_raw")"
+    awk 'index($0, "bin/spark-shell\" --master") > 0 { print; getline; print; getline; print; exit }' "$reh_code" > "$reh_launch"
+  else
+    : > "$reh_launch"
+  fi
+
+  static_begin "14.emr.preflight.run-preflight-launches-spark-shell-with-the-load-here-string-and-no-i-or-dev-null"
+  f_count_is "$emr_lib" 'bin/spark-shell" --master' 1
+  if [ "$(wc -l < "$lib_launch" | tr -d ' ')" != "3" ]; then note_fail "the launch text cut out of lib-emr.sh is not 3 lines"; fi
+  f_has "$lib_launch" 'timeout -k 30 "$remaining" "$SPARK_HOME/bin/spark-shell" --master "local[2]"'
+  f_has "$lib_launch" '--conf spark.sql.catalogImplementation=in-memory <<< ":load $scala"'
+  f_has "$lib_launch" ') > "$plog" 2>&1 || rc=$?'
+  f_count_is "$lib_launch" '<<< ":load $scala"' 1
+  f_count_is "$PF_RUN_FN" '<<< ":load $scala"' 1
+  f_count_is "$lib_launch" '$scala' 1
+  f_has_not_re "$lib_launch" '(^|[[:space:]])-[iI]([[:space:]]|$)'
+  f_has_not_re "$lib_launch" '(^|[[:space:]])-[iI]"'
+  f_has_not "$lib_launch" '/dev/null'
+  f_has_not_re "$lib_launch" '(^|[^<])<([^<]|$)'
+  f_has_not_re "$PF_RUN_FN" '(^|[[:space:]])-[iI]([[:space:]]|$)'
+  f_has_not "$PF_RUN_FN" '/dev/null'
+  f_has_not "$emr_lib" '-i "$scala"'
+  f_has_not "$emr_lib" '-I "$scala"'
+  f_has_not "$emr_lib" '2>&1 < /dev/null || rc=$?'
+  f_count_is "$emr_lib" 'timeout -k 30 "$remaining"' 1
+  f_count_is "$emr_lib" 'timeout -k 30 ' 2
+  f_has_not_re "$PF_RUN_FN" '"\$rc" -(ne|gt|lt)'
+  f_has "$PF_RUN_FN" '[[ "$rc" -eq 124 || "$rc" -eq 137 ]]'
+  f_before "$PF_RUN_FN" '<<< ":load $scala"' '[[ "$rc" -eq 124'
+  f_has "$lib_raw" "':load'"
+  case_end
+
+  static_begin "14.emr.rehearse-preflight.launches-spark-shell-with-the-load-here-string-and-no-i-or-dev-null"
+  if [ -f "$reh_raw" ]; then
+    f_count_is "$reh_code" 'bin/spark-shell" --master' 1
+    if [ "$(wc -l < "$reh_launch" | tr -d ' ')" != "3" ]; then note_fail "the launch text cut out of rehearse-preflight.sh is not 3 lines"; fi
+    f_has "$reh_launch" 'timeout -k 30 "$LIMIT" "$SPARK_HOME/bin/spark-shell" --master "local[2]"'
+    f_has "$reh_launch" '--conf spark.sql.catalogImplementation=in-memory <<< ":load $scala"'
+    f_has "$reh_launch" ') > "$plog" 2>&1'
+    f_count_is "$reh_launch" '<<< ":load $scala"' 1
+    f_count_is "$reh_code" '<<< ":load $scala"' 1
+    f_count_is "$reh_launch" '$scala' 1
+    f_has_not_re "$reh_launch" '(^|[[:space:]])-[iI]([[:space:]]|$)'
+    f_has_not_re "$reh_launch" '(^|[[:space:]])-[iI]"'
+    f_has_not "$reh_launch" '/dev/null'
+    f_has_not_re "$reh_launch" '(^|[^<])<([^<]|$)'
+    f_has_not "$reh_code" '-i "$scala"'
+    f_has_not "$reh_code" '-I "$scala"'
+    f_has_not "$reh_code" '2>&1 < /dev/null'
+    f_has "$reh_raw" 'phase14-rehearse-probe-1.log'
+    f_has "$reh_raw" "loaded with ':load FILE' fed on stdin (a here-string;"
+    f_has "$reh_raw" "with ':load \$scala' on stdin"
+    f_has "$reh_raw" "is bound under ':load' on stdin"
+    # Work order 77 (infra-engineer work order 76): the stand-in jars. make_jars gives the stand-in
+    # ER target a lib directory holding every Spark distribution jar (the real ER class path is the
+    # jar plus entity-resolution/lib/*), so the stand-in main class finds the classes its signatures
+    # name. preflight_write_targets itself is unchanged. Text only: the harness never runs the script.
+    f_count_is "$reh_code" 'make_jars() {' 1
+    f_has "$reh_code" 'mkdir -p "$work/jars/hadoop/lib" "$work/jars/entity-resolution/lib" "$work/jars/spark"'
+    f_count_is "$reh_code" 'mkdir -p "$work/jars/hadoop/lib" "$work/jars/entity-resolution/lib" "$work/jars/spark"' 1
+    f_count_is "$reh_code" 'for j in "$SPARK_HOME"/jars/*.jar; do' 1
+    f_has "$reh_code" 'ln -sf "$j" "$work/jars/entity-resolution/lib/${j##*/}"'
+    f_count_is "$reh_code" 'ln -sf "$j" "$work/jars/entity-resolution/lib/${j##*/}"' 1
+    f_has "$reh_code" 'ln -sf "$CORE_JAR" "$work/jars/entity-resolution/job-er.jar"'
+    f_before "$reh_code" 'mkdir -p "$work/jars/hadoop/lib" "$work/jars/entity-resolution/lib"' 'for j in "$SPARK_HOME"/jars/*.jar; do'
+    f_before "$reh_code" 'for j in "$SPARK_HOME"/jars/*.jar; do' 'ln -sf "$j" "$work/jars/entity-resolution/lib/${j##*/}"'
+    f_before "$reh_code" 'ln -sf "$j" "$work/jars/entity-resolution/lib/${j##*/}"' 'ln -sf "$CORE_JAR" "$work/jars/spark/job-spark.jar"'
+    f_has_not "$reh_code" 'preflight_write_targets() {'
+    # say_targets RESULT: the four verdicts on one line, then each FAIL target line, called once,
+    # straight after the evaluate output and before the scenario verdict is judged.
+    f_count_is "$reh_code" 'say_targets() {' 1
+    f_count_is "$reh_code" 'say_targets "$result"' 1
+    f_count_is "$reh_code" 'say "TARGETS: $line"' 1
+    f_has "$reh_code" 'for t in hadoop er spark export; do'
+    f_count_is "$reh_code" 'st="MISSING"' 1
+    f_count_is "$reh_code" 'st="OK"' 1
+    f_count_is "$reh_code" 'st="FAIL"' 1
+    f_has "$reh_code" 'grep -qxF "TARGET $t OK" "$result"'
+    f_has "$reh_code" 'grep -qE "^FAIL target $t " "$result"'
+    f_has "$reh_code" "grep -aE '^FAIL target ' \"\$result\""
+    f_before "$reh_code" 'say "preflight_evaluate exit $erc"' 'say_targets "$result"'
+    f_before "$reh_code" "grep -aE '^(PREFLIGHT_|NOTE: preflight|EVIDENCE:)' \"\$evlog\"" 'say_targets "$result"'
+    f_before "$reh_code" 'say_targets "$result"' 'observed="evaluate-failed"'
+    f_before "$reh_code" 'say_targets() {' 'run_scenario() {'
+  else
+    note_fail "scripts/emr/rehearse-preflight.sh does not exist"
+  fi
+  case_end
+
+  static_begin "14.emr.preflight.evaluate-no-result-text-names-the-load-form-and-the-repl-that-never-interpreted-the-script"
+  # Work order 79: infra work order 78 added the compile-failure cause and the evidence helper to the
+  # same die ("... exits 0 with no output): a script that failed to compile under ':load' does the same
+  # ... Evidence from preflight.log (the first compiler diagnostic, else the last error line): " then
+  # $(preflight_compile_evidence "$plog")). The prefix needle 'wrote no result' is kept as the line before.
+  f_has "$PF_EV_FN" '[[ -s "$result" ]] || die "preflight wrote no result'
+  f_has "$PF_EV_FN" "[[ -s \"\$result\" ]] || die \"preflight wrote no result (spark-shell exit \$rc; the script is loaded with ':load' from stdin, and a REPL that never interpreted it exits 0 with no output): a script that failed to compile under ':load' does the same, because the object never exists and no result file is created, so read preflight.log. Evidence from preflight.log (the first compiler diagnostic, else the last error line): \$(preflight_compile_evidence \"\$plog\")\""
+  f_has "$PF_EV_FN" "grep -qx 'DONE' \"\$result\" || die \"preflight did not reach DONE (spark-shell exit \$rc;"
+  f_has_not "$PF_EV_FN" 'preflight wrote no result (spark-shell exit $rc):'
+  case_end
+
+  static_begin "14.emr.preflight.readme-names-the-probe-log-the-load-here-string-and-says-i-and-big-i-are-not-interpreted-with-stdin-from-dev-null"
+  f_has "$PF_README_SEC" '`phase14-rehearse-probe-1.log`'
+  f_has "$PF_README_SEC" '`phase14-rehearse-preflight-1.log`'
+  # Work order 77: the README writes `spark-shell -i FILE` (the command name sits inside the same
+  # backticks), so the needle starts at the command name, not at the backtick before -i.
+  f_has "$PF_README_SEC" '`spark-shell -i FILE` and `-I FILE` with standard input from `/dev/null` do NOT interpret the file at all'
+  f_has "$PF_README_SEC" 'How it is launched (work order 74): `spark-shell` gets no `-i`, and its standard input is the here-string `:load <reports>/preflight.scala`'
+  f_has "$PF_README_SEC" '`:load` on standard input was observed to load and run a multi-line file'
+  f_has "$PF_README_SEC" 'fails `preflight wrote no result`'
+  f_has "$PF_README_SEC" 'the `die` text names the `:load` form'
+  # Work order 79: the paragraph now records rehearsal 3 (human-run, relayed): the `:load` form was
+  # confirmed locally, and what is still unrun is the two scenarios of work order 78. The two old
+  # needles ('... has to be rerun).' and 'The `:load` form below has not been run through the rehearsal
+  # script yet.') are replaced by the new sentence and by the rehearsal 3 facts below; they are stale,
+  # not weakened.
+  # Work order 83: infra work order 82 recorded rehearsal 4 (human-run, relayed): the heading sentence now
+  # says rehearsal 4 ran the two scenarios of work order 78; the rehearsal 3 sentence continues into the
+  # rehearsal 4 sentence after a semicolon (so it no longer ends at '=2`.'); the NOT proven list gained
+  # 'a path with whitespace beyond the refusal'. Each needle below is the README's current text, and the
+  # superseded sentence ('what is still unrun is the two scenarios') must be gone.
+  f_has "$PF_README_SEC" 'Before S run 6 (recommended; the first local rehearsal found the `-i` defect fixed in work order 74, and rehearsal 3 then confirmed the `:load` form locally, and rehearsal 4 ran the two scenarios of work order 78, see below).'
+  f_has_not "$PF_README_SEC" 'what is still unrun is the two scenarios of work order 78'
+  f_has_not "$PF_README_SEC" 'has to be rerun).'
+  f_has_not "$PF_README_SEC" 'has not been run through the rehearsal script yet'
+  f_has "$PF_README_SEC" 'Observed, human-run and relayed, not an agent run: rehearsal 3 (`phase14-rehearse-preflight-3.log`, 2026-11-15) compiled and ran the script locally with stand-ins on Spark 4.0.5, Scala 2.13.16 and Java 21; scenarios `clean`, `hard` and `warn` each ended PASS and `hard` recorded `PREFLIGHT_FAILED_COUNT=2`'
+  f_has "$PF_README_SEC" 'rehearsal 4 (`phase14-rehearse-preflight-4.log`, same day, same versions, stand-ins) ran all five scenarios, each PASS, including `nocompile` and `nooverride`.'
+  f_has "$PF_README_SEC" "NOT proven by it: anything on the node (EMR's jars and site files, timing, Linux), our real job jars, YARN, the KILL path of \`timeout -k 30\`, a path with whitespace beyond the refusal, and that the committer override clears the export on EMR (pending until S run 6)."
+  f_has "$PF_README_SEC" "<<< ':load /abs/work/preflight.scala'"
+  f_has "$PF_README_SEC" '(not `-i FILE < /dev/null`: observed in `phase14-rehearse-probe-1.log` not to interpret the file)'
+  f_has "$PF_README_SEC" 'with `:load <script>` on standard input (a here-string, no `-i`) under `timeout -k 30`'
+  f_has "$PF_README_SEC" 'that `spark` is bound under `:load` on standard input'
+  f_has "$PF_README_SEC" 'After a change to `lib-emr.sh` the rehearsal has to be run again.'
+  f_has_not "$PF_README_SEC" 'in-memory -i'
+  f_has_not "$PF_README_SEC" 'in-memory -I'
+  f_has_not "$PF_README_SEC" '--conf spark.sql.catalogImplementation=in-memory -i'
+  f_has_not "$PF_README_SEC" 'with the Scala file'
+  f_count_is "$rd" 'Before S run 6 (recommended;' 1
+  f_before "$rd" 'Before S run 6 (recommended;' '### S3 key layout'
+  # Work order 79: the old negative needle '[Rr]ehearsal (passed|passes|was run|has run|ran)' forbade any
+  # rehearsal claim, which is no longer true (the README now states rehearsal 3, human-run). It is
+  # retargeted to what must stay unclaimed: a pass on a node or EMR, and a working committer override.
+  f_has_not_re "$PF_README_SEC" '(the node|a node|EMR) (passed|has passed|ran it|has run it)'
+  f_has_not_re "$PF_README_SEC" '(override|fix) (worked|has worked|cleared the export|was shown|was proven)'
+  f_has_not_re "$PF_README_SEC" '[Rr]ehearsal [0-9]+ (ran|passed|was run) on (the|a) (node|cluster|EMR)'
+  case_end
+}
+static_wo75_cases
+
+### Work order 79: the harness impact of infra-engineer work order 78 (static cases) ----------
+# Work order 78 repaired review findings in lib-emr.sh (preflight_compile_evidence, the PREFLIGHT_RESULT=failed
+# record before the DONE refusal, the whitespace refusal in run_preflight), in rehearse-preflight.sh (two new
+# scenarios nocompile and nooverride, four more unset AWS variables, a filter on every printed line, an
+# existing-run-directory and a whitespace refusal) and in scripts/README.md. Static cases read the text; the
+# dynamic cases for the same changes sit after the preflight_evaluate and run_preflight cases below. The
+# harness never runs rehearse-preflight.sh past its refusals (it needs Spark), so the two new scenarios are
+# proved only by the human's rehearsal 4 (each PASS, relayed). Work order 83 follows infra work order 82
+# (one-line compile evidence, the say_diagnostic helper, the root whitespace refusal before mkdir) and the
+# cases of this block were updated to it.
+# SC2016: the single-quoted strings are literal fragments of node scripts and of the README that f_has,
+# f_has_not, f_before and f_count_is search for as text.
+# shellcheck disable=SC2016
+static_wo79_cases() {
+  local reh_raw="$EMR_DIR/rehearse-preflight.sh"
+  local reh_code="" ce_fn="$CODE_DIR/preflight-compile-evidence-fn.sh" res_fn="$CODE_DIR/rehearse-resolve-new-dir-fn.sh"
+  local sd_fn="$CODE_DIR/rehearse-say-diagnostic-fn.sh" lib_raw="$EMR_DIR/lib-emr.sh"
+  local k n bad fn
+
+  extract_fn "$emr_lib" preflight_compile_evidence "$ce_fn"
+
+  static_begin "14.emr.preflight.evaluate-records-failed-before-each-no-result-and-no-done-refusal-and-the-no-result-text-has-no-lowercase-error-colon"
+  f_count_is "$PF_EV_FN" 'kv PREFLIGHT_RESULT failed' 3
+  f_count_is "$PF_EV_FN" '[[ -s "$result" ]] || kv PREFLIGHT_RESULT failed' 1
+  f_count_is "$PF_EV_FN" "grep -qx 'DONE' \"\$result\" || kv PREFLIGHT_RESULT failed" 1
+  f_before "$PF_EV_FN" '[[ -s "$result" ]] || kv PREFLIGHT_RESULT failed' '[[ -s "$result" ]] || die "preflight wrote no result'
+  f_before "$PF_EV_FN" "grep -qx 'DONE' \"\$result\" || kv PREFLIGHT_RESULT failed" "grep -qx 'DONE' \"\$result\" || die \"preflight did not reach DONE"
+  f_before "$PF_EV_FN" '[[ -s "$result" ]] || die "preflight wrote no result' "grep -qx 'DONE' \"\$result\" || kv PREFLIGHT_RESULT failed"
+  # The rehearsal scenario nocompile accepts a match of the lowercase 'error:' only as the REPL's own text,
+  # so no static text of the evaluate function may hold it (an uppercase ERROR in a grep pattern is not it).
+  f_has_not "$PF_EV_FN" 'error:'
+  f_count_is "$PF_EV_FN" 'preflight_compile_evidence "$plog"' 1
+  f_count_is "$PF_EV_FN" 'last_error_line' 1
+  f_has "$PF_EV_FN" 'die "preflight did not reach DONE (spark-shell exit $rc; the script compiled and started, since the result file exists, but it stopped before its last line; a compile error would have left no result file at all): $(last_error_line "$plog")"'
+  f_count_is "$emr_lib" 'preflight_compile_evidence' 2
+  case_end
+
+  # Work order 83: infra work order 82 reduced the function to ONE line, the first diagnostic. The locals
+  # l, l1, l2 and t, the cut at 200, the next-line reads, the warning test and the caret test are gone
+  # (the REPL prints the source and caret lines BEFORE the error line, observed in rehearsal 4, so the
+  # lines after it were only consequences). Their old needles are replaced by absence needles.
+  static_begin "14.emr.preflight.compile-evidence-returns-only-the-first-diagnostic-line-then-the-first-error-colon-line-then-last-error-line-and-hides-key-material"
+  if [ "$(wc -l < "$ce_fn" | tr -d ' ')" -lt 15 ]; then note_fail "the function cut out of lib-emr.sh has fewer than 15 lines"; fi
+  f_has "$ce_fn" "local f=\"\$1\" ex='UnsatisfiedLinkError|buildSupportsOpenssl' pat n=\"\" out=\"\""
+  f_has "$ce_fn" "for pat in ':[0-9]+: error:' 'error:'; do"
+  f_has "$ce_fn" "n=\"\$(grep -a -n -i -E \"\$pat\" \"\$f\" 2>/dev/null | grep -a -v -E \"\$ex\" | sed -n '1p' | cut -d: -f1)\" || n=\"\""
+  f_has "$ce_fn" '[[ "$n" =~ ^[0-9]+$ ]] && break'
+  f_has "$ce_fn" 'out="$(sed -n "${n}p" "$f" | cut -c1-300)"'
+  f_count_is "$ce_fn" 'cut -c1-300' 1
+  f_count_is "$ce_fn" 'sed -n "${n}p" "$f"' 1
+  f_count_is "$ce_fn" 'sed -n' 2
+  f_has_not "$ce_fn" 'cut -c1-200'
+  f_has_not "$ce_fn" 'l1'
+  f_has_not "$ce_fn" 'l2'
+  f_has_not "$ce_fn" 'n + 1'
+  f_has_not "$ce_fn" 'n + 2'
+  f_has_not "$ce_fn" 'warning:'
+  f_has_not "$ce_fn" '\^'
+  f_has_not "$ce_fn" ' / '
+  f_has "$ce_fn" 'if [[ -n "$out" ]] && grep -qE "$SC_SECRET_RE" <<< "$out"; then'
+  f_has "$ce_fn" 'out="a log line matches a key-material pattern: not printed"'
+  f_count_is "$ce_fn" 'last_error_line "$f"' 1
+  f_count_is "$ce_fn" 'clean_text "$out"' 1
+  # The comment above the function (read from the raw file) says what was observed and that the line
+  # number is the REPL's count (review advisory A-ii).
+  f_has "$lib_raw" 'observed locally in rehearsal 4, scenario nocompile, Spark 4.0.5, Scala 2.13.16, Java 21,'
+  f_has "$lib_raw" 'PreflightRun"), so only the FIRST diagnostic line is returned, alone. The <line> number in it'
+  f_has "$lib_raw" "is the REPL's own count of the loaded file, not a line of preflight.scala (observed: 142 for a"
+  f_has_not "$lib_raw" 'with at most two following lines'
+  f_before "$ce_fn" "for pat in ':[0-9]+: error:' 'error:'; do" 'out="$(sed -n "${n}p" "$f"'
+  f_before "$ce_fn" 'if [[ -n "$out" ]] && grep -qE "$SC_SECRET_RE" <<< "$out"; then' 'last_error_line "$f"'
+  f_before "$ce_fn" 'if [[ -n "$out" ]] && grep -qE "$SC_SECRET_RE" <<< "$out"; then' 'clean_text "$out"'
+  # The grep results are read through sed, never head, so a closed pipe cannot fail the pipeline.
+  f_has_not_re "$ce_fn" '[|][[:space:]]*head([[:space:]]|$)'
+  f_has_not "$ce_fn" 'mkdir'
+  f_has_not "$ce_fn" 'rm -'
+  bad="$(grep -oE '>[[:space:]]*"[^"]*"' "$ce_fn" | tr '\n' ' ')"
+  [ -z "$bad" ] || note_fail "preflight_compile_evidence redirects to: $bad"
+  f_has_not_re "$ce_fn" '(^|[[:space:];|&(])(cp|mv|tee|chmod|chown|sudo|curl|wget|aws|hdfs|yarn)[[:space:]]'
+  for k in 's3://' 's3a://' 's3n://' 'hdfs://'; do
+    f_has_not "$ce_fn" "$k"
+  done
+  case_end
+
+  static_begin "14.emr.preflight.run-preflight-refuses-whitespace-in-the-script-path-before-it-makes-anything-and-keeps-its-single-mkdir-and-rm"
+  f_has "$PF_RUN_FN" "[[ \"\$scala\" != *[[:space:]]* ]] || die \"preflight: the script path '\$scala' holds whitespace and ':load' splits its argument on whitespace (inferred, not observed), so the reports directory path must hold none\""
+  f_count_is "$PF_RUN_FN" '[[:space:]]' 1
+  f_before "$PF_RUN_FN" '"$scala" != *[[:space:]]*' 'mkdir -p "$pf/data"'
+  f_before "$PF_RUN_FN" '"$scala" != *[[:space:]]*' 'preflight_write_script "$scala"'
+  f_before "$PF_RUN_FN" '"$scala" != *[[:space:]]*' 'preflight_write_targets'
+  f_before "$PF_RUN_FN" '[[ -x "$SPARK_HOME/bin/spark-shell" ]]' '"$scala" != *[[:space:]]*'
+  f_before "$PF_RUN_FN" 'SC_PREFLIGHT_LIMIT_SECONDS" ]]' '"$scala" != *[[:space:]]*'
+  f_count_is "$PF_RUN_FN" 'mkdir' 1
+  f_count_is "$PF_RUN_FN" 'rm -' 1
+  bad="$(grep -oE '>[[:space:]]*"[^"]*"' "$PF_RUN_FN" | tr '\n' ' ')"
+  [ "$bad" = '> "$plog" ' ] || note_fail "run_preflight redirects to: $bad"
+  case_end
+
+  static_begin "14.emr.rehearse-preflight.runs-five-scenarios-in-order-and-has-the-nocompile-and-nooverride-helpers"
+  if [ -f "$reh_raw" ]; then
+    reh_code="$(code_of "$reh_raw")"
+    for k in 'run_scenario clean no "" ok' 'run_scenario hard no "scholarchain.rehearsal.MissingCommitter" hard-fail' 'run_scenario warn yes "" warn' 'run_scenario nocompile no "" no-compile' 'run_scenario nooverride no DROP no-override'; do
+      f_count_is "$reh_code" "$k" 1
+    done
+    n="$(awk '/^run_scenario / { c++ } END { print c + 0 }' "$reh_code")"
+    [ "$n" = "5" ] || note_fail "the file calls run_scenario $n times, expected 5"
+    f_before "$reh_code" 'run_scenario() {' 'run_scenario clean no "" ok'
+    f_before "$reh_code" 'run_scenario clean no "" ok' 'run_scenario hard no'
+    f_before "$reh_code" 'run_scenario hard no' 'run_scenario warn yes "" warn'
+    f_before "$reh_code" 'run_scenario warn yes "" warn' 'run_scenario nocompile no "" no-compile'
+    f_before "$reh_code" 'run_scenario nocompile no "" no-compile' 'run_scenario nooverride no DROP no-override'
+    f_before "$reh_code" 'run_scenario nooverride no DROP no-override' 'REHEARSAL_RESULT=PASS'
+    f_has "$reh_raw" 'EXPECT(ok|hard-fail|warn|no-compile|no-override)'
+    f_has "$reh_raw" '# Five runs of the real spark-shell, each judged by the real preflight_evaluate:'
+    f_has_not "$reh_raw" 'Three runs'
+    f_has "$reh_raw" '#   nocompile   the script with a deliberate compile error inside the object: expect shell exit'
+    f_has "$reh_raw" '#   nooverride  clean, but our committer line is removed and the fake mapred-site names'
+    # Work order 83: infra work order 82 replaced the sentence 'Scenarios nocompile and nooverride were
+    # written afterwards and have not run.' by the rehearsal 3 and rehearsal 4 facts (human-run, relayed).
+    # Each needle is one header line, as the header wraps; the superseded wording must be gone.
+    f_has "$reh_raw" '# Observed (human-run, relayed, 2026-11-15, Spark 4.0.5, Scala 2.13.16, Java 21, stand-ins, not'
+    f_has "$reh_raw" 'rehearsal 3 (phase14-rehearse-preflight-3.log) ran clean, hard and warn; rehearsal 4'
+    f_has "$reh_raw" '# (phase14-rehearse-preflight-4.log) ran all five, each PASS, hard with PREFLIGHT_FAILED_COUNT=2.'
+    f_has "$reh_raw" '# In nocompile the spark-shell exit was 0, no result file was written, PREFLIGHT_RESULT=failed,'
+    f_has "$reh_raw" "# and the REPL's first diagnostic line (\"<file>:<line>: error: not found: value ...\", its own"
+    f_has "$reh_raw" "# line count, not the file's) was the evidence; in nooverride the old-API smoke failed with"
+    f_has "$reh_raw" '# ClassNotFoundException for DirectFileOutputCommitter.'
+    f_has "$reh_raw" 'line (lower case) as the evidence, printed as a DIAGNOSTIC: line'
+    f_has_not "$reh_raw" 'written afterwards'
+    f_has_not "$reh_raw" 'have not run'
+    f_count_is "$reh_code" 'drop_committer() {' 1
+    f_count_is "$reh_code" 'make_nocompile_script() {' 1
+    f_count_is "$reh_code" 'NOCOMPILE_MARKER="scholarchain_rehearsal_undefined"' 1
+    f_count_is "$reh_code" 'drop_committer "$SC_SPARK_CONF_DIR/spark-defaults.conf"' 1
+    f_count_is "$reh_code" 'make_nocompile_script "$scala"' 1
+    f_has "$reh_code" 'if [[ "$committer" == DROP ]]; then'
+    f_has "$reh_code" 'if [[ "$expect" == no-compile ]]; then'
+    f_has "$reh_code" '$1 != "spark.hadoop.mapred.output.committer.class" { print }'
+    f_has "$reh_code" 'refuse "could not remove the committer line from $f"'
+    f_has "$reh_code" 'print "  private val rehearsalNoCompile: Int = " m'
+    f_has "$reh_code" 'refuse "the compile error is not in $f"'
+    f_before "$reh_code" 'cp "$scala" "$scala.clean"' 'make_nocompile_script "$scala"'
+    # The nocompile verdict: shell exit 0, no result file, record failed, the evidence names the REPL's own
+    # lowercase error: text and the marker (the first diagnostic), and carries our die text.
+    f_has "$reh_code" 'if [[ "$rc" -eq 0 && "$erc" -ne 0 && ! -s "$result" ]]'
+    f_has "$reh_code" "grep -qF 'preflight wrote no result' <<< \"\$evidence\""
+    f_has "$reh_code" "grep -qF 'error:' <<< \"\$evidence\""
+    f_has "$reh_code" 'grep -qF "$NOCOMPILE_MARKER" <<< "$evidence"'
+    # The nooverride verdict: failed, a FAIL line naming the EMR committer, both controls and DONE.
+    f_has "$reh_code" "grep -qE '^FAIL (smoke old-api|config [^ ]+) .*DirectFileOutputCommitter' \"\$result\""
+    # A stale result file of an earlier run must not be read: removed before the targets and the launch.
+    f_count_is "$reh_code" 'rm -f "$result"' 1
+    f_before "$reh_code" 'make_nocompile_script "$scala"' 'rm -f "$result"'
+    f_before "$reh_code" 'rm -f "$result"' 'preflight_write_targets "$pf/targets.tsv" "$work"'
+    f_before "$reh_code" 'rm -f "$result"' 'bin/spark-shell" --master'
+  else
+    note_fail "scripts/emr/rehearse-preflight.sh does not exist"
+  fi
+  case_end
+
+  static_begin "14.emr.rehearse-preflight.unsets-the-aws-file-and-role-variables-and-filters-every-printed-line-for-key-material"
+  if [ -f "$reh_raw" ]; then
+    reh_code="$(code_of "$reh_raw")"
+    f_has "$reh_code" '-u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN -u AWS_PROFILE'
+    f_has "$reh_code" '-u AWS_CONFIG_FILE -u AWS_SHARED_CREDENTIALS_FILE -u AWS_WEB_IDENTITY_TOKEN_FILE -u AWS_ROLE_ARN'
+    for k in AWS_CONFIG_FILE AWS_SHARED_CREDENTIALS_FILE AWS_WEB_IDENTITY_TOKEN_FILE AWS_ROLE_ARN; do
+      f_count_is "$reh_code" "$k" 1
+      f_count_is "$reh_code" " -u $k" 1
+      f_before "$reh_code" " -u $k" 'bin/spark-shell" --master'
+    done
+    f_has "$reh_raw" '# AWS_SESSION_TOKEN, AWS_PROFILE, AWS_CONFIG_FILE, AWS_SHARED_CREDENTIALS_FILE,'
+    f_has "$reh_raw" '# AWS_WEB_IDENTITY_TOKEN_FILE, AWS_ROLE_ARN) from the spark-shell environment.'
+    # Every line that goes through tee into the summary and the screen passes the key-material filter first:
+    # the shell output errors, the FAIL and ERROR lines, the target lines, the targets log and the evaluate output.
+    f_count_is "$reh_code" 'tee -a "$SUMMARY"' 5
+    f_count_is "$reh_code" 'grep -avE "$SC_SECRET_RE"' 5
+    bad="$(awk 'index($0, "tee -a \"$SUMMARY\"") > 0 { t = index($0, "tee -a \"$SUMMARY\""); f = index($0, "grep -avE \"$SC_SECRET_RE\""); if (f == 0 || f > t) print }' "$reh_code")"
+    [ -z "$bad" ] || note_fail "a line is tee'd to the summary without the key-material filter before it: $bad"
+    f_has "$reh_code" "grep -a 'EVIDENCE' \"\$d/targets.log\" | grep -avE \"\$SC_SECRET_RE\""
+    f_has "$reh_code" "grep -aE '^FAIL target ' \"\$result\" 2>/dev/null | grep -avE \"\$SC_SECRET_RE\""
+    f_has "$reh_code" "grep -aE '^(PREFLIGHT_|NOTE: preflight|EVIDENCE:)' \"\$evlog\" | grep -avE \"\$SC_SECRET_RE\""
+    f_count_is "$reh_code" 'show_errors() {' 1
+    f_count_is "$reh_code" 'show_errors "$plog" "$result"' 2
+    # The filter variable is the lib's, sourced before any call.
+    f_before "$reh_code" 'source "$LIB"' 'grep -avE "$SC_SECRET_RE"'
+  else
+    note_fail "scripts/emr/rehearse-preflight.sh does not exist"
+  fi
+  case_end
+
+  static_begin "14.emr.rehearse-preflight.refuses-a-relative-root-dot-segments-a-root-in-the-repo-whitespace-and-an-existing-run-directory-before-it-makes-a-directory"
+  if [ -f "$reh_raw" ]; then
+    reh_code="$(code_of "$reh_raw")"
+    f_has "$reh_code" '[[ "$ROOT_IN" == /* && "$SPARK_SRC" == /* ]] || refuse "SC_REHEARSE_ROOT and SC_REHEARSE_SPARK_DIR must be absolute paths"'
+    f_has "$reh_code" 'case "/$ROOT_IN/" in'
+    f_has "$reh_code" '*/./* | */../*) refuse "SC_REHEARSE_ROOT must not contain . or .. segments: $ROOT_IN" ;;'
+    f_has "$reh_code" 'ROOT="$(resolve_new_dir "${ROOT_IN%/}")"'
+    f_has "$reh_code" '"$REPO"/*) refuse "the rehearsal root $ROOT is inside the repository $REPO; choose a directory outside it" ;;'
+    f_count_is "$reh_code" 'mkdir -p "$ROOT"' 1
+    f_count_is "$reh_code" 'mkdir -p "$RUN" "$SHIM"' 1
+    # A6: the in-repo root refusal comes before the root is made, not only before the run directory; the
+    # dot-segment and absolute-path refusals come before the root is resolved or made.
+    f_before "$reh_code" '[[ "$ROOT_IN" == /* && "$SPARK_SRC" == /* ]]' '*/./* | */../*) refuse'
+    f_before "$reh_code" '*/./* | */../*) refuse' 'ROOT="$(resolve_new_dir'
+    f_before "$reh_code" '*/./* | */../*) refuse' 'mkdir -p "$ROOT"'
+    f_before "$reh_code" 'ROOT="$(resolve_new_dir' '"$REPO"/*) refuse'
+    f_before "$reh_code" '"$REPO"/*) refuse' 'mkdir -p "$ROOT"'
+    f_before "$reh_code" '"$REPO"/*) refuse' 'mkdir -p "$RUN"'
+    # Work order 83: infra work order 82 moved the run directory name and its whitespace refusal ABOVE the
+    # root's mkdir, so a root whose own path holds whitespace is refused before it is made. The old order
+    # (mkdir -p "$ROOT" before RUN=) is flipped here, not loosened; the new order is also pinned in the
+    # whitespace-root case below.
+    f_before "$reh_code" 'RUN="$ROOT/preflight-$STAMP"' 'mkdir -p "$ROOT"'
+    extract_fn "$reh_code" resolve_new_dir "$res_fn"
+    if [ "$(wc -l < "$res_fn" | tr -d ' ')" -lt 8 ]; then note_fail "the resolve_new_dir text cut out of rehearse-preflight.sh has fewer than 8 lines"; fi
+    f_has_not "$res_fn" 'mkdir'
+    f_has "$res_fn" 'printf '"'"'%s%s'"'"' "$(cd "$p" && pwd -P)" "$rest"'
+    # The run directory: whitespace, then an existing directory, then the one mkdir of it.
+    f_has "$reh_code" 'RUN="$ROOT/preflight-$STAMP"'
+    f_has "$reh_code" 'case "$RUN" in'
+    f_has "$reh_code" "*[[:space:]]*) refuse \"the run directory \$RUN holds whitespace, and ':load' splits its argument on whitespace (inferred); choose SC_REHEARSE_ROOT without any\" ;;"
+    f_has "$reh_code" '[[ ! -e "$RUN" ]] || refuse "the run directory $RUN already exists (the stamp has 1-second resolution); wait a second and run again"'
+    f_before "$reh_code" 'RUN="$ROOT/preflight-$STAMP"' 'case "$RUN" in'
+    f_before "$reh_code" 'case "$RUN" in' '[[ ! -e "$RUN" ]]'
+    f_before "$reh_code" '[[ ! -e "$RUN" ]]' 'mkdir -p "$RUN" "$SHIM"'
+    f_before "$reh_code" 'mkdir -p "$RUN" "$SHIM"' 'ln -sfn "$RUN" "$ROOT/latest"'
+    # Work order 83: the whitespace refusal now comes before the root is made (infra work order 82), so a
+    # root with whitespace outside the repository is no longer created and then refused. The old pin
+    # (mkdir -p "$ROOT" before case "$RUN" in) is flipped. The existing-run-directory test stays after the
+    # root's mkdir, because it needs the root to exist.
+    f_before "$reh_code" 'case "$RUN" in' 'mkdir -p "$ROOT"'
+    f_before "$reh_code" 'mkdir -p "$ROOT"' '[[ ! -e "$RUN" ]]'
+  else
+    note_fail "scripts/emr/rehearse-preflight.sh does not exist"
+  fi
+  case_end
+
+  # Work order 83: the README now records rehearsal 4 (human-run, relayed): nocompile and nooverride each
+  # PASS, the compile evidence is the first diagnostic LINE alone (no source or caret lines), and the line
+  # number is the REPL's count. The case keeps its old name's subject but not its 'written-not-run' claim,
+  # so it is renamed; every superseded sentence is asserted absent.
+  static_begin "14.emr.preflight.readme-states-the-one-line-no-result-evidence-the-five-scenarios-and-that-nocompile-and-nooverride-passed-in-rehearsal-4"
+  f_has "$PF_README_SEC" 'A script that does not compile under `:load` leaves no result file at all, not a result file without `DONE`:'
+  f_has "$PF_README_SEC" 'gives as evidence the first compiler diagnostic LINE alone (`preflight_compile_evidence`: the first line of the shape `<file>:<line>: error: <text>`, else the first line holding `error:` in any case, else the last error line; cut to 300 characters; no source or caret lines, because the REPL prints them before the error line, and the diagnostics after the first are consequences such as `not found: value PreflightRun`).'
+  f_has "$PF_README_SEC" "The \`<line>\` number in it is the REPL's own count of the loaded file, not a line of \`preflight.scala\` (observed: 142 for a marker on file line 148); \`evaluate.log\` and \`preflight.log\` hold the full text."
+  f_has_not "$PF_README_SEC" 'plus the source and caret lines that follow it'
+  f_has_not "$PF_README_SEC" 'falling back to the last error line.'
+  f_has "$PF_README_SEC" '`PREFLIGHT_RESULT=failed` is recorded in both no-result cases and when `DONE` is missing.'
+  f_has "$PF_README_SEC" 'A result file that exists but has no `DONE` means the script compiled and started and then stopped early.'
+  f_has "$PF_README_SEC" 'Observed locally in rehearsal 4 (scenario `nocompile`, `phase14-rehearse-preflight-4.log`, human-run and relayed, 2026-11-15; Spark 4.0.5, Scala 2.13.16, Java 21, stand-ins, not a node): a lowercase `<file>:<line>: error: <text>` diagnostic, printed after its source and caret lines, followed by a blank line and then the same for the follow-on `not found: value PreflightRun`'
+  f_has "$PF_README_SEC" "Whether a node's shell prints the same is not observed."
+  f_has "$PF_README_SEC" 'Observed locally in rehearsal 4 (scenario `nocompile`; stand-ins, Spark 4.0.5, Scala 2.13.16, Java 21, not a node): exit 0, no result file, `PREFLIGHT_RESULT=failed`.'
+  f_has_not "$PF_README_SEC" 'not observed until the rehearsal scenario `nocompile` is run'
+  f_has "$PF_README_SEC" 'were run by the human as rehearsal 3 on 2026-11-15, and all five, including `nocompile` and `nooverride` of work order 78, as rehearsal 4 the same day, each PASS; human-run and relayed, local, stand-ins).'
+  f_has_not "$PF_README_SEC" 'are written, not run, until the human reports them'
+  f_has "$PF_README_SEC" 'It runs five times (a run directory that already exists is refused, since its name has 1-second resolution, and so is a path with whitespace, because `:load` splits its argument on whitespace, inferred)'
+  f_has "$PF_README_SEC" '- `nocompile` (work order 78; PASS in rehearsal 4, human-run and relayed, local, stand-ins):'
+  f_has "$PF_README_SEC" '- `nooverride` (work order 78; PASS in rehearsal 4, human-run and relayed, local, stand-ins):'
+  f_has_not "$PF_README_SEC" '(work order 78; written, not run)'
+  f_has "$PF_README_SEC" "Expected, and observed: \`spark-shell\` exits 0, there is no result file, \`PREFLIGHT_RESULT=failed\` is recorded, and the evidence is the REPL's own lowercase \`error:\` line that names the undefined value (the first diagnostic), not the follow-on \`not found: value PreflightRun\`."
+  f_has "$PF_README_SEC" 'The summary prints it on its own `DIAGNOSTIC:` line (the `EVIDENCE:` line is cut to 400 characters and its die text comes first, so the diagnostic does not survive the cut there).'
+  f_has "$PF_README_SEC" "The line number in the diagnostic is the REPL's count (142), the marker is on line 148 of the file."
+  f_has "$PF_README_SEC" 'is printed whole, up to 600 characters, on its own `DIAGNOSTIC:` line'
+  f_has "$PF_README_SEC" 'the `die` text itself holds no `error:`, so a match cannot come from our own wording'
+  f_has "$PF_README_SEC" 'The negative control is `nooverride` below, which passed in rehearsal 4.'
+  f_has_not "$PF_README_SEC" 'which is written and not yet run'
+  f_has "$PF_README_SEC" 'The whitespace refusal runs on the root path before the root directory is created (after the in-repo refusal), so a root with whitespace outside the repository is not created and then refused.'
+  f_has "$PF_README_SEC" '`spark-shell` also gets `AWS_CONFIG_FILE`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_WEB_IDENTITY_TOKEN_FILE` and `AWS_ROLE_ARN` removed from its environment, next to the key, token and profile variables.'
+  f_has "$PF_README_SEC" 'every printed line from the shell output, the evaluate output, the targets log and the result file passes the key-material filter, and a line that matches one of those patterns is dropped.'
+  f_has "$PF_README_SEC" 'Exit status 0 when all five behave as expected.'
+  f_has "$PF_README_SEC" 'After a change to `lib-emr.sh` the rehearsal has to be run again.'
+  for fn in 'three scenarios' 'runs three times' 'all three behave' 'Exit status 0 when all three'; do
+    f_has_not "$PF_README_SEC" "$fn"
+  done
+  case_end
+
+  # Work order 83 (infra work order 82): say_diagnostic RESULT-LOG prints the text after the evidence
+  # introducer on its own DIAGNOSTIC: line, because the EVIDENCE: line is cut and its die text comes first.
+  # It does not tee, so the tee and grep -avE counts of the key-material case above (5 and 5) are unchanged;
+  # it has its own check with grep -qE, replacing a matching text by a fixed one.
+  static_begin "14.emr.rehearse-preflight.say-diagnostic-prints-the-text-after-the-evidence-introducer-on-its-own-line-before-the-targets-and-hides-key-material"
+  if [ -f "$reh_raw" ]; then
+    reh_code="$(code_of "$reh_raw")"
+    extract_fn "$reh_code" say_diagnostic "$sd_fn"
+    if [ "$(wc -l < "$sd_fn" | tr -d ' ')" -lt 8 ]; then note_fail "the say_diagnostic text cut out of rehearse-preflight.sh has fewer than 8 lines"; fi
+    f_count_is "$reh_code" 'say_diagnostic() {' 1
+    f_count_is "$reh_code" 'say_diagnostic "$evlog"' 1
+    f_count_is "$reh_code" 'say "DIAGNOSTIC: ${diag:0:600}"' 1
+    f_has "$sd_fn" "diag=\"\$(grep -a '^EVIDENCE: ' \"\$evlog\" 2>/dev/null | sed -n 's/^EVIDENCE: .*Evidence from preflight\\.log ([^)]*): //p' | sed -n '1p')\" || diag=\"\""
+    f_has "$sd_fn" '[[ -n "$diag" ]] || return 0'
+    f_has "$sd_fn" 'if grep -qE "$SC_SECRET_RE" <<< "$diag"; then'
+    f_has "$sd_fn" 'diag="a log line matches a key-material pattern: not printed"'
+    f_has "$sd_fn" 'say "DIAGNOSTIC: ${diag:0:600}"'
+    f_count_is "$sd_fn" 'SC_SECRET_RE' 1
+    f_has_not "$sd_fn" 'tee'
+    f_has_not "$sd_fn" '| head'
+    f_before "$sd_fn" '[[ -n "$diag" ]] || return 0' 'if grep -qE "$SC_SECRET_RE"'
+    f_before "$sd_fn" 'if grep -qE "$SC_SECRET_RE"' 'say "DIAGNOSTIC:'
+    # Order in the file: defined before run_scenario; called once, after the evaluate output lines and
+    # before the targets line.
+    f_before "$reh_code" 'say_diagnostic() {' 'run_scenario() {'
+    f_before "$reh_code" "grep -aE '^(PREFLIGHT_|NOTE: preflight|EVIDENCE:)' \"\$evlog\"" 'say_diagnostic "$evlog"'
+    f_before "$reh_code" 'say_diagnostic "$evlog"' 'say_targets "$result"'
+    # The EVIDENCE: line of the targets log is cut at 600 characters now (it was 400).
+    f_has "$reh_code" "grep -a 'EVIDENCE' \"\$d/targets.log\" | grep -avE \"\$SC_SECRET_RE\" | cut -c1-600"
+    # The printed diagnostic and the lib's die text must agree: the sed pattern ends at ') ' of the
+    # introducer 'Evidence from preflight.log (...): ', which the lib prints once.
+    f_count_is "$emr_lib" 'Evidence from preflight.log (' 1
+  else
+    note_fail "scripts/emr/rehearse-preflight.sh does not exist"
+  fi
+  case_end
+
+  # Work order 83 (infra work order 82, review): the run directory name and its whitespace refusal sit
+  # before the root's mkdir, so a root with whitespace is refused before anything is made. The dynamic
+  # case after the run_preflight whitespace cases runs the script to its refusal.
+  static_begin "14.emr.rehearse-preflight.refuses-whitespace-in-the-root-path-after-the-in-repo-refusal-and-before-the-root-directory-is-made"
+  if [ -f "$reh_raw" ]; then
+    reh_code="$(code_of "$reh_raw")"
+    f_count_is "$reh_code" 'STAMP="$(date -u +%Y%m%dT%H%M%SZ)"' 1
+    f_count_is "$reh_code" 'RUN="$ROOT/preflight-$STAMP"' 1
+    f_count_is "$reh_code" 'case "$RUN" in' 1
+    f_count_is "$reh_code" 'holds whitespace' 1
+    f_has_not "$reh_code" 'mkdir -p "$ROOT_IN"'
+    f_before "$reh_code" '"$REPO"/*) refuse' 'STAMP="$(date -u +%Y%m%dT%H%M%SZ)"'
+    f_before "$reh_code" 'STAMP="$(date -u +%Y%m%dT%H%M%SZ)"' 'RUN="$ROOT/preflight-$STAMP"'
+    f_before "$reh_code" 'RUN="$ROOT/preflight-$STAMP"' 'case "$RUN" in'
+    f_before "$reh_code" 'case "$RUN" in' 'mkdir -p "$ROOT"'
+    f_before "$reh_code" 'mkdir -p "$ROOT"' '[[ ! -e "$RUN" ]]'
+    f_before "$reh_code" '[[ ! -e "$RUN" ]]' 'mkdir -p "$RUN" "$SHIM"'
+    f_has "$PF_README_SEC" 'The whitespace refusal runs on the root path before the root directory is created'
+  else
+    note_fail "scripts/emr/rehearse-preflight.sh does not exist"
+  fi
+  case_end
+}
+static_wo79_cases
+
+### Dynamic cases: preflight_evaluate, preflight_write_targets, run_preflight and the exit trap.
+
+# Fake commands for the child's PATH. The timeout logs "TIMEOUT-ARGS <arguments>" to calls.log,
+# exits with the number in the file timeout-rc when it is called with -k 30 (the spark-shell
+# call, not "timeout -k 5 20 hadoop classpath --glob", which since work order 67 also has a -k
+# and so is told apart by its grace of 5), otherwise drops "-k N" and the duration and runs the
+# rest. The spark-shell logs its arguments, directory and the interesting environment (an unset
+# variable has no ENV line) and keeps a copy of targets.tsv. Work order 75: like the real REPL
+# of Spark 4.0.5 (phase14-rehearse-probe-1.log) it takes the script ONLY from its standard input,
+# which must be exactly one line ':load <absolute path>'. It keeps the stdin in seen-stdin.txt and
+# a copy of the script in seen-script.scala. A launch with -i or -I, with the script as an
+# argument, or with any other stdin (empty, /dev/null, two lines) is REJECTED: it logs
+# 'FAKE-REJECT <why>' to calls.log, prints the reason, exits 0 as the real REPL does when it never
+# interprets the file, and writes no script copy, no data and no result, so the run_preflight case
+# fails with 'preflight wrote no result'. An accepted launch creates data under SC_PREFLIGHT_DATA,
+# copies spark/result-src to SC_PREFLIGHT_RESULT when that file exists and exits with the number
+# in the file shell-rc (default 0).
+PF_TPL="$EMR_FX/pf-tpl"
+mkdir -p "$PF_TPL"
+cat > "$PF_TPL/timeout" <<'EOF'
+#!/bin/sh
+printf 'TIMEOUT-ARGS %s\n' "$*" >> "${0%/*}/../calls.log"
+if [ "$1" = "-k" ] && [ "$2" = "30" ] && [ -f "${0%/*}/../timeout-rc" ]; then
+  exit "$(cat "${0%/*}/../timeout-rc")"
+fi
+if [ "$1" = "-k" ]; then shift 2; fi
+shift
+exec "$@"
+EOF
+cat > "$PF_TPL/hadoop" <<'EOF'
+#!/bin/sh
+printf 'HADOOP-FAKE %s\n' "$*" >> "${0%/*}/../calls.log"
+printf '/stub/a.jar:/stub/b.jar'
+EOF
+cat > "$PF_TPL/spark-shell" <<'EOF'
+#!/bin/sh
+F="${0%/*}/../.."
+C="$F/calls.log"
+printf 'SPARK-SHELL %s\n' "$*" >> "$C"
+printf 'PWD=%s\n' "$(pwd)" >> "$C"
+env | grep -E '^(SPARK_HOME|SPARK_CONF_DIR|HADOOP_CONF_DIR|YARN_CONF_DIR|JAVA_HOME|SC_PREFLIGHT_[A-Z]+|HADOOP_CLASSPATH|SPARK_DIST_CLASSPATH|SPARK_EXTRA_CLASSPATH)=' | sed 's/^/ENV /' >> "$C"
+if [ -d "$SC_PREFLIGHT_DATA" ]; then printf 'DATA-DIR present\n' >> "$C"; fi
+cp "$SC_PREFLIGHT_DIR/targets.tsv" "$F/seen-targets.tsv"
+cat > "$F/seen-stdin.txt"
+nlines="$(grep -c '' "$F/seen-stdin.txt")"
+line="$(head -n 1 "$F/seen-stdin.txt")"
+bad=""
+for a in "$@"; do
+  case "$a" in
+    -i* | -I* | *.scala) [ -n "$bad" ] || bad="the script or -i/-I arrived as an argument: $a" ;;
+  esac
+done
+if [ -z "$bad" ] && [ "$nlines" != "1" ]; then bad="stdin held $nlines line(s), expected exactly one ':load FILE' line"; fi
+script=""
+if [ -z "$bad" ]; then
+  case "$line" in
+    ':load /'*) script="${line#:load }" ;;
+    *) bad="the stdin line is not ':load <absolute path>': $line" ;;
+  esac
+fi
+if [ -z "$bad" ] && [ ! -f "$script" ]; then bad="the :load file does not exist: $script"; fi
+if [ -n "$bad" ]; then
+  printf 'FAKE-REJECT %s\n' "$bad" >> "$C"
+  printf 'fake spark-shell rejected the launch: %s\n' "$bad"
+  exit 0
+fi
+printf 'LOAD-LINE %s\n' "$line" >> "$C"
+cp "$script" "$F/seen-script.scala"
+mkdir -p "$SC_PREFLIGHT_DATA/old"
+: > "$SC_PREFLIGHT_DATA/old/part-00000"
+printf 'fake spark-shell output line\n'
+if [ -f "$F/spark/extra-log" ]; then cat "$F/spark/extra-log"; fi
+if [ -f "$F/spark/result-src" ]; then cp "$F/spark/result-src" "$SC_PREFLIGHT_RESULT"; fi
+if [ -f "$F/shell-rc" ]; then exit "$(cat "$F/shell-rc")"; fi
+exit 0
+EOF
+chmod 755 "$PF_TPL/timeout" "$PF_TPL/hadoop" "$PF_TPL/spark-shell"
+
+# preflight_evaluate over a result file. No function is called with ||, so set -e stays on as
+# it does in the real script; a refusal is die's exit 1.
+cat > "$CODE_DIR/preflight-eval-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"; RES="$3"; CONFDIR="$4"
+SC_HOME="$FIX/home"
+source "$LIB"
+SC_SPARK_CONF_DIR="$CONFDIR"
+preflight_evaluate "$RES" "$FIX/preflight.log" 7
+printf 'EVAL=ok\n'
+EOF
+
+# preflight_write_targets with functions standing in for timeout and hadoop. The stub logs what
+# it was called with and what HADOOP_CLASSPATH and JAVA_HOME it saw; the files hadoop-fails and
+# hadoop-empty in the fixture make it exit 1 or print nothing.
+cat > "$CODE_DIR/preflight-targets-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"
+SC_HOME="$FIX/home"
+source "$LIB"
+SPARK_HOME="$FIX/spark"
+SC_JAVA_HOME="/opt/harness-jdk"
+CALLS="$FIX/calls.log"
+timeout() {
+  if [ "$1" = "-k" ]; then
+    printf 'TIMEOUT %s %s %s\n' "$1" "$2" "$3" >> "$CALLS"
+    shift 3
+  else
+    printf 'TIMEOUT %s\n' "$1" >> "$CALLS"
+    shift
+  fi
+  "$@"
+}
+hadoop() {
+  printf 'HADOOP %s\n' "$*" >> "$CALLS"
+  printf 'HADOOP_CLASSPATH=%s\n' "${HADOOP_CLASSPATH-<unset>}" >> "$CALLS"
+  printf 'JAVA_HOME=%s\n' "${JAVA_HOME-<unset>}" >> "$CALLS"
+  if [ -f "$FIX/hadoop-fails" ]; then return 1; fi
+  if [ -f "$FIX/hadoop-empty" ]; then return 0; fi
+  printf '/stub/a.jar:/stub/b.jar'
+}
+printf 'MAIN_HADOOP=%s\n' "$SC_PREFLIGHT_MAIN_HADOOP"
+printf 'MAIN_ER=%s\n' "$SC_PREFLIGHT_MAIN_ER"
+printf 'MAIN_SPARK=%s\n' "$SC_PREFLIGHT_MAIN_SPARK"
+printf 'MAIN_EXPORT=%s\n' "$SC_PREFLIGHT_MAIN_EXPORT"
+preflight_write_targets "$FIX/targets.tsv" "$FIX/work"
+printf 'WRITTEN=yes\n'
+EOF
+
+# run_preflight against the fake spark-shell, directly (not through ||, so set -e stays on).
+cat > "$CODE_DIR/preflight-run-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"; REP="${3:-$FIX/rep}"
+SC_HOME="$FIX/home"
+source "$LIB"
+PATH="$FIX/bin:$PATH"
+export PATH
+SPARK_HOME="$FIX/spark"
+SC_JAVA_HOME="/opt/harness-jdk"
+mkdir -p "$SC_SPARK_CONF_DIR"
+cp "$FIX/conf/spark-defaults.conf" "$SC_SPARK_CONF_DIR/spark-defaults.conf"
+run_preflight "$FIX/work" "$REP"
+printf 'RC=0\n'
+EOF
+
+# The same inside the stages and the exit trap, with the number the real script gives the
+# spark-stage stage (four). timeout, hadoop and aws are functions for the direct calls (the
+# failed-log publish and the checkpoint call "timeout N aws ..."); the spark-shell still runs
+# behind the fake timeout script, which env finds on PATH. Every upload is copied to uploads/.
+cat > "$CODE_DIR/preflight-trap-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"
+SC_HOME="$FIX/home"
+source "$LIB"
+PATH="$FIX/bin:$PATH"
+export PATH
+SPARK_HOME="$FIX/spark"
+SC_JAVA_HOME="/opt/harness-jdk"
+UPLOADS="$FIX/uploads"
+mkdir -p "$UPLOADS" "$SC_SPARK_CONF_DIR"
+cp "$FIX/conf/spark-defaults.conf" "$SC_SPARK_CONF_DIR/spark-defaults.conf"
+timeout() { if [ "$1" = "-k" ]; then shift 2; fi; shift; "$@"; }
+hadoop() { printf '/stub/a.jar:/stub/b.jar'; }
+aws() {
+  if [ "${1:-}" = "s3" ] && [ "${2:-}" = "cp" ]; then
+    printf 'AWS %s\n' "$*" >> "$FIX/aws-calls.log"
+    cp "$3" "$UPLOADS/${4##*/}"
+  fi
+  return 0
+}
+install_trap
+stage validate-arguments
+stage_ok
+stage java
+stage_ok
+stage fetch-inputs
+stage_ok
+stage spark-stage
+register_failure_logs "$FIX/rep" data-bucket run-v1-x
+run_preflight "$FIX/work" "$FIX/rep"
+stage_ok
+printf 'ALL-DONE\n'
+EOF
+
+# The spark-defaults.conf that the real write_spark_conf writes, once: the result fixtures take
+# their OVERLAY lines from it, so a change of the spark.hadoop.* lines follows into the cases.
+mkdir -p "$EMR_FX/pf-conf-home"
+run bash "$CODE_DIR/sparkconf-child.sh" "$EMR_DIR/lib-emr.sh" "$EMR_FX/pf-conf-home"
+PF_CONF="$EMR_FX/pf-spark-defaults.conf"
+cp "$OUT" "$PF_CONF"
+PF_OVERLAY_N="$(grep -c '^spark\.hadoop\.' "$PF_CONF")"
+
+# The SUMMARY line of the base result, in the format of work order 67 (nodechecked= and nodewarn=
+# are new). The cases that edit it substitute this exact text.
+PF_SUMMARY_BASE='SUMMARY keys=7 classes=9 exempt=1 nodechecked=3 nodewarn=0'
+
+# pf_result_base FILE: a result that preflight_evaluate accepts.
+pf_result_base() {
+  {
+    printf 'CONTROL positive OK\n'
+    printf 'CONTROL negative OK\n'
+    printf 'SITE_FILES core-site.xml mapred-site.xml yarn-site.xml hdfs-site.xml\n'
+    awk '$1 ~ /^spark\.hadoop\./ { k = $1; sub(/^spark\.hadoop\./, "", k); v = $0; sub(/^[^ ]* /, "", v); printf "OVERLAY %s %s\n", k, v }' "$PF_CONF"
+    printf 'OVERRIDDEN mapred.output.committer.class node=org.apache.hadoop.mapred.DirectFileOutputCommitter ours=org.apache.hadoop.mapred.FileOutputCommitter\n'
+    printf 'CLASS OK io.compression.codecs org.apache.hadoop.io.compress.DefaultCodec\n'
+    printf 'CLASS OK mapred.output.committer.class org.apache.hadoop.mapred.FileOutputCommitter\n'
+    printf 'EXEMPT fs.s3.impl com.example.S3Impl scheme s3 is not used by the jobs\n'
+    printf 'TARGET hadoop OK\n'
+    printf 'TARGET er OK\n'
+    printf 'TARGET spark OK\n'
+    printf 'TARGET export OK\n'
+    printf 'SMOKE old-api OK rows=25\n'
+    printf 'SMOKE parquet OK rows=25\n'
+    printf '%s\n' "$PF_SUMMARY_BASE"
+    printf 'DONE\n'
+  } > "$1"
+}
+pf_result_base "$EMR_FX/pf-base-result.txt"
+PF_CODECS_LINE="$(grep '^OVERLAY io\.compression\.codecs ' "$EMR_FX/pf-base-result.txt" | head -n 1)"
+PF_COMMITTER_LINE='OVERLAY mapred.output.committer.class org.apache.hadoop.mapred.FileOutputCommitter'
+
+# Result file edits, on $PF_RES: drop an exact line, drop by pattern, replace an exact line, or
+# add a line before the DONE line.
+pf_drop() {
+  { grep -vxF -- "$1" "$PF_RES" || true; } > "$PF_RES.tmp"
+  mv "$PF_RES.tmp" "$PF_RES"
+}
+pf_drop_re() {
+  { grep -vE -- "$1" "$PF_RES" || true; } > "$PF_RES.tmp"
+  mv "$PF_RES.tmp" "$PF_RES"
+}
+pf_sub() {
+  awk -v f="$1" -v t="$2" '$0 == f { print t; next } { print }' "$PF_RES" > "$PF_RES.tmp"
+  mv "$PF_RES.tmp" "$PF_RES"
+}
+pf_add() {
+  { grep -vx 'DONE' "$PF_RES" || true; printf '%s\n' "$1"; printf 'DONE\n'; } > "$PF_RES.tmp"
+  mv "$PF_RES.tmp" "$PF_RES"
+}
+# pf_add_gen N FORMAT: add N lines before the DONE line, each FORMAT with its one %d (or %02d)
+# replaced by 1 to N. One awk call, so a few thousand lines cost no more than one.
+pf_add_gen() {
+  { grep -vx 'DONE' "$PF_RES" || true; awk -v n="$1" -v f="$2" 'BEGIN { s = f "\n"; for (i = 1; i <= n; i++) printf s, i }'; printf 'DONE\n'; } > "$PF_RES.tmp"
+  mv "$PF_RES.tmp" "$PF_RES"
+}
+
+# pfx_new NAME: a fixture directory PFX with the job jars (all four lib directories), the
+# Spark distribution jars, the spark-defaults.conf above, the fake commands and the base result
+# as spark/result-src (PF_RES). PF_FIX_FILES lists the fixture files under work/.
+pfx_new() {
+  local f
+  PFX="$EMR_FX/pf-$1"
+  PF_RES="$PFX/spark/result-src"
+  rm -rf "$PFX"
+  mkdir -p "$PFX/bin" "$PFX/spark/bin" "$PFX/spark/jars" "$PFX/home" "$PFX/conf" "$PFX/rep" \
+    "$PFX/work/jars/hadoop/lib" "$PFX/work/jars/entity-resolution/lib" "$PFX/work/jars/spark/lib"
+  PF_FIX_FILES="work/jars/hadoop/hadoop-job.jar work/jars/hadoop/lib/dep-a.jar work/jars/hadoop/lib/dep-b.jar work/jars/hadoop/lib/hadoop-common-3.jar work/jars/entity-resolution/er-job.jar work/jars/entity-resolution/lib/er-a.jar work/jars/entity-resolution/lib/er-b.jar work/jars/entity-resolution/lib/hadoop-er.jar work/jars/entity-resolution/lib/spark-er.jar work/jars/spark/spark-job.jar work/jars/spark/lib/s-a.jar work/jars/spark/lib/s-b.jar work/jars/spark/lib/spark-core-4.jar work/jars/spark/lib/hadoop-client-3.jar"
+  for f in $PF_FIX_FILES; do
+    : > "$PFX/$f"
+  done
+  : > "$PFX/spark/jars/spark-core.jar"
+  : > "$PFX/spark/jars/hadoop-client-api.jar"
+  : > "$PFX/spark/jars/z.jar"
+  cp "$PF_TPL/timeout" "$PF_TPL/hadoop" "$PFX/bin/"
+  cp "$PF_TPL/spark-shell" "$PFX/spark/bin/spark-shell"
+  chmod 755 "$PFX/bin/timeout" "$PFX/bin/hadoop" "$PFX/spark/bin/spark-shell"
+  cp "$PF_CONF" "$PFX/conf/spark-defaults.conf"
+  : > "$PFX/calls.log"
+  printf 'java.lang.IllegalStateException: harness shell log line\n' > "$PFX/preflight.log"
+  pf_result_base "$PF_RES"
+}
+
+# pf_entries LIST: the colon separated class path as sorted lines joined by a space.
+pf_entries() {
+  printf '%s' "$1" | tr ':' '\n' | sort | tr '\n' ' '
+}
+# pf_sorted_words WORD...: the words as sorted lines joined by a space.
+pf_sorted_words() {
+  printf '%s\n' "$@" | sort | tr '\n' ' '
+}
+# pf_col FILE LABEL N: field N of the targets.tsv line for LABEL.
+pf_col() {
+  awk -F'\t' -v l="$2" -v n="$3" '$1 == l { print $n }' "$1"
+}
+
+pf_ev_run() {
+  run bash "$CODE_DIR/preflight-eval-child.sh" "$EMR_DIR/lib-emr.sh" "$PFX" "$PF_RES" "${1:-$PFX/conf}"
+}
+pf_ev_refused() {
+  a_rc 1
+  a_err_evidence
+  a_err "$1"
+  a_not_out 'PREFLIGHT_RESULT=ok'
+  a_not_out 'EVAL=ok'
+  a_trip_empty
+}
+pf_ev_ok() {
+  a_rc 0
+  a_out 'EVAL=ok'
+  a_out_re '^PREFLIGHT_RESULT=ok$'
+  [ ! -s "$ERR" ] || note_fail "stderr is not empty: $(head -n 1 "$ERR" | cut -c1-140)"
+  a_trip_empty
+}
+
+### preflight_evaluate: a good result, then one defect per case.
+
+pfx_new ev-pass
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-complete-result-passes-and-records-every-key"
+pf_ev_ok
+a_out_re '^PREFLIGHT_SITE_FILES=core-site\.xml mapred-site\.xml yarn-site\.xml hdfs-site\.xml$'
+a_out_re '^PREFLIGHT_CONFIG_KEYS_CHECKED=7$'
+a_out_re '^PREFLIGHT_CLASS_NAMES_CHECKED=9$'
+a_out_re '^PREFLIGHT_KEYS_OVERRIDDEN=mapred\.output\.committer\.class$'
+a_out_re '^PREFLIGHT_UNLOADABLE_EXEMPT=1: fs\.s3\.impl$'
+a_out_re '^PREFLIGHT_NODE_KEYS_CHECKED=3$'
+a_out_re '^PREFLIGHT_NODE_KEYS_WARN=0:[[:space:]]*$'
+a_out_re "^PREFLIGHT_OVERLAY_KEYS_PROVEN=$PF_OVERLAY_N\$"
+a_out_re '^PREFLIGHT_TARGETS=hadoop:ok er:ok spark:ok export:ok$'
+a_out_re '^PREFLIGHT_SMOKE=old-api:ok parquet:ok rows=25$'
+a_order 'PREFLIGHT_UNLOADABLE_EXEMPT=' 'PREFLIGHT_NODE_KEYS_CHECKED=' 'PREFLIGHT_NODE_KEYS_WARN=' 'PREFLIGHT_OVERLAY_KEYS_PROVEN=' 'PREFLIGHT_TARGETS=' 'PREFLIGHT_SMOKE='
+a_not_out 'NOTE: preflight WARN'
+a_not_out 'PREFLIGHT_FIRST_FAILURE'
+[ "$PF_OVERLAY_N" -ge 3 ] || note_fail "the real spark-defaults.conf has only $PF_OVERLAY_N spark.hadoop.* lines"
+case_end
+
+pfx_new ev-nofile
+rm -f "$PF_RES"
+pf_ev_run
+# Work order 75: the die text for no result now says how the script is loaded and what a REPL that
+# never interpreted it does ('-i' with stdin from /dev/null did exactly that, observed in
+# phase14-rehearse-probe-1.log), so the next reader of the step log is not sent to the Scala.
+pf_nores_text() {
+  a_err "preflight wrote no result (spark-shell exit $1"
+  a_err "':load'"
+  a_err 'from stdin, and a REPL that never interpreted it exits 0 with no output'
+}
+case_begin "14.emr.preflight.evaluate.no-result-file-is-refused-with-the-shell-exit-status-the-load-text-and-the-log-tail"
+pf_ev_refused 'preflight wrote no result (spark-shell exit 7'
+pf_nores_text 7
+# Work order 79: the text after the colon now also names the compile-failure cause and the evidence
+# source (infra work order 78), so the whole die text up to the evidence is pinned.
+a_err "preflight wrote no result (spark-shell exit 7; the script is loaded with ':load' from stdin, and a REPL that never interpreted it exits 0 with no output): a script that failed to compile under ':load' does the same, because the object never exists and no result file is created, so read preflight.log. Evidence from preflight.log (the first compiler diagnostic, else the last error line): "
+a_err 'harness shell log line'
+a_out_re '^PREFLIGHT_RESULT=failed$'
+case_end
+
+pfx_new ev-empty
+: > "$PF_RES"
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.an-empty-result-file-is-refused-with-the-load-text"
+pf_ev_refused 'preflight wrote no result (spark-shell exit 7'
+pf_nores_text 7
+a_out_re '^PREFLIGHT_RESULT=failed$'
+case_end
+
+pfx_new ev-nodone
+pf_drop DONE
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-result-without-done-is-refused-with-the-log-tail"
+pf_ev_refused 'preflight did not reach DONE'
+a_err 'spark-shell exit 7'
+a_err 'harness shell log line'
+# Work order 79 (infra work order 78, finding: the DONE-missing refusal did not record the result):
+# the record now says failed before the die, as the no-result and the FAIL-line refusals do.
+a_out_re '^PREFLIGHT_RESULT=failed$'
+case_end
+
+pfx_new ev-notdone
+pf_sub DONE 'NOT DONE'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-line-that-only-contains-done-is-not-the-done-line"
+pf_ev_refused 'preflight did not reach DONE'
+a_out_re '^PREFLIGHT_RESULT=failed$'
+case_end
+
+pfx_new ev-fail
+pf_add 'FAIL config mapreduce.fake.class com.example.Missing java.lang.ClassNotFoundException: com.example.Missing'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-fail-line-is-refused-and-the-record-names-the-key-and-the-class"
+pf_ev_refused 'preflight: 1 check(s) failed, first: FAIL config mapreduce.fake.class com.example.Missing'
+a_out_re '^PREFLIGHT_RESULT=failed$'
+a_out_re '^PREFLIGHT_FAILED_COUNT=1$'
+a_out 'PREFLIGHT_FIRST_FAILURE=FAIL config mapreduce.fake.class com.example.Missing java.lang.ClassNotFoundException: com.example.Missing'
+a_order 'PREFLIGHT_RESULT=failed' 'PREFLIGHT_FAILED_COUNT=1' 'PREFLIGHT_FIRST_FAILURE='
+case_end
+
+pfx_new ev-fail-two
+pf_add 'FAIL target hadoop scholarchain.hadoop.jobs.PipelineTool java.lang.NoClassDefFoundError: x'
+pf_add 'FAIL smoke old-api java.lang.ClassNotFoundException: Class org.apache.hadoop.mapred.DirectFileOutputCommitter not found'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.two-failures-are-counted-and-the-first-in-file-order-is-recorded"
+pf_ev_refused 'preflight: 2 check(s) failed, first: FAIL target hadoop'
+a_out_re '^PREFLIGHT_FAILED_COUNT=2$'
+a_out 'PREFLIGHT_FIRST_FAILURE=FAIL target hadoop scholarchain.hadoop.jobs.PipelineTool'
+a_not_out 'PREFLIGHT_FIRST_FAILURE=FAIL smoke'
+case_end
+
+pfx_new ev-error
+pf_add 'ERROR config java.lang.RuntimeException: boom'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.an-error-line-is-refused-like-a-fail-line"
+pf_ev_refused 'preflight: 1 check(s) failed, first: ERROR config java.lang.RuntimeException: boom'
+a_out 'PREFLIGHT_FIRST_FAILURE=ERROR config java.lang.RuntimeException: boom'
+case_end
+
+pfx_new ev-ctl-pos-missing
+pf_drop 'CONTROL positive OK'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-missing-positive-control-is-refused"
+pf_ev_refused 'preflight control failed: a class that must load did not'
+case_end
+
+pfx_new ev-ctl-pos-failed
+pf_sub 'CONTROL positive OK' 'CONTROL positive FAILED'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-failed-positive-control-is-refused-even-though-it-is-not-a-fail-line"
+pf_ev_refused 'preflight control failed: a class that must load did not'
+case_end
+
+pfx_new ev-ctl-neg-missing
+pf_drop 'CONTROL negative OK'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-missing-negative-control-is-refused"
+pf_ev_refused 'preflight control failed: a class that cannot exist loaded'
+case_end
+
+pfx_new ev-ctl-neg-failed
+pf_sub 'CONTROL negative OK' 'CONTROL negative FAILED'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-failed-negative-control-is-refused-so-the-check-cannot-pass-anything"
+pf_ev_refused 'preflight control failed: a class that cannot exist loaded'
+case_end
+
+pfx_new ev-site-nocore
+pf_sub 'SITE_FILES core-site.xml mapred-site.xml yarn-site.xml hdfs-site.xml' 'SITE_FILES mapred-site.xml yarn-site.xml hdfs-site.xml'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.site-files-without-core-site-xml-are-refused"
+pf_ev_refused 'preflight read no core-site.xml under /etc/hadoop/conf'
+case_end
+
+pfx_new ev-site-none
+pf_sub 'SITE_FILES core-site.xml mapred-site.xml yarn-site.xml hdfs-site.xml' 'SITE_FILES none'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.site-files-none-is-refused"
+pf_ev_refused 'preflight read no core-site.xml under /etc/hadoop/conf (SITE_FILES none)'
+case_end
+
+pfx_new ev-site-lookalike
+pf_sub 'SITE_FILES core-site.xml mapred-site.xml yarn-site.xml hdfs-site.xml' 'SITE_FILES my-core-site.xml mapred-site.xml'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-file-that-only-ends-in-core-site-xml-is-not-core-site-xml"
+pf_ev_refused 'preflight read no core-site.xml under /etc/hadoop/conf'
+case_end
+
+pfx_new ev-site-missing-line
+pf_drop_re '^SITE_FILES '
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-site-files-line-is-refused"
+pf_ev_refused 'preflight read no core-site.xml under /etc/hadoop/conf'
+case_end
+
+pfx_new ev-site-core-only
+pf_sub 'SITE_FILES core-site.xml mapred-site.xml yarn-site.xml hdfs-site.xml' 'SITE_FILES core-site.xml'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.core-site-xml-alone-is-enough"
+pf_ev_ok
+a_out_re '^PREFLIGHT_SITE_FILES=core-site\.xml$'
+case_end
+
+pfx_new ev-overlay-committer-missing
+pf_drop "$PF_COMMITTER_LINE"
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-missing-committer-overlay-line-is-refused"
+pf_ev_refused "preflight: spark.hadoop.mapred.output.committer.class of spark-defaults.conf is not what the Spark driver"
+case_end
+
+pfx_new ev-overlay-committer-node
+pf_sub "$PF_COMMITTER_LINE" 'OVERLAY mapred.output.committer.class org.apache.hadoop.mapred.DirectFileOutputCommitter'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-driver-that-still-holds-the-node-committer-is-refused-the-s-run-5-case"
+pf_ev_refused "preflight: spark.hadoop.mapred.output.committer.class of spark-defaults.conf is not what the Spark driver"
+case_end
+
+pfx_new ev-overlay-codecs-node
+pf_sub "$PF_CODECS_LINE" 'OVERLAY io.compression.codecs org.apache.hadoop.io.compress.DefaultCodec,com.hadoop.compression.lzo.LzoCodec'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-driver-that-holds-another-codec-list-is-refused"
+pf_ev_refused "preflight: spark.hadoop.io.compression.codecs of spark-defaults.conf is not what the Spark driver"
+case_end
+
+pfx_new ev-overlay-truncated
+pf_sub "$PF_COMMITTER_LINE" 'OVERLAY mapred.output.committer.class org.apache.hadoop.mapred.FileOutputCommitte'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.an-overlay-value-that-is-a-prefix-of-ours-is-refused"
+pf_ev_refused "preflight: spark.hadoop.mapred.output.committer.class of spark-defaults.conf is not what the Spark driver"
+case_end
+
+pfx_new ev-overlay-none
+pf_drop_re '^OVERLAY '
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-overlay-lines-at-all-are-refused-at-the-first-spark-hadoop-key"
+pf_ev_refused "preflight: spark.hadoop.io.compression.codecs of spark-defaults.conf is not what the Spark driver"
+case_end
+
+pfx_new ev-conf-plain
+mkdir -p "$PFX/conf-plain"
+printf 'spark.yarn.archive hdfs://harness/spark-jars.zip\nspark.ui.enabled false\n' > "$PFX/conf-plain/spark-defaults.conf"
+pf_ev_run "$PFX/conf-plain"
+case_begin "14.emr.preflight.evaluate.a-spark-defaults-conf-with-no-spark-hadoop-line-is-refused"
+pf_ev_refused 'preflight: spark-defaults.conf has no spark.hadoop.* line to prove the overrides with'
+case_end
+
+for pf_l in hadoop er spark export; do
+  pfx_new "ev-target-$pf_l"
+  pf_drop "TARGET $pf_l OK"
+  pf_ev_run
+  case_begin "14.emr.preflight.evaluate.a-missing-target-$pf_l-line-is-refused"
+  pf_ev_refused "preflight: no 'TARGET $pf_l OK' line, so the $pf_l main class was not proven"
+  case_end
+done
+
+pfx_new ev-smoke-old-missing
+pf_drop 'SMOKE old-api OK rows=25'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-missing-old-api-smoke-line-is-refused"
+pf_ev_refused "preflight: no 'SMOKE old-api OK rows=25' line, so the old-api write was not proven"
+case_end
+
+pfx_new ev-smoke-pq-missing
+pf_drop 'SMOKE parquet OK rows=25'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-missing-parquet-smoke-line-is-refused"
+pf_ev_refused "preflight: no 'SMOKE parquet OK rows=25' line, so the parquet write was not proven"
+case_end
+
+pfx_new ev-smoke-old-rows
+pf_sub 'SMOKE old-api OK rows=25' 'SMOKE old-api OK rows=24'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.an-old-api-smoke-line-with-the-wrong-row-count-is-refused"
+pf_ev_refused "preflight: no 'SMOKE old-api OK rows=25' line"
+case_end
+
+pfx_new ev-smoke-pq-rows
+pf_sub 'SMOKE parquet OK rows=25' 'SMOKE parquet OK rows=250'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-parquet-smoke-line-whose-count-only-starts-with-25-is-refused"
+pf_ev_refused "preflight: no 'SMOKE parquet OK rows=25' line"
+case_end
+
+pfx_new ev-keys-zero
+pf_sub "$PF_SUMMARY_BASE" 'SUMMARY keys=0 classes=0 exempt=0 nodechecked=0 nodewarn=0'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-summary-with-no-class-valued-key-is-refused"
+pf_ev_refused 'preflight checked no class-valued key (keys=0 classes=0 exempt=0 nodechecked=0 nodewarn=0)'
+case_end
+
+pfx_new ev-keys-zero-node-checked
+pf_sub "$PF_SUMMARY_BASE" 'SUMMARY keys=0 classes=0 exempt=0 nodechecked=5 nodewarn=0'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.node-keys-checked-do-not-excuse-a-summary-with-no-class-valued-key"
+pf_ev_refused 'preflight checked no class-valued key (keys=0 classes=0 exempt=0 nodechecked=5 nodewarn=0)'
+case_end
+
+pfx_new ev-classes-zero
+pf_sub "$PF_SUMMARY_BASE" 'SUMMARY keys=3 classes=0 exempt=0 nodechecked=0 nodewarn=0'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-summary-with-keys-but-no-class-name-is-refused"
+pf_ev_refused 'preflight checked no class-valued key (keys=3 classes=0 exempt=0 nodechecked=0 nodewarn=0)'
+case_end
+
+pfx_new ev-summary-missing
+pf_drop_re '^SUMMARY '
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-result-without-a-summary-line-is-refused"
+pf_ev_refused 'preflight checked no class-valued key'
+case_end
+
+pfx_new ev-exempt-only
+pf_drop_re '^CLASS OK '
+pf_drop_re '^OVERRIDDEN '
+pf_add 'EXEMPT fs.s3a.impl com.example.S3A scheme s3a is not used by the jobs'
+pf_sub "$PF_SUMMARY_BASE" 'SUMMARY keys=2 classes=2 exempt=2 nodechecked=2 nodewarn=0'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-result-with-only-exempt-lines-for-the-unloadable-classes-passes-and-lists-the-keys"
+pf_ev_ok
+a_out_re '^PREFLIGHT_UNLOADABLE_EXEMPT=2: fs\.s3\.impl fs\.s3a\.impl$'
+a_out_re '^PREFLIGHT_KEYS_OVERRIDDEN=none$'
+a_out_re '^PREFLIGHT_CONFIG_KEYS_CHECKED=2$'
+a_out_re '^PREFLIGHT_NODE_KEYS_CHECKED=2$'
+a_out_re '^PREFLIGHT_NODE_KEYS_WARN=0:[[:space:]]*$'
+case_end
+
+### preflight_evaluate: WARN lines (work order 67, report only for node-only keys), the node key
+### counts and the first failure of a long FAIL list (F4).
+# A WARN line is a class that only a node site file names and that does not load. It is recorded
+# and noted, never a failure. note prints to stdout (printf 'NOTE: ...'), so pf_ev_ok's empty
+# stderr check still holds for a WARN result.
+
+PF_WARN_LINE='WARN config yarn.ipc.rpc.class com.example.MissingRpc java.lang.ClassNotFoundException: com.example.MissingRpc'
+PF_WARN_NOTE_TAIL='(report only, node site file key not set by spark-defaults.conf; see preflight-result.txt)'
+
+pfx_new ev-warn-one
+pf_add "$PF_WARN_LINE"
+pf_sub "$PF_SUMMARY_BASE" 'SUMMARY keys=7 classes=9 exempt=1 nodechecked=3 nodewarn=1'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-warn-line-passes-with-result-ok-records-the-key-and-notes-it-and-records-no-failure"
+pf_ev_ok
+a_out_re '^PREFLIGHT_RESULT=ok$'
+a_out_re '^PREFLIGHT_NODE_KEYS_WARN=1: yarn\.ipc\.rpc\.class$'
+a_out "NOTE: preflight $PF_WARN_LINE $PF_WARN_NOTE_TAIL"
+a_not_out 'PREFLIGHT_FIRST_FAILURE'
+a_not_out 'PREFLIGHT_FAILED_COUNT'
+a_not_out 'PREFLIGHT_RESULT=failed'
+a_order 'PREFLIGHT_NODE_KEYS_WARN=' 'PREFLIGHT_SMOKE=' 'NOTE: preflight WARN config yarn.ipc.rpc.class'
+case_end
+
+pfx_new ev-warn-dedupe
+pf_add 'WARN config yarn.ipc.rpc.class com.example.MissingRpc java.lang.ClassNotFoundException: com.example.MissingRpc'
+pf_add 'WARN config mapreduce.fake.class com.example.MissingFake java.lang.ClassNotFoundException: com.example.MissingFake'
+pf_add 'WARN config yarn.ipc.rpc.class com.example.MissingRpcTwo java.lang.ClassNotFoundException: com.example.MissingRpcTwo'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.two-warn-lines-for-one-key-and-one-for-another-count-distinct-keys-in-file-order"
+pf_ev_ok
+a_out_re '^PREFLIGHT_NODE_KEYS_WARN=2: yarn\.ipc\.rpc\.class mapreduce\.fake\.class$'
+[ "$(grep -c '^NOTE: preflight WARN config ' "$OUT")" = "3" ] || note_fail "expected one NOTE per WARN line (3), found $(grep -c '^NOTE: preflight WARN config ' "$OUT")"
+a_out 'NOTE: preflight WARN config yarn.ipc.rpc.class com.example.MissingRpcTwo '
+case_end
+
+pfx_new ev-warn-and-fail
+pf_add "$PF_WARN_LINE"
+pf_add 'FAIL config mapreduce.fake.class com.example.Missing java.lang.ClassNotFoundException: com.example.Missing'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-warn-line-and-a-fail-line-is-refused-and-the-first-failure-is-the-fail-line"
+pf_ev_refused 'preflight: 1 check(s) failed, first: FAIL config mapreduce.fake.class com.example.Missing'
+a_out_re '^PREFLIGHT_RESULT=failed$'
+a_out_re '^PREFLIGHT_FAILED_COUNT=1$'
+a_out 'PREFLIGHT_FIRST_FAILURE=FAIL config mapreduce.fake.class com.example.Missing'
+a_not_out 'PREFLIGHT_FIRST_FAILURE=WARN'
+a_not_out 'PREFLIGHT_NODE_KEYS_WARN'
+a_not_out 'NOTE: preflight WARN'
+case_end
+
+pfx_new ev-warn-no-excuse
+pf_add "$PF_WARN_LINE"
+pf_drop 'SMOKE parquet OK rows=25'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-warn-line-does-not-excuse-a-missing-smoke-line"
+pf_ev_refused "preflight: no 'SMOKE parquet OK rows=25' line, so the parquet write was not proven"
+a_not_out 'PREFLIGHT_NODE_KEYS_WARN'
+case_end
+
+pfx_new ev-warning-lookalike
+pf_add 'WARNING config lookalike.class com.example.Missing java.lang.ClassNotFoundException: com.example.Missing'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-line-that-only-starts-with-warn-is-not-a-warn-line"
+pf_ev_ok
+a_out_re '^PREFLIGHT_NODE_KEYS_WARN=0:[[:space:]]*$'
+a_not_out 'NOTE: preflight WARN'
+case_end
+
+pfx_new ev-nodechecked-3-1
+pf_sub "$PF_SUMMARY_BASE" 'SUMMARY keys=7 classes=9 exempt=1 nodechecked=3 nodewarn=1'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.nodechecked-3-nodewarn-1-gives-node-keys-checked-3"
+pf_ev_ok
+a_out_re '^PREFLIGHT_NODE_KEYS_CHECKED=3$'
+case_end
+
+pfx_new ev-nodechecked-12
+pf_sub "$PF_SUMMARY_BASE" 'SUMMARY keys=7 classes=9 exempt=1 nodechecked=12 nodewarn=0'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-two-digit-nodechecked-is-read-whole"
+pf_ev_ok
+a_out_re '^PREFLIGHT_NODE_KEYS_CHECKED=12$'
+a_out_re '^PREFLIGHT_CONFIG_KEYS_CHECKED=7$'
+case_end
+
+pfx_new ev-nodechecked-0
+pf_sub "$PF_SUMMARY_BASE" 'SUMMARY keys=7 classes=9 exempt=1 nodechecked=0 nodewarn=0'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-node-key-examined-is-recorded-as-0-and-is-not-a-failure"
+pf_ev_ok
+a_out_re '^PREFLIGHT_NODE_KEYS_CHECKED=0$'
+case_end
+
+pfx_new ev-nodechecked-unknown
+pf_sub "$PF_SUMMARY_BASE" 'SUMMARY keys=7 classes=9 exempt=1'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-summary-without-nodechecked-is-recorded-as-unknown-and-passes"
+pf_ev_ok
+a_out_re '^PREFLIGHT_NODE_KEYS_CHECKED=unknown$'
+a_out_re '^PREFLIGHT_CONFIG_KEYS_CHECKED=7$'
+case_end
+
+pfx_new ev-warn-cap
+pf_add_gen 25 'WARN config n%02d.class com.example.Missing java.lang.ClassNotFoundException: com.example.Missing'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.25-warn-keys-are-all-recorded-and-only-20-notes-are-printed"
+pf_ev_ok
+pf_want="$(awk 'BEGIN { for (i = 1; i <= 25; i++) printf "%sn%02d.class", (i > 1 ? " " : ""), i }')"
+grep -qxF "PREFLIGHT_NODE_KEYS_WARN=25: $pf_want" "$OUT" || note_fail "the record does not list the 25 keys in order: $(grep '^PREFLIGHT_NODE_KEYS_WARN=' "$OUT" | cut -c1-120)"
+[ "$(grep -c '^NOTE: preflight WARN config ' "$OUT")" = "20" ] || note_fail "expected 20 NOTE lines, found $(grep -c '^NOTE: preflight WARN config ' "$OUT")"
+a_out 'NOTE: preflight WARN config n01.class '
+a_out 'NOTE: preflight WARN config n20.class '
+a_not_out 'NOTE: preflight WARN config n21.class '
+case_end
+
+pfx_new ev-warn-long
+pf_w="WARN config long.class com.example.Missing $(pi_rep 500)"
+pf_add "$pf_w"
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-warn-note-keeps-the-first-300-characters-of-the-line"
+pf_ev_ok
+a_out "NOTE: preflight ${pf_w:0:300} $PF_WARN_NOTE_TAIL"
+a_not_out "${pf_w:0:301}"
+a_out_re '^PREFLIGHT_NODE_KEYS_WARN=1: long\.class$'
+case_end
+
+pfx_new ev-fail-single-whole
+pf_add 'FAIL config single.class com.example.Missing java.lang.ClassNotFoundException: com.example.Missing'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.a-single-fail-line-is-kept-whole-as-the-first-failure"
+pf_ev_refused 'preflight: 1 check(s) failed, first: FAIL config single.class com.example.Missing java.lang.ClassNotFoundException: com.example.Missing (every result line is in preflight-result.txt)'
+grep -qxF 'PREFLIGHT_FIRST_FAILURE=FAIL config single.class com.example.Missing java.lang.ClassNotFoundException: com.example.Missing' "$OUT" || note_fail "the first failure was cut or changed: $(grep '^PREFLIGHT_FIRST_FAILURE=' "$OUT" | cut -c1-160)"
+case_end
+
+pfx_new ev-fail-3000
+pf_add_gen 3000 'FAIL config many.class com.example.Missing #%d'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.3000-fail-lines-exit-1-not-141-record-failed-and-keep-the-first-failure"
+pf_ev_refused 'preflight: 3000 check(s) failed, first: FAIL config many.class com.example.Missing #1 (every result line is in preflight-result.txt)'
+a_out_re '^PREFLIGHT_RESULT=failed$'
+a_out_re '^PREFLIGHT_FAILED_COUNT=3000$'
+grep -qxF 'PREFLIGHT_FIRST_FAILURE=FAIL config many.class com.example.Missing #1' "$OUT" || note_fail "PREFLIGHT_FIRST_FAILURE is not the first line: $(grep '^PREFLIGHT_FIRST_FAILURE=' "$OUT" | cut -c1-120)"
+[ "$RC" != "141" ] || note_fail "exit 141: the first failure was cut with a pipe that closed early"
+case_end
+
+### preflight_evaluate: the evidence of a run that left no result file (work order 79, after infra
+### work order 78; updated in work order 83 after infra work order 82). A script that does not compile
+### under ':load' leaves no result file; the die then carries preflight_compile_evidence of preflight.log:
+### the FIRST diagnostic LINE alone, of the shape '<file>:<line>: error: <text>' (no source or caret
+### line, no following line), else the first line holding 'error:' in any case, else last_error_line;
+### cut to 300 characters. The non-fatal openssl UnsatisfiedLinkError is skipped; a matching line is
+### replaced by a fixed text, and a key-material pattern on a line the function does not read cannot
+### reach the output. The record says PREFLIGHT_RESULT=failed before the die in every no-result case.
+### The REPL layout (observed in rehearsal 4, human-run and relayed: the source and caret lines come
+### BEFORE the error line, then a blank line, then the follow-on 'not found: value PreflightRun') is
+### the fixture ev-ce-observed-layout; the other fixtures are shaped text for the shell code.
+
+# pf_log LINE...: the shell output the evaluate reads (PFX/preflight.log), one argument per line.
+pf_log() {
+  printf '%s\n' "$@" > "$PFX/preflight.log"
+}
+# pf_rep CHAR N: N copies of CHAR, no newline.
+pf_rep() {
+  awk -v c="$1" -v n="$2" 'BEGIN { for (i = 0; i < n; i++) printf "%s", c }'
+}
+# pf_nores_ev: the refusal for no result file with the evidence introducer, and the record says failed.
+pf_nores_ev() {
+  pf_ev_refused 'preflight wrote no result (spark-shell exit 7'
+  a_out_re '^PREFLIGHT_RESULT=failed$'
+  a_err 'Evidence from preflight.log (the first compiler diagnostic, else the last error line): '
+}
+# pf_ev_absent TEXT: the text is not in the refusal.
+pf_ev_absent() {
+  if grep -qF -- "$1" "$ERR"; then note_fail "the evidence holds '$1'"; fi
+}
+
+pfx_new ev-ce-first
+rm -f "$PF_RES"
+pf_log 'Spark context available as sc' \
+  'x.scala:12: error: not found: value foo' \
+  '  val y = foo' \
+  '          ^' \
+  'x.scala:99: error: not found: value PreflightRun' \
+  'PreflightRun.run()' \
+  '^'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-result-evidence-is-the-first-compiler-diagnostic-line-alone-without-the-source-and-caret-lines-after-it-and-not-the-follow-on"
+pf_nores_ev
+a_err ': x.scala:12: error: not found: value foo'
+grep -qE 'x[.]scala:12: error: not found: value foo$' "$ERR" || note_fail "the evidence does not end at the diagnostic line: $(tail -n 1 "$ERR" | cut -c1-200)"
+pf_ev_absent 'val y = foo'
+pf_ev_absent '/ ^'
+pf_ev_absent 'PreflightRun'
+pf_ev_absent 'x.scala:99'
+pf_ev_absent 'Spark context available'
+case_end
+
+pfx_new ev-ce-two-errors
+rm -f "$PF_RES"
+pf_log 'x.scala:5: error: first thing' 'x.scala:6: error: not found: value PreflightRun'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-result-evidence-is-the-first-diagnostic-line-alone-when-the-next-line-is-another-error"
+pf_nores_ev
+a_err ': x.scala:5: error: first thing'
+grep -qE 'x[.]scala:5: error: first thing$' "$ERR" || note_fail "the evidence does not end at the diagnostic line: $(tail -n 1 "$ERR" | cut -c1-200)"
+pf_ev_absent 'PreflightRun'
+pf_ev_absent ' / x.scala:6'
+case_end
+
+pfx_new ev-ce-warning-next
+rm -f "$PF_RES"
+pf_log 'x.scala:4: error: bad' 'x.scala:5: warning: meh' '  ^'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-result-evidence-is-the-diagnostic-line-alone-and-leaves-out-a-warning-line-after-it"
+pf_nores_ev
+a_err ': x.scala:4: error: bad'
+grep -qE 'x[.]scala:4: error: bad$' "$ERR" || note_fail "the evidence does not end at the diagnostic line: $(tail -n 1 "$ERR" | cut -c1-200)"
+pf_ev_absent 'warning'
+pf_ev_absent 'meh'
+case_end
+
+pfx_new ev-ce-last-line
+rm -f "$PF_RES"
+pf_log 'info line' 'x.scala:7: error: dangling'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-result-evidence-is-the-diagnostic-alone-when-it-is-the-last-line-of-the-log"
+pf_nores_ev
+a_err ': x.scala:7: error: dangling'
+grep -qE 'x[.]scala:7: error: dangling$' "$ERR" || note_fail "the evidence does not end at the diagnostic line: $(tail -n 1 "$ERR" | cut -c1-200)"
+case_end
+
+pfx_new ev-ce-long-diagnostic
+rm -f "$PF_RES"
+pf_log "x.scala:1: error: $(pf_rep d 382)"
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-result-evidence-cuts-the-diagnostic-line-to-300-characters"
+pf_nores_ev
+a_err "x.scala:1: error: $(pf_rep d 282)"
+pf_ev_absent "$(pf_rep d 283)"
+case_end
+
+pfx_new ev-ce-long-source
+rm -f "$PF_RES"
+pf_log 'x.scala:1: error: e' "$(pf_rep s 250)"
+pf_ev_run
+# Work order 83: the 200 character cut of a source line is gone with the source line itself (infra work
+# order 82), so this fixture now proves that a long line after the diagnostic is not in the evidence at all.
+case_begin "14.emr.preflight.evaluate.no-result-evidence-leaves-out-a-long-source-line-after-the-diagnostic"
+pf_nores_ev
+a_err ': x.scala:1: error: e'
+grep -qE 'x[.]scala:1: error: e$' "$ERR" || note_fail "the evidence does not end at the diagnostic line: $(tail -n 1 "$ERR" | cut -c1-200)"
+pf_ev_absent "$(pf_rep s 20)"
+case_end
+
+# The openssl UnsatisfiedLinkError that Spark logs is not the failure. Here it carries the diagnostic
+# shape, so without the skip it would be the first match and win.
+pfx_new ev-ce-openssl-first
+rm -f "$PF_RES"
+pf_log 'WARN NativeCodeLoader: java.lang.UnsatisfiedLinkError: Native.java:5: error: buildSupportsOpenssl missing' \
+  'x.scala:12: error: not found: value foo' \
+  '  val y = foo' \
+  '          ^'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-result-evidence-skips-an-openssl-line-that-has-the-diagnostic-shape-the-real-diagnostic-line-wins"
+pf_nores_ev
+a_err ': x.scala:12: error: not found: value foo'
+grep -qE 'x[.]scala:12: error: not found: value foo$' "$ERR" || note_fail "the evidence does not end at the diagnostic line: $(tail -n 1 "$ERR" | cut -c1-200)"
+pf_ev_absent 'val y = foo'
+pf_ev_absent 'buildSupportsOpenssl'
+pf_ev_absent 'Native.java'
+case_end
+
+pfx_new ev-ce-openssl-tier-two
+rm -f "$PF_RES"
+pf_log 'WARN NativeCodeLoader: java.lang.UnsatisfiedLinkError: buildSupportsOpenssl error: skip me' 'ERROR: boom'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-result-evidence-second-tier-skips-an-openssl-line-too"
+pf_nores_ev
+a_err ': ERROR: boom'
+pf_ev_absent 'skip me'
+pf_ev_absent 'buildSupportsOpenssl'
+case_end
+
+# Second tier: no diagnostic shape, so the FIRST line holding error: in any case (not the last error
+# line, which last_error_line would give: the RuntimeException below).
+pfx_new ev-ce-tier-two
+rm -f "$PF_RES"
+pf_log 'Welcome' 'ERROR: first problem' 'detail line' 'java.lang.RuntimeException: later'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-result-evidence-second-tier-is-the-first-error-colon-line-alone-in-any-case-not-the-last-error-line"
+pf_nores_ev
+a_err ': ERROR: first problem'
+grep -qE 'ERROR: first problem$' "$ERR" || note_fail "the evidence does not end at the error line: $(tail -n 1 "$ERR" | cut -c1-200)"
+pf_ev_absent 'detail line'
+pf_ev_absent 'later'
+pf_ev_absent 'Welcome'
+case_end
+
+# A planted secret never reaches the output: the chosen lines are replaced by the fixed text.
+pfx_new ev-ce-secret-diagnostic
+rm -f "$PF_RES"
+pf_log "x.scala:3: error: unexpected token $FAKE_AKIA" '  val k = 1' '  ^'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-result-evidence-with-key-material-in-the-diagnostic-line-is-the-fixed-text"
+pf_nores_ev
+a_err ': a log line matches a key-material pattern: not printed'
+pf_ev_absent 'unexpected token'
+if grep -qF -- "$FAKE_AKIA" "$OUT" "$ERR"; then note_fail "the matched text was printed"; fi
+case_end
+
+pfx_new ev-ce-secret-source
+rm -f "$PF_RES"
+pf_log 'x.scala:3: error: bad value' "  val k = \"$FAKE_AKIA\"" '  ^'
+pf_ev_run
+# Work order 83: the function no longer reads the source line, so a key-material pattern there is not read
+# and not printed; the evidence is the diagnostic line, which holds no pattern. The secret still must not
+# reach any output.
+case_begin "14.emr.preflight.evaluate.no-result-evidence-does-not-read-a-key-material-source-line-after-the-diagnostic-and-never-prints-it"
+pf_nores_ev
+a_err ': x.scala:3: error: bad value'
+grep -qE 'x[.]scala:3: error: bad value$' "$ERR" || note_fail "the evidence does not end at the diagnostic line: $(tail -n 1 "$ERR" | cut -c1-200)"
+pf_ev_absent 'key-material'
+if grep -qF -- "$FAKE_AKIA" "$OUT" "$ERR"; then note_fail "the matched text was printed"; fi
+case_end
+
+# No diagnostic and no error: colon: last_error_line decides, as before.
+pfx_new ev-ce-fallback-last
+rm -f "$PF_RES"
+pf_log 'info line' 'java.lang.RuntimeException: boom one' 'java.lang.RuntimeException: boom two' 'trailing info'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-result-evidence-falls-back-to-the-last-error-line-when-no-diagnostic-matches"
+pf_nores_ev
+a_err ': java.lang.RuntimeException: boom two'
+pf_ev_absent 'boom one'
+case_end
+
+pfx_new ev-ce-fallback-secret
+rm -f "$PF_RES"
+pf_log "java.lang.RuntimeException: leak $FAKE_AKIA"
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-result-evidence-fallback-with-key-material-is-the-fixed-text"
+pf_nores_ev
+a_err ': a log line matches a key-material pattern: not printed'
+pf_ev_absent 'leak'
+if grep -qF -- "$FAKE_AKIA" "$OUT" "$ERR"; then note_fail "the matched text was printed"; fi
+case_end
+
+pfx_new ev-ce-empty-log
+rm -f "$PF_RES"
+: > "$PFX/preflight.log"
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-result-evidence-for-an-empty-log-says-so"
+pf_nores_ev
+a_err ': no error line found and the log is empty or unreadable'
+case_end
+
+pfx_new ev-ce-missing-log
+rm -f "$PF_RES" "$PFX/preflight.log"
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-result-evidence-for-a-missing-log-says-so"
+pf_nores_ev
+a_err ': no error line found and the log is empty or unreadable'
+case_end
+
+# Work order 83: the layout observed in rehearsal 4 (human-run and relayed; scenario nocompile, Spark 4.0.5,
+# Scala 2.13.16, Java 21, stand-ins): the REPL echoes the source line and a caret line, THEN the error line
+# (its number is the REPL's own count, 142 for a marker on file line 148), a blank line, then the same for
+# the follow-on 'not found: value PreflightRun'. The evidence is exactly the first error line.
+pfx_new ev-ce-observed-layout
+rm -f "$PF_RES"
+pf_log 'Spark context available as sc' \
+  '  val y = scholarchain_rehearsal_undefined' \
+  '                       ^' \
+  'x.scala:142: error: not found: value scholarchain_rehearsal_undefined' \
+  '' \
+  '  PreflightRun.run()' \
+  '  ^' \
+  'x.scala:143: error: not found: value PreflightRun'
+pf_ev_run
+{ cat "$OUT"; cat "$ERR"; } > "$PFX/evaluate-merged.log"
+case_begin "14.emr.preflight.evaluate.no-result-evidence-for-the-observed-repl-layout-is-exactly-the-first-error-line"
+pf_nores_ev
+a_err ': x.scala:142: error: not found: value scholarchain_rehearsal_undefined'
+grep -qE 'x[.]scala:142: error: not found: value scholarchain_rehearsal_undefined$' "$ERR" || note_fail "the evidence does not end at the first error line: $(tail -n 1 "$ERR" | cut -c1-200)"
+if grep -qE ' / $' "$ERR"; then note_fail "the evidence ends with ' / ': a joined line is left over"; fi
+pf_ev_absent 'PreflightRun'
+pf_ev_absent 'val y ='
+pf_ev_absent 'x.scala:143'
+pf_ev_absent 'Spark context available'
+case_end
+
+# Work order 83 (review advisory A-iii): a whitespace-only line right after the diagnostic gives the same
+# evidence as no line at all.
+pfx_new ev-ce-blank-after
+rm -f "$PF_RES"
+pf_log 'x.scala:5: error: first thing' '   ' '  PreflightRun.run()' 'x.scala:6: error: not found: value PreflightRun'
+pf_ev_run
+case_begin "14.emr.preflight.evaluate.no-result-evidence-is-the-same-when-a-whitespace-only-line-follows-the-diagnostic"
+pf_nores_ev
+a_err ': x.scala:5: error: first thing'
+grep -qE 'x[.]scala:5: error: first thing$' "$ERR" || note_fail "the evidence does not end at the diagnostic line: $(tail -n 1 "$ERR" | cut -c1-200)"
+pf_ev_absent 'PreflightRun'
+pf_ev_absent 'x.scala:6'
+case_end
+
+# Work order 83: the rehearsal's say_diagnostic (infra work order 82), cut out of the real
+# rehearse-preflight.sh and run in a child shell against evaluate output, because the helper cannot be
+# reached any other way (the script needs Spark past its refusals). The fixture is the evaluate output of
+# the observed layout above, so the sed pattern of the helper is checked against the die text of the real
+# lib-emr.sh, not against a hand-written copy of it. say is a printf stand-in; SC_SECRET_RE is the lib's.
+cat > "$CODE_DIR/rehearse-say-diagnostic-child.sh" <<'EOF'
+LIB="$1"; FN="$2"; EV="$3"
+SC_HOME="${EV%/*}/home"
+source "$LIB"
+say() { printf '%s\n' "$*"; }
+source "$FN"
+say_diagnostic "$EV"
+printf 'RC=0\n'
+EOF
+
+pf_sd_fn="$CODE_DIR/rehearse-say-diagnostic-run-fn.sh"
+extract_fn "$CODE_DIR/rehearse-preflight.sh" say_diagnostic "$pf_sd_fn"
+
+pfx_new sd-observed
+cp "$EMR_FX/pf-ev-ce-observed-layout/evaluate-merged.log" "$PFX/evlog.txt"
+run bash "$CODE_DIR/rehearse-say-diagnostic-child.sh" "$EMR_DIR/lib-emr.sh" "$pf_sd_fn" "$PFX/evlog.txt"
+case_begin "14.emr.rehearse-preflight.say-diagnostic-prints-the-first-error-line-of-the-real-die-text-on-its-own-line"
+[ -s "$pf_sd_fn" ] || note_fail "say_diagnostic was not cut out of rehearse-preflight.sh (the static case reports why)"
+a_rc 0
+a_out_re '^RC=0$'
+[ "$(grep -c '^DIAGNOSTIC: ' "$OUT")" = "1" ] || note_fail "expected exactly one DIAGNOSTIC: line, found $(grep -c '^DIAGNOSTIC: ' "$OUT")"
+grep -qxF 'DIAGNOSTIC: x.scala:142: error: not found: value scholarchain_rehearsal_undefined' "$OUT" || note_fail "the DIAGNOSTIC: line is not exactly the first error line: $(grep '^DIAGNOSTIC: ' "$OUT" | cut -c1-200)"
+if grep -qF 'preflight wrote no result' "$OUT"; then note_fail "the die text before the introducer was printed"; fi
+a_trip_empty
+case_end
+
+pfx_new sd-secret
+printf 'EVIDENCE: preflight wrote no result (spark-shell exit 0): x. Evidence from preflight.log (the first compiler diagnostic, else the last error line): %s\n' "x.scala:3: error: leak $FAKE_AKIA" > "$PFX/evlog.txt"
+run bash "$CODE_DIR/rehearse-say-diagnostic-child.sh" "$EMR_DIR/lib-emr.sh" "$pf_sd_fn" "$PFX/evlog.txt"
+case_begin "14.emr.rehearse-preflight.say-diagnostic-replaces-a-diagnostic-with-key-material-by-the-fixed-text-and-never-prints-it"
+a_rc 0
+grep -qxF 'DIAGNOSTIC: a log line matches a key-material pattern: not printed' "$OUT" || note_fail "the fixed text was not printed: $(grep '^DIAGNOSTIC: ' "$OUT" | cut -c1-120)"
+if grep -qF -- "$FAKE_AKIA" "$OUT" "$ERR"; then note_fail "the matched text was printed"; fi
+a_trip_empty
+case_end
+
+pfx_new sd-long
+printf 'EVIDENCE: preflight wrote no result (spark-shell exit 0): x. Evidence from preflight.log (the first compiler diagnostic, else the last error line): %s\n' "$(pf_rep d 700)" > "$PFX/evlog.txt"
+run bash "$CODE_DIR/rehearse-say-diagnostic-child.sh" "$EMR_DIR/lib-emr.sh" "$pf_sd_fn" "$PFX/evlog.txt"
+case_begin "14.emr.rehearse-preflight.say-diagnostic-cuts-the-text-at-600-characters"
+a_rc 0
+grep -qxF "DIAGNOSTIC: $(pf_rep d 600)" "$OUT" || note_fail "the DIAGNOSTIC: line is not 600 characters of the text: $(grep '^DIAGNOSTIC: ' "$OUT" | cut -c1-40) ($(grep '^DIAGNOSTIC: ' "$OUT" | wc -c | tr -d ' ') bytes)"
+if grep -qF "$(pf_rep d 601)" "$OUT"; then note_fail "more than 600 characters were printed"; fi
+a_trip_empty
+case_end
+
+pfx_new sd-none
+printf 'PREFLIGHT_RESULT=ok\nNOTE: preflight something\n' > "$PFX/evlog.txt"
+run bash "$CODE_DIR/rehearse-say-diagnostic-child.sh" "$EMR_DIR/lib-emr.sh" "$pf_sd_fn" "$PFX/evlog.txt"
+case_begin "14.emr.rehearse-preflight.say-diagnostic-prints-nothing-and-does-not-fail-when-there-is-no-evidence-line"
+a_rc 0
+a_out_re '^RC=0$'
+a_not_out 'DIAGNOSTIC:'
+a_trip_empty
+case_end
+
+### preflight_write_targets: four lines, the class paths and the dies.
+
+pfx_new tg
+run bash "$CODE_DIR/preflight-targets-child.sh" "$EMR_DIR/lib-emr.sh" "$PFX"
+case_begin "14.emr.preflight.write-targets.four-lines-in-order-with-three-fields-and-the-main-classes"
+mr_ok
+a_out 'WRITTEN=yes'
+[ "$(wc -l < "$PFX/targets.tsv" | tr -d ' ')" = "4" ] || note_fail "targets.tsv does not have exactly four lines"
+[ "$(awk -F'\t' '{ printf "%s%s:%s", (NR > 1 ? " " : ""), $1, NF }' "$PFX/targets.tsv")" = "hadoop:3 er:3 spark:3 export:3" ] || note_fail "labels or field counts: $(awk -F'\t' '{ printf "%s:%s ", $1, NF }' "$PFX/targets.tsv")"
+for pf_l in hadoop er spark export; do
+  pf_u="$(printf '%s' "$pf_l" | tr '[:lower:]' '[:upper:]')"
+  pf_want="$(sed -n "s/^MAIN_$pf_u=//p" "$OUT" | head -n 1)"
+  [ -n "$pf_want" ] || note_fail "the child printed no main class for $pf_l"
+  [ "$(pf_col "$PFX/targets.tsv" "$pf_l" 2)" = "$pf_want" ] || note_fail "the $pf_l line names '$(pf_col "$PFX/targets.tsv" "$pf_l" 2)', not '$pf_want'"
+done
+case_end
+
+case_begin "14.emr.preflight.write-targets.hadoop-class-path-is-the-command-output-then-the-thin-jar"
+[ "$(pf_col "$PFX/targets.tsv" hadoop 3)" = "/stub/a.jar:/stub/b.jar:$PFX/work/jars/hadoop/hadoop-job.jar" ] || note_fail "the hadoop class path is $(pf_col "$PFX/targets.tsv" hadoop 3)"
+case_end
+
+case_begin "14.emr.preflight.write-targets.hadoop-classpath-reaches-the-stub-under-timeout-k-5-20-with-the-lib-jars-and-the-java-home"
+grep -qxF 'TIMEOUT -k 5 20' "$PFX/calls.log" || note_fail "hadoop classpath did not run under timeout -k 5 20: $(grep '^TIMEOUT' "$PFX/calls.log" | head -n 1)"
+[ "$(grep -c '^TIMEOUT ' "$PFX/calls.log")" = "1" ] || note_fail "expected exactly one timeout call"
+if grep -qxF 'TIMEOUT 20' "$PFX/calls.log"; then note_fail "hadoop classpath ran under the old form timeout 20, without a KILL grace"; fi
+grep -qxF 'HADOOP classpath --glob' "$PFX/calls.log" || note_fail "the stub was not called as hadoop classpath --glob"
+pf_seen="$(sed -n 's/^HADOOP_CLASSPATH=//p' "$PFX/calls.log" | head -n 1)"
+[ "$(pf_entries "$pf_seen")" = "$(pf_sorted_words "$PFX/work/jars/hadoop/lib/dep-a.jar" "$PFX/work/jars/hadoop/lib/dep-b.jar")" ] || note_fail "HADOOP_CLASSPATH for the stub was: $pf_seen"
+grep -qxF 'JAVA_HOME=/opt/harness-jdk' "$PFX/calls.log" || note_fail "the stub did not see JAVA_HOME=/opt/harness-jdk"
+if grep -qF 'hadoop-common-3.jar' "$PFX/calls.log"; then note_fail "an excluded hadoop-* lib jar reached HADOOP_CLASSPATH"; fi
+case_end
+
+case_begin "14.emr.preflight.write-targets.er-class-path-is-the-jar-then-every-lib-jar-with-no-exclusion"
+pf_seen="$(pf_col "$PFX/targets.tsv" er 3)"
+case "$pf_seen" in
+  "$PFX/work/jars/entity-resolution/er-job.jar":*) ;;
+  *) note_fail "the ER class path does not start with the thin jar: $pf_seen" ;;
+esac
+[ "$(pf_entries "$pf_seen")" = "$(pf_sorted_words "$PFX/work/jars/entity-resolution/er-job.jar" "$PFX/work/jars/entity-resolution/lib/er-a.jar" "$PFX/work/jars/entity-resolution/lib/er-b.jar" "$PFX/work/jars/entity-resolution/lib/hadoop-er.jar" "$PFX/work/jars/entity-resolution/lib/spark-er.jar")" ] || note_fail "the ER class path is $pf_seen"
+case_end
+
+case_begin "14.emr.preflight.write-targets.spark-class-path-has-the-distribution-jars-and-the-job-lib-minus-spark-and-hadoop-and-ends-with-the-job-jar"
+pf_seen="$(pf_col "$PFX/targets.tsv" spark 3)"
+case "$pf_seen" in
+  *":$PFX/work/jars/spark/spark-job.jar") ;;
+  *) note_fail "the Spark class path does not end with the job jar: $pf_seen" ;;
+esac
+[ "$(pf_entries "$pf_seen")" = "$(pf_sorted_words "$PFX/spark/jars/spark-core.jar" "$PFX/spark/jars/hadoop-client-api.jar" "$PFX/spark/jars/z.jar" "$PFX/work/jars/spark/lib/s-a.jar" "$PFX/work/jars/spark/lib/s-b.jar" "$PFX/work/jars/spark/spark-job.jar")" ] || note_fail "the Spark class path is $pf_seen"
+if printf '%s' "$pf_seen" | grep -qE 'spark-core-4\.jar|hadoop-client-3\.jar'; then note_fail "an excluded spark-* or hadoop-* lib jar is on the Spark class path"; fi
+case_end
+
+case_begin "14.emr.preflight.write-targets.export-uses-the-spark-class-path"
+[ "$(pf_col "$PFX/targets.tsv" export 3)" = "$(pf_col "$PFX/targets.tsv" spark 3)" ] || note_fail "the export class path differs from the Spark one"
+case_end
+
+pfx_new tg-hadoop-fails
+: > "$PFX/hadoop-fails"
+run bash "$CODE_DIR/preflight-targets-child.sh" "$EMR_DIR/lib-emr.sh" "$PFX"
+case_begin "14.emr.preflight.write-targets.a-failing-hadoop-classpath-dies-and-writes-nothing"
+a_rc 1
+a_err_evidence
+a_err 'preflight: hadoop classpath --glob failed or took over 20 s'
+a_not_out 'WRITTEN=yes'
+[ ! -e "$PFX/targets.tsv" ] || note_fail "targets.tsv was written although hadoop classpath failed"
+a_trip_empty
+case_end
+
+pfx_new tg-hadoop-empty
+: > "$PFX/hadoop-empty"
+run bash "$CODE_DIR/preflight-targets-child.sh" "$EMR_DIR/lib-emr.sh" "$PFX"
+case_begin "14.emr.preflight.write-targets.an-empty-hadoop-classpath-dies"
+a_rc 1
+a_err_evidence
+a_err 'preflight: hadoop classpath --glob printed nothing'
+[ ! -e "$PFX/targets.tsv" ] || note_fail "targets.tsv was written although hadoop classpath printed nothing"
+a_trip_empty
+case_end
+
+pfx_new tg-hadoop-lib-excluded
+rm -f "$PFX/work/jars/hadoop/lib/dep-a.jar" "$PFX/work/jars/hadoop/lib/dep-b.jar"
+run bash "$CODE_DIR/preflight-targets-child.sh" "$EMR_DIR/lib-emr.sh" "$PFX"
+case_begin "14.emr.preflight.write-targets.a-hadoop-lib-with-only-excluded-jars-dies"
+a_rc 1
+a_err_evidence
+a_err 'preflight: no library jars under jars/hadoop/lib after exclusions'
+[ ! -e "$PFX/targets.tsv" ] || note_fail "targets.tsv was written with no hadoop lib jar"
+a_trip_empty
+case_end
+
+pfx_new tg-spark-dir-missing
+rm -rf "$PFX/work/jars/spark"
+run bash "$CODE_DIR/preflight-targets-child.sh" "$EMR_DIR/lib-emr.sh" "$PFX"
+case_begin "14.emr.preflight.write-targets.a-missing-spark-jar-directory-dies"
+a_rc 1
+a_err_evidence
+a_err "expected exactly one jar in $PFX/work/jars/spark, found 0"
+[ ! -e "$PFX/targets.tsv" ] || note_fail "targets.tsv was written with no Spark job jar"
+a_trip_empty
+case_end
+
+pfx_new tg-er-two-jars
+: > "$PFX/work/jars/entity-resolution/second-job.jar"
+run bash "$CODE_DIR/preflight-targets-child.sh" "$EMR_DIR/lib-emr.sh" "$PFX"
+case_begin "14.emr.preflight.write-targets.two-er-main-jars-die"
+a_rc 1
+a_err_evidence
+a_err "expected exactly one jar in $PFX/work/jars/entity-resolution, found 2"
+[ ! -e "$PFX/targets.tsv" ] || note_fail "targets.tsv was written with two ER main jars"
+a_trip_empty
+case_end
+
+pfx_new tg-no-distribution-jars
+rm -f "$PFX/spark/jars/spark-core.jar" "$PFX/spark/jars/hadoop-client-api.jar" "$PFX/spark/jars/z.jar"
+run bash "$CODE_DIR/preflight-targets-child.sh" "$EMR_DIR/lib-emr.sh" "$PFX"
+case_begin "14.emr.preflight.write-targets.an-empty-spark-distribution-jars-directory-dies"
+a_rc 1
+a_err_evidence
+a_err "preflight: no jars under $PFX/spark/jars"
+[ ! -e "$PFX/targets.tsv" ] || note_fail "targets.tsv was written with no distribution jar"
+a_trip_empty
+case_end
+
+pfx_new tg-no-er-lib
+rm -rf "$PFX/work/jars/entity-resolution/lib"
+run bash "$CODE_DIR/preflight-targets-child.sh" "$EMR_DIR/lib-emr.sh" "$PFX"
+case_begin "14.emr.preflight.write-targets.no-er-lib-directory-gives-the-thin-jar-alone"
+mr_ok
+a_out 'WRITTEN=yes'
+[ "$(pf_col "$PFX/targets.tsv" er 3)" = "$PFX/work/jars/entity-resolution/er-job.jar" ] || note_fail "the ER class path is $(pf_col "$PFX/targets.tsv" er 3)"
+case_end
+
+### run_preflight against the fake spark-shell.
+
+# pf_rp_run [NAME=VALUE ...]: SC_PREFLIGHT_TIMEOUT is removed first, so only a NAME=VALUE given
+# here sets it. The three EMR class path variables are poisoned to prove env -u removes them.
+pf_rp_run() {
+  run env -u SC_PREFLIGHT_TIMEOUT "$@" HADOOP_CLASSPATH=/emr/poison/hadoop.jar SPARK_DIST_CLASSPATH=/emr/poison/dist.jar SPARK_EXTRA_CLASSPATH=/emr/poison/extra.jar bash "$CODE_DIR/preflight-run-child.sh" "$EMR_DIR/lib-emr.sh" "$PFX"
+}
+# pf_timeout_call LOW HIGH: the one spark-shell timeout call (-k 30), with a remaining of LOW to
+# HIGH s. The hadoop classpath call has a -k too since work order 67 (-k 5 20), so the count is
+# anchored on the 30.
+pf_timeout_call() {
+  local r="$1" found=0
+  while [ "$r" -le "$2" ]; do
+    if grep -qxF -- "TIMEOUT-ARGS -k 30 $r $PFX/spark/bin/spark-shell --master local[2] --conf spark.sql.catalogImplementation=in-memory" "$PFX/calls.log"; then found=1; fi
+    r=$((r + 1))
+  done
+  [ "$found" = "1" ] || note_fail "no 'timeout -k 30 N spark-shell --master local[2] --conf spark.sql.catalogImplementation=in-memory' call (and nothing after it) with N from $1 to $2: $(grep 'TIMEOUT-ARGS -k 30 ' "$PFX/calls.log" | tail -n 1)"
+  [ "$(grep -c '^TIMEOUT-ARGS -k 30 ' "$PFX/calls.log")" = "1" ] || note_fail "expected exactly one timeout call with -k 30"
+}
+# pf_rp_refused LIMIT_TEXT: the value was refused before anything ran or was written.
+pf_rp_refused() {
+  a_rc 1
+  a_err_evidence
+  a_err 'SC_PREFLIGHT_TIMEOUT must be a whole number from 15 to 60 with no leading zero (the floor of 15 is chosen because the JVM compile and run is estimated at 15 to 25 s, and below it a pass is not plausible)'
+  a_not_out 'RC=0'
+  [ ! -s "$PFX/calls.log" ] || note_fail "a command ran although SC_PREFLIGHT_TIMEOUT=$1 was refused: $(head -n 1 "$PFX/calls.log")"
+  [ ! -e "$PFX/rep/preflight.scala" ] || note_fail "the script was written although SC_PREFLIGHT_TIMEOUT=$1 was refused"
+  [ ! -d "$PFX/work/preflight" ] || note_fail "the preflight directory was made although SC_PREFLIGHT_TIMEOUT=$1 was refused"
+  a_trip_empty
+}
+
+pfx_new rp-pass
+pf_rp_run
+case_begin "14.emr.preflight.run-preflight.the-command-is-timeout-k-30-remaining-spark-shell-on-local-2-with-no-script-argument-and-the-note-says-so"
+mr_ok
+a_out 'RC=0'
+pf_timeout_call 55 60
+a_out_re '^NOTE: preflight: class names, job main classes and two small file: writes in one spark-shell \(limit 60 s, (5[5-9]|60) s left for the JVM\)$'
+grep -qxF 'TIMEOUT-ARGS -k 5 20 hadoop classpath --glob' "$PFX/calls.log" || note_fail "the class path command was not run as timeout -k 5 20 hadoop classpath --glob: $(grep 'hadoop classpath' "$PFX/calls.log" | head -n 1)"
+grep -qxF "SPARK-SHELL --master local[2] --conf spark.sql.catalogImplementation=in-memory" "$PFX/calls.log" || note_fail "spark-shell got other arguments (the argv must end at the in-memory --conf, no -i, no script path): $(grep '^SPARK-SHELL' "$PFX/calls.log" | head -n 1)"
+grep -qxF "PWD=$PFX/work/preflight" "$PFX/calls.log" || note_fail "spark-shell did not start in work/preflight: $(grep '^PWD=' "$PFX/calls.log" | head -n 1)"
+grep -qxF 'DATA-DIR present' "$PFX/calls.log" || note_fail "the data directory did not exist when spark-shell started"
+case_end
+
+# Work order 75: the script reaches the REPL only as one ':load <reports>/preflight.scala' line on
+# stdin (the child's own stdin is /dev/null, so a launch without the here-string reads no line and
+# the fake rejects it). A script path in argv, -i or -I, or a second stdin line, fails here.
+case_begin "14.emr.preflight.run-preflight.the-script-reaches-the-shell-as-one-load-line-on-stdin-and-never-as-an-argument-or-i-or-big-i"
+[ -f "$PFX/seen-stdin.txt" ] || note_fail "the fake spark-shell recorded no stdin (seen-stdin.txt)"
+[ "$(grep -c '' "$PFX/seen-stdin.txt")" = "1" ] || note_fail "stdin held $(grep -c '' "$PFX/seen-stdin.txt") line(s), expected exactly one"
+[ "$(head -n 1 "$PFX/seen-stdin.txt")" = ":load $PFX/rep/preflight.scala" ] || note_fail "the stdin line is '$(head -n 1 "$PFX/seen-stdin.txt")', expected ':load $PFX/rep/preflight.scala'"
+grep -qxF "LOAD-LINE :load $PFX/rep/preflight.scala" "$PFX/calls.log" || note_fail "the fake did not accept the :load line"
+if grep -q '^FAKE-REJECT ' "$PFX/calls.log"; then note_fail "the fake rejected the launch: $(grep '^FAKE-REJECT ' "$PFX/calls.log" | head -n 1)"; fi
+pf_argv="$(sed -n 's/^SPARK-SHELL //p' "$PFX/calls.log" | head -n 1)"
+[ -n "$pf_argv" ] || note_fail "no SPARK-SHELL argv line was logged"
+if printf '%s' "$pf_argv" | grep -qE '(^| )-[iI]'; then note_fail "spark-shell got -i or -I: $pf_argv"; fi
+case "$pf_argv" in
+  *.scala*) note_fail "the script path is in the spark-shell argv: $pf_argv" ;;
+esac
+pf_targs="$(grep '^TIMEOUT-ARGS -k 30 ' "$PFX/calls.log" | head -n 1)"
+[ -n "$pf_targs" ] || note_fail "no timeout -k 30 call was logged"
+if printf '%s' "$pf_targs" | grep -qE ' -[iI]( |$)'; then note_fail "the timeout call carries -i or -I: $pf_targs"; fi
+case "$pf_targs" in
+  *.scala*) note_fail "the timeout call carries the script path: $pf_targs" ;;
+esac
+cmp -s "$PFX/rep/preflight.scala" "$PFX/seen-script.scala" || note_fail "the file named on stdin differs from rep/preflight.scala"
+case_end
+
+case_begin "14.emr.preflight.run-preflight.two-timeout-calls-the-class-path-under-k-5-20-first-and-spark-shell-under-k-30"
+[ "$(grep -c '^TIMEOUT-ARGS ' "$PFX/calls.log")" = "2" ] || note_fail "expected exactly two timeout calls, found $(grep -c '^TIMEOUT-ARGS ' "$PFX/calls.log")"
+[ "$(grep -c '^TIMEOUT-ARGS -k 5 20 ' "$PFX/calls.log")" = "1" ] || note_fail "expected exactly one timeout -k 5 20 call"
+if grep -qxF 'TIMEOUT-ARGS 20 hadoop classpath --glob' "$PFX/calls.log"; then note_fail "the class path command ran under the old form timeout 20, without a KILL grace"; fi
+pf_l1="$(line_of "$PFX/calls.log" 'TIMEOUT-ARGS -k 5 20 hadoop classpath --glob')"
+pf_l2="$(line_of "$PFX/calls.log" 'TIMEOUT-ARGS -k 30 ')"
+if [ -z "$pf_l1" ] || [ -z "$pf_l2" ]; then
+  note_fail "a timeout call was not found (-k 5 20 at '$pf_l1', -k 30 at '$pf_l2')"
+else
+  [ "$pf_l1" -lt "$pf_l2" ] || note_fail "the -k 30 call (line $pf_l2) is not after the class path call (line $pf_l1)"
+fi
+case_end
+
+case_begin "14.emr.preflight.run-preflight.the-environment-is-the-run-spark-submit-one-and-the-emr-class-path-variables-are-gone"
+for pf_e in "SPARK_HOME=$PFX/spark" "SPARK_CONF_DIR=$PFX/home/spark-conf" 'HADOOP_CONF_DIR=/etc/hadoop/conf' 'YARN_CONF_DIR=/etc/hadoop/conf' 'JAVA_HOME=/opt/harness-jdk' "SC_PREFLIGHT_DIR=$PFX/work/preflight" "SC_PREFLIGHT_DATA=$PFX/work/preflight/data" "SC_PREFLIGHT_RESULT=$PFX/rep/preflight-result.txt" 'SC_PREFLIGHT_ROWS=25'; do
+  grep -qxF "ENV $pf_e" "$PFX/calls.log" || note_fail "spark-shell did not see $pf_e"
+done
+for pf_e in HADOOP_CLASSPATH SPARK_DIST_CLASSPATH SPARK_EXTRA_CLASSPATH; do
+  if grep -q "^ENV $pf_e=" "$PFX/calls.log"; then note_fail "spark-shell still saw $pf_e: $(grep "^ENV $pf_e=" "$PFX/calls.log" | head -n 1)"; fi
+done
+case_end
+
+case_begin "14.emr.preflight.run-preflight.evidence-files-the-targets-the-script-and-the-record-keys"
+[ -s "$PFX/rep/preflight.scala" ] || note_fail "rep/preflight.scala is missing or empty"
+grep -qF 'object PreflightRun' "$PFX/rep/preflight.scala" || note_fail "preflight.scala is not the preflight script"
+cmp -s "$PFX/rep/preflight.scala" "$PFX/seen-script.scala" || note_fail "the file spark-shell loaded differs from rep/preflight.scala"
+grep -qxF 'fake spark-shell output line' "$PFX/rep/preflight.log" || note_fail "rep/preflight.log does not hold the shell output"
+cmp -s "$PFX/rep/preflight-result.txt" "$PF_RES" || note_fail "rep/preflight-result.txt is not the result the shell wrote"
+[ "$(wc -l < "$PFX/seen-targets.tsv" | tr -d ' ')" = "4" ] || note_fail "targets.tsv was not in place with four lines when spark-shell started"
+a_out_re '^PREFLIGHT_CLASSPATH_ENTRIES=hadoop=3 er=5 spark=6 export=6$'
+a_out_re '^PREFLIGHT_RESULT=ok$'
+a_out_re '^PREFLIGHT_LIMIT_SECONDS=60$'
+a_out_re '^PREFLIGHT_SECONDS=[0-9]+$'
+a_order 'PREFLIGHT_CLASSPATH_ENTRIES=' 'NOTE: preflight:' 'PREFLIGHT_RESULT=ok' 'PREFLIGHT_LIMIT_SECONDS=60' 'PREFLIGHT_SECONDS='
+case_end
+
+case_begin "14.emr.preflight.run-preflight.the-data-directory-is-removed-and-only-the-expected-files-are-left-under-work-and-reports"
+[ ! -d "$PFX/work/preflight/data" ] || note_fail "work/preflight/data was not removed"
+pf_have="$(cd "$PFX" && find work rep -type f | sort | tr '\n' ' ')"
+pf_want="$( { for pf_f in $PF_FIX_FILES; do printf '%s\n' "$pf_f"; done; printf '%s\n' work/preflight/targets.tsv rep/preflight.log rep/preflight-result.txt rep/preflight.scala; } | sort | tr '\n' ' ')"
+[ "$pf_have" = "$pf_want" ] || note_fail "files under work and rep: $pf_have (expected $pf_want)"
+case_end
+
+for pf_v in 0 61 abc 08 -5 1.5 100 1 9 14 015; do
+  pfx_new "rp-bad-$pf_v"
+  pf_rp_run "SC_PREFLIGHT_TIMEOUT=$pf_v"
+  case_begin "14.emr.preflight.run-preflight.sc-preflight-timeout-$pf_v-is-refused-before-anything-runs"
+  pf_rp_refused "$pf_v"
+  case_end
+done
+
+pfx_new rp-limit-25
+pf_rp_run SC_PREFLIGHT_TIMEOUT=25
+case_begin "14.emr.preflight.run-preflight.sc-preflight-timeout-25-sets-the-limit-and-the-remaining-time"
+mr_ok
+a_out 'RC=0'
+pf_timeout_call 20 25
+a_out_re '^NOTE: preflight: .*\(limit 25 s, (2[0-5]) s left for the JVM\)$'
+a_out_re '^PREFLIGHT_LIMIT_SECONDS=25$'
+case_end
+
+pfx_new rp-limit-60
+pf_rp_run SC_PREFLIGHT_TIMEOUT=60
+case_begin "14.emr.preflight.run-preflight.sc-preflight-timeout-60-is-accepted"
+mr_ok
+a_out 'RC=0'
+pf_timeout_call 55 60
+a_out_re '^PREFLIGHT_LIMIT_SECONDS=60$'
+case_end
+
+pfx_new rp-limit-empty
+pf_rp_run SC_PREFLIGHT_TIMEOUT=
+case_begin "14.emr.preflight.run-preflight.an-empty-sc-preflight-timeout-falls-back-to-the-default-60"
+mr_ok
+a_out 'RC=0'
+pf_timeout_call 55 60
+a_out_re '^PREFLIGHT_LIMIT_SECONDS=60$'
+case_end
+
+# Work order 67 (F2): a limit below 15 is refused up front (the floor, SC_PREFLIGHT_FLOOR_SECONDS),
+# because under 10 s would be left for the JVM after the class paths. 1, 9 and 14 are in the
+# refused loop above, which replaced the two cases that pinned the old "passes the validation
+# and dies for lack of time" behaviour of 1 and 9. 15 is the lowest accepted value; the stub
+# builds the class paths instantly, so at most a few seconds are spent and 10 to 15 s remain.
+pfx_new rp-limit-15
+pf_rp_run SC_PREFLIGHT_TIMEOUT=15
+case_begin "14.emr.preflight.run-preflight.sc-preflight-timeout-15-is-the-lowest-accepted-value"
+mr_ok
+a_out 'RC=0'
+pf_timeout_call 10 15
+a_out_re '^NOTE: preflight: .*\(limit 15 s, (1[0-5]) s left for the JVM\)$'
+a_out_re '^PREFLIGHT_LIMIT_SECONDS=15$'
+if grep -qF 'must be a whole number' "$ERR"; then note_fail "the validation refused 15, which is the floor and must be accepted"; fi
+case_end
+
+pfx_new rp-warn
+pf_add "$PF_WARN_LINE"
+pf_rp_run
+case_begin "14.emr.preflight.run-preflight.a-result-with-a-warn-line-passes-and-prints-the-note-after-the-record-and-before-the-limit-keys"
+mr_ok
+a_out 'RC=0'
+[ ! -s "$ERR" ] || note_fail "stderr is not empty: $(head -n 1 "$ERR" | cut -c1-140)"
+a_out_re '^PREFLIGHT_RESULT=ok$'
+a_out_re '^PREFLIGHT_NODE_KEYS_WARN=1: yarn\.ipc\.rpc\.class$'
+a_out "NOTE: preflight $PF_WARN_LINE $PF_WARN_NOTE_TAIL"
+a_order 'PREFLIGHT_RESULT=ok' 'PREFLIGHT_SMOKE=' 'NOTE: preflight WARN config' 'PREFLIGHT_LIMIT_SECONDS=' 'PREFLIGHT_SECONDS='
+cmp -s "$PFX/rep/preflight-result.txt" "$PF_RES" || note_fail "rep/preflight-result.txt is not the result the shell wrote"
+case_end
+
+pfx_new rp-no-shell
+rm -f "$PFX/spark/bin/spark-shell"
+pf_rp_run
+case_begin "14.emr.preflight.run-preflight.a-distribution-without-spark-shell-dies-before-anything-is-written"
+a_rc 1
+a_err_evidence
+a_err "no spark-shell in the extracted distribution: $PFX/spark"
+[ ! -s "$PFX/calls.log" ] || note_fail "a command ran: $(head -n 1 "$PFX/calls.log")"
+[ ! -d "$PFX/work/preflight" ] || note_fail "the preflight directory was made"
+a_trip_empty
+case_end
+
+pfx_new rp-timeout-124
+printf '124' > "$PFX/timeout-rc"
+pf_rp_run
+case_begin "14.emr.preflight.run-preflight.exit-124-from-timeout-records-timed-out-and-dies-without-reading-a-result"
+a_rc 1
+a_err_evidence
+a_err 'preflight timed out (exit 124) after'
+a_out_re '^PREFLIGHT_RESULT=timed out \(exit 124, JVM limit (5[5-9]|60) s\)$'
+a_not_out 'PREFLIGHT_RESULT=ok'
+a_not_out 'PREFLIGHT_RESULT=failed'
+a_not_out 'RC=0'
+if grep -q '^SPARK-SHELL ' "$PFX/calls.log"; then note_fail "the fake timeout ran spark-shell although it was set to time out"; fi
+[ ! -d "$PFX/work/preflight/data" ] || note_fail "work/preflight/data was not removed after the timeout"
+a_trip_empty
+case_end
+
+pfx_new rp-timeout-137
+printf '137' > "$PFX/timeout-rc"
+pf_rp_run
+case_begin "14.emr.preflight.run-preflight.exit-137-after-the-kill-is-a-timeout-too"
+a_rc 1
+a_err 'preflight timed out (exit 137) after'
+a_out_re '^PREFLIGHT_RESULT=timed out \(exit 137, JVM limit (5[5-9]|60) s\)$'
+a_not_out 'RC=0'
+[ ! -d "$PFX/work/preflight/data" ] || note_fail "work/preflight/data was not removed after the kill"
+case_end
+
+pfx_new rp-shell-rc-1-ok
+printf '1' > "$PFX/shell-rc"
+pf_rp_run
+case_begin "14.emr.preflight.run-preflight.a-nonzero-shell-exit-with-a-complete-result-still-passes-the-status-is-not-the-verdict"
+mr_ok
+a_out 'RC=0'
+a_out_re '^PREFLIGHT_RESULT=ok$'
+case_end
+
+pfx_new rp-shell-rc-2-noresult
+rm -f "$PF_RES"
+printf '2' > "$PFX/shell-rc"
+pf_rp_run
+case_begin "14.emr.preflight.run-preflight.a-nonzero-shell-exit-with-no-result-dies-with-the-status-and-the-log-tail"
+a_rc 1
+a_err_evidence
+a_err 'preflight wrote no result (spark-shell exit 2'
+a_err "':load'"
+a_err 'fake spark-shell output line'
+a_not_out 'PREFLIGHT_RESULT=ok'
+[ ! -d "$PFX/work/preflight/data" ] || note_fail "work/preflight/data was not removed"
+a_trip_empty
+case_end
+
+pfx_new rp-shell-rc-0-noresult
+rm -f "$PF_RES"
+pf_rp_run
+case_begin "14.emr.preflight.run-preflight.a-zero-shell-exit-with-no-result-still-dies"
+a_rc 1
+a_err 'preflight wrote no result (spark-shell exit 0'
+a_err "':load'"
+a_not_out 'PREFLIGHT_RESULT=ok'
+a_not_out 'RC=0'
+a_out_re '^PREFLIGHT_RESULT=failed$'
+case_end
+
+# Work order 79, updated in work order 83: a script that does not compile. The fake shell prints the
+# layout that rehearsal 4 observed (human-run and relayed): the source and caret lines first, then the
+# error line, a blank line, and the follow-on diagnostic; it writes no result. The refusal carries the
+# FIRST diagnostic LINE alone, not its source and caret lines and not the follow-on
+# 'not found: value PreflightRun', and the record says failed.
+pfx_new rp-compile-error
+rm -f "$PF_RES"
+printf '%s\n' '  val y = foo' '          ^' 'x.scala:12: error: not found: value foo' '' '  PreflightRun.run()' '  ^' 'x.scala:99: error: not found: value PreflightRun' > "$PFX/spark/extra-log"
+pf_rp_run
+case_begin "14.emr.preflight.run-preflight.a-shell-log-with-a-compiler-diagnostic-and-no-result-dies-with-the-first-diagnostic-line-alone-and-records-failed"
+a_rc 1
+a_err_evidence
+a_err 'preflight wrote no result (spark-shell exit 0'
+a_err ': x.scala:12: error: not found: value foo'
+grep -qE 'x[.]scala:12: error: not found: value foo$' "$ERR" || note_fail "the evidence does not end at the diagnostic line: $(tail -n 1 "$ERR" | cut -c1-200)"
+if grep -qF 'val y = foo' "$ERR"; then note_fail "the source line is in the evidence"; fi
+if grep -qF 'PreflightRun' "$ERR"; then note_fail "the follow-on diagnostic is in the evidence"; fi
+a_out_re '^PREFLIGHT_RESULT=failed$'
+a_not_out 'PREFLIGHT_RESULT=ok'
+a_not_out 'RC=0'
+[ ! -d "$PFX/work/preflight/data" ] || note_fail "work/preflight/data was not removed"
+grep -qF 'x.scala:99: error: not found: value PreflightRun' "$PFX/rep/preflight.log" || note_fail "preflight.log does not hold the whole shell output"
+a_trip_empty
+case_end
+
+# Work order 79 (infra work order 78): the script path is passed to ':load', which splits its argument
+# on whitespace (inferred, not observed), so a reports directory with whitespace is refused before the
+# preflight directory is made and before any command runs. Only the reports path is checked.
+pf_ws_run() {
+  run env -u SC_PREFLIGHT_TIMEOUT bash "$CODE_DIR/preflight-run-child.sh" "$EMR_DIR/lib-emr.sh" "$PFX" "$1"
+}
+pf_ws_refused() {
+  a_rc 1
+  a_err_evidence
+  a_err "preflight: the script path '$1/preflight.scala' holds whitespace"
+  a_err "and ':load' splits its argument on whitespace (inferred, not observed), so the reports directory path must hold none"
+  a_not_out 'RC=0'
+  [ ! -s "$PFX/calls.log" ] || note_fail "a command ran: $(head -n 1 "$PFX/calls.log")"
+  [ ! -e "$PFX/work/preflight" ] || note_fail "the preflight directory was made"
+  [ ! -e "$1" ] || note_fail "the reports directory with whitespace was made"
+  [ ! -e "$PFX/rep/preflight.scala" ] || note_fail "a script was written"
+  a_trip_empty
+}
+
+pfx_new rp-ws-space
+pf_ws_run "$PFX/rep with space"
+case_begin "14.emr.preflight.run-preflight.a-reports-path-with-a-space-is-refused-before-the-preflight-directory-and-any-command"
+pf_ws_refused "$PFX/rep with space"
+a_err 'holds whitespace'
+case_end
+
+pfx_new rp-ws-tab
+pf_ws_run "$PFX/rep"$'\t'"tab"
+case_begin "14.emr.preflight.run-preflight.a-reports-path-with-a-tab-is-refused-too"
+pf_ws_refused "$PFX/rep"$'\t'"tab"
+case_end
+
+# Work order 83 (infra work order 82): rehearse-preflight.sh is run here only as far as its refusals, which
+# come before anything is made, before Java, Spark or any command is looked for. The rehearsal root is a
+# directory with a space under the harness's own temporary directory (outside the repository, which the
+# script's in-repo refusal would otherwise report first). Expected: exit 2, REFUSED: naming the run
+# directory and the whitespace, no stdout, and neither the root nor any directory made. The script is run
+# by the bash that runs the harness ($BASH), because the script itself refuses a bash older than 4 with
+# exit 2; on such a bash the case checks that refusal instead and does not claim the whitespace one.
+pfx_new rh-ws-root
+RH_ROOT="$PFX/root with space"
+run env SC_REHEARSE_ROOT="$RH_ROOT" SC_REHEARSE_DATA_ROOT="$PFX/data-not-made" "$BASH" "$EMR_DIR/rehearse-preflight.sh"
+case_begin "14.emr.rehearse-preflight.a-root-with-whitespace-outside-the-repository-is-refused-before-any-directory-is-made"
+a_rc 2
+a_trip_empty
+[ ! -s "$OUT" ] || note_fail "stdout is not empty: $(head -n 1 "$OUT" | cut -c1-140)"
+if [ "${BASH_VERSINFO[0]}" -ge 4 ]; then
+  a_err "REFUSED: the run directory $RH_ROOT/preflight-"
+  a_err " holds whitespace, and ':load' splits its argument on whitespace (inferred); choose SC_REHEARSE_ROOT without any"
+else
+  a_err 'REFUSED: this is bash '
+fi
+[ ! -e "$RH_ROOT" ] || note_fail "the root with whitespace was made: $RH_ROOT"
+[ ! -e "$PFX/data-not-made" ] || note_fail "the data root was made"
+case_end
+
+### The fake spark-shell itself (work order 75). A fake that accepted the old launch would let
+### the run_preflight cases above pass on the defect they exist to catch, so the fake is run
+### directly here with each wrong launch and must refuse it, and with the right one and accept it.
+
+# pf-fake-shell-child.sh FIX STDIN ARGS...: runs the fake spark-shell of the fixture FIX with the
+# preflight environment, stdin from the file STDIN (or /dev/null when STDIN is the word none).
+cat > "$CODE_DIR/pf-fake-shell-child.sh" <<'EOF'
+FIX="$1"; IN="$2"; shift 2
+export SC_PREFLIGHT_DIR="$FIX/work/preflight" SC_PREFLIGHT_DATA="$FIX/work/preflight/data" SC_PREFLIGHT_RESULT="$FIX/rep/preflight-result.txt"
+mkdir -p "$SC_PREFLIGHT_DIR"
+printf 'hadoop\tMain\tcp\n' > "$SC_PREFLIGHT_DIR/targets.tsv"
+if [ "$IN" = none ]; then
+  "$FIX/spark/bin/spark-shell" "$@" < /dev/null
+else
+  "$FIX/spark/bin/spark-shell" "$@" < "$IN"
+fi
+EOF
+
+# pf_fake_new NAME: a fixture with the script file in place.
+pf_fake_new() {
+  pfx_new "$1"
+  printf 'object PreflightRun { def run(): Unit = () }\n' > "$PFX/rep/preflight.scala"
+}
+
+# pf_fake_rejected: the launch was refused: a reason is logged, and no script copy, no data and
+# no result exist, so a run_preflight that launched this way would die with "wrote no result".
+pf_fake_rejected() {
+  a_rc 0
+  grep -q '^FAKE-REJECT ' "$PFX/calls.log" || note_fail "the fake did not log FAKE-REJECT"
+  a_out 'fake spark-shell rejected the launch: '
+  [ ! -e "$PFX/seen-script.scala" ] || note_fail "the fake copied a script although the launch was wrong"
+  [ ! -e "$PFX/rep/preflight-result.txt" ] || note_fail "the fake wrote a result although the launch was wrong"
+  [ ! -d "$PFX/work/preflight/data" ] || note_fail "the fake made the data directory although the launch was wrong"
+  a_trip_empty
+}
+
+pf_fake_new fk-ok
+printf ':load %s\n' "$PFX/rep/preflight.scala" > "$PFX/stdin.txt"
+run bash "$CODE_DIR/pf-fake-shell-child.sh" "$PFX" "$PFX/stdin.txt" --master 'local[2]' --conf spark.sql.catalogImplementation=in-memory
+case_begin "14.emr.preflight.fake-spark-shell.accepts-exactly-one-load-line-on-stdin-and-copies-the-script-and-the-result"
+a_rc 0
+grep -q '^FAKE-REJECT ' "$PFX/calls.log" && note_fail "the fake rejected the right launch: $(grep '^FAKE-REJECT ' "$PFX/calls.log" | head -n 1)"
+cmp -s "$PFX/rep/preflight.scala" "$PFX/seen-script.scala" || note_fail "the script named on stdin was not copied"
+grep -qxF "LOAD-LINE :load $PFX/rep/preflight.scala" "$PFX/calls.log" || note_fail "no LOAD-LINE in the call log"
+cmp -s "$PFX/rep/preflight-result.txt" "$PF_RES" || note_fail "the prepared result was not copied"
+a_out 'fake spark-shell output line'
+a_trip_empty
+case_end
+
+pf_fake_new fk-dash-i
+run bash "$CODE_DIR/pf-fake-shell-child.sh" "$PFX" none --master 'local[2]' --conf spark.sql.catalogImplementation=in-memory -i "$PFX/rep/preflight.scala"
+case_begin "14.emr.preflight.fake-spark-shell.rejects-i-with-stdin-from-dev-null-the-defect-of-the-probe"
+pf_fake_rejected
+grep -q '^FAKE-REJECT the script or -i/-I arrived as an argument: -i$' "$PFX/calls.log" || note_fail "the reason is not the -i argument: $(grep '^FAKE-REJECT ' "$PFX/calls.log" | head -n 1)"
+case_end
+
+pf_fake_new fk-dash-big-i
+run bash "$CODE_DIR/pf-fake-shell-child.sh" "$PFX" none --master 'local[2]' --conf spark.sql.catalogImplementation=in-memory -I "$PFX/rep/preflight.scala"
+case_begin "14.emr.preflight.fake-spark-shell.rejects-big-i-with-stdin-from-dev-null"
+pf_fake_rejected
+grep -q '^FAKE-REJECT the script or -i/-I arrived as an argument: -I$' "$PFX/calls.log" || note_fail "the reason is not the -I argument: $(grep '^FAKE-REJECT ' "$PFX/calls.log" | head -n 1)"
+case_end
+
+pf_fake_new fk-arg-and-load
+printf ':load %s\n' "$PFX/rep/preflight.scala" > "$PFX/stdin.txt"
+run bash "$CODE_DIR/pf-fake-shell-child.sh" "$PFX" "$PFX/stdin.txt" --master 'local[2]' --conf spark.sql.catalogImplementation=in-memory "$PFX/rep/preflight.scala"
+case_begin "14.emr.preflight.fake-spark-shell.rejects-the-script-path-as-an-argument-even-with-the-load-line-on-stdin"
+pf_fake_rejected
+case_end
+
+pf_fake_new fk-empty-stdin
+run bash "$CODE_DIR/pf-fake-shell-child.sh" "$PFX" none --master 'local[2]' --conf spark.sql.catalogImplementation=in-memory
+case_begin "14.emr.preflight.fake-spark-shell.rejects-a-launch-with-no-stdin-line-at-all"
+pf_fake_rejected
+grep -q '^FAKE-REJECT stdin held 0 line(s)' "$PFX/calls.log" || note_fail "the reason is not an empty stdin: $(grep '^FAKE-REJECT ' "$PFX/calls.log" | head -n 1)"
+case_end
+
+pf_fake_new fk-two-lines
+printf ':load %s\n:quit\n' "$PFX/rep/preflight.scala" > "$PFX/stdin.txt"
+run bash "$CODE_DIR/pf-fake-shell-child.sh" "$PFX" "$PFX/stdin.txt" --master 'local[2]' --conf spark.sql.catalogImplementation=in-memory
+case_begin "14.emr.preflight.fake-spark-shell.rejects-a-stdin-of-more-than-one-line"
+pf_fake_rejected
+grep -q '^FAKE-REJECT stdin held 2 line(s)' "$PFX/calls.log" || note_fail "the reason is not a two line stdin: $(grep '^FAKE-REJECT ' "$PFX/calls.log" | head -n 1)"
+case_end
+
+### run_preflight inside the stages and the exit trap.
+
+# pf_trap_run: the poisoned class path variables again.
+pf_trap_run() {
+  run env HADOOP_CLASSPATH=/emr/poison/hadoop.jar SPARK_DIST_CLASSPATH=/emr/poison/dist.jar SPARK_EXTRA_CLASSPATH=/emr/poison/extra.jar bash "$CODE_DIR/preflight-trap-child.sh" "$EMR_DIR/lib-emr.sh" "$PFX"
+}
+# pf_up_names: the names of the uploaded files, sorted, joined by a space.
+pf_up_names() {
+  find "$PFX/uploads" -type f 2> /dev/null | sed 's|.*/||' | LC_ALL=C sort | tr '\n' ' '
+}
+
+pfx_new tr-fail
+pf_add 'FAIL config mapreduce.fake.class com.example.Missing java.lang.ClassNotFoundException: com.example.Missing'
+pf_trap_run
+case_begin "14.emr.preflight.exit-trap.a-failing-preflight-records-failed-stage-4-spark-stage-with-exit-code-1-and-the-first-failure"
+a_rc 1
+a_trip_empty
+a_order 'STAGE[4] spark-stage: start' 'PREFLIGHT_RESULT=failed' 'PREFLIGHT_FIRST_FAILURE=' 'STAGE[4] spark-stage: FAIL (exit 1)' 'STAGE_SECONDS_SPARK_STAGE=' 'STAGE_SECONDS_TOTAL_AT_FAILURE=' 'FAILED_STAGE=4 spark-stage' 'FAILED_EXIT_CODE=1' 'FAILED_LOGS_PUBLISHED='
+a_not_out 'STAGE[4] spark-stage: ok'
+a_not_out 'ALL-DONE'
+a_err 'preflight: 1 check(s) failed, first: FAIL config mapreduce.fake.class com.example.Missing'
+a_out_re '^STAGE_SECONDS_SPARK_STAGE=[0-9]+ \(stage failed\)$'
+grep -qxF 'FAILED_STAGE=4 spark-stage' "$PFX/uploads/run-record.env" || note_fail "the uploaded run-record.env lacks FAILED_STAGE=4 spark-stage"
+grep -qxF 'FAILED_EXIT_CODE=1' "$PFX/uploads/run-record.env" || note_fail "the uploaded run-record.env lacks FAILED_EXIT_CODE=1"
+grep -qxF 'PREFLIGHT_RESULT=failed' "$PFX/uploads/run-record.env" || note_fail "the uploaded run-record.env lacks PREFLIGHT_RESULT=failed"
+grep -qxF 'PREFLIGHT_FIRST_FAILURE=FAIL config mapreduce.fake.class com.example.Missing java.lang.ClassNotFoundException: com.example.Missing' "$PFX/uploads/run-record.env" || note_fail "the uploaded run-record.env lacks the key and the class of the first failure"
+case_end
+
+case_begin "14.emr.preflight.exit-trap.a-failing-preflight-publishes-its-three-evidence-files-with-the-run-record"
+[ "$(pf_up_names)" = "preflight-result.txt preflight.log preflight.scala run-record.env " ] || note_fail "uploaded names: $(pf_up_names)"
+grep -qF 'FAIL config mapreduce.fake.class com.example.Missing' "$PFX/uploads/preflight-result.txt" || note_fail "the uploaded preflight-result.txt lacks the FAIL line"
+grep -qF 'object PreflightRun' "$PFX/uploads/preflight.scala" || note_fail "the uploaded preflight.scala is not the script"
+grep -qxF 'fake spark-shell output line' "$PFX/uploads/preflight.log" || note_fail "the uploaded preflight.log lacks the shell output"
+if grep -qE '/progress/' "$PFX/aws-calls.log"; then note_fail "a failed run uploaded to the progress prefix"; fi
+if ! grep -qE ' s3://data-bucket/reports/runs/run-v1-x/failed/[0-9]{8}T[0-9]{6}Z/preflight-result\.txt --only-show-errors$' "$PFX/aws-calls.log"; then note_fail "preflight-result.txt did not go under the failed/<stamp>/ prefix"; fi
+case_end
+
+pfx_new tr-timeout
+printf '124' > "$PFX/timeout-rc"
+pf_trap_run
+case_begin "14.emr.preflight.exit-trap.a-timed-out-preflight-records-failed-stage-4-spark-stage-with-the-timed-out-result"
+a_rc 1
+a_trip_empty
+a_order 'STAGE[4] spark-stage: start' 'PREFLIGHT_RESULT=timed out' 'STAGE[4] spark-stage: FAIL (exit 1)' 'FAILED_STAGE=4 spark-stage' 'FAILED_EXIT_CODE=1' 'FAILED_LOGS_PUBLISHED='
+grep -qE '^PREFLIGHT_RESULT=timed out \(exit 124, JVM limit (5[5-9]|60) s\)$' "$PFX/uploads/run-record.env" || note_fail "the uploaded run-record.env lacks the timed-out result"
+[ "$(pf_up_names)" = "preflight.log preflight.scala run-record.env " ] || note_fail "uploaded names: $(pf_up_names)"
+case_end
+
+pfx_new tr-pass
+pf_trap_run
+case_begin "14.emr.preflight.exit-trap.a-passing-preflight-lets-the-stage-end-ok-and-the-checkpoint-carries-the-evidence-files"
+a_rc 0
+a_trip_empty
+[ ! -s "$ERR" ] || note_fail "stderr is not empty: $(head -n 1 "$ERR" | cut -c1-140)"
+a_out 'ALL-DONE'
+a_order 'STAGE[4] spark-stage: start' 'PREFLIGHT_RESULT=ok' 'PREFLIGHT_SECONDS=' 'STAGE[4] spark-stage: ok' 'STAGE_SECONDS_SPARK_STAGE=' 'checkpoint=after-stage-4-spark-stage'
+a_not_out 'FAILED_STAGE='
+[ "$(pf_up_names)" = "preflight-result.txt preflight.log preflight.scala progress.env run-record.env " ] || note_fail "uploaded names: $(pf_up_names)"
+grep -qxF 'PREFLIGHT_RESULT=ok' "$PFX/uploads/run-record.env" || note_fail "the checkpoint's run-record.env lacks PREFLIGHT_RESULT=ok"
+grep -qxF 'PREFLIGHT_SMOKE=old-api:ok parquet:ok rows=25' "$PFX/uploads/run-record.env" || note_fail "the checkpoint's run-record.env lacks the smoke record"
+grep -qxF 'STAGE=4 spark-stage open=0' "$PFX/uploads/progress.env" || note_fail "progress.env lacks the stage line for stage 4"
+case_end
+
+pfx_new tr-warn
+pf_add "$PF_WARN_LINE"
+pf_trap_run
+case_begin "14.emr.preflight.exit-trap.a-passing-preflight-with-a-warn-line-ends-the-stage-ok-and-the-checkpoint-records-the-warn-key"
+a_rc 0
+a_trip_empty
+[ ! -s "$ERR" ] || note_fail "stderr is not empty: $(head -n 1 "$ERR" | cut -c1-140)"
+a_out 'ALL-DONE'
+a_order 'STAGE[4] spark-stage: start' 'PREFLIGHT_NODE_KEYS_WARN=1: yarn.ipc.rpc.class' 'NOTE: preflight WARN config' 'STAGE[4] spark-stage: ok' 'checkpoint=after-stage-4-spark-stage'
+a_not_out 'FAILED_STAGE='
+grep -qxF 'PREFLIGHT_RESULT=ok' "$PFX/uploads/run-record.env" || note_fail "the checkpoint's run-record.env lacks PREFLIGHT_RESULT=ok"
+grep -qxF 'PREFLIGHT_NODE_KEYS_WARN=1: yarn.ipc.rpc.class' "$PFX/uploads/run-record.env" || note_fail "the checkpoint's run-record.env lacks the WARN key record"
+case_end
+
+# Work order 79: a script that does not compile leaves no result file. The failed run still records
+# PREFLIGHT_RESULT=failed in the run record that the exit trap publishes, with the first diagnostic in
+# the die text, and publishes the log and the script (there is no result file to publish).
+pfx_new tr-compile-error
+rm -f "$PF_RES"
+printf '%s\n' 'x.scala:12: error: not found: value foo' '  val y = foo' '          ^' 'x.scala:99: error: not found: value PreflightRun' > "$PFX/spark/extra-log"
+pf_trap_run
+case_begin "14.emr.preflight.exit-trap.a-script-that-does-not-compile-records-failed-stage-4-spark-stage-with-result-failed-and-publishes-the-log-and-the-script-only"
+a_rc 1
+a_trip_empty
+a_order 'STAGE[4] spark-stage: start' 'PREFLIGHT_RESULT=failed' 'STAGE[4] spark-stage: FAIL (exit 1)' 'FAILED_STAGE=4 spark-stage' 'FAILED_EXIT_CODE=1' 'FAILED_LOGS_PUBLISHED='
+a_not_out 'STAGE[4] spark-stage: ok'
+a_not_out 'ALL-DONE'
+a_not_out 'PREFLIGHT_RESULT=ok'
+a_err 'preflight wrote no result (spark-shell exit 0'
+a_err ': x.scala:12: error: not found: value foo'
+grep -qE 'x[.]scala:12: error: not found: value foo$' "$ERR" || note_fail "the evidence does not end at the diagnostic line: $(tail -n 1 "$ERR" | cut -c1-200)"
+if grep -qF 'val y = foo' "$ERR"; then note_fail "the source line is in the evidence"; fi
+if grep -qF 'PreflightRun' "$ERR"; then note_fail "the follow-on diagnostic is in the evidence"; fi
+grep -qxF 'PREFLIGHT_RESULT=failed' "$PFX/uploads/run-record.env" || note_fail "the uploaded run-record.env lacks PREFLIGHT_RESULT=failed"
+grep -qxF 'FAILED_STAGE=4 spark-stage' "$PFX/uploads/run-record.env" || note_fail "the uploaded run-record.env lacks FAILED_STAGE=4 spark-stage"
+[ "$(pf_up_names)" = "preflight.log preflight.scala run-record.env " ] || note_fail "uploaded names: $(pf_up_names)"
+grep -qF 'x.scala:12: error: not found: value foo' "$PFX/uploads/preflight.log" || note_fail "the uploaded preflight.log lacks the diagnostic"
+case_end
 
 ### Case 12: secrets, the tripwire and the real repository ---------------------------------
 
