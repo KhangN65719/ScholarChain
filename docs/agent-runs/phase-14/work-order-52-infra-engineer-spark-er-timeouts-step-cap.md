@@ -1,0 +1,15 @@
+# Work order 52: infra-engineer, on-node Spark and ER timeouts, S overlay step cap 4,800 s
+
+Owner: infra-engineer (scripts/**, infra/terraform/**). Edits in those paths only. No AWS, no commit, no ~/.aws, no terraform apply or deploy. The guard blocks agent grep, find, bash -n, shellcheck and terraform; the human runs those with `!`.
+
+Evidence and decisions: decisions-d32.md (read it first), decisions-d31.md. S run 4 was cut by the on-node Spark timeout `timeout "${SC_SPARK_TIMEOUT:-1500}"` (`scripts/emr/lib-emr.sh:504`) at about 70% of the Spark stages. The human chose "option 1": Spark 3,000 s, step cap 4,800 s, execution max 7,200 s unchanged.
+
+Tasks:
+1. `scripts/emr/lib-emr.sh`: the default of `SC_SPARK_TIMEOUT` 1500 to 3000 (keep the environment override and the exit-124 behavior). It also applies to the export stage, which uses the same function. Say in the comment why (run 4 evidence: about 2,100 to 2,400 s needed).
+2. `scripts/emr/run-s-pipeline.sh`: the entity-resolution `timeout 1500` (line 297) becomes `timeout "${SC_ER_TIMEOUT:-3000}"` (ER needs about 103 s; this is a ceiling). Keep every marker name, the verdict rule, the checkpoints, the failure-path publish, the run-id handling and the codec and permission options unchanged.
+3. Internal timeouts audit (the miss in D32): list EVERY `timeout`, `--max-time`, `--cli-read-timeout` and similar bound in `scripts/emr/*.sh` and `scripts/lib.sh` paths that run on the node, with value and file:line (Hadoop stage, export, publish, aws s3 cp, hdfs, progress publish). State the worst-case sum of the stage timeouts against the 4,800 s step cap. Report only; change nothing besides items 1 and 2 unless a bound would make the new step cap unreachable (then report BLOCKED-ON the orchestrator with the line).
+4. `infra/terraform/environments/course/experiment-size-s.tfvars`: `pipeline_emr_step_timeout_seconds = 4800`; rewrite the comment block (D32 values: Rule A 1,440 + 4,800 + 600 = 6,840 <= 7,200, 360 s of slack; honest worst case 1,440 + 300 + 4,800 + 900 + 1,800 = 9,240 s, the accepted limitation O1; the run uses `--size medium`, 90 minutes = 5,400 s). Check the workflow module's variable validation allows 4,800 (and any upper bound), and that the M and L overlays still satisfy Rule A (show the arithmetic). Do not change M or L values.
+5. Docs: `scripts/README.md` (the Spark and ER on-node timeouts, `SC_SPARK_TIMEOUT` and `SC_ER_TIMEOUT`, "Pipeline bounds"), `infra/terraform/README.md` and `infra/terraform/COST_ESTIMATE.md` wherever the S step cap 3,600 or the 1,500 s timeouts are stated (read whole files; the last pass missed places). No dollar figure changes: caps are ceilings.
+6. List for test-engineer (work order 54) every harness case in `tests/scripts/run.sh` that asserts the old values (1500, 3600 for S, Rule A arithmetic or text for S): BLOCKED-ON test-engineer with exact case names. Do not edit tests/**.
+
+Report contract: STATUS, OWNER, WORK ORDER, FILES MODIFIED, COMMANDS RUN, VALIDATION RESULTS (state what is human-run and unrun), TIMEOUT AUDIT (item 3), RISKS, BLOCKED-ON OWNER, NEXT GATE. Final message must be the complete report.

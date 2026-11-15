@@ -294,7 +294,8 @@ pipeline_main() {
   elibs="$work/jars/entity-resolution/lib"
   mkdir -p "$erout"
   rc=0
-  timeout 1500 "$SC_JAVA_HOME/bin/java" -Xmx3g -cp "$ejar:$elibs/*" scholarchain.er.ErBatch \
+  # Ceiling, not an expectation: ER took about 103 s in S run 4. Override with SC_ER_TIMEOUT.
+  timeout "${SC_ER_TIMEOUT:-3000}" "$SC_JAVA_HOME/bin/java" -Xmx3g -cp "$ejar:$elibs/*" scholarchain.er.ErBatch \
     --run-root "$snapdir" --out-root "$erout" > "$rep/er.log" 2>&1 || rc=$?
   tail -n 15 "$rep/er.log" || true
   [[ "$rc" -eq 0 ]] || die "ErBatch exited $rc: $(last_error_line "$rep/er.log")"

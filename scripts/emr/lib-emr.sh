@@ -489,6 +489,12 @@ write_spark_conf() {
 # from the Spark 4 distribution, with SPARK_HOME, SPARK_CONF_DIR and HADOOP_CONF_DIR
 # set explicitly and EMR's own Hadoop and Spark class path variables removed. The
 # output goes to LOG only. Returns the exit status (124 on the time limit).
+# The time limit is SC_SPARK_TIMEOUT seconds, default 3000 (was 1500). S run 4 (Phase 14
+# D32) was cut by the old 1500 s limit with about 70% of the roughly 5,850 Spark stages
+# done, so the pipeline application needs about 2,100 to 2,400 s on this node. The limit
+# applies to every call of this function, so it also bounds the export stage and each
+# SparkPi of the capability check. It is a ceiling per call, not an expected duration;
+# the Terraform step cap is the outer bound of the whole script.
 run_spark_submit() {
   local log="$1" mode="$2" class="$3" appjar="$4" jars="$5"
   shift 5
@@ -501,7 +507,7 @@ run_spark_submit() {
     SPARK_HOME="$SPARK_HOME" SPARK_CONF_DIR="$SC_SPARK_CONF_DIR" \
     HADOOP_CONF_DIR=/etc/hadoop/conf YARN_CONF_DIR=/etc/hadoop/conf \
     JAVA_HOME="$SC_JAVA_HOME" \
-    timeout "${SC_SPARK_TIMEOUT:-1500}" "${cmd[@]}" > "$log" 2>&1
+    timeout "${SC_SPARK_TIMEOUT:-3000}" "${cmd[@]}" > "$log" 2>&1
 }
 
 app_id_from_log() {

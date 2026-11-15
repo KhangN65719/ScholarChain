@@ -393,7 +393,7 @@ variable "pipeline_create_cluster_timeout_seconds" {
 }
 
 variable "pipeline_emr_step_timeout_seconds" {
-  description = "Timeout of the one pipeline script step (Hadoop, ER, Spark, export and publish together), 300 to 7200 seconds. Default 3600. Set per tier in the experiment tfvars: S 3600 (work order 49; was 1800), M 2700, L 3600 (M and L unchanged from repair round 2; the estimate's HIGH Hadoop plus Spark time is S 2160, M 3600, L 7200 s, which does not fit under the current execution timeouts: accepted under human decision O1, see the infra README, Pipeline bounds). On timeout the execution goes to CleanupOnFailure and then Failed. A legitimate single step longer than this value is stopped. Tied to pipeline_max_run_seconds by Rule A (checked in the workflow module)."
+  description = "Timeout of the one pipeline script step (Hadoop, ER, Spark, export and publish together), 300 to 7200 seconds. Default 3600. Set per tier in the experiment tfvars: S 4800 (work order 52; was 3600 under work order 49 and 1800 before), M 2700, L 3600 (M and L unchanged from repair round 2; the estimate's HIGH Hadoop plus Spark time is S 2160, M 3600, L 7200 s, which does not fit under the current execution timeouts: accepted under human decision O1, see the infra README, Pipeline bounds). On timeout the execution goes to CleanupOnFailure and then Failed. A legitimate single step longer than this value is stopped. Tied to pipeline_max_run_seconds by Rule A (checked in the workflow module)."
   type        = number
   default     = 3600
 

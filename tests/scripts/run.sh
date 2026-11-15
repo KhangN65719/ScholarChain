@@ -4386,11 +4386,11 @@ TF_CD_STEP="$(tf_def_in "$CRS_VARS" pipeline_emr_step_timeout_seconds)"
 tf_rule_a "$TF_WD_MAX" "$TF_WD_CREATE" "$TF_WD_STEP" || note_fail "the module defaults $TF_WD_MAX, $TF_WD_CREATE, $TF_WD_STEP fail Rule A"
 case_end
 
-static_begin "14.terraform.s-overlay.timeouts-are-7200-1440-3600-1800"
+static_begin "14.terraform.s-overlay.timeouts-are-7200-1440-4800-1800"
 tf_overlay "$TF_S"
 [ "$TF_MAX" = "7200" ] || note_fail "pipeline_max_run_seconds is '$TF_MAX', expected 7200"
 [ "$TF_CREATE" = "1440" ] || note_fail "pipeline_create_cluster_timeout_seconds is '$TF_CREATE', expected 1440"
-[ "$TF_STEP" = "3600" ] || note_fail "pipeline_emr_step_timeout_seconds is '$TF_STEP', expected 3600"
+[ "$TF_STEP" = "4800" ] || note_fail "pipeline_emr_step_timeout_seconds is '$TF_STEP', expected 4800"
 [ "$TF_LOAD" = "1800" ] || note_fail "pipeline_loader_timeout_seconds is '$TF_LOAD', expected 1800"
 case_end
 
@@ -4467,6 +4467,84 @@ else
   note_fail "a pipeline value of the L overlay could not be read as a whole number"
 fi
 case_end
+
+### Work order 54: the on-node time limits and the S step cap (D32) -------------------------
+# Static readings only. The Spark and ER defaults and the S overlay figures are read from the
+# files and compared with each other; the only literals are the decision's own numbers (D32)
+# and the 874 s that S run 4 spent before Spark started (checkpoint after stage 6).
+# SC2016: every single-quoted string below is a literal fragment of a node script that
+# f_has, f_has_not and the case patterns search for as text; the $ must not expand.
+# shellcheck disable=SC2016
+static_wo54_cases() {
+  local er_line spark_t er_t ra_fig ra_max wc_fig wc_max wf_fig wf_max ra_calc wc_calc
+  local pre_spark=874 want_ra=6840 want_wc=9240
+
+  static_begin "14.emr.timeouts.spark-limit-default-is-3000-overridable-with-sc-spark-timeout-and-status-124-is-documented"
+  f_has "$emr_lib" 'timeout "${SC_SPARK_TIMEOUT:-3000}" "${cmd[@]}"'
+  f_has_not "$emr_lib" 'SC_SPARK_TIMEOUT:-1500'
+  f_has "$EMR_DIR/lib-emr.sh" 'Returns the exit status (124 on the time limit).'
+  f_has "$EMR_DIR/lib-emr.sh" 'The time limit is SC_SPARK_TIMEOUT seconds, default 3000 (was 1500).'
+  case_end
+
+  static_begin "14.emr.timeouts.er-limit-is-sc-er-timeout-default-3000-and-the-old-1500-literal-is-gone-from-the-er-line"
+  er_line="$(grep -F 'scholarchain.er.ErBatch' "$emr_run" | head -n 1)"
+  [ -n "$er_line" ] || note_fail "no code line of run-s-pipeline.sh runs scholarchain.er.ErBatch"
+  case "$er_line" in
+    *'timeout "${SC_ER_TIMEOUT:-3000}" '*) ;;
+    *) note_fail "the ErBatch line does not use timeout with the SC_ER_TIMEOUT default 3000: $er_line" ;;
+  esac
+  case "$er_line" in
+    *'timeout 1500'*) note_fail "the ErBatch line still carries the literal timeout 1500: $er_line" ;;
+    *) ;;
+  esac
+  f_has_not "$emr_run" 'SC_ER_TIMEOUT:-1500'
+  f_has "$EMR_DIR/run-s-pipeline.sh" 'Override with SC_ER_TIMEOUT.'
+  case_end
+
+  static_begin "14.emr.timeouts.hadoop-stage-limit-stays-1500-and-comes-before-the-er-line"
+  f_has "$emr_run" 'HADOOP_CLASSPATH="$hcp" JAVA_HOME="$SC_JAVA_HOME" timeout 1500'
+  f_before "$emr_run" 'timeout 1500' 'timeout "${SC_ER_TIMEOUT:-3000}"'
+  case_end
+
+  static_begin "14.terraform.s-overlay.rule-a-and-worst-case-figures-in-the-text-are-read-from-the-files-and-match-d32"
+  tf_overlay "$TF_S"
+  read -r ra_fig ra_max <<< "$(sed -n 's/.*+ 600 = \([0-9][0-9]*\) <= \([0-9][0-9]*\).*/\1 \2/p' "$TF_S" | head -n 1)"
+  read -r wc_fig wc_max <<< "$(sed -n 's/.*+ 900 + [0-9][0-9]* = \([0-9][0-9]*\) > \([0-9][0-9]*\).*/\1 \2/p' "$TF_S" | head -n 1)"
+  read -r wf_fig wf_max <<< "$(sed -n 's/.*S overlay: \([0-9][0-9]*\) against \([0-9][0-9]*\).*/\1 \2/p' "$WF_VARS" | head -n 1)"
+  if tf_is_num "$TF_MAX" && tf_is_num "$TF_CREATE" && tf_is_num "$TF_STEP" && tf_is_num "$TF_LOAD" \
+    && tf_is_num "$ra_fig" && tf_is_num "$ra_max" && tf_is_num "$wc_fig" && tf_is_num "$wc_max" \
+    && tf_is_num "$wf_fig" && tf_is_num "$wf_max"; then
+    ra_calc=$((TF_CREATE + TF_STEP + 600))
+    wc_calc=$((TF_CREATE + 300 + TF_STEP + 900 + TF_LOAD))
+    [ "$ra_calc" = "$want_ra" ] || note_fail "Rule A for S from the overlay values is $ra_calc, D32 says $want_ra"
+    [ "$wc_calc" = "$want_wc" ] || note_fail "the worst case for S from the overlay values is $wc_calc, D32 says $want_wc"
+    [ "$ra_fig" = "$ra_calc" ] || note_fail "the overlay comment states Rule A as $ra_fig, the values give $ra_calc"
+    [ "$ra_max" = "$TF_MAX" ] || note_fail "the overlay comment compares Rule A with $ra_max, the maximum is $TF_MAX"
+    [ "$wc_fig" = "$wc_calc" ] || note_fail "the overlay comment states the worst case as $wc_fig, the values give $wc_calc"
+    [ "$wc_max" = "$TF_MAX" ] || note_fail "the overlay comment compares the worst case with $wc_max, the maximum is $TF_MAX"
+    [ "$wf_fig" = "$wc_calc" ] || note_fail "the module description states the S worst case as $wf_fig, the values give $wc_calc"
+    [ "$wf_max" = "$TF_MAX" ] || note_fail "the module description compares the S worst case with $wf_max, the maximum is $TF_MAX"
+    [ "$ra_calc" -le "$TF_MAX" ] || note_fail "Rule A $ra_calc exceeds the maximum $TF_MAX"
+    [ "$wc_calc" -gt "$TF_MAX" ] || note_fail "the worst case $wc_calc no longer exceeds $TF_MAX, so the accepted limitation text would be stale"
+  else
+    note_fail "a figure could not be read as a whole number (overlay values, overlay comment or module description)"
+  fi
+  case_end
+
+  static_begin "14.emr.timeouts.spark-limit-plus-the-run-4-pre-spark-time-stays-under-the-s-step-cap"
+  tf_overlay "$TF_S"
+  spark_t="$(sed -n 's/.*SC_SPARK_TIMEOUT:-\([0-9][0-9]*\)}.*/\1/p' "$emr_lib" | head -n 1)"
+  er_t="$(sed -n 's/.*SC_ER_TIMEOUT:-\([0-9][0-9]*\)}.*/\1/p' "$emr_run" | head -n 1)"
+  if tf_is_num "$spark_t" && tf_is_num "$er_t" && tf_is_num "$TF_STEP"; then
+    [ $((spark_t + pre_spark)) -lt "$TF_STEP" ] || note_fail "Spark limit $spark_t plus $pre_spark s before Spark is not under the S step cap $TF_STEP"
+    [ "$spark_t" -gt 2400 ] || note_fail "the Spark limit $spark_t is not above the 2400 s upper estimate of the Spark stage (D32)"
+    [ "$er_t" -lt "$TF_STEP" ] || note_fail "the ER limit $er_t is not under the S step cap $TF_STEP"
+  else
+    note_fail "a limit could not be read: Spark '$spark_t', ER '$er_t', S step cap '$TF_STEP'"
+  fi
+  case_end
+}
+static_wo54_cases
 
 ### Case 12: secrets, the tripwire and the real repository ---------------------------------
 

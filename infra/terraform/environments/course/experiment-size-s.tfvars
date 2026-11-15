@@ -21,34 +21,35 @@ emr_managed_scaling_max_units = 3
 
 service_desired_count = 0
 
-# Work order 49 (human decision, 2026-11-15, after S run 3): the one on-node pipeline
-# step was cut by the old 1800 s cap while Spark was still running (Hadoop about
-# 12.5 min, ER 108 s, Spark expected 23 to 28 min on one executor). The run is
-# started with --size medium (script cap 90 minutes = 5400 s); the script stops the
-# execution at --max-minutes before the 7200 s execution timeout can fire.
-# Execution timeout 7200 s. When it fires, CleanupOnFailure does not run (README,
-# "Pipeline bounds").
+# Work orders 49 and 52 (human decisions D31 and D32, 2026-11-15, after S runs 3 and
+# 4). S run 3: the one on-node pipeline step was cut by the old 1800 s cap while
+# Spark was still running. S run 4 (3600 s step cap): the on-node Spark limit of
+# 1500 s in scripts/emr/lib-emr.sh cut Spark at about 70% of its stages (about 2100
+# to 2400 s needed); that limit is now 3000 s, as is the entity-resolution limit
+# (ER needs about 103 s). The run uses --size medium (script cap 90 minutes =
+# 5400 s); the script stops the execution at --max-minutes before the 7200 s
+# execution timeout can fire.
+# Execution timeout 7200 s, unchanged. When it fires, CleanupOnFailure does not run
+# (README, "Pipeline bounds").
 # Per-step timeouts (TerminateCluster and CleanupOnFailure stay 900 s, the
 # script-fetch step stays 300 s):
 #   CreateCluster 1440 s = 0.4 h, the estimate's HIGH launch overhead.
-#   EMR step (the one pipeline script: Hadoop, ER, Spark, export, publish) 3600 s.
+#   EMR step (the one pipeline script: Hadoop, ER, Spark, export, publish) 4800 s.
 #   Loader 1800 s, unchanged. The estimate's HIGH loader time is 1.0 h = 3600 s.
 # Rule A (changed in work order 49, modules/workflow): create + 1 x EMR step + 600
 # (300 s fetch step + 300 s for the cleanup state to issue the terminate call)
-# must not exceed the execution timeout. 1440 + 3600 + 600 = 5640 <= 7200 (holds,
-# 1560 s of slack). The old rule counted 2 x the step and would refuse these
-# values: 1440 + 2 x 3600 + 300 = 8940 > 7200. The state machine has one long
-# step, so the old rule over-counted.
+# must not exceed the execution timeout. 1440 + 4800 + 600 = 6840 <= 7200 (holds,
+# 360 s of slack). The old rule counted 2 x the step and would refuse these
+# values. The state machine has one long step, so the old rule over-counted.
 # Known limitation, accepted by human decision O1 (phase 13 D10), not enforced:
-# the sequential worst case 1440 + 300 + 3600 + 900 + 1800 = 8040 > 7200, so a run
+# the sequential worst case 1440 + 300 + 4800 + 900 + 1800 = 9240 > 7200, so a run
 # in which every segment takes its full timeout can end TIMED_OUT in the terminate
-# or loader segment (840 s short). It is 60 s tighter only if the fetch and terminate
-# allowances are left out (1440 + 3600 + 300 + 1800 = 7140, 60 s slack), which is
-# not the real sequence. A cap is a ceiling, not a cost.
+# or loader segment (2040 s short). The script's own cap (--size medium, 90 minutes
+# = 5400 s) ends a run first. A cap is a ceiling, not a cost.
 # The EMR step value is NOT the estimate's HIGH value. After the S run the human
 # re-derives the M and L values from the measured S runtime (README, "Pipeline
 # bounds") and records them in a Phase 14 decisions file.
 pipeline_max_run_seconds                = 7200
 pipeline_create_cluster_timeout_seconds = 1440
-pipeline_emr_step_timeout_seconds       = 3600
+pipeline_emr_step_timeout_seconds       = 4800
 pipeline_loader_timeout_seconds         = 1800
