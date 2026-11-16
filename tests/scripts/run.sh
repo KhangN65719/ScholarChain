@@ -3189,6 +3189,66 @@ a_out_re '^LOADER_GRAPH_ONLY=yes \('
 a_out_re " run_id=$PI_RUN\$"
 case_end
 
+# Work order 110 follow-up (rag work order 113): a second option element, --tolerate-load-errors, after
+# --graph-only. The script has no code for it: every "--" element is skipped by the run-id check and only the
+# exact element --graph-only is printed and recorded, so the new option is neither refused nor echoed. The
+# input file digest still binds it.
+TL="--tolerate-load-errors"
+J_AIM_GO_TL="[\"$LO_CLS\",\"$PI_RUN\",\"--graph-only\",\"$TL\"]"
+# Accepted: both options (the line is printed once, from --graph-only), the reverse order, and the new
+# option alone (no graph-only line).
+lo_accept_opt both-options-graph-only-and-tolerate-load-errors-are-accepted-and-graph-only-is-printed "$(lo_json "$J_RUN" "$J_AIM_GO_TL")" "$PI_RUN" yes
+lo_accept_opt both-options-in-the-reverse-order-are-accepted-and-graph-only-is-printed "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"$PI_RUN\",\"$TL\",\"--graph-only\"]")" "$PI_RUN" yes
+lo_accept_opt tolerate-load-errors-alone-is-accepted-and-prints-no-graph-only-line "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"$PI_RUN\",\"$TL\"]")" "$PI_RUN" no
+# Refused: another run id before the two options (or before the new option alone) is still refused, in all
+# three modes, and is never printed.
+lo_refuse both-options-do-not-hide-another-run-id "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"$PI_RUN_OTHER\",\"--graph-only\",\"$TL\"]")" "$PI_LOADER_TEXT" "$PI_RUN_OTHER"
+lo_refuse tolerate-load-errors-alone-does-not-hide-another-run-id "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"$PI_RUN_OTHER\",\"$TL\"]")" "$PI_LOADER_TEXT" "$PI_RUN_OTHER"
+
+# The digest follows the new option, the script digest does not.
+printf '%s\n' "$(lo_json "$J_RUN" "$J_LOAD_AIM_GO")" > "$REC/lo-aim-go.json"
+printf '%s\n' "$(lo_json "$J_RUN" "$J_AIM_GO_TL")" > "$REC/lo-aim-go-tl.json"
+common_args "$ACCT" us-east-2 "$CEIL"
+SN=run-bounded-pipeline
+A=(--print-digest "${CA[@]}" "${PI_TAIL[@]}" --input-file "$REC/lo-aim-go.json")
+run_build
+TL_RC1=$RC
+TL_S1="$(sed -n 's/^SCRIPT_DIGEST=//p' "$OUT" | head -n 1)"
+TL_A1="$(sed -n 's/^ARGS_DIGEST=//p' "$OUT" | head -n 1)"
+A=(--print-digest "${CA[@]}" "${PI_TAIL[@]}" --input-file "$REC/lo-aim-go-tl.json")
+run_build
+TL_RC2=$RC
+TL_S2="$(sed -n 's/^SCRIPT_DIGEST=//p' "$OUT" | head -n 1)"
+TL_A2="$(sed -n 's/^ARGS_DIGEST=//p' "$OUT" | head -n 1)"
+case_begin "14.pipeline.loader-only.tolerate-load-errors-print-digest-accepted-args-digest-differs-and-script-digest-is-the-same"
+a_rc 0
+[ "$TL_RC1" -eq 0 ] || note_fail "--print-digest without the new option exited $TL_RC1"
+[ "$TL_RC2" -eq 0 ] || note_fail "--print-digest with the new option exited $TL_RC2"
+is_hex64 "$TL_A1" || note_fail "ARGS_DIGEST without the new option is not 64 hex"
+is_hex64 "$TL_A2" || note_fail "ARGS_DIGEST with the new option is not 64 hex"
+is_hex64 "$TL_S1" || note_fail "SCRIPT_DIGEST without the new option is not 64 hex"
+[ "$TL_A1" != "$TL_A2" ] || note_fail "ARGS_DIGEST did not change with --tolerate-load-errors"
+[ "$TL_S1" = "$TL_S2" ] || note_fail "SCRIPT_DIGEST changed with --tolerate-load-errors"
+a_trip_empty
+case_end
+
+# A record made for the command without the new option (graph-only only): control, then the refusal.
+pi_dry_with "$REC/lo-aim-go.json" "$REC/lo-aim-go.env"
+case_begin "14.pipeline.loader-only.tolerate-load-errors-control-the-record-of-the-command-without-it-verifies-that-command"
+a_dry_common
+a_out "APPROVAL_VERIFIED action=pipeline"
+a_out_re '^LOADER_GRAPH_ONLY=yes \('
+case_end
+A=(--dry-run "${CA[@]}" "${PI_TAIL[@]}" --input-file "$REC/lo-aim-go-tl.json" --approval-record "$REC/lo-aim-go.env")
+run_build
+case_begin "14.pipeline.loader-only.tolerate-load-errors-is-refused-under-a-record-made-for-the-command-without-it"
+a_refused ""
+a_out "INPUT_MODE=loader-only"
+a_out_re '^LOADER_GRAPH_ONLY=yes \('
+a_not_out "APPROVAL_NOT_CONSUMED"
+a_not_out "EXECUTION_ARN="
+case_end
+
 # The key-material scan still covers the loader command in this mode and never prints the match.
 printf '%s\n' "$(lo_json "$J_RUN" "[\"loader\",\"$FAKE_AKIA\"]")" > "$REC/lo-secret.json"
 common_args "$ACCT" us-east-2 "$CEIL"

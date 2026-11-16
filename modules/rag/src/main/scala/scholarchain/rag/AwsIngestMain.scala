@@ -43,11 +43,11 @@ final class CountingEmbedder(inner: Embedder) extends Embedder:
   *
   * Markers (one per line): `LOADER_PHASE`, `LOADER_PROGRESS`,
   * `LOADER_BATCH_FAILED`, `LOADER_INDEX`, `LOADER_TOTAL`, `LOADER_EMBEDDING`,
-  * `NEPTUNE_LOAD=LOADED|SKIPPED|FAILED`, `LOADER_REPORT`, and exactly one
-  * `LOADER_RESULT=SUCCESS|FAILED` last (its reason is the first reason line, at
-  * most 600 characters). The ingest step's own result line is renamed
-  * `INGEST_STEP=`, so a later graph failure never follows a line that reads
-  * SUCCESS in the same form.
+  * `NEPTUNE_LOAD=LOADED|LOADED_WITH_ERRORS|SKIPPED|FAILED`, `LOADER_REPORT`,
+  * and exactly one `LOADER_RESULT=SUCCESS|SUCCEEDED_WITH_WARNINGS|FAILED` last
+  * (the FAILED reason is the first reason line, at most 600 characters). The
+  * ingest step's own result line is renamed `INGEST_STEP=`, so a later graph
+  * failure never follows a line that reads SUCCESS in the same form.
   *
   * `LOADER_BATCH_FAILED index=<index> batch=<n> reason=<text>` is printed by
   * `EmbeddingIngest` the moment a batch fails, with the reason cut at 600
@@ -80,6 +80,21 @@ final class CountingEmbedder(inner: Embedder) extends Embedder:
   * never written, read or replaced by it. It needs a Neptune host, because the
   * graph load is its only work.
   *
+  * `--tolerate-load-errors` (valid alone or with `--graph-only`; it needs a
+  * Neptune host, refused before any AWS call otherwise) builds the bulk loader
+  * with `failOnError` false, so Neptune skips a bad record and goes on, and
+  * applies `LoadErrorPolicy` to the result. No errors: as without the flag.
+  * Errors that are all named and at most 0.1% of the records Neptune counted
+  * (`errors * 1000 <= records`, over all jobs):
+  * `NEPTUNE_LOAD=LOADED_WITH_ERRORS ...`, one `NEPTUNE_LOAD_SKIPPED` line per
+  * named record, a `NEPTUNE_LOAD_SKIPPED_SUMMARY` line, `LOADER_WARNING`, the
+  * report with `graph.status` LOADED_WITH_ERRORS, `result`
+  * SUCCEEDED_WITH_WARNINGS and a `graph.errors` object, then
+  * `LOADER_RESULT=SUCCEEDED_WITH_WARNINGS warnings=graph-load-errors:<n>` last
+  * and exit 0. Anything else (over the threshold, an error that is not named, a
+  * truncated list, a failed job) is `NEPTUNE_LOAD=FAILED` and exit 1. Without
+  * the flag nothing changes.
+  *
   * An `OutOfMemoryError` in any phase prints a short `LOADER_OOM phase=<name>`
   * line, writes a FAILED report as every other failure does (the loader writes
   * no ledger entry for any failure), then prints `LOADER_RESULT=FAILED
@@ -102,9 +117,12 @@ object AwsIngestMain:
   val EnvLoadRoleArn = "SCHOLARCHAIN_NEPTUNE_LOAD_ROLE_ARN"
   val DefaultNeptunePort = 8182
   val GraphOnlyFlag = "--graph-only"
-  val Usage = s"usage: AwsIngestMain <runId> [$GraphOnlyFlag]"
+  val TolerateFlag = "--tolerate-load-errors"
+  val KnownOptions: Vector[String] = Vector(GraphOnlyFlag, TolerateFlag)
+  val Usage = s"usage: AwsIngestMain <runId> [$GraphOnlyFlag] [$TolerateFlag]"
   val GraphOnlyMode = "graph-only"
   val IngestSkipped = "SKIPPED(graph-only)"
+  val ResultWithWarnings = "SUCCEEDED_WITH_WARNINGS"
   val GraphReportName = "graph-report.json"
   val GraphRunName = "graph-run.json"
   val GraphReportVersion = "scholarchain.rag.aws-graph-report/1"
@@ -134,7 +152,8 @@ object AwsIngestMain:
       neptunePort: Int,
       loadRoleArn: Option[String],
       runId: String,
-      graphOnly: Boolean = false
+      graphOnly: Boolean = false,
+      tolerateLoadErrors: Boolean = false
   ):
     /** True when Neptune is part of the session: the graph step is required. */
     def graphRequired: Boolean = neptuneHost.isDefined
@@ -193,18 +212,21 @@ object AwsIngestMain:
     // The pipeline script passes any `--x` option through unchecked, so an
     // unknown option stops here, before a client is built.
     val (options, positional) = args.toVector.partition(_.startsWith("--"))
-    options.find(_ != GraphOnlyFlag).foreach { option =>
+    options.find(!KnownOptions.contains(_)).foreach { option =>
       refuse(
         s"Unknown option ${option.take(40).filterNot(_.isControl)}. $Usage"
       )
     }
-    Fail.unless(
-      options.size <= 1,
-      ErrorCode.InvalidQuery,
-      s"The option $GraphOnlyFlag is given more than once. $Usage"
-    )
+    KnownOptions.foreach { name =>
+      Fail.unless(
+        options.count(_ == name) <= 1,
+        ErrorCode.InvalidQuery,
+        s"The option $name is given more than once. $Usage"
+      )
+    }
     Fail.unless(positional.size == 1, ErrorCode.InvalidQuery, Usage)
-    val graphOnly = options.nonEmpty
+    val graphOnly = options.contains(GraphOnlyFlag)
+    val tolerate = options.contains(TolerateFlag)
     val runId = positional.head.trim
     Fail.unless(
       runId.matches(runIdPattern),
@@ -229,6 +251,11 @@ object AwsIngestMain:
       ErrorCode.InvalidQuery,
       s"$GraphOnlyFlag needs $EnvNeptuneHost: the graph load is its only work"
     )
+    Fail.unless(
+      !tolerate || neptune.isDefined,
+      ErrorCode.InvalidQuery,
+      s"$TolerateFlag needs $EnvNeptuneHost: it applies to the graph load"
+    )
     Config(
       checked(EnvRegion, required(env, EnvRegion), regionPattern),
       checked(EnvDataBucket, required(env, EnvDataBucket), bucketPattern),
@@ -238,7 +265,8 @@ object AwsIngestMain:
       neptune.fold(DefaultNeptunePort)(_._2),
       neptune.map(_._3),
       runId,
-      graphOnly
+      graphOnly,
+      tolerate
     )
 
   /** Builds every client through `AwsClients` (a region and nothing else), the
@@ -273,7 +301,10 @@ object AwsIngestMain:
       store,
       config.dataBucket,
       config.region,
-      role
+      role,
+      // Neptune skips a bad record only when the operator asked for it; the
+      // policy that decides whether the result is acceptable is `LoadErrorPolicy`.
+      failOnError = !config.tolerateLoadErrors
     )
     val backend = IngestMain.Backend(
       embedder,
@@ -392,7 +423,15 @@ object AwsIngestMain:
          else "")
     }
 
-  private def graphJson(result: GraphStep.Result): ujson.Value = result match
+  /** `assessed` is present only under `--tolerate-load-errors` and only for a
+    * load that returned. A tolerated load is `LOADED_WITH_ERRORS` with its
+    * errors and a warning; a rejected one stays `FAILED`, keeping the errors it
+    * was judged on. Without the flag the JSON is exactly what it always was.
+    */
+  private def graphJson(
+      result: GraphStep.Result,
+      assessed: Option[LoadErrorPolicy.Assessment]
+  ): ujson.Value = result match
     case GraphStep.Result.Skipped(reason, missing) =>
       ujson.Obj(
         "status" -> "SKIPPED",
@@ -400,46 +439,77 @@ object AwsIngestMain:
         "missingTables" -> ujson.Arr.from(missing.map(ujson.Str(_)))
       )
     case GraphStep.Result.Failed(reason) =>
-      ujson.Obj("status" -> "FAILED", "reason" -> reason)
-    case GraphStep.Result.Loaded(exported, load) =>
-      ujson.Obj(
-        "status" -> "LOADED",
-        "vertices" -> exported.vertexCount,
-        "edges" -> exported.edgeCount,
-        "normalizedValues" -> exported.normalizedValues,
-        "manifestKey" -> exported.manifestKey,
-        "files" -> ujson.Arr.from(exported.files.map { f =>
-          ujson.Obj(
-            "key" -> f.key,
-            "kind" -> f.kind,
-            "label" -> f.label,
-            "rows" -> f.rows
-          )
-        }),
-        "inserted" -> load.inserted,
-        "unchanged" -> load.unchanged,
-        "jobs" -> ujson.Arr.from(load.jobs.map(GraphStep.jobJson))
+      val failed = ujson.Obj("status" -> "FAILED", "reason" -> reason)
+      assessed.foreach(a =>
+        failed("errors") = LoadErrorPolicy.errorsJson(a.errors)
       )
+      failed
+    case loaded: GraphStep.Result.Loaded =>
+      val json = loadedJson(loaded)
+      assessed.filter(_.tolerated).foreach { a =>
+        json("status") = "LOADED_WITH_ERRORS"
+        json("warning") = LoadErrorPolicy.warning(a.errors)
+        json("errors") = LoadErrorPolicy.toleratedErrorsJson(a.errors)
+      }
+      json
 
-  private def graphLines(result: GraphStep.Result): Vector[String] =
+  private def loadedJson(loaded: GraphStep.Result.Loaded): ujson.Obj =
+    val GraphStep.Result.Loaded(exported, load) = loaded
+    ujson.Obj(
+      "status" -> "LOADED",
+      "vertices" -> exported.vertexCount,
+      "edges" -> exported.edgeCount,
+      "normalizedValues" -> exported.normalizedValues,
+      "manifestKey" -> exported.manifestKey,
+      "files" -> ujson.Arr.from(exported.files.map { f =>
+        ujson.Obj(
+          "key" -> f.key,
+          "kind" -> f.kind,
+          "label" -> f.label,
+          "rows" -> f.rows
+        )
+      }),
+      "inserted" -> load.inserted,
+      "unchanged" -> load.unchanged,
+      "jobs" -> ujson.Arr.from(load.jobs.map(GraphStep.jobJson))
+    )
+
+  private def graphLines(
+      result: GraphStep.Result,
+      assessed: Option[LoadErrorPolicy.Assessment]
+  ): Vector[String] =
     result match
+      case GraphStep.Result.Loaded(_, load) if assessed.exists(_.tolerated) =>
+        val errors = assessed.get.errors
+        Vector(LoadErrorPolicy.loadedWithErrorsLine(errors)) ++
+          LoadErrorPolicy.skippedLines(errors) ++
+          load.jobs.map(jobLine) ++ LoadErrorPolicy.jobStatusLines(errors) ++
+          Vector(
+            LoadErrorPolicy.summaryLine(errors),
+            s"LOADER_WARNING ${LoadErrorPolicy.warning(errors)}",
+            LoadErrorPolicy.scopeText(errors)
+          )
       case GraphStep.Result.Skipped(reason, _) =>
         Vector(
           s"NEPTUNE_LOAD=SKIPPED reason=$reason",
           "LOADER_SCOPE=vectors-only (the graph was NOT loaded)"
         )
       case GraphStep.Result.Failed(reason) =>
-        Vector(s"NEPTUNE_LOAD=FAILED reason=$reason")
+        Vector(s"NEPTUNE_LOAD=FAILED reason=$reason") ++
+          assessed.toVector.flatMap(a =>
+            LoadErrorPolicy.jobStatusLines(a.errors)
+          )
       case GraphStep.Result.Loaded(exported, load) =>
         Vector(
           s"NEPTUNE_LOAD=LOADED vertices=${exported.vertexCount} " +
             s"edges=${exported.edgeCount} files=${exported.files.size} " +
             s"jobs=${load.jobs.size}"
-        ) ++ load.jobs.map { j =>
-          s"NEPTUNE_JOB source=${j.source} status=${j.status} " +
-            s"records=${j.counts.totalRecords} " +
-            s"duplicates=${j.counts.totalDuplicates} errors=${j.counts.errors}"
-        } :+ "LOADER_SCOPE=vectors-and-graph"
+        ) ++ load.jobs.map(jobLine) :+ "LOADER_SCOPE=vectors-and-graph"
+
+  private def jobLine(j: LoaderJobReport): String =
+    s"NEPTUNE_JOB source=${j.source} status=${j.status} " +
+      s"records=${j.counts.totalRecords} " +
+      s"duplicates=${j.counts.totalDuplicates} errors=${j.counts.errors}"
 
   /** The head of every object a graph-only run writes: it says in the object
     * itself that no vector was ingested, so it cannot pass for an ingest
@@ -483,13 +553,17 @@ object AwsIngestMain:
           s"LOADER_RESULT=FAILED reason=${reason.linesIterator.nextOption().getOrElse("").take(MaxResultReasonChars)}"
       )
       if success then 0 else code
+    // A load with tolerated errors is a success that says so in its last line.
+    def finishWarned(warnings: String): Int =
+      out(s"LOADER_RESULT=$ResultWithWarnings warnings=$warnings")
+      0
     val config =
       try Right(parseConfig(args, env))
       catch case error: StorageException => Left(error.getMessage)
     config match
       case Left(message) => finish(false, message, 2)
       case Right(cfg)    =>
-        runConfigured(cfg, out, wiringFor, clock, began, finish)
+        runConfigured(cfg, out, wiringFor, clock, began, finish, finishWarned)
 
   private def runConfigured(
       config: Config,
@@ -497,7 +571,8 @@ object AwsIngestMain:
       wiringFor: Config => Wiring,
       clock: () => Instant,
       began: Long,
-      finish: (Boolean, String, Int) => Int
+      finish: (Boolean, String, Int) => Int,
+      finishWarned: String => Int
   ): Int =
     val work = Files.createTempDirectory("scholarchain-loader-")
     val graphOnly = config.graphOnly
@@ -588,7 +663,7 @@ object AwsIngestMain:
           phase("ingest", "done")
           Some(ingested)
       phase("graph", "start")
-      val graph: GraphStep.Result =
+      val graphRun: GraphStep.Result =
         if outcome.exists(!_.success) then
           GraphStep.Result.Skipped(
             "the vector ingest did not succeed",
@@ -624,7 +699,22 @@ object AwsIngestMain:
                   GraphStep.Result.Failed(
                     s"${error.getClass.getSimpleName}: ${error.getMessage}"
                   )
-      val lines = graphLines(graph)
+      // The tolerance applies only when the operator passed the flag. A load
+      // that Neptune ended with errors is judged here; one the policy rejects
+      // becomes a failed graph step, exactly as a thrown load does.
+      val assessed: Option[LoadErrorPolicy.Assessment] = graphRun match
+        case GraphStep.Result.Loaded(_, load) if config.tolerateLoadErrors =>
+          Some(LoadErrorPolicy.assessment(load))
+        case _ => None
+      val graph: GraphStep.Result = assessed match
+        case Some(LoadErrorPolicy.Assessment(_, rejected)) =>
+          rejected match
+            case LoadErrorPolicy.Verdict.Rejected(why) =>
+              GraphStep.Result.Failed(why)
+            case _ => graphRun
+        case None => graphRun
+      val warned = assessed.filter(_.tolerated)
+      val lines = graphLines(graph, assessed)
       (if graphOnly then
          lines.filterNot(_.startsWith("LOADER_SCOPE=")) :+
            "LOADER_SCOPE=graph-only (the vector ingest was NOT run by this run)"
@@ -677,13 +767,24 @@ object AwsIngestMain:
         else if graph.isInstanceOf[GraphStep.Result.Loaded] then
           "vectors-and-graph"
         else "vectors-only"
-      report("graph") = graphJson(graph)
+      val resultText =
+        if !success then "FAILED"
+        else if warned.isDefined then ResultWithWarnings
+        else "SUCCESS"
+      report("graph") = graphJson(graph, assessed)
       report("graphRequired") = config.graphRequired
-      report("result") = if success then "SUCCESS" else "FAILED"
+      report("result") = resultText
       if !success then report("reason") = reason
       run("elapsedSeconds") = elapsed
-      run("graph") = graphJson(graph)
-      run("result") = if success then "SUCCESS" else "FAILED"
+      run("graph") = graphJson(graph, assessed)
+      run("result") = resultText
+      warned.foreach { a =>
+        Vector(report, run).foreach { body =>
+          body("warning") = LoadErrorPolicy.warning(a.errors)
+          body("warnings") =
+            ujson.Arr(ujson.Str(LoadErrorPolicy.warningTag(a.errors)))
+        }
+      }
       exportRunId.foreach { id =>
         out(
           s"RUN_ID_MATCH=${id == config.runId} export_run=$id argument=${config.runId}"
@@ -743,7 +844,11 @@ object AwsIngestMain:
         case Some(why) =>
           out(s"LOADER_REPORT=FAILED reason=$why")
           finish(false, s"the report could not be written: $why", 1)
-        case None => finish(success, reason, 1)
+        case None =>
+          warned match
+            case Some(a) if success =>
+              finishWarned(LoadErrorPolicy.warningTag(a.errors))
+            case _ => finish(success, reason, 1)
     catch
       case _: OutOfMemoryError =>
         // The frames that held the data are gone, so these lines can be built.

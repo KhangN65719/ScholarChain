@@ -1009,15 +1009,39 @@ final case class LoaderCounts(
 ):
   def errors: Long = parsingErrors + datatypeMismatchErrors + insertErrors
 
+/** One entry of the loader's `errors.errorLogs` (GetLoaderJobStatus with
+  * `details=true&errors=true`): `errorCode`, `errorMessage`, `fileName` and
+  * `recordNum`. Every field is masked of account IDs, flattened to one line and
+  * cut; `file` is the base name of the S3 object.
+  */
+final case class LoadErrorRecord(
+    code: String,
+    file: String,
+    record: String,
+    message: String
+):
+  def text: String = s"$code $file record $record: $message"
+
+  def line(job: Int): String =
+    s"NEPTUNE_LOAD_ERROR job=$job file=$file code=$code record=$record " +
+      s"message=$message"
+
 /** One loader job: the S3 source, its load ID, the terminal status text, the
   * counts the loader reported and the first error entries it listed.
+  *
+  * `errorRecords` holds the error records fetched for a job that was not a
+  * clean success (at most 500; empty for a clean job). `errorsTruncated` is
+  * true when that cap was reached with more errors counted, or when an error
+  * page could not be fetched.
   */
 final case class LoaderJobReport(
     source: String,
     loadId: String,
     status: String,
     counts: LoaderCounts,
-    errorSamples: Vector[String]
+    errorSamples: Vector[String],
+    errorRecords: Vector[LoadErrorRecord] = Vector.empty,
+    errorsTruncated: Boolean = false
 )
 
 /** `inserted`, `updated` and `unchanged` are what the in-memory graph can tell
@@ -1025,13 +1049,39 @@ final case class LoaderJobReport(
   * records neither duplicated nor in error, `unchanged` the duplicates and
   * `updated` zero: derived, not reported. `jobs` carries what the loader did
   * report, per file; it is empty for the in-memory graph.
+  *
+  * The aggregate accessors sum `jobs` and decide nothing: `totalRecords`
+  * (records the loader processed), `insertErrors`, `parsingErrors`,
+  * `datatypeMismatchErrors` and `totalErrors`, `errorRecords` (every named
+  * record, per job in load order), `errorsTruncated` (any job's list was cut or
+  * failed to fetch) and `allErrorsNamed` (nothing truncated and every job named
+  * at least as many records as it counted errors). With no jobs, all counts are
+  * zero and `allErrorsNamed` is true.
   */
 final case class BulkLoadResult(
     inserted: Int,
     updated: Int,
     unchanged: Int,
     jobs: Vector[LoaderJobReport] = Vector.empty
-)
+):
+  def totalRecords: Long = jobs.map(_.counts.totalRecords).sum
+  def insertErrors: Long = jobs.map(_.counts.insertErrors).sum
+  def parsingErrors: Long = jobs.map(_.counts.parsingErrors).sum
+
+  def datatypeMismatchErrors: Long =
+    jobs.map(_.counts.datatypeMismatchErrors).sum
+
+  def totalErrors: Long = jobs.map(_.counts.errors).sum
+
+  /** `(source, final status)` of every job, in load order. */
+  def jobStatuses: Vector[(String, String)] =
+    jobs.map(job => (job.source, job.status))
+  def errorRecords: Vector[LoadErrorRecord] = jobs.flatMap(_.errorRecords)
+  def errorsTruncated: Boolean = jobs.exists(_.errorsTruncated)
+
+  def allErrorsNamed: Boolean =
+    !errorsTruncated &&
+      jobs.forall(job => job.errorRecords.size.toLong >= job.counts.errors)
 
 /** Port for the Neptune bulk loader. The loader is non-ACID, so a load must be
   * idempotent by ID. `AwsNeptuneBulkLoader` is the AWS-backed adapter.
