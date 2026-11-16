@@ -22,6 +22,19 @@ final class JsonlExportSource private (
 ) extends TableSource:
   def tableNames: Set[String] = plan.keySet
 
+  /** Files, rows and bytes per table as the verified manifest declares them,
+    * sorted by table name. Reads no row.
+    */
+  def tableStats: Vector[JsonlExportSource.TableStats] =
+    plan.toVector.sortBy(_._1).map { case (table, files) =>
+      JsonlExportSource.TableStats(
+        table,
+        files.size,
+        files.map(_.rows).sum,
+        files.map(_.bytes).sum
+      )
+    }
+
   def rows(table: String): Vector[Row] =
     plan
       .getOrElse(
@@ -36,6 +49,13 @@ final class JsonlExportSource private (
 object JsonlExportSource:
   val ManifestName = "export-manifest.json"
   val ManifestType = "scholarchain.spark.jsonl-export-manifest/1"
+
+  final case class TableStats(
+      table: String,
+      files: Int,
+      rows: Long,
+      bytes: Long
+  )
 
   private[storage] final case class PlannedFile(
       path: String,

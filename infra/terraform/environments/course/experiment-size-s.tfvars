@@ -21,6 +21,21 @@ emr_managed_scaling_max_units = 3
 
 service_desired_count = 0
 
+# Work order 108 (human decision, S run 8): the Fargate loader task died with
+# OutOfMemoryError in the Neptune graph phase at the module default of 0.5 vCPU and
+# 1024 MiB (JVM heap 75 percent of that, about 768 MiB). The S session now gives it
+# 2 vCPU and 8 GiB (heap about 6 GiB). 2048 CPU allows 4096 to 16384 MiB in 1024 steps,
+# so 8192 is a valid Fargate pair. Ephemeral storage is not set and stays at the
+# 20 GiB default (the S export is 324 MB). Fargate X86_64 Linux, us-east-2, about
+# 0.1165 USD an hour against 0.0247 (rates from memory, UNVERIFIED): about +0.09 USD
+# an hour while the loader runs. The loader task definition is replaced; the state
+# machine references it without a revision, so it changes in place only because the
+# new ARN is unknown at plan time (the same shape as an image-tag change). The
+# session-down overlay does not set these, so the next session-down plan returns the
+# loader to 512 and 1024.
+loader_cpu    = 2048
+loader_memory = 8192
+
 # Work orders 49 and 52 (human decisions D31 and D32, 2026-11-15, after S runs 3 and
 # 4). S run 3: the one on-node pipeline step was cut by the old 1800 s cap while
 # Spark was still running. S run 4 (3600 s step cap): the on-node Spark limit of

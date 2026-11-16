@@ -43,6 +43,11 @@
 #                     (no EMR cluster: it reruns only the loader against an export that
 #                     is already in S3); any other
 #                     shape is refused (scripts/README.md, "Execution input contract").
+#                     A loader-only graph rerun passes the loader option as one more
+#                     loader_command element, for example ["scholarchain.rag.AwsIngestMain",
+#                     RUNSLUG, "--graph-only"] (work order 108); no input key is added.
+#                     Elements that start with -- are skipped by the run-id check below,
+#                     and the run prints and records LOADER_GRAPH_ONLY=yes.
 #                     RUNSLUG is exactly run-v1- plus a lower-case canonical UUID (43
 #                     characters), the path-safe form of the stable run id run:v1:<uuid>
 #                     that core requires. Make one with
@@ -206,12 +211,20 @@ if mode in ("pipeline", "loader-only"):
         )
     # A last loader argument that looks like a run id must be the id of this run: a
     # different one would make the loader read the export of another run. The element is
-    # not echoed, because the key-material scan has not run yet.
-    if cmd[-1].startswith("run-") and cmd[-1] != run_id:
+    # not echoed, because the key-material scan has not run yet. Elements that start with
+    # two hyphens are options, for example the trailing --graph-only of work order 108,
+    # and are skipped here, so an option after the run id cannot hide the run id from
+    # this check. A command with no trailing option is checked exactly as before.
+    positional = [x for x in cmd if not x.startswith("--")]
+    if positional and positional[-1].startswith("run-") and positional[-1] != run_id:
         sys.exit(
             "EVIDENCE: the last element of loader_command starts with run- but is not equal to run_id; "
             "the loader would read the export of another run (the element is not printed)"
         )
+    # Recorded and printed so the log shows a graph-only loader run. No input key is
+    # added: the flag travels inside loader_command, which the input digest already binds.
+    if "--graph-only" in cmd:
+        out.append("LOADER_GRAPH_ONLY=yes")
 print("\n".join(out))
 PY
 )" || die "execution input refused (see the line above); contract in scripts/README.md, Execution input contract"
@@ -219,6 +232,7 @@ INPUT_MODE="$(printf '%s\n' "$INPUT_FIELDS" | awk -F= '$1 == "MODE" { print $2; 
 INPUT_SNAPSHOT="$(printf '%s\n' "$INPUT_FIELDS" | awk -F= '$1 == "SNAPSHOT" { print $2; exit }')"
 INPUT_SNAPSHOTS="$(printf '%s\n' "$INPUT_FIELDS" | awk -F= '$1 == "SNAPSHOTS" { sub(/^[^=]*=/, ""); print; exit }')"
 INPUT_RUN_ID="$(printf '%s\n' "$INPUT_FIELDS" | awk -F= '$1 == "RUN_ID" { print $2; exit }')"
+INPUT_GRAPH_ONLY="$(printf '%s\n' "$INPUT_FIELDS" | awk -F= '$1 == "LOADER_GRAPH_ONLY" { print $2; exit }')"
 # Output locations are fixed by the on-node scripts: run prefixes named by run_id, or
 # the capability report prefix (its time stamp is chosen on the node). Bucket names are
 # not in the input, so only the key prefixes are recorded, plus any s3:// URI the
@@ -249,6 +263,9 @@ else
   printf 'OUTPUT_LOCATIONS=none-named (no s3:// URI appears in the input file)\n'
 fi
 printf 'INPUT_MODE=%s\n' "$INPUT_MODE"
+if [[ "$INPUT_GRAPH_ONLY" == "yes" ]]; then
+  printf 'LOADER_GRAPH_ONLY=yes (loader_command carries --graph-only; it takes effect only with a loader image built from code that implements the flag)\n'
+fi
 for u in $OUTPUT_PREFIXES; do
   printf 'OUTPUT_PREFIX=%s (key prefix in the data bucket)\n' "$u"
 done
@@ -355,6 +372,9 @@ else
   rec OUTPUT_LOCATIONS none-named
 fi
 rec INPUT_MODE "$INPUT_MODE"
+if [[ "$INPUT_GRAPH_ONLY" == "yes" ]]; then
+  rec LOADER_GRAPH_ONLY yes
+fi
 for u in $OUTPUT_PREFIXES; do
   rec OUTPUT_PREFIX "$u"
 done

@@ -2458,6 +2458,12 @@ J_RUN="\"$PI_RUN\""
 # with run- and equals run_id, so every accepted case here also exercises the "equal is
 # accepted" side of the loader_command check (work order 46).
 J_LOAD="[\"loader\",\"--run\",\"$PI_RUN\"]"
+# Work order 110 (infra work order 108): a trailing option element of loader_command. The script skips every
+# element that starts with two hyphens when it finds the element to compare with run_id, and prints and
+# records LOADER_GRAPH_ONLY=yes when "--graph-only" is among the elements.
+LO_CLS="scholarchain.rag.AwsIngestMain"
+J_LOAD_GO="[\"loader\",\"--run\",\"$PI_RUN\",\"--graph-only\"]"
+J_LOAD_AIM_GO="[\"$LO_CLS\",\"$PI_RUN\",\"--graph-only\"]"
 # shellcheck disable=SC2016
 J_CMDSUB='"$(id)"'
 
@@ -2662,6 +2668,7 @@ pi_shape_refuse() {
     a_not_out "identity-check"
     a_not_out "IDENTITY_OK"
     a_not_out "EXECUTION_ARN="
+    a_not_out "LOADER_GRAPH_ONLY"
     if [ -n "$noprint" ] && grep -qF -- "$noprint" "$OUT" "$ERR"; then note_fail "the text that must not be printed was printed"; fi
     if [ "$frag" = "$PI_SHAPE_TEXT" ]; then
       a_err "characters; the value is not printed)"
@@ -2683,6 +2690,7 @@ pi_accept() {
   a_out "APPROVAL_VERIFIED action=pipeline"
   a_out "APPROVAL_NOT_CONSUMED dry-run"
   a_out_re " run_id=$want\$"
+  a_not_out "LOADER_GRAPH_ONLY"
   case_end
 }
 
@@ -2716,8 +2724,15 @@ pi_shape_refuse loader-last-element-run-dash-with-key-material "$(pi_json "$J_SN
 pi_accept loader-last-element-equals-run-id "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "$J_LOAD")" "$PI_RUN"
 pi_accept loader-last-element-not-a-run-value "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" '["loader","--run","harness-run-1"]')" "$PI_RUN"
 pi_accept loader-last-element-differs-only-in-prefix-case "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "[\"loader\",\"Run-v1-${PI_RUN_OTHER#run-v1-}\"]")" "$PI_RUN"
-pi_accept loader-earlier-element-is-another-run-id "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "[\"loader\",\"$PI_RUN_OTHER\",\"--flag\"]")" "$PI_RUN"
+# Work order 110: this case used to end in a bare "--flag" after the other run id. Since infra work order 108
+# the check skips elements that start with two hyphens, so that command's last remaining element is the other
+# run id and it is refused (pi_shape_refuse cases below). The case keeps its subject, a different run id in an
+# EARLIER position, and now ends with the real run id after a --run option.
+pi_accept loader-earlier-element-is-another-run-id "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "[\"loader\",\"$PI_RUN_OTHER\",\"--run\",\"$PI_RUN\"]")" "$PI_RUN"
 pi_accept loader-single-element-equals-run-id "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "[\"$PI_RUN\"]")" "$PI_RUN"
+# Work order 110: an option element after another run id must not hide it (pipeline mode shares the check).
+pi_shape_refuse loader-other-run-id-then-trailing-graph-only "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "[\"loader\",\"--run\",\"$PI_RUN_OTHER\",\"--graph-only\"]")" "$PI_LOADER_TEXT" "$PI_RUN_OTHER"
+pi_shape_refuse loader-other-run-id-then-trailing-unknown-option "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "[\"loader\",\"$PI_RUN_OTHER\",\"--flag\"]")" "$PI_LOADER_TEXT" "$PI_RUN_OTHER"
 
 # Boundary: exactly 43 characters of the right shape is accepted (all f, a different valid id).
 RUN_ALLF="run-v1-ffffffff-ffff-ffff-ffff-ffffffffffff"
@@ -2900,6 +2915,7 @@ lo_refuse() {
     a_not_out "identity-check"
     a_not_out "IDENTITY_OK"
     a_not_out "EXECUTION_ARN="
+    a_not_out "LOADER_GRAPH_ONLY"
     if [ -n "$noprint" ] && grep -qF -- "$noprint" "$OUT" "$ERR"; then note_fail "the text that must not be printed was printed"; fi
     if [ "$frag" = "$PI_SHAPE_TEXT" ]; then
       a_err "characters; the value is not printed)"
@@ -2923,6 +2939,32 @@ lo_accept() {
   a_out "APPROVAL_NOT_CONSUMED dry-run"
   a_out "OUTPUT_PREFIX=reports/runs/$want/loader/ (key prefix in the data bucket)"
   a_out "DATASET_SNAPSHOT=n/a (loader-only reads no dataset) run_id=$want"
+  a_not_out "LOADER_GRAPH_ONLY"
+  case_end
+}
+
+# lo_accept_opt ID JSON RUNID GO: like lo_accept, for a loader_command that carries option elements (work
+# order 110). GO is yes when the dry run must print exactly one LOADER_GRAPH_ONLY=yes line (after the
+# INPUT_MODE line and before the OUTPUT_PREFIX line) and no when it must print no LOADER_GRAPH_ONLY text.
+lo_accept_opt() {
+  local id="$1" json="$2" want="$3" go="$4" f="$REC/loo-$1.json"
+  printf '%s\n' "$json" > "$f"
+  pi_dry_with "$f" "$REC/loo-$id.env"
+  case_begin "14.pipeline.loader-only.$id"
+  a_dry_common
+  a_out "INPUT_MODE=loader-only"
+  a_out "APPROVAL_VERIFIED action=pipeline"
+  a_out "APPROVAL_NOT_CONSUMED dry-run"
+  a_out "OUTPUT_PREFIX=reports/runs/$want/loader/ (key prefix in the data bucket)"
+  a_out "DATASET_SNAPSHOT=n/a (loader-only reads no dataset) run_id=$want"
+  if [ "$go" = yes ]; then
+    a_out "LOADER_GRAPH_ONLY=yes (loader_command carries --graph-only; it takes effect only with a loader image built from code that implements the flag)"
+    a_out_re '^LOADER_GRAPH_ONLY=yes \('
+    [ "$(grep -c 'LOADER_GRAPH_ONLY' "$OUT")" = "1" ] || note_fail "expected exactly one LOADER_GRAPH_ONLY line, found $(grep -c 'LOADER_GRAPH_ONLY' "$OUT")"
+    a_order "INPUT_MODE=loader-only" "LOADER_GRAPH_ONLY=yes" "OUTPUT_PREFIX=reports/runs/$want/loader/"
+  else
+    a_not_out "LOADER_GRAPH_ONLY"
+  fi
   case_end
 }
 
@@ -2944,6 +2986,8 @@ a_not_out "reports/capability/"
 a_not_out "DATASET_SNAPSHOT=not-recorded"
 a_not_out "DATASET_SNAPSHOT=$PI_SNAP"
 a_not_out "capability-check reads no dataset"
+# Work order 110: a loader_command without a trailing option behaves as before and prints no graph-only line.
+a_not_out "LOADER_GRAPH_ONLY"
 a_out "OUTPUT_LOCATIONS=none-named"
 a_out "LIMITS size=small max_minutes=45 spend_ceiling_usd=0.50 hourly_burn_usd=0.47 stop_on=first-failure cost_ceiling_usd=$CEIL"
 a_out "APPROVAL_VERIFIED action=pipeline"
@@ -3039,9 +3083,111 @@ lo_refuse last-element-run-dash-with-key-material "$(lo_json "$J_RUN" "[\"loader
 # all-f id.
 lo_accept last-element-is-not-a-run-value "$(lo_json "$J_RUN" '["loader","--run","harness-run-1"]')" "$PI_RUN"
 lo_accept last-element-differs-only-in-prefix-case "$(lo_json "$J_RUN" "[\"loader\",\"Run-v1-${PI_RUN_OTHER#run-v1-}\"]")" "$PI_RUN"
-lo_accept earlier-element-is-another-run-id "$(lo_json "$J_RUN" "[\"loader\",\"$PI_RUN_OTHER\",\"--flag\"]")" "$PI_RUN"
+# Work order 110: as in pipeline mode, the old command ended in a bare "--flag" after the other run id, which
+# the option-skipping check (infra work order 108) now refuses (lo_refuse cases below). The subject is kept:
+# a different run id in an EARLIER position, the real run id last.
+lo_accept earlier-element-is-another-run-id "$(lo_json "$J_RUN" "[\"loader\",\"$PI_RUN_OTHER\",\"--run\",\"$PI_RUN\"]")" "$PI_RUN"
 lo_accept single-element-equals-run-id "$(lo_json "$J_RUN" "[\"$PI_RUN\"]")" "$PI_RUN"
 lo_accept all-f-run-id-of-43-chars "$(lo_json "\"$RUN_ALLF\"" "[\"loader\",\"--run\",\"$RUN_ALLF\"]")" "$RUN_ALLF"
+
+# Work order 110 (infra work order 108): a trailing --graph-only element of loader_command.
+# Read from run-bounded-pipeline.sh, and mirrored here exactly:
+#  - the run-id check compares the LAST element that does not start with two hyphens with run_id, so an
+#    option element, "--graph-only" or any other "--" element, can never hide a different run id;
+#  - the script prints LOADER_GRAPH_ONLY=yes (and records LOADER_GRAPH_ONLY yes) when the exact element
+#    "--graph-only" is among the elements, wherever it stands; nothing is printed otherwise;
+#  - the script does NOT reject any other option-like element: every "--" element is skipped, and its
+#    spelling is not checked (scripts/README.md says so). A single-hyphen element is not an option to the
+#    check: it is compared like any other element and, not starting with run-, is accepted.
+# Refused: an option after another run id does not hide the mismatch. The id is never printed.
+lo_refuse graph-only-trailing-does-not-hide-another-run-id "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"$PI_RUN_OTHER\",\"--graph-only\"]")" "$PI_LOADER_TEXT" "$PI_RUN_OTHER"
+lo_refuse graph-only-trailing-does-not-hide-bare-run-dash "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"run-\",\"--graph-only\"]")" "$PI_LOADER_TEXT"
+lo_refuse graph-only-trailing-does-not-hide-run-dash-with-key-material "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"run-$FAKE_AKIA\",\"--graph-only\"]")" "$PI_LOADER_TEXT" "$FAKE_AKIA"
+lo_refuse unknown-trailing-option-does-not-hide-another-run-id "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"$PI_RUN_OTHER\",\"--other-option\"]")" "$PI_LOADER_TEXT" "$PI_RUN_OTHER"
+lo_refuse two-trailing-options-do-not-hide-another-run-id "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"$PI_RUN_OTHER\",\"--graph-only\",\"--other-option\"]")" "$PI_LOADER_TEXT" "$PI_RUN_OTHER"
+lo_refuse graph-only-before-another-run-id-is-still-refused "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"--graph-only\",\"$PI_RUN_OTHER\"]")" "$PI_LOADER_TEXT" "$PI_RUN_OTHER"
+# The shape rule still runs before the loader rule, with the option present.
+lo_refuse graph-only-with-a-bad-run-id-shape-gives-the-shape-text "$(lo_json '"s-20261114-2"' "[\"$LO_CLS\",\"$PI_RUN_OTHER\",\"--graph-only\"]")" "$PI_SHAPE_TEXT" "$PI_RUN_OTHER" "" "$PI_LOADER_TEXT"
+
+# Accepted: the option is accepted in a dry run and is printed once, between INPUT_MODE and OUTPUT_PREFIX.
+lo_accept_opt graph-only-trailing-option-is-accepted-and-printed "$(lo_json "$J_RUN" "$J_LOAD_AIM_GO")" "$PI_RUN" yes
+lo_accept_opt graph-only-after-the-run-option-is-accepted-and-printed "$(lo_json "$J_RUN" "$J_LOAD_GO")" "$PI_RUN" yes
+lo_accept_opt graph-only-before-the-run-id-is-accepted-and-printed "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"--graph-only\",\"$PI_RUN\"]")" "$PI_RUN" yes
+lo_accept_opt graph-only-after-another-run-id-in-an-earlier-position-is-accepted-and-printed "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"$PI_RUN_OTHER\",\"--run\",\"$PI_RUN\",\"--graph-only\"]")" "$PI_RUN" yes
+# Accepted, and no graph-only line: another option is skipped by the check and is neither refused nor
+# recorded as the graph-only flag. Only the exact element --graph-only counts.
+lo_accept_opt unknown-trailing-option-is-accepted-and-prints-no-graph-only-line "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"$PI_RUN\",\"--other-option\"]")" "$PI_RUN" no
+lo_accept_opt misspelt-graph-onlyx-is-accepted-and-is-not-the-flag "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"$PI_RUN\",\"--graph-onlyx\"]")" "$PI_RUN" no
+lo_accept_opt wrong-case-graph-only-is-accepted-and-is-not-the-flag "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"$PI_RUN\",\"--Graph-Only\"]")" "$PI_RUN" no
+lo_accept_opt graph-only-with-a-value-is-accepted-and-is-not-the-flag "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"$PI_RUN\",\"--graph-only=true\"]")" "$PI_RUN" no
+lo_accept_opt single-hyphen-graph-only-is-accepted-and-is-not-the-flag "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"$PI_RUN\",\"-graph-only\"]")" "$PI_RUN" no
+
+# The option is part of what the human approves: the digest of the input file follows it, and a record made
+# for the same command without the option does not verify the command with it. The script digest is the
+# one of every other input (work order 110 adds no input key and no script code outside the block).
+printf '%s\n' "$(lo_json "$J_RUN" "$J_LOAD_GO")" > "$REC/lo-go.json"
+common_args "$ACCT" us-east-2 "$CEIL"
+SN=run-bounded-pipeline
+A=(--print-digest "${CA[@]}" "${PI_TAIL[@]}" --input-file "$REC/lo-go.json")
+run_build
+LOG_RC=$RC
+LOG_S="$(sed -n 's/^SCRIPT_DIGEST=//p' "$OUT" | head -n 1)"
+LOG_A="$(sed -n 's/^ARGS_DIGEST=//p' "$OUT" | head -n 1)"
+case_begin "14.pipeline.loader-only.graph-only-print-digest-accepted-and-the-digest-differs-from-the-same-command-without-the-option"
+a_rc 0
+[ "$LOG_RC" -eq 0 ] || note_fail "--print-digest exited $LOG_RC"
+a_out_re '^SCRIPT_DIGEST=[0-9a-f]{64}$'
+a_out_re '^ARGS_DIGEST=[0-9a-f]{64}$'
+[ "$LOG_S" = "$LO_S" ] || note_fail "SCRIPT_DIGEST differs from the one printed for the same script and another loader-only input"
+[ "$LOG_A" != "$LO_A" ] || note_fail "ARGS_DIGEST of the command with --graph-only equals that of the same command without it"
+a_trip_empty
+case_end
+
+# Control: the record made for the command without the option still verifies that command.
+A=(--dry-run "${CA[@]}" "${PI_TAIL[@]}" --input-file "$REC/lo-ok.json" --approval-record "$REC/lo-ok.env")
+run_build
+case_begin "14.pipeline.loader-only.graph-only-control-the-record-of-the-command-without-the-option-verifies-that-command"
+a_dry_common
+a_out "APPROVAL_VERIFIED action=pipeline"
+a_not_out "LOADER_GRAPH_ONLY"
+case_end
+# The same record, the command with the option: refused by the approval check, after the input was
+# accepted and printed (the input check does not read the record). Nothing is consumed or started.
+A=(--dry-run "${CA[@]}" "${PI_TAIL[@]}" --input-file "$REC/lo-go.json" --approval-record "$REC/lo-ok.env")
+run_build
+case_begin "14.pipeline.loader-only.graph-only-is-refused-under-a-record-made-for-the-command-without-the-option"
+a_refused ""
+a_out "INPUT_MODE=loader-only"
+a_out "LOADER_GRAPH_ONLY=yes ("
+a_not_out "APPROVAL_NOT_CONSUMED"
+a_not_out "EXECUTION_ARN="
+case_end
+
+# The key-material scan still covers every element, also with the option present, and never prints the match.
+printf '%s\n' "$(lo_json "$J_RUN" "[\"$LO_CLS\",\"$PI_RUN\",\"--graph-only\",\"--note=$FAKE_AKIA\"]")" > "$REC/lo-go-secret.json"
+common_args "$ACCT" us-east-2 "$CEIL"
+SN=run-bounded-pipeline
+A=(--dry-run "${CA[@]}" "${PI_TAIL[@]}" --input-file "$REC/lo-go-secret.json" --approval-record "$REC/pipeline.env")
+run_build
+case_begin "14.pipeline.loader-only.graph-only-does-not-bypass-the-key-material-scan-and-the-match-is-not-printed"
+a_refused "possible credential material"
+a_out "INPUT_MODE=loader-only"
+a_out "LOADER_GRAPH_ONLY=yes ("
+a_not_out_re '^STEP\[[0-9]+\] input-scan: ok$'
+if grep -qF -- "$FAKE_AKIA" "$OUT" "$ERR"; then note_fail "the matched text was printed"; fi
+case_end
+
+# Pipeline mode shares the Python block, so it prints the line too (infra work order 108 names loader-only
+# only; this case pins what the script does and is a finding to confirm, not a policy of this harness).
+printf '%s\n' "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "$J_LOAD_GO")" > "$REC/pia-go.json"
+pi_dry_with "$REC/pia-go.json" "$REC/pia-go.env"
+case_begin "14.pipeline.pipeline-mode.trailing-graph-only-is-accepted-and-printed-by-the-shared-input-check"
+a_dry_common
+a_out "INPUT_MODE=pipeline"
+a_out "APPROVAL_VERIFIED action=pipeline"
+a_out_re '^LOADER_GRAPH_ONLY=yes \('
+a_out_re " run_id=$PI_RUN\$"
+case_end
 
 # The key-material scan still covers the loader command in this mode and never prints the match.
 printf '%s\n' "$(lo_json "$J_RUN" "[\"loader\",\"$FAKE_AKIA\"]")" > "$REC/lo-secret.json"
@@ -3084,7 +3230,33 @@ static_loader_only_script_cases() {
   f_before "$c" 'if mode in ("pipeline", "loader-only"):' 'run_slug = re.compile('
   f_before "$c" 'fields = (("run_id", ident),)' 'run_slug.fullmatch(run_id)'
   f_before "$c" 'run_slug.fullmatch(run_id)' 'verify_approval pipeline "$EXTRA" "n/a" "n/a"'
-  f_before "$c" 'cmd[-1].startswith("run-") and cmd[-1] != run_id' 'verify_approval pipeline "$EXTRA" "n/a" "n/a"'
+  # Work order 110: infra work order 108 replaced the old test on cmd[-1] by one on the last element that does
+  # not start with two hyphens. The old needle is gone from the script and is asserted absent.
+  f_has "$c" 'positional = [x for x in cmd if not x.startswith("--")]'
+  f_has "$c" 'if positional and positional[-1].startswith("run-") and positional[-1] != run_id:'
+  f_has_not "$c" 'cmd[-1]'
+  f_before "$c" 'positional[-1].startswith("run-") and positional[-1] != run_id' 'verify_approval pipeline "$EXTRA" "n/a" "n/a"'
+  case_end
+
+  static_begin "14.pipeline.static.loader-only-graph-only-is-printed-and-recorded-only-when-the-input-carries-the-element-and-adds-no-input-key"
+  # The record is written only in a real run, which a stubbed harness cannot reach, so it is read as text.
+  # Four code lines name LOADER_GRAPH_ONLY: the Python append, the awk that reads it, the printf and the rec.
+  f_has "$c" 'if "--graph-only" in cmd:'
+  f_has "$c" 'out.append("LOADER_GRAPH_ONLY=yes")'
+  f_has "$c" '$1 == "LOADER_GRAPH_ONLY" { print $2; exit }'
+  f_has "$c" "printf 'LOADER_GRAPH_ONLY=yes (loader_command carries --graph-only; it takes effect only with a loader image built from code that implements the flag)\\n'"
+  f_count_is "$c" 'rec LOADER_GRAPH_ONLY yes' 1
+  f_count_is "$c" 'LOADER_GRAPH_ONLY' 4
+  f_count_is "$c" 'if [[ "$INPUT_GRAPH_ONLY" == "yes" ]]; then' 2
+  f_count_is "$c" '--graph-only' 2
+  f_has_not "$c" 'graph_only'
+  f_has "$c" 'allowed = {"mode", "run_id", "loader_command"}'
+  f_count_is "$c" 'allowed = {' 3
+  f_before "$c" 'out.append("LOADER_GRAPH_ONLY=yes")' 'verify_approval pipeline "$EXTRA" "n/a" "n/a"'
+  f_before "$c" "printf 'INPUT_MODE=%s\\n' \"\$INPUT_MODE\"" "printf 'LOADER_GRAPH_ONLY=yes ("
+  f_before "$c" "printf 'LOADER_GRAPH_ONLY=yes (" "printf 'OUTPUT_PREFIX=%s (key prefix in the data bucket)"
+  f_before "$c" 'rec INPUT_MODE "$INPUT_MODE"' 'rec LOADER_GRAPH_ONLY yes'
+  f_before "$c" 'rec LOADER_GRAPH_ONLY yes' 'rec OUTPUT_PREFIX "$u"'
   case_end
 
   static_begin "14.pipeline.static.loader-only-output-prefix-is-the-loader-report-only-and-the-record-says-n-a-and-the-run-id"

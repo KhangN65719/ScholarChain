@@ -795,35 +795,68 @@ object NeptuneExporter:
   val ListSeparator = ";"
   val ListColumns: Set[String] = Set("representativeWorkIds")
 
-  private def columns(props: Seq[Map[String, Prop]]): Vector[(String, String)] =
-    val names = props.flatMap(_.keys).distinct.sorted.toVector
-    names.map { name =>
-      val lists = props.flatMap(_.get(name)).exists {
-        case Prop.StrList(_) => true
-        case _               => false
-      }
+  /** One pass over the rows (a pass per column over millions of rows is what
+    * the first version did). Names come out sorted and each name's types in the
+    * order of first appearance, so the checks and their messages are the same.
+    * A list element holding the separator is refused here, with the other
+    * column checks, so no file is written before it is found.
+    */
+  private def columns(
+      props: Iterator[Map[String, Prop]]
+  ): Vector[(String, String)] =
+    val kinds = mutable.TreeMap.empty[String, mutable.LinkedHashSet[String]]
+    val lists = mutable.Set.empty[String]
+    props.foreach(_.foreach { case (name, prop) =>
+      kinds.getOrElseUpdate(name, mutable.LinkedHashSet.empty) += prop.typeName
+      prop match
+        case Prop.StrList(_) =>
+          lists += name
+          prop.cell
+        case _ => ()
+    })
+    kinds.toVector.map { case (name, types) =>
       Fail.unless(
-        !lists || ListColumns.contains(name),
+        !lists.contains(name) || ListColumns.contains(name),
         ErrorCode.MalformedRow,
         s"Property $name holds a list but is not a flattened list column"
       )
-      val kinds = props.flatMap(_.get(name)).map(_.typeName).distinct
       Fail.unless(
-        kinds.size == 1,
+        types.size == 1,
         ErrorCode.MalformedRow,
-        s"Property $name has mixed types: ${kinds.mkString(",")}"
+        s"Property $name has mixed types: ${types.mkString(",")}"
       )
-      (name, kinds.head)
+      (name, types.head)
     }
 
+  /** The file as UTF-8 bytes, written one line at a time: no list of every
+    * row's cells and no whole-file String beside the bytes.
+    */
   private def render(
       header: Vector[String],
       props: Vector[(String, String)],
-      lines: Vector[Vector[String]]
-  ): String =
+      lines: Iterator[Vector[String]]
+  ): Array[Byte] =
     val head = header ++ props.map { case (name, kind) => s"$name:$kind" }
-    (Csv.line(head) +: lines.map(Csv.line)).mkString("", "\n", "\n")
+    val bytes = new java.io.ByteArrayOutputStream
+    val writer = new java.io.OutputStreamWriter(bytes, UTF_8)
+    writer.write(Csv.line(head))
+    writer.write("\n")
+    lines.foreach { cells =>
+      writer.write(Csv.line(cells))
+      writer.write("\n")
+    }
+    writer.flush()
+    bytes.toByteArray
 
+  private def cellsOf(
+      props: Map[String, Prop],
+      cols: Vector[(String, String)]
+  ): Vector[String] =
+    cols.map { case (name, _) => props.get(name).map(_.cell).getOrElse("") }
+
+  /** Every file's columns are checked before the first write; each file's bytes
+    * are rendered only when it is put, so one file is in memory at a time.
+    */
   def exportTo(
       projection: GraphProjection,
       runId: String,
@@ -832,31 +865,30 @@ object NeptuneExporter:
     val ref = s"spark-run:$runId"
     val vertexFiles = projection.vertices.groupBy(_.label).toVector.sortBy(_._1)
     val vertexOut = vertexFiles.map { case (label, group) =>
-      val cols = columns(group.map(_.props))
-      val lines = group.map { v =>
-        Vector(v.id, v.label) ++ cols.map { case (name, _) =>
-          v.props.get(name).map(_.cell).getOrElse("")
-        }
-      }
-      val content = render(Vector(":ID", ":LABEL"), cols, lines)
+      val cols = columns(group.iterator.map(_.props))
+      val content = () =>
+        render(
+          Vector(":ID", ":LABEL"),
+          cols,
+          group.iterator.map(v =>
+            Vector(v.id, v.label) ++ cellsOf(v.props, cols)
+          )
+        )
       (s"vertices-$label.csv", "vertex", label, group.size, content)
     }
     val edgeFiles = projection.edges.groupBy(_.label).toVector.sortBy(_._1)
     val edgeOut = edgeFiles.map { case (label, group) =>
-      val cols = columns(group.map(_.props))
-      val lines = group.map { e =>
-        Vector(e.id, e.from, e.to, e.label) ++ cols.map { case (name, _) =>
-          e.props.get(name).map(_.cell).getOrElse("")
-        }
-      }
+      val cols = columns(group.iterator.map(_.props))
       val header = Vector(":ID", ":START_ID", ":END_ID", ":TYPE")
-      (
-        s"edges-$label.csv",
-        "edge",
-        label,
-        group.size,
-        render(header, cols, lines)
-      )
+      val content = () =>
+        render(
+          header,
+          cols,
+          group.iterator.map(e =>
+            Vector(e.id, e.from, e.to, e.label) ++ cellsOf(e.props, cols)
+          )
+        )
+      (s"edges-$label.csv", "edge", label, group.size, content)
     }
     val results = (vertexOut ++ edgeOut).map {
       case (name, kind, label, count, content) =>
@@ -867,7 +899,7 @@ object NeptuneExporter:
           runId,
           name
         )
-        val put = store.putImmutable(key, content.getBytes(UTF_8), ref)
+        val put = store.putImmutable(key, content(), ref)
         (NeptuneFile(key, kind, label, count, put.meta.sha256), put)
     }
     val files = results.map(_._1)

@@ -62,6 +62,30 @@ final class CountingEmbedder(inner: Embedder) extends Embedder:
   * that it succeeded (`INGEST_STEP=`, `NEPTUNE_LOAD=` and `LOADER_REPORT=` say
   * that), and a phase that throws prints `start` and no `done`.
   *
+  * Inside the graph phase, `LOADER_PHASE name=<graph-open|graph-project|
+  * graph-export|graph-load> state=<start|done> elapsed_s=<n>` brackets its four
+  * steps (same `n`, same rule for a step that throws). The per-job lines of the
+  * bulk load are the existing `NEPTUNE_JOB` lines; they are printed when the
+  * load returns, without a per-job time (that needs the storage loader).
+  *
+  * `--graph-only` (`AwsIngestMain <runId> --graph-only`, the flag anywhere
+  * after the program name) reruns the graph phase of a run whose ingest already
+  * completed. It prints `LOADER_MODE=graph-only` first and
+  * `INGEST_STEP=SKIPPED(graph-only)` where the ingest would run, downloads the
+  * export as a full run does, runs no ingest and no retrieval sample, no
+  * embedder, vector bucket or ledger call, and prints
+  * `LOADER_SCOPE=graph-only (...)` instead of the vectors scopes. It writes
+  * `graph-report.json` and `graph-run.json` beside the run's loader reports
+  * (same immutability rule); `ingest-report.json` and `ingest-run.json` are
+  * never written, read or replaced by it. It needs a Neptune host, because the
+  * graph load is its only work.
+  *
+  * An `OutOfMemoryError` in any phase prints a short `LOADER_OOM phase=<name>`
+  * line, writes a FAILED report as every other failure does (the loader writes
+  * no ledger entry for any failure), then prints `LOADER_RESULT=FAILED
+  * reason=OOM phase=<name>` last and exits 3. `<name>` is the last phase or
+  * graph step that started.
+  *
   * `LOADER_PROGRESS ...` lines come from `EmbeddingIngest` while the ingest
   * phase runs (a start line with the item and batch totals, one line per batch,
   * one line every 100 embeds inside a batch). They pass through `stepOut`
@@ -77,7 +101,19 @@ object AwsIngestMain:
   val EnvNeptuneHost = "SCHOLARCHAIN_NEPTUNE_HOST"
   val EnvLoadRoleArn = "SCHOLARCHAIN_NEPTUNE_LOAD_ROLE_ARN"
   val DefaultNeptunePort = 8182
-  val Usage = "usage: AwsIngestMain <runId>"
+  val GraphOnlyFlag = "--graph-only"
+  val Usage = s"usage: AwsIngestMain <runId> [$GraphOnlyFlag]"
+  val GraphOnlyMode = "graph-only"
+  val IngestSkipped = "SKIPPED(graph-only)"
+  val GraphReportName = "graph-report.json"
+  val GraphRunName = "graph-run.json"
+  val GraphReportVersion = "scholarchain.rag.aws-graph-report/1"
+  val GraphRunVersion = "scholarchain.rag.aws-graph-run/1"
+
+  /** Process exit code of an `OutOfMemoryError` (1 is any other failure, 2 a
+    * configuration error); the same code as `GraphRehearsal`.
+    */
+  val ExitOom = 3
 
   /** The objects the loader lists under one run's documents and exports. */
   val MaxListedObjects = 100000
@@ -97,7 +133,8 @@ object AwsIngestMain:
       neptuneHost: Option[String],
       neptunePort: Int,
       loadRoleArn: Option[String],
-      runId: String
+      runId: String,
+      graphOnly: Boolean = false
   ):
     /** True when Neptune is part of the session: the graph step is required. */
     def graphRequired: Boolean = neptuneHost.isDefined
@@ -153,8 +190,22 @@ object AwsIngestMain:
     * missing or malformed variable, never its value.
     */
   def parseConfig(args: Array[String], env: Map[String, String]): Config =
-    Fail.unless(args.length == 1, ErrorCode.InvalidQuery, Usage)
-    val runId = args(0).trim
+    // The pipeline script passes any `--x` option through unchecked, so an
+    // unknown option stops here, before a client is built.
+    val (options, positional) = args.toVector.partition(_.startsWith("--"))
+    options.find(_ != GraphOnlyFlag).foreach { option =>
+      refuse(
+        s"Unknown option ${option.take(40).filterNot(_.isControl)}. $Usage"
+      )
+    }
+    Fail.unless(
+      options.size <= 1,
+      ErrorCode.InvalidQuery,
+      s"The option $GraphOnlyFlag is given more than once. $Usage"
+    )
+    Fail.unless(positional.size == 1, ErrorCode.InvalidQuery, Usage)
+    val graphOnly = options.nonEmpty
+    val runId = positional.head.trim
     Fail.unless(
       runId.matches(runIdPattern),
       ErrorCode.InvalidQuery,
@@ -173,6 +224,11 @@ object AwsIngestMain:
       )
       (host, port, role)
     }
+    Fail.unless(
+      !graphOnly || neptune.isDefined,
+      ErrorCode.InvalidQuery,
+      s"$GraphOnlyFlag needs $EnvNeptuneHost: the graph load is its only work"
+    )
     Config(
       checked(EnvRegion, required(env, EnvRegion), regionPattern),
       checked(EnvDataBucket, required(env, EnvDataBucket), bucketPattern),
@@ -181,7 +237,8 @@ object AwsIngestMain:
       neptune.map(_._1),
       neptune.fold(DefaultNeptunePort)(_._2),
       neptune.map(_._3),
-      runId
+      runId,
+      graphOnly
     )
 
   /** Builds every client through `AwsClients` (a region and nothing else), the
@@ -384,6 +441,21 @@ object AwsIngestMain:
             s"duplicates=${j.counts.totalDuplicates} errors=${j.counts.errors}"
         } :+ "LOADER_SCOPE=vectors-and-graph"
 
+  /** The head of every object a graph-only run writes: it says in the object
+    * itself that no vector was ingested, so it cannot pass for an ingest
+    * report.
+    */
+  private def graphOnlyBody(version: String): ujson.Obj =
+    ujson.Obj(
+      "reportVersion" -> version,
+      "label" -> IngestMain.AwsLabel,
+      "loaderMode" -> GraphOnlyMode,
+      "ingest" -> IngestSkipped,
+      "ingestPerformed" -> false,
+      "note" -> ("this run did not ingest vectors and ran no retrieval " +
+        "samples; ingest-report.json of the earlier run is unchanged")
+    )
+
   private def readJson(path: Path): Option[ujson.Obj] =
     if Files.isRegularFile(path) then
       try
@@ -392,8 +464,9 @@ object AwsIngestMain:
     else None
 
   /** Runs the whole loader and returns the exit code: 0 for SUCCESS, 2 for a
-    * configuration error, 1 for any other failure. Prints exactly one
-    * `LOADER_RESULT=` line, last.
+    * configuration or command-line error, 3 for an `OutOfMemoryError`
+    * (`ExitOom`), 1 for any other failure. Prints exactly one `LOADER_RESULT=`
+    * line, last.
     */
   def run(
       args: Array[String],
@@ -427,14 +500,53 @@ object AwsIngestMain:
       finish: (Boolean, String, Int) => Int
   ): Int =
     val work = Files.createTempDirectory("scholarchain-loader-")
+    val graphOnly = config.graphOnly
+    val reportName =
+      if graphOnly then GraphReportName else IngestMain.ReportName
+    val runName = if graphOnly then GraphRunName else IngestMain.RunName
+    // The last phase or graph step that started; an OOM line names it.
+    var current = "init"
     def phase(name: String, state: String): Unit =
+      if state == "start" then current = name
       out(
         s"LOADER_PHASE name=$name state=$state " +
           s"elapsed_s=${(System.nanoTime() - began) / 1000000000L}"
       )
     var close: () => Unit = () => ()
     var wired: Option[ObjectStore] = None
+    var sourceRunId: Option[String] = None
+    // A failure before any report exists still leaves a FAILED record beside
+    // the run, when the data bucket can be written at all.
+    def recordFailure(why: String): Unit =
+      wired.foreach { store =>
+        try
+          val body =
+            if graphOnly then graphOnlyBody(GraphReportVersion)
+            else
+              ujson.Obj(
+                "reportVersion" -> IngestMain.ReportVersion,
+                "loaderReportVersion" -> ReportVersion,
+                "label" -> IngestMain.AwsLabel
+              )
+          if graphOnly then body("loaderReportVersion") = ReportVersion
+          body("runIdArgument") = config.runId
+          body("result") = "FAILED"
+          body("reason") = why
+          val key = putReport(
+            store,
+            config.reportBase,
+            reportName,
+            (ujson.write(body, indent = 2) + "\n").getBytes(UTF_8),
+            compactStamp(clock()),
+            s"loader-run:${config.runId}"
+          )
+          out(s"LOADER_REPORT=s3://${config.dataBucket}/$key")
+        catch
+          case NonFatal(inner) =>
+            out(s"LOADER_REPORT=FAILED reason=${inner.getClass.getSimpleName}")
+      }
     try
+      if graphOnly then out(s"LOADER_MODE=$GraphOnlyMode")
       val wiring = wiringFor(config)
       close = wiring.close
       // One ledger execution per loader run: a finished execution cannot be
@@ -459,17 +571,25 @@ object AwsIngestMain:
             "INGEST_STEP=" + line.stripPrefix(IngestMain.ResultPrefix)
           else line
         )
-      phase("ingest", "start")
-      val outcome = IngestMain.execute(
-        IngestMain.Args(exportDir, outDir, None),
-        stepOut,
-        identity,
-        _ => backend
-      )
-      phase("ingest", "done")
+      // A graph-only run never reaches `IngestMain.execute`, so no embedder,
+      // vector bucket or ledger call is made and no retrieval sample runs.
+      val outcome: Option[IngestMain.Outcome] =
+        if graphOnly then
+          out(s"INGEST_STEP=$IngestSkipped")
+          None
+        else
+          phase("ingest", "start")
+          val ingested = IngestMain.execute(
+            IngestMain.Args(exportDir, outDir, None),
+            stepOut,
+            identity,
+            _ => backend
+          )
+          phase("ingest", "done")
+          Some(ingested)
       phase("graph", "start")
       val graph: GraphStep.Result =
-        if !outcome.success then
+        if outcome.exists(!_.success) then
           GraphStep.Result.Skipped(
             "the vector ingest did not succeed",
             Vector.empty
@@ -488,14 +608,27 @@ object AwsIngestMain:
               )
             case Some(load) =>
               try
+                phase("graph-open", "start")
                 val source = JsonlExportSource.open(exportDir)
-                GraphStep.run(source, source.sourceRun.runId, store, load)
+                phase("graph-open", "done")
+                sourceRunId = Some(source.sourceRun.runId)
+                GraphStep.run(
+                  source,
+                  source.sourceRun.runId,
+                  store,
+                  load,
+                  phase
+                )
               catch
                 case NonFatal(error) =>
                   GraphStep.Result.Failed(
                     s"${error.getClass.getSimpleName}: ${error.getMessage}"
                   )
-      graphLines(graph).foreach(out)
+      val lines = graphLines(graph)
+      (if graphOnly then
+         lines.filterNot(_.startsWith("LOADER_SCOPE=")) :+
+           "LOADER_SCOPE=graph-only (the vector ingest was NOT run by this run)"
+       else lines).foreach(out)
       phase("graph", "done")
       phase("report", "start")
       // With a Neptune host configured the graph is required: a skipped graph
@@ -504,11 +637,11 @@ object AwsIngestMain:
         case GraphStep.Result.Failed(_)     => true
         case GraphStep.Result.Skipped(_, _) => config.graphRequired
         case _                              => false
-      val success = outcome.success && !graphFailed
-      val reason =
-        if !outcome.success then
-          s"the vector ingest or retrieval check failed (${outcome.reason})"
-        else
+      val success = outcome.forall(_.success) && !graphFailed
+      val reason = outcome match
+        case Some(o) if !o.success =>
+          s"the vector ingest or retrieval check failed (${o.reason})"
+        case _ =>
           graph match
             case GraphStep.Result.Failed(r) => s"the Neptune load failed: $r"
             case GraphStep.Result.Skipped(r, _) if config.graphRequired =>
@@ -517,21 +650,32 @@ object AwsIngestMain:
       val elapsed = (System.nanoTime() - began) / 1e9
       val reportPath = outDir.resolve(IngestMain.ReportName)
       val runPath = outDir.resolve(IngestMain.RunName)
-      val report = readJson(reportPath).getOrElse(
-        ujson.Obj(
-          "reportVersion" -> IngestMain.ReportVersion,
-          "label" -> IngestMain.AwsLabel,
-          "perIndex" -> ujson.Obj(),
-          "reason" -> reason
-        )
-      )
-      val run = readJson(runPath).getOrElse(ujson.Obj())
-      val exportRunId = report.obj.get("sourceRunId").flatMap(_.strOpt)
+      // A graph-only run starts from its own objects: it never reads, reuses
+      // or imitates the ingest report of the earlier run.
+      val report =
+        if graphOnly then graphOnlyBody(GraphReportVersion)
+        else
+          readJson(reportPath).getOrElse(
+            ujson.Obj(
+              "reportVersion" -> IngestMain.ReportVersion,
+              "label" -> IngestMain.AwsLabel,
+              "perIndex" -> ujson.Obj(),
+              "reason" -> reason
+            )
+          )
+      val run =
+        if graphOnly then graphOnlyBody(GraphRunVersion)
+        else readJson(runPath).getOrElse(ujson.Obj())
+      val exportRunId =
+        if graphOnly then sourceRunId
+        else report.obj.get("sourceRunId").flatMap(_.strOpt)
       report("loaderReportVersion") = ReportVersion
       report("runIdArgument") = config.runId
       report("region") = config.region
       report("scope") =
-        if graph.isInstanceOf[GraphStep.Result.Loaded] then "vectors-and-graph"
+        if graphOnly then GraphOnlyMode
+        else if graph.isInstanceOf[GraphStep.Result.Loaded] then
+          "vectors-and-graph"
         else "vectors-only"
       report("graph") = graphJson(graph)
       report("graphRequired") = config.graphRequired
@@ -545,24 +689,25 @@ object AwsIngestMain:
           s"RUN_ID_MATCH=${id == config.runId} export_run=$id argument=${config.runId}"
         )
       }
-      readJson(reportPath).foreach { _ =>
-        perIndexLines(report).foreach(out)
-        val per = report("perIndex").obj.values.toVector
-        def sum(key: String): Long = per.map(_(key).num.toLong).sum
+      if !graphOnly then
+        readJson(reportPath).foreach { _ =>
+          perIndexLines(report).foreach(out)
+          val per = report("perIndex").obj.values.toVector
+          def sum(key: String): Long = per.map(_(key).num.toLong).sum
+          out(
+            s"LOADER_TOTAL vectors_written=${sum("written")} " +
+              s"skipped_unchanged=${sum("skippedUnchanged")} " +
+              s"skipped_resumed=${sum("skippedResumed")} " +
+              s"rejected=${sum("rejected")} duplicates=${sum("duplicates")} " +
+              s"retries=${sum("retries")} failed_batches=${sum("failedBatches")} " +
+              s"vectors_in_index=${sum("vectorsInIndex")}"
+          )
+        }
         out(
-          s"LOADER_TOTAL vectors_written=${sum("written")} " +
-            s"skipped_unchanged=${sum("skippedUnchanged")} " +
-            s"skipped_resumed=${sum("skippedResumed")} " +
-            s"rejected=${sum("rejected")} duplicates=${sum("duplicates")} " +
-            s"retries=${sum("retries")} failed_batches=${sum("failedBatches")} " +
-            s"vectors_in_index=${sum("vectorsInIndex")}"
+          s"LOADER_EMBEDDING model=${backend.embedder.modelVersion} " +
+            s"dimension=${backend.embedder.dimension} " +
+            s"calls=${backend.embedCalls().fold("unknown")(_.toString)}"
         )
-      }
-      out(
-        s"LOADER_EMBEDDING model=${backend.embedder.modelVersion} " +
-          s"dimension=${backend.embedder.dimension} " +
-          s"calls=${backend.embedCalls().fold("unknown")(_.toString)}"
-      )
       out(f"LOADER_ELAPSED_SECONDS=$elapsed%.1f")
       val stamp = DateTimeFormatter
         .ofPattern("yyyyMMdd'T'HHmmss'Z'")
@@ -574,7 +719,7 @@ object AwsIngestMain:
           val a = putReport(
             store,
             config.reportBase,
-            IngestMain.ReportName,
+            reportName,
             (ujson.write(report, indent = 2) + "\n").getBytes(UTF_8),
             stamp,
             ref
@@ -582,7 +727,7 @@ object AwsIngestMain:
           val b = putReport(
             store,
             config.reportBase,
-            IngestMain.RunName,
+            runName,
             (ujson.write(run, indent = 2) + "\n").getBytes(UTF_8),
             stamp,
             ref
@@ -600,38 +745,20 @@ object AwsIngestMain:
           finish(false, s"the report could not be written: $why", 1)
         case None => finish(success, reason, 1)
     catch
+      case _: OutOfMemoryError =>
+        // The frames that held the data are gone, so these lines can be built.
+        // The short line goes first so it survives a second failure while the
+        // record is written; the result line stays the last line.
+        out(
+          s"LOADER_OOM phase=$current " +
+            s"max_heap_mb=${Runtime.getRuntime.maxMemory / 1048576L}"
+        )
+        try recordFailure(s"OutOfMemoryError in phase $current")
+        catch case _: OutOfMemoryError => ()
+        finish(false, s"OOM phase=$current", ExitOom)
       case NonFatal(error) =>
         val why = s"${error.getClass.getSimpleName}: ${error.getMessage}"
-        // A failure before any report exists still leaves a FAILED record
-        // beside the run, when the data bucket can be written at all.
-        wired.foreach { store =>
-          try
-            val body = ujson.Obj(
-              "reportVersion" -> IngestMain.ReportVersion,
-              "loaderReportVersion" -> ReportVersion,
-              "label" -> IngestMain.AwsLabel,
-              "runIdArgument" -> config.runId,
-              "result" -> "FAILED",
-              "reason" -> why
-            )
-            val key = putReport(
-              store,
-              config.reportBase,
-              IngestMain.ReportName,
-              (ujson.write(body, indent = 2) + "\n").getBytes(UTF_8),
-              DateTimeFormatter
-                .ofPattern("yyyyMMdd'T'HHmmss'Z'")
-                .withZone(ZoneOffset.UTC)
-                .format(clock()),
-              s"loader-run:${config.runId}"
-            )
-            out(s"LOADER_REPORT=s3://${config.dataBucket}/$key")
-          catch
-            case NonFatal(inner) =>
-              out(
-                s"LOADER_REPORT=FAILED reason=${inner.getClass.getSimpleName}"
-              )
-        }
+        recordFailure(why)
         finish(false, why, 1)
     finally
       close()
@@ -639,5 +766,10 @@ object AwsIngestMain:
 
   def main(args: Array[String]): Unit =
     // The one read of the process environment in the loader.
-    val code = run(args, sys.env.toMap, println)
+    val code =
+      try run(args, sys.env.toMap, println)
+      catch
+        case _: OutOfMemoryError =>
+          println("LOADER_RESULT=FAILED reason=OOM phase=main")
+          ExitOom
     sys.exit(code)

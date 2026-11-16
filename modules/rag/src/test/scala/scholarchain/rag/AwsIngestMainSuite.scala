@@ -89,7 +89,11 @@ class AwsIngestMainSuite extends munit.FunSuite:
     val world = new World()
     val (code, lines) = world.run()
     assertEquals(code, 0, lines.mkString("\n"))
-    val markers = lines.filter(_.startsWith("LOADER_PHASE "))
+    // The graph-open, graph-project, graph-export and graph-load steps inside
+    // the graph phase are checked in AwsIngestGraphOnlySuite.
+    val markers = lines.filter(m =>
+      m.startsWith("LOADER_PHASE ") && !m.startsWith("LOADER_PHASE name=graph-")
+    )
     markers.foreach(m => assert(m.matches(PhasePattern), m))
     assertEquals(
       markers.map(_.split(" ").slice(1, 3).mkString(" ")),

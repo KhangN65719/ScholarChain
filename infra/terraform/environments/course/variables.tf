@@ -350,6 +350,37 @@ variable "cpu_architecture" {
   default     = "X86_64"
 }
 
+variable "loader_cpu" {
+  description = "Fargate CPU units of the loader task (work order 108). Default 512, the module default. The S overlay sets 2048 after S run 8 died with OutOfMemoryError in the Neptune graph phase at 512 CPU and 1024 MiB. Must pair with loader_memory as Fargate allows (for 2048: 4096 to 16384 MiB in 1024 steps)."
+  type        = number
+  default     = 512
+
+  validation {
+    condition     = contains([256, 512, 1024, 2048, 4096], var.loader_cpu)
+    error_message = "loader_cpu must be 256, 512, 1024, 2048 or 4096 (larger Fargate sizes are not needed by the loader and are refused as a cost guard)."
+  }
+}
+
+variable "loader_memory" {
+  description = "Fargate memory in MiB of the loader task (work order 108). Default 1024, the module default. The S overlay sets 8192. The JVM heap is 75 percent of it (Dockerfile MaxRAMPercentage), so 8192 gives about 6 GiB. Ephemeral storage is not set and stays at the Fargate default of 20 GiB."
+  type        = number
+  default     = 1024
+
+  validation {
+    condition = contains(
+      lookup({
+        "256"  = tolist([512, 1024, 2048])
+        "512"  = range(1024, 4097, 1024)
+        "1024" = range(2048, 8193, 1024)
+        "2048" = range(4096, 16385, 1024)
+        "4096" = range(8192, 30721, 1024)
+      }, tostring(var.loader_cpu), []),
+      var.loader_memory,
+    )
+    error_message = "loader_memory is not a Fargate memory size for loader_cpu. Allowed: 256 CPU 512, 1024 or 2048; 512 CPU 1024 to 4096; 1024 CPU 2048 to 8192; 2048 CPU 4096 to 16384; 4096 CPU 8192 to 30720 (1024 steps except 256 CPU)."
+  }
+}
+
 variable "log_retention_days" {
   description = "CloudWatch log retention."
   type        = number

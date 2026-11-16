@@ -196,6 +196,8 @@ module "runtime" {
   desired_count              = var.service_desired_count
   use_fargate_spot           = var.use_fargate_spot
   cpu_architecture           = var.cpu_architecture
+  loader_cpu                 = var.loader_cpu
+  loader_memory              = var.loader_memory
   container_environment      = local.container_environment
   loader_environment         = local.loader_environment
 }

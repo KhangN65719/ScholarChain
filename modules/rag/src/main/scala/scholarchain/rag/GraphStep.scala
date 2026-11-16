@@ -51,7 +51,8 @@ object GraphStep:
       tables: TableSource,
       runId: String,
       store: ObjectStore,
-      graph: GraphLoad
+      graph: GraphLoad,
+      phase: (String, String) => Unit = (_, _) => ()
   ): Result =
     val missing = missingTables(tables)
     if missing.nonEmpty then
@@ -60,10 +61,19 @@ object GraphStep:
         missing
       )
     else
+      // `phase(name, state)` reports graph-project, graph-export and graph-load.
+      def step[A](name: String)(body: => A): A =
+        phase(name, "start")
+        val result = body
+        phase(name, "done")
+        result
       try
-        val projection = graph.project(tables)
-        val exported = NeptuneExporter.exportTo(projection, runId, store)
-        val load = graph.loader.load(exported.manifestKey)
+        val projection = step("graph-project")(graph.project(tables))
+        val exported =
+          step("graph-export")(
+            NeptuneExporter.exportTo(projection, runId, store)
+          )
+        val load = step("graph-load")(graph.loader.load(exported.manifestKey))
         Result.Loaded(exported, load)
       catch
         case NonFatal(error) =>
