@@ -152,7 +152,7 @@ variable "neptune_mode" {
 }
 
 variable "neptune_instance_class" {
-  description = "Instance class in provisioned mode."
+  description = "Instance class in provisioned mode. Default db.t4g.medium (course.tfvars). The S overlay sets db.r6g.xlarge for the bulk load (work order 114: OUT_OF_MEMORY_ERROR on db.t4g.medium in S run 10). The module sets apply_immediately on the instance, so a change is applied at once as an in-place modify with a restart. No allow-list: any class Neptune orders for the engine version is accepted."
   type        = string
   default     = "db.t4g.medium"
 }

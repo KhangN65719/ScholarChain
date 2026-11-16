@@ -85,6 +85,22 @@ Hourly burn of an S session on the S overlay, same unverified rates (README, "Lo
 
 Neptune-off S session: saves 0.06 to 0.10 USD an hour of Neptune plus its creation wait, but gives up the Neptune bulk load that decision D17 requires. Treat it as a rehearsal or fallback.
 
+## Neptune writer scale-up for the S load (Phase 14, work order 114)
+
+Added without recomputing any total in sections 0 to 8. Graph-only S run 10 failed with Neptune `OUT_OF_MEMORY_ERROR` on `edges-COAUTHORED_WITH.csv` (69 MB, 98,661 edges) on the `db.t4g.medium` (4 GiB) writer. The human decided (2026-11-16) to follow the AWS bulk-load guidance to scale the writer up for the load (the page, "Scale up", was cited by the work order and not re-read here: UNVERIFIED). The S overlay now sets `neptune_instance_class = "db.r6g.xlarge"` (4 vCPU, 32 GiB). `session-down.tfvars` does not set it: Neptune is destroyed there, which is the scale-down.
+
+Rates, us-east-2, all UNVERIFIED (memory; no price page or price-list call was read). `db.t4g.medium` 0.06 to 0.10 USD an hour (U3). `db.r6g.xlarge` 0.62 to 0.70 USD an hour: the verified anchor is `db.r5.large` 0.348 (V2, Region not stated), and the same family doubled to r5.xlarge is 0.696, which is the HIGH value; the LOW value is a remembered rate a little under it. The t4g surplus CPU-credit charge (V3, 0.15 per vCPU-hour) does not exist on r6g and is not netted out.
+
+| Item | LOW | HIGH | Arithmetic |
+|---|---|---|---|
+| Extra Neptune cost per hour | +0.52 | +0.64 | 0.62 - 0.10 and 0.70 - 0.06 |
+| Extra for a 3 hour window | +1.56 | +1.92 | 3 x the line above |
+| Extra for a 1 hour load window | +0.52 | +0.64 | |
+
+Two effects the table does not show. A later S session-up creates Neptune at this class for the whole session, not only for the load, so the extra accrues from creation (a few minutes of wait) until the session-down; scaling back down inside a session needs a plan that sets `db.t4g.medium` again (a one-line overlay), which this work order does not create. The M and L overlays do not set the class and keep `db.t4g.medium`.
+
+Loader-only hourly burn (`--hourly-burn-usd`). The 0.37 in use is the loader task at 2 vCPU and 8 GiB (about 0.1165) plus 9 endpoints at the 0.015 HIGH rate (0.135) plus Neptune at the 0.10 HIGH rate, 0.3515, rounded up by about 0.02. With Neptune at 0.70 it is 0.1165 + 0.135 + 0.70 = 0.9515, so **use 0.97** (0.37 - 0.10 + 0.70). For a 45 minute cap that projects 0.97 x 45 / 60 = 0.7275 USD, so the spend ceiling must be at least 0.73: use `--spend-ceiling-usd 0.80`. A pipeline-mode run (EMR node up) would be about 0.62 - 0.10 + 0.70 = 1.22 an hour on the same basis. These are ceilings on the estimate, not bills.
+
 ## 0. Read this first
 
 1. Most rates here are UNVERIFIED. The pricing pages gave worked examples only. The biggest lines (EC2 and EMR hours, Neptune, DynamoDB writes), Bedrock tokens and the interface-endpoint rate rest on agent memory. "LOW" below is the remembered-rate case, not a verified floor. "HIGH" stacks every upper bound at once, which is unlikely but is the check the work order asks for.

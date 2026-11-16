@@ -36,6 +36,26 @@ service_desired_count = 0
 loader_cpu    = 2048
 loader_memory = 8192
 
+# Work order 114 (human decision, 2026-11-16, after graph-only S run 10): Neptune's
+# bulk loader reported OUT_OF_MEMORY_ERROR ("Out of memory error. Resume load and try
+# again.", 153,760 errors counted after the failure) on edges-COAUTHORED_WITH.csv
+# (69 MB, 98,661 edges) on the db.t4g.medium writer (4 GiB). The AWS bulk-load
+# optimization guidance ("Scale up", docs.aws.amazon.com/neptune/latest/userguide/
+# bulk-load-optimize.html; not re-read by the author, UNVERIFIED) says to set the
+# writer to a large instance before a bulk load and scale it back down afterwards.
+# db.r6g.xlarge is 4 vCPU and 32 GiB. The module sets apply_immediately = true on the
+# instance, so the change is a ModifyDBInstance applied now, in place, with a restart
+# of a few minutes (not a replacement; the plan must say "updated in-place" for the
+# writer, and a "must be replaced" is a stop). Orderability of db.r6g.xlarge for engine
+# 1.4.5.1 in us-east-2 (and in the writer's Availability Zone) is UNVERIFIED: check it
+# read-only before the plan. Rate, us-east-2, UNVERIFIED: about 0.62 to 0.70 USD an
+# hour against 0.06 to 0.10 for db.t4g.medium, so about +0.52 to +0.64 USD an hour,
+# about +1.6 to +1.9 USD for a 3 hour window (COST_ESTIMATE.md, work order 114). The
+# session-down overlay does not set this (Neptune is destroyed there, so the class is
+# moot), and the M and L overlays do not set it: a graph load under them needs the same
+# line. A later S session-up creates Neptune at this class for the whole session.
+neptune_instance_class = "db.r6g.xlarge"
+
 # Work orders 49 and 52 (human decisions D31 and D32, 2026-11-15, after S runs 3 and
 # 4). S run 3: the one on-node pipeline step was cut by the old 1800 s cap while
 # Spark was still running. S run 4 (3600 s step cap): the on-node Spark limit of
