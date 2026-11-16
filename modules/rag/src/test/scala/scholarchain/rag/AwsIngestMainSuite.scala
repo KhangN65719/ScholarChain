@@ -71,6 +71,111 @@ class AwsIngestMainSuite extends munit.FunSuite:
     assert(lines.exists(_.startsWith("LOADER_ELAPSED_SECONDS=")))
   }
 
+  private val PhasePattern =
+    "LOADER_PHASE name=(download|ingest|graph|report) state=(start|done) " +
+      "elapsed_s=([0-9]+)"
+
+  private def phaseAt(
+      lines: Vector[String],
+      name: String,
+      state: String
+  ): Int =
+    val prefix = s"LOADER_PHASE name=$name state=$state elapsed_s="
+    val found = lines.zipWithIndex.filter(_._1.startsWith(prefix))
+    assertEquals(found.size, 1, lines.mkString("\n"))
+    found.head._2
+
+  test("the four phases are bracketed by greppable markers, in order") {
+    val world = new World()
+    val (code, lines) = world.run()
+    assertEquals(code, 0, lines.mkString("\n"))
+    val markers = lines.filter(_.startsWith("LOADER_PHASE "))
+    markers.foreach(m => assert(m.matches(PhasePattern), m))
+    assertEquals(
+      markers.map(_.split(" ").slice(1, 3).mkString(" ")),
+      Vector(
+        "name=download state=start",
+        "name=download state=done",
+        "name=ingest state=start",
+        "name=ingest state=done",
+        "name=graph state=start",
+        "name=graph state=done",
+        "name=report state=start",
+        "name=report state=done"
+      ),
+      lines.mkString("\n")
+    )
+    val seconds = markers.map(_.split("elapsed_s=").last.toLong)
+    assertEquals(seconds, seconds.sorted)
+    val index = (name: String, state: String) => phaseAt(lines, name, state)
+    // Each existing line sits inside the phase that produces it.
+    val input = lines.indexWhere(_.startsWith("LOADER_INPUT "))
+    assert(
+      index("download", "start") < index("download", "done") &&
+        index("download", "done") < input && input < index("ingest", "start")
+    )
+    val step = lines.indexWhere(_.startsWith("INGEST_STEP="))
+    assert(index("ingest", "start") < step && step < index("ingest", "done"))
+    val neptune = lines.indexWhere(_.startsWith("NEPTUNE_LOAD="))
+    assert(
+      index("graph", "start") < neptune && neptune < index("graph", "done")
+    )
+    val uploaded = lines.indexWhere(_.startsWith("LOADER_REPORT=s3://"))
+    assert(
+      index("report", "start") < uploaded && uploaded < index("report", "done")
+    )
+    assert(index("report", "done") < lines.size - 1)
+    assertEquals(result(lines), Vector("LOADER_RESULT=SUCCESS"))
+    assertEquals(lines.last, "LOADER_RESULT=SUCCESS")
+  }
+
+  test("progress lines pass through unchanged, inside the ingest phase") {
+    val world = new World()
+    val (code, lines) = world.run()
+    assertEquals(code, 0, lines.mkString("\n"))
+    val progress =
+      lines.zipWithIndex.filter(_._1.startsWith("LOADER_PROGRESS "))
+    assert(progress.nonEmpty, lines.mkString("\n"))
+    // Unchanged: still LOADER_PROGRESS, not renamed to the INGEST_STEP form.
+    assert(!lines.exists(_.startsWith("INGEST_STEP=LOADER_PROGRESS")))
+    assertEquals(
+      progress.head._1,
+      s"LOADER_PROGRESS start items=12 batches=${progress.count(_._1.contains(" batch="))}"
+    )
+    val start = phaseAt(lines, "ingest", "start")
+    val step = lines.indexWhere(_.startsWith("INGEST_STEP="))
+    assert(progress.forall(p => p._2 > start && p._2 < step), progress.toString)
+    assert(progress.last._1.contains("items_done=12/12"), progress.last._1)
+    progress.foreach { case (line, _) =>
+      assert(!line.contains("LOCAL") && !line.contains("$"), line)
+    }
+  }
+
+  test("a missing export prints download start, no done, and one last result") {
+    val world = new World(seeded = false)
+    val (code, lines) = world.run()
+    assertEquals(code, 1, lines.mkString("\n"))
+    assert(phaseAt(lines, "download", "start") >= 0)
+    assert(!lines.exists(_.startsWith("LOADER_PHASE name=download state=done")))
+    assert(!lines.exists(_.startsWith("LOADER_PHASE name=ingest")))
+    assert(!lines.exists(_.startsWith("LOADER_PROGRESS ")))
+    assertEquals(result(lines).size, 1)
+    assertEquals(lines.last, result(lines).head)
+  }
+
+  test("a failed vector batch still closes ingest, graph and report phases") {
+    val world = new World()
+    val (code, lines) =
+      world.run(world.backend(bucketPort = new FailingBucket(world.bucket)))
+    assertEquals(code, 1, lines.mkString("\n"))
+    Vector("download", "ingest", "graph", "report").foreach { name =>
+      assert(phaseAt(lines, name, "start") < phaseAt(lines, name, "done"))
+    }
+    assertEquals(result(lines).size, 1)
+    assertEquals(lines.last, result(lines).head)
+    assert(phaseAt(lines, "report", "done") < lines.size - 1)
+  }
+
   test("the topic and institution index is reported as no source") {
     val world = new World()
     val (code, lines) = world.run()

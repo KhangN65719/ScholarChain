@@ -2,11 +2,13 @@ package scholarchain.storage
 
 import java.io.IOException
 import java.net.URI
+import java.time.Duration
 import software.amazon.awssdk.auth.credentials.{
   AwsCredentialsProvider,
   DefaultCredentialsProvider
 }
 import software.amazon.awssdk.awscore.exception.AwsServiceException
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration
 import software.amazon.awssdk.core.exception.{
   ApiCallAttemptTimeoutException,
   ApiCallTimeoutException,
@@ -126,6 +128,42 @@ object AwsErrors:
       case error: StorageException if error.code == ErrorCode.AwsNotFound =>
         None
 
+/** The deadlines every SDK client carries, set as defense in depth: they bound
+  * a call at the SDK level whatever the HTTP client does with a stuck socket.
+  * (The HTTP client's own read timeout is its default, which this code does not
+  * set and which is not verified from here.) A call that runs past either
+  * deadline ends in `ApiCallAttemptTimeoutException` or
+  * `ApiCallTimeoutException`, which `AwsErrors.call` reports as transient, so
+  * the caller's retry policy decides what happens next.
+  *
+  * The attempt deadline bounds one HTTP attempt. The call deadline bounds the
+  * whole call, including the SDK's own internal retries. Bedrock InvokeModel is
+  * assumed to be the slowest call the loader makes (one per text; S run 6
+  * measured about 109 ms per item for embed plus document write together, not
+  * this call alone), so its call deadline is 180 s against 120 s for the
+  * others; the attempt deadline is 60 s for every client. How many attempts fit
+  * inside the call deadline depends on the SDK's default retry mode, which this
+  * code never sets and which is not verified from here.
+  */
+object AwsTimeouts:
+  val BedrockAttempt: Duration = Duration.ofSeconds(60)
+  val BedrockCall: Duration = Duration.ofSeconds(180)
+  val StandardAttempt: Duration = Duration.ofSeconds(60)
+  val StandardCall: Duration = Duration.ofSeconds(120)
+
+  private def of(
+      attempt: Duration,
+      call: Duration
+  ): ClientOverrideConfiguration =
+    ClientOverrideConfiguration
+      .builder()
+      .apiCallAttemptTimeout(attempt)
+      .apiCallTimeout(call)
+      .build()
+
+  val Bedrock: ClientOverrideConfiguration = of(BedrockAttempt, BedrockCall)
+  val Standard: ClientOverrideConfiguration = of(StandardAttempt, StandardCall)
+
 /** The only way the adapters get SDK clients. It takes a Region and nothing
   * else: no access key, no secret and no profile name. Credentials come from
   * the SDK default provider chain (ECS task role or EMR instance profile in
@@ -143,6 +181,7 @@ final class AwsClients(val region: Region):
       .region(region)
       .credentialsProvider(credentials)
       .httpClient(httpClient)
+      .overrideConfiguration(AwsTimeouts.Standard)
       .build()
 
   def s3Vectors(): S3VectorsClient =
@@ -151,6 +190,7 @@ final class AwsClients(val region: Region):
       .region(region)
       .credentialsProvider(credentials)
       .httpClient(httpClient)
+      .overrideConfiguration(AwsTimeouts.Standard)
       .build()
 
   def bedrockRuntime(): BedrockRuntimeClient =
@@ -159,6 +199,7 @@ final class AwsClients(val region: Region):
       .region(region)
       .credentialsProvider(credentials)
       .httpClient(httpClient)
+      .overrideConfiguration(AwsTimeouts.Bedrock)
       .build()
 
   /** `endpoint` is the Neptune cluster endpoint, `https://<host>:8182`. */
@@ -169,6 +210,7 @@ final class AwsClients(val region: Region):
       .endpointOverride(endpoint)
       .credentialsProvider(credentials)
       .httpClient(httpClient)
+      .overrideConfiguration(AwsTimeouts.Standard)
       .build()
 
   def dynamo(): DynamoDbClient =
@@ -177,6 +219,7 @@ final class AwsClients(val region: Region):
       .region(region)
       .credentialsProvider(credentials)
       .httpClient(httpClient)
+      .overrideConfiguration(AwsTimeouts.Standard)
       .build()
 
 object AwsClients:

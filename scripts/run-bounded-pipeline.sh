@@ -38,7 +38,10 @@
 #                     burn * max-minutes / 60 exceeds --spend-ceiling-usd.
 #   --input-file      execution input JSON, no secrets; scanned before use. Contract:
 #                     {"mode":"capability-check"} or {"mode":"pipeline","snapshot":ID,
-#                     "snapshots":SPEC,"run_id":RUNSLUG,"loader_command":[...]}; any other
+#                     "snapshots":SPEC,"run_id":RUNSLUG,"loader_command":[...]} or
+#                     {"mode":"loader-only","run_id":RUNSLUG,"loader_command":[...]}
+#                     (no EMR cluster: it reruns only the loader against an export that
+#                     is already in S3); any other
 #                     shape is refused (scripts/README.md, "Execution input contract").
 #                     RUNSLUG is exactly run-v1- plus a lower-case canonical UUID (43
 #                     characters), the path-safe form of the stable run id run:v1:<uuid>
@@ -55,8 +58,10 @@
 # in the input file. In pipeline mode it also holds INPUT_MODE, DATASET_SNAPSHOT (the
 # input's "snapshot"), RUN_SNAPSHOTS (its "snapshots" spec, whole), RUN_ID and the
 # OUTPUT_PREFIX key prefixes of the run; in capability-check mode DATASET_SNAPSHOT is
-# n/a. The s3:// URIs are only those written in the input. See scripts/README.md,
-# "run-bounded-pipeline.sh run record".
+# n/a. In loader-only mode it holds INPUT_MODE, DATASET_SNAPSHOT n/a, RUN_ID and the one
+# OUTPUT_PREFIX reports/runs/<run_id>/loader/ (the loader report). The s3:// URIs are
+# only those written in the input. See scripts/README.md, "run-bounded-pipeline.sh run
+# record".
 #
 # AWS does not enforce a spend limit. The enforcement here is the time limit, the
 # DLQ stop and the pre-start arithmetic. Actual spend is read by the human from
@@ -135,9 +140,12 @@ IFS="$OLD_IFS"
 [[ "$INPUT_FILE" == /* && -f "$INPUT_FILE" ]] || die "--input-file must be an existing absolute path"
 INPUT_DIGEST="$(sha256_file "$INPUT_FILE")"
 INPUT_BYTES="$(wc -c < "$INPUT_FILE" | tr -d ' ')"
-# The execution input contract (infra/terraform/modules/workflow/main.tf, design B):
+# The execution input contract (documented in infra/terraform/modules/workflow/main.tf,
+# design B). The state machine only checks that the required keys are present and does
+# not reject extra keys, so the check below is the only exact-key gate:
 #   {"mode":"capability-check"}  or
-#   {"mode":"pipeline","snapshot":ID,"snapshots":SPEC,"run_id":ID,"loader_command":[...]}
+#   {"mode":"pipeline","snapshot":ID,"snapshots":SPEC,"run_id":ID,"loader_command":[...]}  or
+#   {"mode":"loader-only","run_id":ID,"loader_command":[...]}  (work order 86: no cluster)
 # Unknown keys, a bad mode or a malformed field are refused before anything is started.
 # The old free-form lists (hadoop_args, spark_args) are no longer accepted.
 INPUT_FIELDS="$(python3 -I - "$INPUT_FILE" <<'PY'
@@ -156,14 +164,19 @@ if mode == "capability-check":
     allowed = {"mode"}
 elif mode == "pipeline":
     allowed = {"mode", "snapshot", "snapshots", "run_id", "loader_command"}
+elif mode == "loader-only":
+    allowed = {"mode", "run_id", "loader_command"}
 else:
-    sys.exit("mode must be capability-check or pipeline")
+    sys.exit("mode must be capability-check or pipeline, or loader-only (run_id and loader_command only)")
 extra = sorted(set(data) - allowed)
 if extra:
     sys.exit("unknown input key(s) for mode " + mode + ": " + ", ".join(extra))
 out = ["MODE=" + mode]
-if mode == "pipeline":
-    for key, rx in (("snapshot", ident), ("snapshots", snaps), ("run_id", ident)):
+if mode in ("pipeline", "loader-only"):
+    fields = (("snapshot", ident), ("snapshots", snaps), ("run_id", ident))
+    if mode == "loader-only":
+        fields = (("run_id", ident),)
+    for key, rx in fields:
         value = data.get(key)
         if not isinstance(value, str) or not rx.fullmatch(value):
             sys.exit(key + " is missing or not valid")
@@ -209,10 +222,15 @@ INPUT_RUN_ID="$(printf '%s\n' "$INPUT_FIELDS" | awk -F= '$1 == "RUN_ID" { print 
 # Output locations are fixed by the on-node scripts: run prefixes named by run_id, or
 # the capability report prefix (its time stamp is chosen on the node). Bucket names are
 # not in the input, so only the key prefixes are recorded, plus any s3:// URI the
-# input itself names (the loader command may).
+# input itself names (the loader command may). Mode loader-only lists only the loader
+# report prefix: it starts no EMR step, so it publishes nothing under curated/runs/,
+# graph/runs/ or semantic-context/runs/. What the loader itself writes elsewhere (vectors,
+# graph load files, logs) is not listed.
 OUTPUT_PREFIXES=""
 if [[ "$INPUT_MODE" == "pipeline" ]]; then
   OUTPUT_PREFIXES="curated/runs/$INPUT_RUN_ID/ graph/runs/$INPUT_RUN_ID/ semantic-context/runs/$INPUT_RUN_ID/ reports/runs/$INPUT_RUN_ID/"
+elif [[ "$INPUT_MODE" == "loader-only" ]]; then
+  OUTPUT_PREFIXES="reports/runs/$INPUT_RUN_ID/loader/"
 else
   OUTPUT_PREFIXES="reports/capability/"
 fi
@@ -236,6 +254,9 @@ for u in $OUTPUT_PREFIXES; do
 done
 if [[ "$INPUT_MODE" == "pipeline" ]]; then
   printf 'DATASET_SNAPSHOT=%s snapshots=%s run_id=%s\n' "$INPUT_SNAPSHOT" "$INPUT_SNAPSHOTS" "$INPUT_RUN_ID"
+elif [[ "$INPUT_MODE" == "loader-only" ]]; then
+  printf 'DATASET_SNAPSHOT=n/a (loader-only reads no dataset) run_id=%s\n' "$INPUT_RUN_ID"
+  note "loader-only: the execution creates no EMR cluster, so give an --hourly-burn-usd without the EMR node. OUTPUT_PREFIX lists only the loader report prefix; the loader's other writes (vectors, graph load, logs) are not listed here."
 else
   printf 'DATASET_SNAPSHOT=n/a (capability-check reads no dataset)\n'
 fi
@@ -264,7 +285,11 @@ if is_dry_run; then
   dry_step monitor
   dry_would "poll every $POLL_SECONDS s up to $MAX_MINUTES minutes; stop on: $STOP_ON"
   dry_step teardown-check
-  dry_would "up to 10 checks for active EMR clusters created after the start"
+  if [[ "$INPUT_MODE" == "loader-only" ]]; then
+    dry_would "one check that no EMR cluster named ${SC_NAME_PREFIX}-pipeline is active (loader-only creates none, so none is terminated and a missing cluster is not an error)"
+  else
+    dry_would "up to 10 checks for active EMR clusters created after the start"
+  fi
   dry_step report
   dry_would "print elapsed time and estimated spend (burn x time, ceiling $SPEND_CEILING USD)"
   dry_finish
@@ -337,6 +362,9 @@ if [[ "$INPUT_MODE" == "pipeline" ]]; then
   rec DATASET_SNAPSHOT "$INPUT_SNAPSHOT"
   rec RUN_SNAPSHOTS "$INPUT_SNAPSHOTS"
   rec RUN_ID "$INPUT_RUN_ID"
+elif [[ "$INPUT_MODE" == "loader-only" ]]; then
+  rec DATASET_SNAPSHOT n/a
+  rec RUN_ID "$INPUT_RUN_ID"
 else
   rec DATASET_SNAPSHOT n/a
 fi
@@ -348,6 +376,10 @@ stop_everything() {
   printf 'STOPPING cause=%s\n' "$cause"
   if [[ -n "${EXEC_ARN:-}" ]]; then
     aws stepfunctions stop-execution --execution-arn "$EXEC_ARN" --cause "$cause" --error "BoundedPipelineStop" >/dev/null || printf 'WARN: stop-execution failed for %s\n' "$EXEC_ARN" >&2
+  fi
+  if [[ "$INPUT_MODE" == "loader-only" ]]; then
+    note "loader-only: this execution creates no EMR cluster, so none is terminated here. A Fargate loader task that RunLoader started may outlive stop-execution (UNVERIFIED): check ECS and stop it by hand."
+    return 0
   fi
   # stop-execution skips the state machine's own cleanup, so end any cluster this run created.
   ids="$(aws emr list-clusters --active --created-after "$START_ISO" --query "Clusters[?Name=='${EMR_NAME}'].Id" --output text 2>/dev/null || true)"
@@ -415,21 +447,33 @@ rec FINAL_STATUS "$FINAL"
 step_ok
 
 step teardown-check
-LEFT=""
-for _ in 1 2 3 4 5 6 7 8 9 10; do
-  LEFT="$(aws emr list-clusters --active --created-after "$START_ISO" --query "Clusters[?Name=='${EMR_NAME}'].Id" --output text)"
-  [[ -z "$LEFT" || "$LEFT" == "None" ]] && break
-  if [[ "$FINAL" != "SUCCEEDED" && "$WATCH_FAILURE" -eq 1 ]]; then
-    printf 'STOP_CONDITION first-failure: ending leftover cluster(s) %s\n' "$LEFT"
-    # shellcheck disable=SC2086
-    aws emr terminate-job-flows --job-flow-ids $LEFT || true
+if [[ "$INPUT_MODE" == "loader-only" ]]; then
+  # No cluster is expected: the execution never creates one. Look at every active
+  # cluster of this name, with no created-after filter and no terminate call, because a
+  # cluster that is up now was not started by this run. A missing cluster is the normal
+  # result, not an error.
+  LEFT="$(aws emr list-clusters --active --query "Clusters[?Name=='${EMR_NAME}'].Id" --output text)"
+  if [[ -n "$LEFT" && "$LEFT" != "None" ]]; then
+    die "an EMR cluster named $EMR_NAME is active after a loader-only run, which creates none: $LEFT. This run did not start it and did not terminate it. Find out who did; it bills hourly."
   fi
-  sleep 30
-done
-if [[ -n "$LEFT" && "$LEFT" != "None" ]]; then
-  die "EMR cluster still active after the run: $LEFT. Terminate it now; it bills hourly."
+  printf 'NO_ACTIVE_CLUSTER name=%s (loader-only: this run creates no cluster)\n' "$EMR_NAME"
+else
+  LEFT=""
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    LEFT="$(aws emr list-clusters --active --created-after "$START_ISO" --query "Clusters[?Name=='${EMR_NAME}'].Id" --output text)"
+    [[ -z "$LEFT" || "$LEFT" == "None" ]] && break
+    if [[ "$FINAL" != "SUCCEEDED" && "$WATCH_FAILURE" -eq 1 ]]; then
+      printf 'STOP_CONDITION first-failure: ending leftover cluster(s) %s\n' "$LEFT"
+      # shellcheck disable=SC2086
+      aws emr terminate-job-flows --job-flow-ids $LEFT || true
+    fi
+    sleep 30
+  done
+  if [[ -n "$LEFT" && "$LEFT" != "None" ]]; then
+    die "EMR cluster still active after the run: $LEFT. Terminate it now; it bills hourly."
+  fi
+  printf 'NO_ACTIVE_CLUSTER name=%s\n' "$EMR_NAME"
 fi
-printf 'NO_ACTIVE_CLUSTER name=%s\n' "$EMR_NAME"
 step_ok
 
 step report

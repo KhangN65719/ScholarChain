@@ -212,6 +212,58 @@ class AwsObjectStoreSuite extends munit.FunSuite:
     assertEquals(s.requests("headObject"), Vector.empty)
   }
 
+  test("listSizes follows tokens, sorts, and makes no HEAD per object") {
+    val s = stub.on("listObjectsV2") { request =>
+      Option(request.asInstanceOf[ListObjectsV2Request].continuationToken) match
+        case None       => page(Vector("p/b", "p/a"), Some("t1"))
+        case Some("t1") => page(Vector("p/c"), None)
+        case other      => fail(s"unexpected token $other")
+    }
+    assertEquals(
+      store(s).listSizes("p/"),
+      Vector(("p/a", 5L), ("p/b", 5L), ("p/c", 5L))
+    )
+    assertEquals(s.requests("headObject"), Vector.empty)
+    assertEquals(s.requests("getObjectAsBytes"), Vector.empty)
+    val requests =
+      s.requests("listObjectsV2").map(_.asInstanceOf[ListObjectsV2Request])
+    assertEquals(requests.map(_.prefix), Vector("p/", "p/"))
+    assertEquals(
+      requests.map(r => Option(r.continuationToken)),
+      Vector(None, Some("t1"))
+    )
+  }
+
+  test("listSizes answers what list answers, without the HEADs") {
+    val s = stub
+      .on("listObjectsV2")(_ => page(Vector("p/b", "p/a"), None))
+      .on("headObject") { request =>
+        val k = request.asInstanceOf[HeadObjectRequest].key
+        headResponse(5, Map("sha256" -> Hashing.sha256(k), "sourceref" -> k))
+      }
+    val viaList = store(s).list("p/").map(m => (m.key, m.bytes))
+    val headsAfterList = s.requests("headObject").size
+    assertEquals(headsAfterList, 2)
+    assertEquals(store(s).listSizes("p/"), viaList)
+    assertEquals(s.requests("headObject").size, headsAfterList)
+  }
+
+  test("listSizes is bounded, refuses a repeated token, classifies errors") {
+    val big = stub.on("listObjectsV2")(_ => page(Vector("a", "b", "c"), None))
+    assertEquals(
+      code(new AwsObjectStore(big.client, "b", 2).listSizes("")),
+      ErrorCode.BoundExceeded
+    )
+    val loop = stub.on("listObjectsV2")(_ => page(Vector("a"), Some("same")))
+    assertEquals(code(store(loop).listSizes("")), ErrorCode.AwsRejected)
+    val throttled =
+      stub.on("listObjectsV2")(_ => throw SdkErrors.error(503, "SlowDown"))
+    intercept[TransientStorageException](store(throttled).listSizes(""))
+    val denied =
+      stub.on("listObjectsV2")(_ => throw SdkErrors.error(403, "AccessDenied"))
+    assertEquals(code(store(denied).listSizes("")), ErrorCode.AwsAccessDenied)
+  }
+
   test("list is bounded and a repeated token is refused") {
     val big = stub.on("listObjectsV2")(_ => page(Vector("a", "b", "c"), None))
     assertEquals(

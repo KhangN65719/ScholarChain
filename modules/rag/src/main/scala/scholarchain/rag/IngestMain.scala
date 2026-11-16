@@ -17,6 +17,12 @@ import scholarchain.storage.*
   *
   * Arguments: `<exportDir> <outDir> [maxSummaryRows]`.
   *
+  * While the ingest runs, `EmbeddingIngest` reports `LOADER_PROGRESS ...` lines
+  * (a start line, one per batch, one every 100 embeds inside a batch; counts
+  * and index names only). `execute` hands them to the same `out` sink as every
+  * other line, so each reaches the console when it is produced, ahead of the
+  * summary lines that follow the run. A local run prints them too.
+  *
   * The run refuses an export that is missing or incomplete (no `_SUCCESS`, a
   * file that differs from `export-manifest.json`), an output directory that
   * overlaps the export, one that holds something else, and one that holds an
@@ -215,18 +221,20 @@ object IngestMain:
       "vector-rejects" -> s"${S3Prefix.Logs.dir}/vector-rejects/"
     )
     if listAll then
-      val all = store.list("")
+      val all = store.listSizes("")
       val listed = groups.map { case (name, prefix) =>
-        val inGroup = all.filter(_.key.startsWith(prefix))
-        (name, inGroup.size, inGroup.map(_.bytes).sum)
+        val inGroup = all.filter(_._1.startsWith(prefix))
+        (name, inGroup.size, inGroup.map(_._2).sum)
       }
-      listed :+ (("all-objects", all.size, all.map(_.bytes).sum))
+      listed :+ (("all-objects", all.size, all.map(_._2).sum))
     else
-      // A real bucket holds other runs' objects and a listing costs one HEAD
-      // per object, so only the three prefixes this run owns are listed.
+      // A real bucket holds other runs' objects, so only the three prefixes
+      // this run owns are listed. `listSizes` reads the sizes from the listing
+      // itself: `list` would cost one HEAD per object, about 42,000 of them
+      // for the documents prefix of a tier S run.
       groups.map { case (name, prefix) =>
-        val inGroup = store.list(prefix)
-        (name, inGroup.size, inGroup.map(_.bytes).sum)
+        val inGroup = store.listSizes(prefix)
+        (name, inGroup.size, inGroup.map(_._2).sum)
       }
 
   private def words(text: String, count: Int): String =
@@ -479,7 +487,8 @@ object IngestMain:
           backend.bucket,
           store,
           backend.ledger,
-          backend.sleeper
+          backend.sleeper,
+          progress = out
         )
       val report = ingest.run(
         tables,

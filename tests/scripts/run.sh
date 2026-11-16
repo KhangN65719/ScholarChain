@@ -2386,10 +2386,33 @@ CODE_DIR="$WORK/code"
 mkdir -p "$CODE_DIR"
 
 # code_of FILE: prints the path of a copy of FILE without comment-only lines, so a rule
-# written in a comment ("no sync, no delete") is not mistaken for code.
+# written in a comment ("no sync, no delete") is not mistaken for code. The copy lives in a
+# directory named after the whole path of FILE and keeps FILE's own name (so messages still
+# read "main.tf lacks ..."). Work order 99: the copy used to be $CODE_DIR/<basename>, so two
+# files with the same name (the three main.tf of infra/terraform) shared one path and the
+# later call silently replaced the earlier copy under a path the case still held.
 code_of() {
-  grep -v '^[[:space:]]*#' "$1" > "$CODE_DIR/${1##*/}" 2> /dev/null
-  printf '%s' "$CODE_DIR/${1##*/}"
+  local d="$CODE_DIR/code-of/${1//\//_}"
+  mkdir -p "$d"
+  grep -v '^[[:space:]]*#' "$1" > "$d/${1##*/}" 2> /dev/null
+  printf '%s' "$d/${1##*/}"
+}
+
+# extract_fn FILE NAME OUT: the function NAME (from "NAME() {" in column 1 to the first later line that
+# is exactly "}"). OUT is always written, empty when NAME is not found. Work order 99: defined here, before
+# the first case that calls it; it used to be defined 650 lines below its first call, and bash then
+# reports "command not found" for a function it has not read yet, so OUT was never created.
+extract_fn() {
+  awk -v start="$2() {" 'index($0, start) == 1 { f = 1 } f { print } f && $0 == "}" { exit }' "$1" > "$3"
+}
+
+# f_min_lines FILE N WHAT: the cut-out FILE exists and holds at least N lines. A missing file counts as
+# 0 lines. The older guards of the form [ "$(wc -l < FILE ...)" -lt N ] print an error and pass silently
+# when FILE does not exist, which is how a failed cut-out hides behind the absence checks that follow it.
+f_min_lines() {
+  local n=0
+  if [ -f "$1" ]; then n="$(wc -l < "$1" | tr -d ' ')"; fi
+  [ "$n" -ge "$2" ] || note_fail "$3 has $n line(s), expected at least $2"
 }
 
 f_has() {
@@ -2493,6 +2516,14 @@ a_out "LIMITS size=small max_minutes=45 spend_ceiling_usd=0.50 hourly_burn_usd=0
 a_out "APPROVAL_VERIFIED action=pipeline"
 a_out "APPROVAL_NOT_CONSUMED dry-run"
 case_end
+# Work order 87: the teardown-check text of capability-check is unchanged by the loader-only mode
+# (infra work order 86 branched the line on INPUT_MODE); the loader-only text must not leak into it.
+case_begin "14.pipeline.capability-check.dry-run-teardown-check-text-is-unchanged"
+a_out "WOULD_RUN: up to 10 checks for active EMR clusters created after the start"
+a_not_out "one check that no EMR cluster named"
+a_not_out "loader-only"
+a_order "teardown-check: dry-run" "WOULD_RUN: up to 10 checks for active EMR clusters created after the start" "report: dry-run"
+case_end
 
 # Accepted: pipeline mode. One dry run feeds the next two cases.
 pi_dry_with "$PIPE_IN" "$REC/pi-pipeline.env"
@@ -2509,6 +2540,17 @@ case_end
 case_begin "14.pipeline.pipeline-mode.snapshots-spec-printed-whole"
 a_dry_common
 a_out "DATASET_SNAPSHOT=$PI_SNAP snapshots=$PI_SNAPS run_id=$PI_RUN"
+case_end
+# Work order 87: the same for pipeline mode (the output prefixes and the dry-run teardown text did
+# not change with the loader-only mode).
+case_begin "14.pipeline.pipeline-mode.dry-run-teardown-check-text-and-markers-are-unchanged"
+a_out "WOULD_RUN: up to 10 checks for active EMR clusters created after the start"
+a_not_out "one check that no EMR cluster named"
+a_not_out "loader-only"
+a_order "teardown-check: dry-run" "WOULD_RUN: up to 10 checks for active EMR clusters created after the start" "report: dry-run"
+a_not_out "DATASET_SNAPSHOT=n/a"
+[ "$(grep -c '^OUTPUT_PREFIX=' "$OUT")" = "4" ] || note_fail "pipeline mode prints $(grep -c '^OUTPUT_PREFIX=' "$OUT") OUTPUT_PREFIX lines, expected 4"
+a_not_out "/loader/ (key prefix"
 case_end
 
 # Boundaries: 300 characters for the snapshots spec are accepted. A 64-character run id was
@@ -2812,6 +2854,298 @@ static_pipeline_cases() {
   case_end
 }
 static_pipeline_cases
+
+### 14.pipeline.loader-only: mode loader-only (work order 87, follows infra work order 86) ---
+# Mode loader-only reruns only the Fargate loader: {"mode":"loader-only","run_id":ID,"loader_command":[...]},
+# exactly those three keys. The script side is read from run-bounded-pipeline.sh: the input is refused
+# in the same Python block as the pipeline input, in the same order (character rule, loader_command shape,
+# run id shape, last loader element), before the approval record, in a real run, a dry run and under
+# --print-digest. A dry run prints INPUT_MODE=loader-only, one OUTPUT_PREFIX (the loader report) and
+# DATASET_SNAPSHOT=n/a with the run id, and the teardown-check step would make one unfiltered check
+# that terminates nothing. Nothing here runs a real run: the run record and stop_everything are read
+# as text.
+
+PI_CMD_TEXT="loader_command must be a non-empty list of non-empty strings"
+PI_CHAR_TEXT="run_id is missing or not valid"
+LO_MODE_TEXT="mode must be capability-check or pipeline, or loader-only (run_id and loader_command only)"
+
+lo_json() {
+  printf '{"mode":"loader-only","run_id":%s,"loader_command":%s}' "$1" "$2"
+}
+
+# lo_refuse ID JSON FRAGMENT [NOPRINT] [EXTRA_ERR] [ABSENT_ERR]: three cases (real, dry, digest). Each is
+# refused by the input validation, before the approval record, the identity check and any stub, and prints
+# nothing of the input. NOPRINT is text that must not appear on stdout or stderr, EXTRA_ERR text that must
+# be on stderr, ABSENT_ERR text that must not be (it proves which check fired first).
+lo_refuse() {
+  local id="$1" json="$2" frag="$3" noprint="${4:-}" extra="${5:-}" absent="${6:-}" f="$REC/lo-$1.json" mode
+  printf '%s' "$json" > "$f"
+  common_args "$ACCT" us-east-2 "$CEIL"
+  SN=run-bounded-pipeline
+  for mode in real dry digest; do
+    case "$mode" in
+      real) A=("${CA[@]}" "${PI_TAIL[@]}" --input-file "$f" --approval-record "$REC/pipeline.env") ;;
+      dry) A=(--dry-run "${CA[@]}" "${PI_TAIL[@]}" --input-file "$f" --approval-record "$REC/pipeline.env") ;;
+      digest) A=(--print-digest "${CA[@]}" "${PI_TAIL[@]}" --input-file "$f") ;;
+    esac
+    run_build
+    case_begin "14.pipeline.loader-only.$id.$mode"
+    a_refused "$frag"
+    a_err "execution input refused"
+    a_not_out "INPUT_MODE="
+    a_not_out "DATASET_SNAPSHOT="
+    a_not_out "OUTPUT_PREFIX="
+    a_not_out "SCRIPT_DIGEST="
+    a_not_out "ARGS_DIGEST="
+    a_not_out "identity-check"
+    a_not_out "IDENTITY_OK"
+    a_not_out "EXECUTION_ARN="
+    if [ -n "$noprint" ] && grep -qF -- "$noprint" "$OUT" "$ERR"; then note_fail "the text that must not be printed was printed"; fi
+    if [ "$frag" = "$PI_SHAPE_TEXT" ]; then
+      a_err "characters; the value is not printed)"
+      if grep -qF -- "(got: " "$ERR"; then note_fail "stderr holds the old (got: <value>) echo"; fi
+    fi
+    if [ -n "$extra" ]; then a_err "$extra"; fi
+    if [ -n "$absent" ] && grep -qF -- "$absent" "$ERR"; then note_fail "stderr holds '$absent', so another check fired first"; fi
+    case_end
+  done
+}
+
+# lo_accept ID JSON RUNID: a dry run with a record accepts this loader-only input and prints RUNID.
+lo_accept() {
+  local id="$1" json="$2" want="$3" f="$REC/loa-$1.json"
+  printf '%s\n' "$json" > "$f"
+  pi_dry_with "$f" "$REC/loa-$id.env"
+  case_begin "14.pipeline.loader-only.$id"
+  a_dry_common
+  a_out "INPUT_MODE=loader-only"
+  a_out "APPROVAL_VERIFIED action=pipeline"
+  a_out "APPROVAL_NOT_CONSUMED dry-run"
+  a_out "OUTPUT_PREFIX=reports/runs/$want/loader/ (key prefix in the data bucket)"
+  a_out "DATASET_SNAPSHOT=n/a (loader-only reads no dataset) run_id=$want"
+  case_end
+}
+
+# Accepted: the dry run with a record. The loader-only markers, and none of the pipeline ones.
+printf '%s\n' "$(lo_json "$J_RUN" "$J_LOAD")" > "$REC/lo-ok.json"
+pi_dry_with "$REC/lo-ok.json" "$REC/lo-ok.env"
+case_begin "14.pipeline.loader-only.dry-run-prints-the-loader-only-markers-and-none-of-the-pipeline-ones"
+a_dry_common
+a_out "INPUT_MODE=loader-only"
+a_out "OUTPUT_PREFIX=reports/runs/$PI_RUN/loader/ (key prefix in the data bucket)"
+[ "$(grep -c '^OUTPUT_PREFIX=' "$OUT")" = "1" ] || note_fail "expected exactly one OUTPUT_PREFIX line, found $(grep -c '^OUTPUT_PREFIX=' "$OUT")"
+a_not_out "OUTPUT_PREFIX=reports/runs/$PI_RUN/ "
+a_out "DATASET_SNAPSHOT=n/a (loader-only reads no dataset) run_id=$PI_RUN"
+a_not_out "curated/runs/"
+a_not_out "graph/runs/"
+a_not_out "semantic-context/runs/"
+a_not_out "snapshots="
+a_not_out "reports/capability/"
+a_not_out "DATASET_SNAPSHOT=not-recorded"
+a_not_out "DATASET_SNAPSHOT=$PI_SNAP"
+a_not_out "capability-check reads no dataset"
+a_out "OUTPUT_LOCATIONS=none-named"
+a_out "LIMITS size=small max_minutes=45 spend_ceiling_usd=0.50 hourly_burn_usd=0.47 stop_on=first-failure cost_ceiling_usd=$CEIL"
+a_out "APPROVAL_VERIFIED action=pipeline"
+a_out "APPROVAL_NOT_CONSUMED dry-run"
+if ! grep -qF -- "loader-only: the execution creates no EMR cluster, so give an --hourly-burn-usd without the EMR node" "$OUT" "$ERR"; then note_fail "the no-cluster burn note is missing"; fi
+case_end
+
+# The teardown-check step of the dry run: one unfiltered check, nothing terminated, and not the
+# ten checks of the other modes.
+case_begin "14.pipeline.loader-only.dry-run-teardown-check-would-run-one-unfiltered-check-and-terminates-nothing"
+a_out_re 'WOULD_RUN: one check that no EMR cluster named [A-Za-z0-9._-]+-pipeline is active \(loader-only creates none, so none is terminated and a missing cluster is not an error\)'
+a_not_out "up to 10 checks for active EMR clusters created after the start"
+a_order "teardown-check: dry-run" "WOULD_RUN: one check that no EMR cluster named" "report: dry-run"
+a_not_out "terminate-job-flows"
+case_end
+
+# --print-digest accepts the input, and the digest follows the input file (its sha256 is in the
+# digested arguments), so the mode is bound by the file.
+common_args "$ACCT" us-east-2 "$CEIL"
+SN=run-bounded-pipeline
+A=(--print-digest "${CA[@]}" "${PI_TAIL[@]}" --input-file "$REC/lo-ok.json")
+run_build
+LO_RC=$RC
+LO_S="$(sed -n 's/^SCRIPT_DIGEST=//p' "$OUT" | head -n 1)"
+LO_A="$(sed -n 's/^ARGS_DIGEST=//p' "$OUT" | head -n 1)"
+case_begin "14.pipeline.loader-only.print-digest-accepted-and-the-digest-follows-the-input-file"
+a_rc 0
+[ "$LO_RC" -eq 0 ] || note_fail "--print-digest exited $LO_RC"
+a_out_re '^SCRIPT_DIGEST=[0-9a-f]{64}$'
+a_out_re '^ARGS_DIGEST=[0-9a-f]{64}$'
+a_out "ACTION=pipeline"
+a_not_out "DRY_RUN=yes"
+[ "$LO_S" = "$PV_S1" ] || note_fail "SCRIPT_DIGEST differs from the one printed for a pipeline input"
+[ "$LO_A" != "$PV_A1" ] || note_fail "ARGS_DIGEST of a loader-only input equals that of a pipeline input with the same run id"
+a_trip_empty
+case_end
+
+# Refused: the pipeline keys. snapshot and snapshots are unknown keys in this mode.
+lo_refuse snapshot-key "$(lo_json "$J_RUN" "$J_LOAD" | sed 's/}$/,"snapshot":"s1"}/')" "unknown input key(s) for mode loader-only: snapshot"
+lo_refuse snapshots-key "$(lo_json "$J_RUN" "$J_LOAD" | sed 's/}$/,"snapshots":"dblp=a"}/')" "unknown input key(s) for mode loader-only: snapshots"
+lo_refuse snapshot-and-snapshots-keys "$(lo_json "$J_RUN" "$J_LOAD" | sed 's/}$/,"snapshot":"s1","snapshots":"dblp=a"}/')" "unknown input key(s) for mode loader-only: snapshot, snapshots"
+lo_refuse a-pipeline-input-with-the-mode-changed "$(pi_json "$J_SNAP" "$J_SNAPS" "$J_RUN" "$J_LOAD" | sed 's/"pipeline"/"loader-only"/')" "unknown input key(s) for mode loader-only: snapshot, snapshots"
+lo_refuse unknown-extra-key "$(lo_json "$J_RUN" "$J_LOAD" | sed 's/}$/,"extra":1}/')" "unknown input key(s) for mode loader-only: extra"
+lo_refuse old-hadoop-args-key "$(lo_json "$J_RUN" "$J_LOAD" | sed 's/}$/,"hadoop_args":[]}/')" "unknown input key(s) for mode loader-only: hadoop_args"
+
+# Refused: the mode itself, and the wording that names loader-only.
+lo_refuse unknown-mode '{"mode":"batch"}' "$LO_MODE_TEXT"
+lo_refuse mode-with-underscore "$(lo_json "$J_RUN" "$J_LOAD" | sed 's/"loader-only"/"loader_only"/')" "$LO_MODE_TEXT"
+lo_refuse mode-wrong-case "$(lo_json "$J_RUN" "$J_LOAD" | sed 's/"loader-only"/"Loader-Only"/')" "$LO_MODE_TEXT"
+lo_refuse mode-trailing-space "$(lo_json "$J_RUN" "$J_LOAD" | sed 's/"loader-only"/"loader-only "/')" "$LO_MODE_TEXT"
+lo_refuse missing-mode "{\"run_id\":$J_RUN,\"loader_command\":$J_LOAD}" "$LO_MODE_TEXT"
+
+# Refused: the run id, by the character rule first (it runs before the loader_command check).
+lo_refuse run-id-missing "{\"mode\":\"loader-only\",\"loader_command\":$J_LOAD}" "$PI_CHAR_TEXT"
+lo_refuse run-id-not-a-string "$(lo_json '["x"]' "$J_LOAD")" "$PI_CHAR_TEXT"
+lo_refuse run-id-with-slash "$(lo_json '"a/b"' "$J_LOAD")" "$PI_CHAR_TEXT"
+lo_refuse run-id-empty "$(lo_json '""' "$J_LOAD")" "$PI_CHAR_TEXT"
+lo_refuse run-id-dot-dot "$(lo_json '".."' "$J_LOAD")" "run_id must not be . or .."
+lo_refuse run-id-trailing-newline "$(lo_json "\"$PI_RUN\\n\"" "$J_LOAD")" "$PI_CHAR_TEXT"
+lo_refuse run-id-stable-colon-form "$(lo_json "\"run:v1:$PI_UUID\"" "$J_LOAD")" "$PI_CHAR_TEXT"
+lo_refuse only-mode-given '{"mode":"loader-only"}' "$PI_CHAR_TEXT"
+
+# Refused: the run id shape (the same rule as pipeline mode, the shape text and no echo of the value).
+lo_refuse run-id-path-safe-wrong-shape "$(lo_json '"s-20261114-2"' "$J_LOAD")" "$PI_SHAPE_TEXT"
+lo_refuse run-id-uppercase-uuid "$(lo_json "\"run-v1-$PI_UUID_UPPER\"" "$J_LOAD")" "$PI_SHAPE_TEXT"
+lo_refuse run-id-uppercase-prefix "$(lo_json "\"RUN-V1-$PI_UUID\"" "$J_LOAD")" "$PI_SHAPE_TEXT"
+lo_refuse run-id-wrong-version-tag "$(lo_json "\"run-v2-$PI_UUID\"" "$J_LOAD")" "$PI_SHAPE_TEXT"
+lo_refuse run-id-42-chars "$(lo_json "\"${PI_RUN%?}\"" "$J_LOAD")" "$PI_SHAPE_TEXT"
+lo_refuse run-id-44-chars "$(lo_json "\"${PI_RUN}a\"" "$J_LOAD")" "$PI_SHAPE_TEXT"
+lo_refuse run-id-bare-uuid "$(lo_json "\"$PI_UUID\"" "$J_LOAD")" "$PI_SHAPE_TEXT"
+lo_refuse run-id-64-chars "$(lo_json "\"$(pi_rep 64)\"" "$J_LOAD")" "$PI_SHAPE_TEXT"
+lo_refuse run-id-key-material-is-never-printed "$(lo_json "\"$FAKE_AKIA\"" "$J_LOAD")" "$PI_SHAPE_TEXT" "$FAKE_AKIA" "(got 20 characters; the value is not printed)"
+
+# Refused: loader_command, in the shape the pipeline mode demands.
+lo_refuse loader-command-missing "{\"mode\":\"loader-only\",\"run_id\":$J_RUN}" "$PI_CMD_TEXT"
+lo_refuse loader-command-empty-list "$(lo_json "$J_RUN" '[]')" "$PI_CMD_TEXT"
+lo_refuse loader-command-not-a-list "$(lo_json "$J_RUN" '"loader"')" "$PI_CMD_TEXT"
+lo_refuse loader-command-empty-string-element "$(lo_json "$J_RUN" '[""]')" "$PI_CMD_TEXT"
+lo_refuse loader-command-non-string-element "$(lo_json "$J_RUN" '["loader",1]')" "$PI_CMD_TEXT"
+
+# Order of the checks: the character rule, then the loader_command shape, then the run id shape.
+lo_refuse order-bad-shape-and-empty-command-gives-the-command-text "$(lo_json '"s-20261114-2"' '[]')" "$PI_CMD_TEXT" "" "" "$PI_SHAPE_TEXT"
+lo_refuse order-bad-characters-and-empty-command-gives-the-character-text "$(lo_json '"a/b"' '[]')" "$PI_CHAR_TEXT" "" "" "$PI_CMD_TEXT"
+lo_refuse order-bad-shape-and-another-last-element-gives-the-shape-text "$(lo_json '"s-20261114-2"' "[\"loader\",\"$PI_RUN_OTHER\"]")" "$PI_SHAPE_TEXT" "$PI_RUN_OTHER" "" "$PI_LOADER_TEXT"
+
+# Refused: a last loader element that starts with run- must equal run_id. It is never printed.
+lo_refuse last-element-is-another-run-id "$(lo_json "$J_RUN" "[\"loader\",\"--run\",\"$PI_RUN_OTHER\"]")" "$PI_LOADER_TEXT" "$PI_RUN_OTHER"
+lo_refuse last-element-is-bare-run-dash "$(lo_json "$J_RUN" '["loader","run-"]')" "$PI_LOADER_TEXT"
+lo_refuse last-element-run-dash-with-key-material "$(lo_json "$J_RUN" "[\"loader\",\"run-$FAKE_AKIA\"]")" "$PI_LOADER_TEXT" "$FAKE_AKIA"
+
+# Accepted: the last element equals run_id (the dry run above), is not a run- value, differs only in
+# the case of the prefix, or a different run id sits in an earlier position; a single element; the
+# all-f id.
+lo_accept last-element-is-not-a-run-value "$(lo_json "$J_RUN" '["loader","--run","harness-run-1"]')" "$PI_RUN"
+lo_accept last-element-differs-only-in-prefix-case "$(lo_json "$J_RUN" "[\"loader\",\"Run-v1-${PI_RUN_OTHER#run-v1-}\"]")" "$PI_RUN"
+lo_accept earlier-element-is-another-run-id "$(lo_json "$J_RUN" "[\"loader\",\"$PI_RUN_OTHER\",\"--flag\"]")" "$PI_RUN"
+lo_accept single-element-equals-run-id "$(lo_json "$J_RUN" "[\"$PI_RUN\"]")" "$PI_RUN"
+lo_accept all-f-run-id-of-43-chars "$(lo_json "\"$RUN_ALLF\"" "[\"loader\",\"--run\",\"$RUN_ALLF\"]")" "$RUN_ALLF"
+
+# The key-material scan still covers the loader command in this mode and never prints the match.
+printf '%s\n' "$(lo_json "$J_RUN" "[\"loader\",\"$FAKE_AKIA\"]")" > "$REC/lo-secret.json"
+common_args "$ACCT" us-east-2 "$CEIL"
+SN=run-bounded-pipeline
+A=(--dry-run "${CA[@]}" "${PI_TAIL[@]}" --input-file "$REC/lo-secret.json" --approval-record "$REC/pipeline.env")
+run_build
+case_begin "14.pipeline.loader-only.key-material-in-the-loader-command-is-refused-and-not-printed"
+a_refused "possible credential material"
+a_out "INPUT_MODE=loader-only"
+a_not_out_re '^STEP\[[0-9]+\] input-scan: ok$'
+if grep -qF -- "$FAKE_AKIA" "$OUT" "$ERR"; then note_fail "the matched text was printed"; fi
+case_end
+
+# Static content of scripts/run-bounded-pipeline.sh for mode loader-only: the Python rules, the record,
+# the teardown check and stop_everything. The run record and the stop path are not reachable by a
+# stubbed harness, so they are read as text.
+# shellcheck disable=SC2016
+static_loader_only_script_cases() {
+  local c fn lb tb pb
+  c="$(code_of "$REPO/scripts/run-bounded-pipeline.sh")"
+  fn="$CODE_DIR/lo-stop-everything-fn.sh"
+  lb="$CODE_DIR/lo-stop-loader-only-block.sh"
+  tb="$CODE_DIR/lo-teardown-loader-only-branch.sh"
+  pb="$CODE_DIR/lo-teardown-pipeline-branch.sh"
+  extract_fn "$c" stop_everything "$fn"
+  awk 'index($0, "  if [[ \"$INPUT_MODE\" == \"loader-only\" ]]; then") == 1 { g = 1; next } g == 1 && $0 == "  fi" { exit } g == 1 { print }' "$fn" > "$lb"
+  awk 'index($0, "step teardown-check") == 1 { s = 1 } s == 1 && index($0, "if [[ \"$INPUT_MODE\" == \"loader-only\" ]]; then") == 1 { g = 1; next } g == 1 && $0 == "else" { exit } g == 1 { print }' "$c" > "$tb"
+  awk 'index($0, "step teardown-check") == 1 { s = 1 } s == 1 && $0 == "else" { g = 1; next } g == 1 && $0 == "fi" { exit } g == 1 { print }' "$c" > "$pb"
+
+  static_begin "14.pipeline.static.loader-only-python-rules-allow-exactly-mode-run-id-and-loader-command"
+  f_has "$c" 'elif mode == "loader-only":'
+  f_has "$c" 'allowed = {"mode", "run_id", "loader_command"}'
+  f_count_is "$c" 'allowed = {' 3
+  f_has "$c" 'sys.exit("mode must be capability-check or pipeline, or loader-only (run_id and loader_command only)")'
+  f_has "$c" 'if mode in ("pipeline", "loader-only"):'
+  # Four leading spaces: the elif line above holds the text "if mode == ..." too, but at column 0.
+  f_count_is "$c" '    if mode == "loader-only":' 1
+  f_has "$c" 'fields = (("run_id", ident),)'
+  f_before "$c" 'if mode in ("pipeline", "loader-only"):' 'run_slug = re.compile('
+  f_before "$c" 'fields = (("run_id", ident),)' 'run_slug.fullmatch(run_id)'
+  f_before "$c" 'run_slug.fullmatch(run_id)' 'verify_approval pipeline "$EXTRA" "n/a" "n/a"'
+  f_before "$c" 'cmd[-1].startswith("run-") and cmd[-1] != run_id' 'verify_approval pipeline "$EXTRA" "n/a" "n/a"'
+  case_end
+
+  static_begin "14.pipeline.static.loader-only-output-prefix-is-the-loader-report-only-and-the-record-says-n-a-and-the-run-id"
+  f_has "$c" 'OUTPUT_PREFIXES="reports/runs/$INPUT_RUN_ID/loader/"'
+  f_count_is "$c" 'OUTPUT_PREFIXES=' 4
+  f_count_is "$c" 'curated/runs/$INPUT_RUN_ID/' 1
+  f_count_is "$c" 'rec DATASET_SNAPSHOT n/a' 2
+  f_count_is "$c" 'rec RUN_ID "$INPUT_RUN_ID"' 2
+  f_count_is "$c" 'rec DATASET_SNAPSHOT "$INPUT_SNAPSHOT"' 1
+  f_count_is "$c" 'rec RUN_SNAPSHOTS "$INPUT_SNAPSHOTS"' 1
+  f_has "$c" "printf 'DATASET_SNAPSHOT=n/a (loader-only reads no dataset) run_id=%s\\n' \"\$INPUT_RUN_ID\""
+  case_end
+
+  static_begin "14.pipeline.static.loader-only-teardown-check-is-one-unfiltered-check-that-terminates-nothing-and-the-other-modes-keep-their-ten"
+  if [ "$(wc -l < "$tb" | tr -d ' ')" -lt 4 ]; then note_fail "the loader-only teardown branch cut out of the script has fewer than 4 lines"; fi
+  f_has "$tb" "LEFT=\"\$(aws emr list-clusters --active --query \"Clusters[?Name=='\${EMR_NAME}'].Id\" --output text)\""
+  f_count_is "$tb" 'aws emr list-clusters' 1
+  f_has_not "$tb" '--created-after'
+  f_has_not "$tb" 'terminate-job-flows'
+  f_has_not "$tb" 'sleep'
+  f_has_not "$tb" 'for _ in'
+  f_has "$tb" 'die "an EMR cluster named $EMR_NAME is active after a loader-only run, which creates none: $LEFT.'
+  f_has "$tb" "printf 'NO_ACTIVE_CLUSTER name=%s (loader-only: this run creates no cluster)\\n' \"\$EMR_NAME\""
+  if [ "$(wc -l < "$pb" | tr -d ' ')" -lt 8 ]; then note_fail "the pipeline teardown branch cut out of the script has fewer than 8 lines"; fi
+  f_has "$pb" 'for _ in 1 2 3 4 5 6 7 8 9 10; do'
+  f_has "$pb" "LEFT=\"\$(aws emr list-clusters --active --created-after \"\$START_ISO\" --query \"Clusters[?Name=='\${EMR_NAME}'].Id\" --output text)\""
+  f_has "$pb" 'aws emr terminate-job-flows --job-flow-ids $LEFT || true'
+  f_has "$pb" 'sleep 30'
+  f_has "$pb" 'die "EMR cluster still active after the run: $LEFT. Terminate it now; it bills hourly."'
+  f_has "$pb" "printf 'NO_ACTIVE_CLUSTER name=%s\\n' \"\$EMR_NAME\""
+  f_has_not "$pb" 'loader-only'
+  f_count_is "$c" 'dry_would "one check that no EMR cluster named ${SC_NAME_PREFIX}-pipeline is active (loader-only creates none, so none is terminated and a missing cluster is not an error)"' 1
+  f_count_is "$c" 'dry_would "up to 10 checks for active EMR clusters created after the start"' 1
+  case_end
+
+  static_begin "14.pipeline.static.loader-only-stop-everything-stops-the-execution-terminates-no-cluster-and-says-the-fargate-task-may-outlive-it"
+  # Work order 99: the function is cut out of the comment-free copy of the script by extract_fn, from the
+  # line "stop_everything() {" to the first later line that is exactly "}" (lines 374 to 391 of the real
+  # script; the comment lines 384 and 388 are not in the copy). The needles are fixed strings, each a
+  # substring of one line: 378 holds the stop-execution call, 380 the mode test with its two leading
+  # spaces, 381 the note, 382 "return 0", 383 the closing "  fi", 385 the list-clusters call, 389 the
+  # terminate-job-flows call. Mutation: dropping the stop-execution call, moving the loader-only test below
+  # the cluster lookup, removing its return 0, or letting the loader-only branch call terminate-job-flows
+  # or list-clusters, each fails one of the needles below. A failed cut-out fails the next two lines.
+  f_min_lines "$fn" 10 "stop_everything cut out of the script"
+  f_min_lines "$lb" 2 "the loader-only branch of stop_everything"
+  f_has "$fn" 'aws stepfunctions stop-execution --execution-arn "$EXEC_ARN"'
+  f_has "$fn" 'if [[ "$INPUT_MODE" == "loader-only" ]]; then'
+  f_before "$fn" 'aws stepfunctions stop-execution' 'if [[ "$INPUT_MODE" == "loader-only" ]]; then'
+  f_before "$fn" 'if [[ "$INPUT_MODE" == "loader-only" ]]; then' 'aws emr list-clusters --active --created-after'
+  f_before "$fn" 'if [[ "$INPUT_MODE" == "loader-only" ]]; then' 'terminate-job-flows'
+  f_has "$fn" 'aws emr list-clusters --active --created-after "$START_ISO"'
+  f_has "$fn" 'terminate-job-flows'
+  f_has "$lb" 'no EMR cluster'
+  f_has "$lb" 'may outlive stop-execution (UNVERIFIED)'
+  f_has "$lb" 'return 0'
+  f_has_not "$lb" 'terminate-job-flows'
+  f_has_not "$lb" 'list-clusters'
+  case_end
+}
+static_loader_only_script_cases
 
 ### 14.upload: scripts/upload-inputs.sh (the KEYS loops above cover the approval matrix) ---
 
@@ -3438,10 +3772,7 @@ extract_verdict_block() {
 }
 extract_verdict_block
 
-# extract_fn FILE NAME OUT: the function NAME (from "NAME() {" in column 1 to the "}" in column 1).
-extract_fn() {
-  awk -v start="$2() {" 'index($0, start) == 1 { f = 1 } f { print } f && $0 == "}" { exit }' "$1" > "$3"
-}
+# extract_fn (FILE NAME OUT) is defined with the other helpers near the top of case 14 (work order 99).
 extract_fn "$emr_lib" sc_publish_progress "$PG_FN"
 
 # Child program 1: the helpers that feed the verdict, then the real verdict block.
@@ -4436,12 +4767,14 @@ TF_CD_STEP="$(tf_def_in "$CRS_VARS" pipeline_emr_step_timeout_seconds)"
 tf_rule_a "$TF_WD_MAX" "$TF_WD_CREATE" "$TF_WD_STEP" || note_fail "the module defaults $TF_WD_MAX, $TF_WD_CREATE, $TF_WD_STEP fail Rule A"
 case_end
 
-static_begin "14.terraform.s-overlay.timeouts-are-7200-1440-4800-1800"
+# Work order 87: the S loader cap is 5400 since infra work order 86 (it was 1800); the case id and
+# the expected value follow, the other three values are unchanged.
+static_begin "14.terraform.s-overlay.timeouts-are-7200-1440-4800-5400"
 tf_overlay "$TF_S"
 [ "$TF_MAX" = "7200" ] || note_fail "pipeline_max_run_seconds is '$TF_MAX', expected 7200"
 [ "$TF_CREATE" = "1440" ] || note_fail "pipeline_create_cluster_timeout_seconds is '$TF_CREATE', expected 1440"
 [ "$TF_STEP" = "4800" ] || note_fail "pipeline_emr_step_timeout_seconds is '$TF_STEP', expected 4800"
-[ "$TF_LOAD" = "1800" ] || note_fail "pipeline_loader_timeout_seconds is '$TF_LOAD', expected 1800"
+[ "$TF_LOAD" = "5400" ] || note_fail "pipeline_loader_timeout_seconds is '$TF_LOAD', expected 5400 (work order 86; it was 1800)"
 case_end
 
 static_begin "14.terraform.s-overlay.passes-rule-a-from-its-own-values"
@@ -4520,7 +4853,12 @@ if tf_is_num "$TF_MAX" && tf_is_num "$TF_CREATE" && tf_is_num "$TF_STEP" && tf_i
   f_has "$TF_S" "at 3900 s, and 660 + 300 + $TF_STEP + 900 + $TF_LOAD = $s5_cap s with the step at its $TF_STEP s cap"
   f_has "$TF_S" "the O1 worst case below, $s5_o1 s)"
   f_has "$TF_S" "the sequential worst case $TF_CREATE + 300 + $TF_STEP + 900 + $TF_LOAD = $s5_o1 > $TF_MAX"
-  [ "$s5_cap" = "8460" ] || note_fail "the third total from the values is $s5_cap, D33 says 8460"
+  # Work order 87: with the 1800 s loader of D33 the third total was 8460; the 5400 s loader of infra
+  # work order 86 gives 660 + 300 + 4800 + 900 + 5400 = 12060 (the README's "10,560, 11,160 and 12,060").
+  [ "$s5_cap" = "12060" ] || note_fail "the third total from the values is $s5_cap, work order 86 says 12060 (D33 said 8460 with a 1800 s loader)"
+  [ "$s5_low" = "10560" ] || note_fail "the first total from the values is $s5_low, work order 86 says 10560"
+  [ "$s5_high" = "11160" ] || note_fail "the second total from the values is $s5_high, work order 86 says 11160"
+  [ "$s5_o1" = "12840" ] || note_fail "the O1 worst case from the values is $s5_o1, work order 86 says 12840"
   [ "$s5_o1" -gt "$s5_cap" ] || note_fail "the O1 worst case $s5_o1 is not above the third total $s5_cap"
   [ $((s5_o1 - s5_cap)) -eq $((TF_CREATE - 660)) ] || note_fail "the O1 worst case and the third total differ by $((s5_o1 - s5_cap)), not by the creation timeout minus 660 s ($((TF_CREATE - 660)))"
   { [ "$s5_low" -lt "$s5_high" ] && [ "$s5_high" -lt "$s5_cap" ]; } || note_fail "the totals are not in rising order: $s5_low, $s5_high, $s5_cap"
@@ -4536,7 +4874,12 @@ static_begin "14.terraform.readme-says-which-timeouts-keep-their-repair-round-2-
 tf_overlay "$TF_S"
 TF_README="$TF_DIR/README.md"
 if tf_is_num "$TF_STEP" && tf_is_num "$TF_LOAD"; then
-  f_has "$TF_README" "The M and L EMR step and loader timeouts keep their repair round 2 values, and so does the S loader ($TF_LOAD s); the S EMR step does not (1800 s, then 3600 s, now $TF_STEP s)."
+  # Work order 87: infra work order 86 changed the S loader too, so the sentence now says that
+  # neither S value keeps its repair round 2 value. The two older wordings must be gone.
+  f_has "$TF_README" "The M and L EMR step and loader timeouts keep their repair round 2 values; the S EMR step does not (1800 s, then 3600 s, now $TF_STEP s), and neither does the S loader (1800 s, now $TF_LOAD s, work order 86)."
+  f_has "$TF_README" "the S loader changed once (1800 s, then $TF_LOAD s under work order 86, for the loader-only mode below)"
+  f_has_not "$TF_README" "and so does the S loader"
+  f_has_not "$TF_README" "and so is the S loader value (1800 s)"
 else
   note_fail "a pipeline value of the S overlay could not be read as a whole number"
 fi
@@ -4584,7 +4927,9 @@ case_end
 # shellcheck disable=SC2016
 static_wo54_cases() {
   local er_line spark_t er_t ra_fig ra_max wc_fig wc_max wf_fig wf_max ra_calc wc_calc
-  local pre_spark=874 want_ra=6840 want_wc=9240
+  # Work order 87: the S worst case is 12840 since infra work order 86 raised the S loader to 5400 s
+  # (9240 under D32 with a 1800 s loader); Rule A, 6840, is unchanged.
+  local pre_spark=874 want_ra=6840 want_wc=12840
 
   static_begin "14.emr.timeouts.spark-limit-default-is-3000-overridable-with-sc-spark-timeout-and-status-124-is-documented"
   f_has "$emr_lib" 'timeout -k 30 "${SC_SPARK_TIMEOUT:-3000}" "${cmd[@]}"'
@@ -5754,7 +6099,14 @@ static_wo65_cases() {
     [ "$ra" = "6840" ] || note_fail "Rule A for S is $ra, D32 says 6840"
     f_has "$TF_S" "$TF_CREATE + $TF_STEP + 600 = $ra <= $TF_MAX"
     f_has "$PF_README_SEC" "Rule A (create $(commas "$TF_CREATE") + step $(commas "$TF_STEP") + 600 = $(commas "$ra") <= $(commas "$TF_MAX"))"
-    f_has "$PF_README_SEC" "the S overlay values ($(commas "$TF_MAX"), $(commas "$TF_CREATE"), $(commas "$TF_STEP"), $(commas "$TF_LOAD")) are unchanged"
+    # Work order 92 (repair of work order 87, finding F6): the README sentence names the four S overlay
+    # values, all read from the overlay, the loader included (5,400 since infra work order 86), and the
+    # stale 1,800 is no longer accepted. The sentence then says which figure moved and why, so a reader
+    # of the preflight section is not told the loader is unchanged.
+    f_has "$PF_README_SEC" "the S overlay values ($(commas "$TF_MAX"), $(commas "$TF_CREATE"), $(commas "$TF_STEP"), $(commas "$TF_LOAD")) are unchanged by the preflight"
+    f_has_not "$PF_README_SEC" "the S overlay values ($(commas "$TF_MAX"), $(commas "$TF_CREATE"), $(commas "$TF_STEP"), 1,800)"
+    f_has_not_re "$PF_README_SEC" 'S overlay values \([0-9,]+, [0-9,]+, [0-9,]+, 1,800\)'
+    f_has "$PF_README_SEC" "(the last is the S loader value, which work order 86 raised from 1,800 to $(commas "$TF_LOAD") s for mode \`loader-only\`; the other three did not change)"
     lo=$((3300 + lim + grace))
     hi=$((3900 + lim + grace))
     spare=$((TF_STEP - hi))
@@ -5818,6 +6170,543 @@ static_wo65_cases() {
   case_end
 }
 static_wo65_cases
+
+### Work order 87: the loader-only mode of infra work order 86 in the workflow module, the S overlay and the README (static) --
+# The state machine is not run (no terraform binary on the harness PATH). main.tf is read as text with
+# comment-only lines removed, and the states are cut out by their indented headers. The Choice routing,
+# the RunLoader Catch and the Default of ValidateInput are what the cases below pin; whether Step Functions
+# evaluates the IsPresent rules inside And as intended stays UNVERIFIED until a plan and a run (the README
+# says so too).
+
+f_has_re() {
+  grep -qE -- "$2" "$1" || note_fail "${1##*/} lacks a match: $2"
+}
+
+# SC2016: the single-quoted strings are literal fragments of Terraform text that f_has, f_has_not and
+# f_count_is search for; the $ must not expand.
+# shellcheck disable=SC2016
+static_wo87_terraform_cases() {
+  local main vi rl at lf pfp ln lp lc ra wc cap low high
+  main="$(code_of "$TF_DIR/modules/workflow/main.tf")"
+  vi="$CODE_DIR/wf-validate-input.txt"
+  rl="$CODE_DIR/wf-run-loader.txt"
+  at="$CODE_DIR/wf-after-terminate.txt"
+  lf="$CODE_DIR/wf-loader-only-fields.txt"
+  pfp="$CODE_DIR/wf-pipeline-fields.txt"
+  awk 'index($0, "      ValidateInput = {") == 1 { f = 1 } f == 1 && index($0, "      InvalidInput = {") == 1 { exit } f == 1 { print }' "$main" > "$vi"
+  awk 'index($0, "      RunLoader = {") == 1 { f = 1 } f == 1 && index($0, "      CleanupOnFailure = {") == 1 { exit } f == 1 { print }' "$main" > "$rl"
+  awk 'index($0, "      AfterTerminate = {") == 1 { f = 1 } f == 1 && index($0, "      RunLoader = {") == 1 { exit } f == 1 { print }' "$main" > "$at"
+  awk 'index($0, "  loader_only_fields_present = [") == 1 { f = 1 } f == 1 { print } f == 1 && $0 == "  ]" { exit }' "$main" > "$lf"
+  awk 'index($0, "  pipeline_fields_present = [") == 1 { f = 1 } f == 1 { print } f == 1 && $0 == "  ]" { exit }' "$main" > "$pfp"
+
+  static_begin "14.terraform.workflow.loader-only-mode-is-in-main-tf-with-its-own-rule-and-the-invalid-input-text-names-it"
+  f_count_is "$main" 'StringEquals = "loader-only"' 1
+  f_has "$main" 'mode_is_loader_only = ['
+  f_has "$main" '{ Variable = "$.mode", StringEquals = "loader-only" },'
+  f_has "$main" 'mode loader-only with run_id and loader_command. No cluster was created.'
+  f_has "$main" 'Mode loader-only: no cluster; run the loader once against an export already in S3, then end.'
+  f_has "$main" 'The execution input needs mode capability-check, or mode pipeline with snapshot, snapshots, run_id and loader_command, or mode loader-only'
+  case_end
+
+  static_begin "14.terraform.workflow.loader-only-choice-needs-run-id-and-loader-command-only-and-never-a-snapshot-or-a-cluster"
+  if [ "$(wc -l < "$lf" | tr -d ' ')" != "4" ]; then note_fail "loader_only_fields_present has $(wc -l < "$lf" | tr -d ' ') lines, expected 4 (header, two rules, close)"; fi
+  f_has "$lf" '{ Variable = "$.run_id", IsPresent = true },'
+  f_has "$lf" '{ Variable = "$.loader_command", IsPresent = true },'
+  f_has_not "$lf" '$.snapshot'
+  f_has_not "$lf" '$.cluster'
+  f_has_not "$lf" 'StringEquals'
+  if [ "$(wc -l < "$pfp" | tr -d ' ')" != "6" ]; then note_fail "pipeline_fields_present has $(wc -l < "$pfp" | tr -d ' ') lines, expected 6 (header, four rules, close)"; fi
+  f_has "$pfp" '{ Variable = "$.snapshot", IsPresent = true },'
+  f_has "$pfp" '{ Variable = "$.snapshots", IsPresent = true },'
+  f_has "$pfp" '{ Variable = "$.run_id", IsPresent = true },'
+  f_has "$pfp" '{ Variable = "$.loader_command", IsPresent = true },'
+  case_end
+
+  static_begin "14.terraform.workflow.validate-input-routes-loader-only-to-run-loader-and-not-to-create-cluster"
+  if [ "$(wc -l < "$vi" | tr -d ' ')" -lt 14 ]; then note_fail "the ValidateInput state cut out of main.tf has fewer than 14 lines"; fi
+  f_has "$vi" 'And  = concat(local.mode_is_loader_only, local.loader_only_fields_present)'
+  f_count_is "$main" 'local.mode_is_loader_only' 1
+  ln="$(awk 'index($0, "local.mode_is_loader_only") > 0 { getline; print; exit }' "$vi")"
+  case "$ln" in
+    *'Next = "RunLoader"'*) ;;
+    *) note_fail "the loader-only rule of ValidateInput does not go to RunLoader: '$ln'" ;;
+  esac
+  lp="$(awk 'index($0, "local.mode_is_pipeline") > 0 { getline; print; exit }' "$vi")"
+  case "$lp" in
+    *'Next = "CreateCluster"'*) ;;
+    *) note_fail "the pipeline rule of ValidateInput does not go to CreateCluster: '$lp'" ;;
+  esac
+  lc="$(awk 'index($0, "And  = local.mode_is_capability") > 0 { getline; print; exit }' "$vi")"
+  case "$lc" in
+    *'Next = "CreateCluster"'*) ;;
+    *) note_fail "the capability-check rule of ValidateInput does not go to CreateCluster: '$lc'" ;;
+  esac
+  f_count_is "$vi" 'Next = "CreateCluster"' 2
+  f_count_is "$vi" 'Next = "RunLoader"' 1
+  f_count_is "$vi" 'Next' 3
+  f_has_not "$vi" 'CleanupOnFailure'
+  f_has_not "$vi" 'FetchScripts'
+  f_has_not "$vi" 'TerminateCluster'
+  case_end
+
+  static_begin "14.terraform.workflow.validate-input-still-defaults-to-invalid-input-and-nothing-else-defaults"
+  f_count_is "$vi" 'Default = "InvalidInput"' 1
+  f_count_is "$vi" 'Default' 1
+  f_has_not_re "$vi" 'Default[[:space:]]*=[[:space:]]*"(RunLoader|CreateCluster|Done|Failed|CleanupOnFailure)"'
+  f_has "$main" 'StartAt        = "ValidateInput"'
+  f_has_re "$main" '^      InvalidInput = \{$'
+  f_has "$main" 'Type  = "Fail"'
+  f_has "$main" 'Error = "InvalidInput"'
+  case_end
+
+  static_begin "14.terraform.workflow.run-loader-still-catches-everything-to-failed-and-reads-only-the-loader-command"
+  if [ "$(wc -l < "$rl" | tr -d ' ')" -lt 20 ]; then note_fail "the RunLoader state cut out of main.tf has fewer than 20 lines"; fi
+  f_has "$rl" 'Resource = "arn:aws:states:::ecs:runTask.sync"'
+  f_has "$rl" '"Command.$" = "$.loader_command"'
+  f_has_re "$rl" 'ResultPath[[:space:]]*=[[:space:]]*"\$\.load"'
+  f_has_re "$rl" 'TimeoutSeconds[[:space:]]*=[[:space:]]*var\.loader_timeout_seconds'
+  f_has_re "$rl" 'Next[[:space:]]*=[[:space:]]*"Done"'
+  f_has_re "$rl" 'ErrorEquals[[:space:]]*=[[:space:]]*\["States\.ALL"\]'
+  f_has_re "$rl" 'Next[[:space:]]*=[[:space:]]*"Failed"'
+  if [ "$(grep -cE 'Next[[:space:]]*=' "$rl")" != "2" ]; then note_fail "RunLoader has $(grep -cE 'Next[[:space:]]*=' "$rl") Next targets, expected 2 (Done and the Catch to Failed)"; fi
+  f_has_not "$rl" 'CleanupOnFailure'
+  f_has_not "$rl" 'local.on_failure'
+  f_has_not "$rl" '$.cluster'
+  f_has_not "$rl" 'CreateCluster'
+  f_count_is "$main" 'Next = "RunLoader"' 2
+  f_has "$at" 'And  = local.mode_is_pipeline'
+  f_has "$at" 'Next = "RunLoader"'
+  f_has "$at" 'Default = "Done"'
+  f_has_not "$at" 'loader_only'
+  case_end
+
+  # The S overlay: the loader cap fits alone in the execution timeout, Rule A is still the one-step rule
+  # and does not count the loader, and the pipeline worst case still exceeds the maximum (so the accepted
+  # limitation text stays true). M and L keep their loader values.
+  static_begin "14.terraform.s-overlay.loader-5400-fits-the-execution-timeout-alone-and-rule-a-is-unchanged"
+  tf_overlay "$TF_S"
+  if tf_is_num "$TF_MAX" && tf_is_num "$TF_CREATE" && tf_is_num "$TF_STEP" && tf_is_num "$TF_LOAD"; then
+    ra=$((TF_CREATE + TF_STEP + 600))
+    wc=$((TF_CREATE + 300 + TF_STEP + 900 + TF_LOAD))
+    [ "$TF_LOAD" = "5400" ] || note_fail "the S loader is $TF_LOAD, work order 86 says 5400"
+    [ "$TF_LOAD" -le "$TF_MAX" ] || note_fail "the S loader $TF_LOAD does not fit alone in the execution timeout $TF_MAX"
+    [ "$TF_MAX" = "7200" ] || note_fail "the S execution timeout is $TF_MAX, expected 7200 (unchanged)"
+    [ "$ra" = "6840" ] || note_fail "Rule A for S is $ra, expected 6840 (1440 + 4800 + 600, unchanged)"
+    tf_rule_a "$TF_MAX" "$TF_CREATE" "$TF_STEP" || note_fail "S fails Rule A: $TF_MAX < $ra"
+    [ "$wc" = "12840" ] || note_fail "the S pipeline worst case is $wc, expected 12840"
+    [ "$wc" -gt "$TF_MAX" ] || note_fail "the S worst case $wc no longer exceeds $TF_MAX"
+    f_has "$TF_S" "$TF_LOAD <= $TF_MAX"
+  else
+    note_fail "a pipeline value of the S overlay could not be read as a whole number"
+  fi
+  f_has "$WF_VARS" 'condition     = var.max_run_seconds >= var.create_cluster_timeout_seconds + var.emr_step_timeout_seconds + 600'
+  f_has_not_re "$WF_VARS" 'condition[[:space:]]*=.*loader_timeout_seconds[[:space:]]*[+]'
+  f_has_not_re "$CRS_VARS" 'condition[[:space:]]*=.*pipeline_loader_timeout_seconds[[:space:]]*[+]'
+  tf_overlay "$TF_M"
+  [ "$TF_LOAD" = "2700" ] || note_fail "the M loader is '$TF_LOAD', expected 2700 (unchanged)"
+  if tf_is_num "$TF_LOAD" && tf_is_num "$TF_MAX"; then
+    [ "$TF_LOAD" -le "$TF_MAX" ] || note_fail "the M loader $TF_LOAD is above the M execution timeout $TF_MAX"
+  fi
+  tf_overlay "$TF_L"
+  [ "$TF_LOAD" = "3600" ] || note_fail "the L loader is '$TF_LOAD', expected 3600 (unchanged)"
+  if tf_is_num "$TF_LOAD" && tf_is_num "$TF_MAX"; then
+    [ "$TF_LOAD" -le "$TF_MAX" ] || note_fail "the L loader $TF_LOAD is above the L execution timeout $TF_MAX"
+  fi
+  case_end
+
+  # The infra README: the figures it gives for the S loader follow the overlay.
+  static_begin "14.terraform.readme-gives-the-s-loader-figures-of-work-order-86-from-the-overlay-values"
+  tf_overlay "$TF_S"
+  if tf_is_num "$TF_MAX" && tf_is_num "$TF_CREATE" && tf_is_num "$TF_STEP" && tf_is_num "$TF_LOAD"; then
+    wc=$((TF_CREATE + 300 + TF_STEP + 900 + TF_LOAD))
+    low=$((660 + 300 + 3300 + 900 + TF_LOAD))
+    high=$((660 + 300 + 3900 + 900 + TF_LOAD))
+    cap=$((660 + 300 + TF_STEP + 900 + TF_LOAD))
+    f_has "$TF_README" "S $TF_LOAD (work order 86; 1800 before), M 2700, L 3600"
+    f_has "$TF_README" "RunLoader (\`pipeline_loader_timeout_seconds\`; S $TF_LOAD since work order 86 and 1800 before, M 2700, L 3600)"
+    f_has "$TF_README" "S $TF_CREATE + 300 + $TF_STEP + 900 + $TF_LOAD = $wc > $TF_MAX ($((wc - TF_MAX)) s over; it was 9240, 2040 s over, with a 1800 s loader before work order 86"
+    f_has "$TF_README" "the S worst case of the segment timeouts is $wc s since work order 86 (9240 s under work order 52)"
+    f_has "$TF_README" "with $TF_LOAD the three totals become $(commas "$low"), $(commas "$high") and $(commas "$cap") s"
+    f_has "$TF_README" "$TF_LOAD s is for loader-only runs"
+  else
+    note_fail "a pipeline value of the S overlay could not be read as a whole number"
+  fi
+  f_has "$TF_README" '### Loader-only mode (work order 86; authored, not planned, not validated, not run)'
+  f_count_is "$TF_README" '### Loader-only mode (work order 86' 1
+  f_has "$TF_README" 'Path: `ValidateInput` -> `RunLoader` -> `Done`, with `RunLoader`'"'"'s Catch going to `Failed`.'
+  f_has "$TF_README" 'UNVERIFIED until a plan and a run: the Choice rules with `IsPresent` inside `And`'
+  f_has_not "$TF_README" 'S 1440 + 300 + 4800 + 900 + 1800 = 9240 > 7200 (2040 s over;'
+  case_end
+}
+static_wo87_terraform_cases
+
+### Work order 92: the prose of infra work order 90 (loader-only section, log-tail command, loader figures) --
+# Infra work order 90 corrected three claims in infra/terraform/README.md and added the operator command
+# that tails the loader log group. The cases below pin the corrected facts as text, and each fact that
+# the code or the Terraform decides is also read from that code or Terraform, so a later change to either
+# makes the prose stale loudly instead of silently:
+#   1. A rerun does NOT skip finished batches (the ledger execution label is fresh on every loader run);
+#      it skips per vector by text hash and model.
+#   2. ValidateInput does not reject extra keys; the script is the only exact-key gate.
+#   3. The loader log group is the one Terraform names, /scholarchain-course/loader, derived here from
+#      the Terraform text (module runtime, name_prefix of the course environment), not typed twice.
+#   4. The three log markers, and that two of them exist only after the loader image is rebuilt.
+#   5. The loader figures the READMEs give for S, M and L follow the overlays.
+# Nothing is run: the files are read as text. Whether Step Functions evaluates the Choice rule as the
+# README says stays UNVERIFIED until a plan and a run, as the README itself says.
+# SC2016: the single-quoted strings are literal README, Scala and Terraform fragments that f_has,
+# f_has_not and f_has_re search for as text; the $ and the backticks must not expand.
+# shellcheck disable=SC2016
+static_wo92_cases() {
+  local tfr="$TF_DIR/README.md" srd="$REAL_ROOT/scripts/README.md"
+  local aim="$REAL_ROOT/modules/rag/src/main/scala/scholarchain/rag/AwsIngestMain.scala"
+  local emb="$REAL_ROOT/modules/storage/src/main/scala/scholarchain/storage/EmbeddingIngest.scala"
+  local rtm crm ctf rt_code rt_blk crm_code rb main vi
+  local proj envn region lg bad f p ov para
+  local s_max s_create s_step s_load m_load l_load ra
+  rtm="$TF_DIR/modules/runtime/main.tf"
+  crm="$TF_DIR/environments/course/main.tf"
+  ctf="$TF_DIR/environments/course/course.tfvars"
+
+  # 1. How a rerun skips work.
+  static_begin "14.docs.loader-only.readme-says-a-rerun-skips-per-vector-and-never-the-finished-batches"
+  f_has "$tfr" 'A rerun does NOT resume by batch: every loader run gets a fresh ledger execution label (`AwsIngestMain`, `executionLabel = compactStamp(clock())`), so the ledger'"'"'s finished-batch skip never applies.'
+  f_has "$tfr" 'Skipping is per vector, by text hash and embedding model (`EmbeddingIngest.runBatch`), and only for vectors that are actually stored in S3 Vectors; for each such vector the semantic document is still re-checked, one S3 call per item.'
+  f_has "$tfr" 'If a previous run'"'"'s vectors were not stored (for example the batch that was running at the timeout), the rerun embeds them again.'
+  for f in "$tfr" "$srd" "$TF_S"; do
+    f_has_not "$f" 'skips the batches already finished'
+    f_has_not "$f" 'skip the batches already finished'
+    f_has_not_re "$f" '[Ss]kips? (the )?(batches|work) (that )?(are |were |have been |it has )?already (finished|done|completed)'
+    f_has_not_re "$f" 'already[- ](finished|completed|done) batches'
+  done
+  # The code the sentence describes: a fresh label from the clock, never a fixed literal; the per-vector
+  # skip needs both the text hash and the model to match; the document is put back for a skipped vector;
+  # the ledger skip of a FINISHED batch still exists, which is why the label must stay fresh.
+  f_has "$aim" 'wiring.backend.copy(executionLabel = compactStamp(clock()))'
+  f_has_not_re "$aim" 'executionLabel[[:space:]]*=[[:space:]]*"'
+  f_has "$emb" 'storedHash(old) == p.item.textHash &&'
+  f_has "$emb" 'storedModel(old) == p.item.embeddingModel =>'
+  f_has "$emb" 'if !differing.contains("textRef") then putDocument(p)'
+  f_has "$emb" 'if prior.exists(_._1 == "FINISHED") then t(2) += items.size'
+  case_end
+
+  # 2. What ValidateInput checks.
+  main="$(code_of "$TF_DIR/modules/workflow/main.tf")"
+  vi="$CODE_DIR/wf-validate-input-92.txt"
+  awk 'index($0, "      ValidateInput = {") == 1 { f = 1 } f == 1 && index($0, "      InvalidInput = {") == 1 { exit } f == 1 { print }' "$main" > "$vi"
+  static_begin "14.docs.loader-only.readme-says-validate-input-does-not-reject-extra-keys-and-the-script-is-the-only-exact-key-gate"
+  f_has "$tfr" 'Input (an exact shape, checked by `scripts/run-bounded-pipeline.sh` before anything starts; `ValidateInput` checks less, see below):'
+  f_has "$tfr" '`ValidateInput` checks only that `run_id` and `loader_command` are present; their shape is the script'"'"'s job'
+  f_has "$tfr" '`ValidateInput` does not reject extra keys, in this mode or in mode pipeline'
+  f_has "$tfr" 'a loader-only input that also carries `snapshot` or `snapshots` still reaches `RunLoader`, and the script is the only exact-key gate.'
+  f_has "$tfr" 'gets no exact-key check, no `run_id` shape check and no check that the last `loader_command` element matches `run_id`'
+  f_has_not_re "$tfr" 'ValidateInput`?[[:space:]]+(also[[:space:]]+)?(rejects|refuses|enforces)'
+  f_has_not_re "$tfr" 'ValidateInput`?[[:space:]]+(is|also is)[[:space:]]+(an?|the)[[:space:]]+(exact|key)'
+  # Work order 94 (follows infra work order 93): the scripts/README.md sentence now says who refuses the keys
+  # ("refused by the script as unknown keys") and adds that the state machine does not reject them. The old
+  # needle ended at the closing parenthesis and a full stop, so it would fail on the new text; it is replaced
+  # by the new sentence, and the old wording is asserted absent.
+  f_has "$srd" 'The keys are exactly `mode`, `run_id` and `loader_command`; `snapshot` and `snapshots` are refused by the script as unknown keys (`unknown input key(s) for mode loader-only: ...`); the state machine does not reject them.'
+  f_has_not "$srd" 'are refused as unknown keys (`unknown input key(s) for mode loader-only: ...`).'
+  f_has_not_re "$srd" 'state machine[^.]*(refuses|rejects)[^.]*(unknown|extra) key'
+  # The Terraform the sentence describes: the loader-only rule is the mode test plus two IsPresent tests,
+  # and the ValidateInput state holds no negated or absent-key test that would reject an extra key.
+  if [ "$(wc -l < "$vi" | tr -d ' ')" -lt 14 ]; then note_fail "the ValidateInput state cut out of main.tf has fewer than 14 lines"; fi
+  f_has "$vi" 'And  = concat(local.mode_is_loader_only, local.loader_only_fields_present)'
+  f_has_not_re "$vi" 'IsPresent[[:space:]]*=[[:space:]]*false'
+  f_has_not_re "$vi" '(^|[^A-Za-z_])Not[[:space:]]*='
+  case_end
+
+  # 3. The loader log group.
+  rt_code="$(code_of "$rtm")"
+  crm_code="$(code_of "$crm")"
+  rt_blk="$CODE_DIR/runtime-log-group-block-92.txt"
+  rb="$CODE_DIR/course-module-runtime-92.txt"
+  awk 'index($0, "resource \"aws_cloudwatch_log_group\" \"this\" {") == 1 { f = 1 } f == 1 { print } f == 1 && $0 == "}" { exit }' "$rt_code" > "$rt_blk"
+  awk 'index($0, "module \"runtime\" {") == 1 { f = 1 } f == 1 { print } f == 1 && $0 == "}" { exit }' "$crm_code" > "$rb"
+  proj="$(tf_def_in "$CRS_VARS" project)"
+  proj="${proj//\"/}"
+  proj="${proj%% *}"
+  envn="$(sed -n 's/^environment[[:space:]]*=[[:space:]]*"\([A-Za-z0-9-]*\)".*/\1/p' "$ctf" | head -n 1)"
+  region="$(tf_def_in "$CRS_VARS" region)"
+  region="${region//\"/}"
+  region="${region%% *}"
+  lg="/${proj}-${envn}/loader"
+  static_begin "14.docs.loader-only.log-group-in-both-readmes-is-the-one-terraform-names-and-the-tail-command-follows-it"
+  case "$proj" in
+    "" | *[!a-z0-9-]*) note_fail "the project default could not be read from the course variables: '$proj'" ;;
+  esac
+  case "$envn" in
+    "" | *[!a-z0-9-]*) note_fail "the environment could not be read from course.tfvars: '$envn'" ;;
+  esac
+  case "$region" in
+    "" | *[!a-z0-9-]*) note_fail "the region default could not be read from the course variables: '$region'" ;;
+  esac
+  [ "$lg" = "/scholarchain-course/loader" ] || note_fail "the loader log group derived from the Terraform is '$lg', not /scholarchain-course/loader"
+  for ov in "$TF_S" "$TF_M" "$TF_L"; do
+    [ "$(tf_count "$ov" environment)" = "0" ] || note_fail "${ov##*/} sets environment, so the name prefix of that overlay differs from course.tfvars"
+    [ "$(tf_count "$ov" project)" = "0" ] || note_fail "${ov##*/} sets project, so the name prefix of that overlay differs from the variable default"
+  done
+  # Terraform: name_prefix = project-environment, handed to the runtime module, which names the group
+  # /<name_prefix>/<each.value> for loader too, and the loader task definition writes to that group.
+  f_has_re "$crm_code" '^[[:space:]]*name_prefix[[:space:]]*=[[:space:]]*"\$\{var\.project\}-\$\{var\.environment\}"$'
+  # Work order 99: rt_code and crm_code are now two different files (code_of names its copy after the whole
+  # path; both used to be $CODE_DIR/main.tf, so rt_code held the course main.tf and the cut below was empty).
+  # Each cut runs from its exact header line (runtime main.tf line 93 and course main.tf line 179) to the first
+  # later line that is exactly "}" in column 1. Mutation: renaming the resource label, splitting the toset list
+  # over lines, changing the name pattern to /${var.name_prefix}-loader, pointing the loader task's awslogs-group
+  # at another group, or passing another name_prefix to the module each fails one needle below.
+  f_count_is "$rt_code" 'resource "aws_cloudwatch_log_group" "this" {' 1
+  f_count_is "$crm_code" 'module "runtime" {' 1
+  f_min_lines "$rb" 5 "the runtime module call cut out of the course main.tf"
+  f_has_re "$rb" '^[[:space:]]*name_prefix[[:space:]]*=[[:space:]]*local\.name_prefix$'
+  f_min_lines "$rt_blk" 4 "the log group resource cut out of the runtime main.tf"
+  f_has_re "$rt_blk" '^[[:space:]]*for_each[[:space:]]*=[[:space:]]*toset\(\["fast", "slow", "loader"\]\)$'
+  f_has_re "$rt_blk" '^[[:space:]]*name[[:space:]]*=[[:space:]]*"/\$\{var\.name_prefix\}/\$\{each\.value\}"$'
+  f_has_re "$rt_code" '"awslogs-group"[[:space:]]*=[[:space:]]*aws_cloudwatch_log_group\.this\["loader"\]\.name'
+  f_has_re "$rt_code" '"awslogs-stream-prefix"[[:space:]]*=[[:space:]]*"ecs"'
+  # The READMEs: the name, the exact command, the stream prefix, the Region, and no other loader tail.
+  f_has "$tfr" 'goes to the CloudWatch log group `/<name_prefix>/loader` (`aws_cloudwatch_log_group.this["loader"]` in `modules/runtime/main.tf`, stream prefix `ecs`;'
+  f_has "$tfr" "so \`$lg\` for the course environment)"
+  f_has "$srd" "The loader's log group is \`/<name_prefix>/loader\` (\`modules/runtime/main.tf\`; \`$lg\` in the course environment)."
+  for f in "$tfr" "$srd"; do
+    f_has "$f" "AWS_PROFILE=scholarchain aws logs tail $lg --follow --format short"
+    f_has "$f" "Add \`--region $region\` if the profile has no default Region (not checked)."
+    bad="$( (grep -oE 'aws logs tail [^ ]*loader[^ ]*' "$f" || true) | (grep -vxF "aws logs tail $lg" || true))"
+    [ -z "$bad" ] || note_fail "${f##*/} tails a loader log group other than $lg: $bad"
+  done
+  case_end
+
+  # 4. The markers and the rebuild note, against the code that prints them.
+  static_begin "14.docs.loader-only.readme-lists-the-three-log-markers-says-they-need-the-rebuilt-image-and-the-code-prints-them"
+  f_has "$tfr" 'Markers to look for: `LOADER_PHASE name=<download|ingest|graph|report> state=<start|done> elapsed_s=<n>`, `LOADER_PROGRESS` (one line at the start, one per batch and one per 100 embeds inside a batch), and `LOADER_RESULT=SUCCESS` or `LOADER_RESULT=FAILED reason=...` as the last line.'
+  f_has "$tfr" '`LOADER_PROGRESS` and `LOADER_PHASE` exist only after the loader image is rebuilt from the repaired sources (work orders 85 and 88)'
+  f_has "$tfr" 'the image of S run 6 prints neither, only `LOADER_INPUT`'
+  f_has "$srd" 'Look for `LOADER_PHASE name=... state=... elapsed_s=...`, `LOADER_PROGRESS` (a start line, one line per batch, one per 100 embeds within a batch) and the last line `LOADER_RESULT=SUCCESS` or `LOADER_RESULT=FAILED reason=...`.'
+  f_has "$srd" '`LOADER_PROGRESS` and `LOADER_PHASE` exist only after the loader image is rebuilt from the repaired sources (work orders 85 and 88)'
+  f_has "$srd" 'the S run 6 image printed `LOADER_INPUT` and nothing else until the timeout.'
+  f_has "$aim" 's"LOADER_PHASE name=$name state=$state "'
+  for p in download ingest graph report; do
+    f_has "$aim" "phase(\"$p\", \"start\")"
+    f_has "$aim" "phase(\"$p\", \"done\")"
+  done
+  f_has "$aim" 'if success then "LOADER_RESULT=SUCCESS"'
+  f_has "$aim" 's"LOADER_RESULT=FAILED reason='
+  f_has "$emb" 'emit(s"LOADER_PROGRESS start items=$totalItems batches=${batches.size}")'
+  f_has "$emb" 's"LOADER_PROGRESS index=${work.index} "'
+  f_has "$emb" 's"LOADER_PROGRESS index=${spec.name} "'
+  f_has "$emb" 'val BatchProgressEvery = 100'
+  case_end
+
+  # The spend note: the READMEs say what the script's ceiling does not count, and quote no price.
+  static_begin "14.docs.loader-only.spend-note-says-per-request-charges-are-not-counted-and-quotes-no-price"
+  para="$CODE_DIR/readme-spend-para-92.txt"
+  awk 'index($0, "Spend the script does not see.") == 1' "$tfr" > "$para"
+  [ "$(wc -l < "$para" | tr -d ' ')" = "1" ] || note_fail "infra/terraform/README.md does not hold exactly one 'Spend the script does not see.' paragraph"
+  f_has "$para" 'projects spend as the caller'"'"'s hourly burn times the time cap and nothing else'
+  f_has "$para" 'These counts are unmeasured estimates, and no price is quoted here because none was verified.'
+  f_has_not_re "$para" 'USD|\$[0-9]'
+  para="$CODE_DIR/readme-spend-para-92b.txt"
+  awk 'index($0, "Spend. The script") == 1' "$srd" > "$para"
+  [ "$(wc -l < "$para" | tr -d ' ')" = "1" ] || note_fail "scripts/README.md does not hold exactly one 'Spend. The script' paragraph"
+  f_has "$para" 'counts the caller'"'"'s hourly burn times time only, not per-request charges'
+  f_has "$para" '(all unmeasured estimates; no price is quoted because none was verified)'
+  f_has_not_re "$para" 'USD|\$[0-9]'
+  case_end
+
+  # 5. The loader figures follow the overlays.
+  static_begin "14.docs.loader-only.loader-timeout-figures-in-the-readmes-follow-the-overlays"
+  tf_overlay "$TF_S"
+  s_max="$TF_MAX"
+  s_create="$TF_CREATE"
+  s_step="$TF_STEP"
+  s_load="$TF_LOAD"
+  tf_overlay "$TF_M"
+  m_load="$TF_LOAD"
+  tf_overlay "$TF_L"
+  l_load="$TF_LOAD"
+  if tf_is_num "$s_max" && tf_is_num "$s_create" && tf_is_num "$s_step" && tf_is_num "$s_load" && tf_is_num "$m_load" && tf_is_num "$l_load"; then
+    ra=$((s_create + s_step + 600))
+    f_has "$tfr" "\`pipeline_loader_timeout_seconds\` (S $s_load since work order 86, M $m_load, L $l_load), with the arithmetic in the overlay comments."
+    # Work order 97 (infra work order 95): the sentence no longer says the run ends at the cap "plus the
+    # Fargate start". The RunLoader state timeout starts when the state is entered, so the Fargate start
+    # and the image pull are inside the cap. The old needle ("The execution ends at ... plus the Fargate
+    # start, inside ...") is replaced by the new sentence, and the old addition is asserted absent.
+    f_has "$tfr" "Bounds. The loader run ends at \`pipeline_loader_timeout_seconds\` (S $s_load s), inside \`pipeline_max_run_seconds\` (S $s_max s)."
+    f_has "$tfr" "\`RunLoader\` is an \`ecs:runTask.sync\` Task state whose \`TimeoutSeconds\` starts when the state is entered, so the Fargate start and the image pull count against the $s_load s and do not come on top of it"
+    f_has_not "$tfr" "plus the Fargate start"
+    f_has_not_re "$tfr" '[Pp]lus the Fargate start'
+    f_has_not_re "$tfr" 'Bounds\. The execution ends at'
+    f_has "$tfr" "it still holds for mode pipeline (S $s_create + $s_step + 600 = $ra <= $s_max)"
+    f_has "$srd" "(\`pipeline_loader_timeout_seconds\`: S $s_load since work order 86 and 1800 s in the S run 5 figures above, M $m_load, L $l_load s;"
+    f_has "$srd" "the loader timeout of the S overlay is $s_load s ($((s_load / 60)) minutes)"
+  else
+    note_fail "a loader or S pipeline value could not be read from the overlays as a whole number"
+  fi
+  case_end
+}
+static_wo92_cases
+
+### Work order 94: the input contract wording of infra work order 93 (static) --------------------------
+# Infra work order 93 corrected three places that said the state machine refuses a wrong key set: the
+# "Execution input contract" paragraph of scripts/README.md, the loader-only paragraph of the same file, and
+# the comment above INPUT_FIELDS in run-bounded-pipeline.sh. The truth, read from main.tf (the ValidateInput
+# case of work order 92 pins it): the first Choice state routes by mode and by the presence of the required
+# keys, sends a missing key or an unknown mode to InvalidInput, and does not reject extra keys, so the script
+# is the only exact-key gate. This case pins that wording and refuses the old claim. The README may still say
+# that ValidateInput sends a missing key or an unknown mode to InvalidInput; that is not forbidden here.
+# SC2016: the single-quoted strings are literal README and script fragments (backticks must not expand).
+# shellcheck disable=SC2016
+static_wo94_cases() {
+  local srd="$REAL_ROOT/scripts/README.md" scr="$REAL_ROOT/scripts/run-bounded-pipeline.sh"
+
+  static_begin "14.docs.input-contract.readme-and-script-say-the-script-is-the-only-exact-key-gate-and-the-state-machine-does-not-refuse-extra-or-unknown-keys"
+  f_has "$srd" '`run-bounded-pipeline.sh` refuses every other shape before it starts anything: the key set must be exactly the keys of the mode, so a missing key, an unknown key and an unknown mode are all refused.'
+  f_has "$srd" 'but it does not reject extra keys (for example `snapshot` in a loader-only input still reaches `RunLoader`), so the script is the only exact-key gate.'
+  f_has "$scr" 'not reject extra keys, so the check below is the only exact-key gate:'
+  f_has_not "$srd" "and by the state machine's first Choice state"
+  f_has_not "$srd" 'Any other shape is refused by `run-bounded-pipeline.sh` before it starts anything'
+  f_has_not "$scr" 'design B):'
+  # No sentence may give the state machine the exact-key check: an active claim (the state machine,
+  # ValidateInput or the Choice state refuses, rejects or enforces extra, unknown or other keys) or a passive
+  # one (extra, unknown or other keys refused or rejected by the state machine). The negated forms the README
+  # now uses ("does not reject extra keys", "does not reject them") hold the bare verb and never match.
+  f_has_not_re "$srd" '(state machine|ValidateInput`?|Choice state)[^.]{0,80}[[:space:]](rejects|refuses|enforces)[^.]{0,40}[[:space:]](extra|unknown|other)[[:space:]]+(input[[:space:]]+)?keys?'
+  f_has_not_re "$srd" '(extra|unknown|other)[[:space:]]+(input[[:space:]]+)?keys?[^.]{0,60}[[:space:]](refused|rejected)[[:space:]]+by[^.]{0,40}(state machine|ValidateInput|Choice state)'
+  f_has_not_re "$scr" '(state machine|ValidateInput|Choice state)[^.]{0,80}[[:space:]](rejects|refuses|enforces)[^.]{0,40}[[:space:]](extra|unknown|other)[[:space:]]+(input[[:space:]]+)?keys?'
+  case_end
+}
+static_wo94_cases
+
+### Work order 97: the doc text of infra work order 95 (static) ------------------------------------------
+# Infra work order 95 changed text only, in four places, and this block pins the new truths and refuses
+# the old claims. Nothing here is run against AWS; the files are read as text.
+#   1. infra/terraform/README.md, "Bounds": the loader run ends at the loader cap, and because the
+#      RunLoader state timeout starts when the state is entered, the Fargate start and the image pull are
+#      inside the cap. They are not added on top ("plus the Fargate start" is gone). The case of work order
+#      92 that read the old sentence is repaired in place (14.docs.loader-only.loader-timeout-figures-...).
+#   2. The same README, "Why": about 47 minutes (about 2,800 s), no longer "about 52 more minutes". The figure
+#      is recomputed here from the 25.7k embeddings and 9.2 items a second the sentence itself states.
+#      infra/terraform/environments/course/experiment-size-s.tfvars still says "about 52 more minutes" (it
+#      was outside work order 95); this block does not read it, and the report names it as a finding.
+#   3. Both READMEs, the spend notes: the old "about 100k HEAD/GET checks" is replaced by the supported
+#      counts (about 42k HEADs, about 25.7k PUTs, about 420 GetVectors calls, two listings of about 42 pages),
+#      still unmeasured estimates and no price. The counts are re-derived from the 41.9k total the notes state.
+#   4. modules/workflow/main.tf, the comment above mode_is_capability: ValidateInput checks run_id AND
+#      loader_command. main.tf is read raw here (the comment is dropped by code_of, which the other
+#      main.tf cases use), and the claim is tied to the code: the loader-only rule holds both IsPresent
+#      tests, and RunLoader never reads run_id.
+# SC2016: the single-quoted strings are literal README and Terraform fragments (backticks and $ must not
+# expand).
+# shellcheck disable=SC2016
+static_wo97_cases() {
+  local tfr="$TF_DIR/README.md" srd="$REAL_ROOT/scripts/README.md" rawmain="$TF_DIR/modules/workflow/main.tf"
+  local main rl lf cm para s_load n r mins items heads pages calls
+
+  # 1. The Fargate start is inside the loader cap.
+  tf_overlay "$TF_S"
+  s_load="$TF_LOAD"
+  main="$(code_of "$rawmain")"
+  rl="$CODE_DIR/wf-run-loader-97.txt"
+  awk 'index($0, "      RunLoader = {") == 1 { f = 1 } f == 1 && index($0, "      CleanupOnFailure = {") == 1 { exit } f == 1 { print }' "$main" > "$rl"
+  static_begin "14.docs.loader-only.readme-says-the-fargate-start-counts-against-the-loader-cap-and-the-cap-is-on-the-whole-run-loader-state"
+  if tf_is_num "$s_load"; then
+    # Mutation: restoring "plus the Fargate start" (or dropping "count against") fails the first needles
+    # and the absence checks; an overlay change of the S loader fails the figure inside them.
+    f_has "$tfr" "\`RunLoader\` is an \`ecs:runTask.sync\` Task state whose \`TimeoutSeconds\` starts when the state is entered, so the Fargate start and the image pull count against the $s_load s and do not come on top of it; the loader process therefore gets less than the cap."
+    f_has "$tfr" 'The cap is on the whole `RunLoader` state including the Fargate start'
+    f_has_not "$tfr" 'plus the Fargate start'
+    f_has_not_re "$tfr" '[Pp]lus the Fargate start'
+  else
+    note_fail "the S loader value could not be read from the overlay as a whole number: '$s_load'"
+  fi
+  # The sentence is true only if the timeout is on the Task state itself: a Task state on runTask.sync whose
+  # own TimeoutSeconds is the loader variable (the Catch to Failed is pinned by the work order 87 case).
+  # Mutation: moving the timeout into a nested Parameters block, or changing the resource.
+  f_has_re "$rl" '^        Type[[:space:]]*=[[:space:]]*"Task"$'
+  f_has_re "$rl" '^        Resource[[:space:]]*=[[:space:]]*"arn:aws:states:::ecs:runTask\.sync"$'
+  f_has_re "$rl" '^        TimeoutSeconds[[:space:]]*=[[:space:]]*var\.loader_timeout_seconds$'
+  case_end
+
+  # The fit estimate sentence: its ranges, its basis, and that the 9.2 a second figure matches the minutes.
+  static_begin "14.docs.loader-only.readme-gives-47-minutes-and-the-fit-estimate-ranges-and-never-52-more-minutes"
+  # 25.7k embeddings at 9.2 a second: 25700 / 9.2 = 2793 s, which the README rounds to 2,800 s and 47
+  # minutes. Mutation: a changed rate or count without the matching second and minute figure fails here.
+  n=$((257000 / 92))
+  r=$(( (n + 50) / 100 * 100 ))
+  mins=$(( (r + 30) / 60 ))
+  [ "$r" = "2800" ] || note_fail "25.7k embeddings at 9.2 a second round to $r s, the README says about 2,800 s"
+  [ "$mins" = "47" ] || note_fail "$r s is about $mins minutes, the README says about 47"
+  f_has "$tfr" "about 25.7k embeddings were left (about $mins minutes: about $(commas "$r") s at about 9.2 items per second)"
+  f_has_not "$tfr" 'about 52 more minutes'
+  f_has_not_re "$tfr" '(^|[^0-9,.])52 more minutes'
+  f_has "$tfr" 'about 3,400 to 4,600 s if the earlier vectors were stored and about 4,700 to 5,950 s if not, unmeasured'
+  f_has "$tfr" 'the S run 6 numbers (about 9.2 embeds per second including the document write) are the basis of the fit estimate'
+  case_end
+
+  # 3. The spend notes: the supported counts, derived from the 41.9k total; no "about 100k"; no price.
+  static_begin "14.docs.loader-only.spend-notes-in-both-readmes-give-the-supported-counts-and-not-about-100k-head-get-checks"
+  items=41900
+  heads=$(( (items + 500) / 1000 ))
+  pages=$(( (items + 999) / 1000 ))
+  calls=$(( ( (items + 99) / 100 + 5) / 10 * 10 ))
+  [ "$heads" = "42" ] || note_fail "41.9k items are about ${heads}k HEADs, the READMEs say about 42k"
+  [ "$pages" = "42" ] || note_fail "41.9k keys are $pages listing pages of 1000, the READMEs say about 42"
+  [ "$calls" = "420" ] || note_fail "41.9k keys at 100 a call are about $calls GetVectors calls, the READMEs say about 420"
+  # Whole-file absence of the old claim in both READMEs. Mutation: restoring "about 100k HEAD/GET checks".
+  f_has_not "$tfr" 'about 100k HEAD/GET checks'
+  f_has_not "$srd" 'about 100k HEAD/GET checks'
+  para="$CODE_DIR/readme-spend-para-97.txt"
+  awk 'index($0, "Spend the script does not see.") == 1' "$tfr" > "$para"
+  [ "$(wc -l < "$para" | tr -d ' ')" = "1" ] || note_fail "infra/terraform/README.md does not hold exactly one 'Spend the script does not see.' paragraph"
+  f_has "$para" "about ${heads}k S3 HEADs (\`putImmutable\` makes one HEAD per planned item, whether it is skipped or newly embedded)"
+  f_has "$para" 'about 25.7k document PUTs if the earlier vectors were stored (all 41.9k if not)'
+  f_has "$para" "about $calls \`GetVectors\` calls"
+  f_has "$para" "two bounded \`ListObjectsV2\` listings of about $pages pages each"
+  f_has "$para" 'These counts are unmeasured estimates, and no price is quoted here because none was verified.'
+  f_has_not "$para" 'about 100k'
+  f_has_not_re "$para" '100k|HEAD/GET|HEAD or GET'
+  f_has_not_re "$para" 'USD|\$[0-9]'
+  para="$CODE_DIR/readme-spend-para-97b.txt"
+  awk 'index($0, "Spend. The script") == 1' "$srd" > "$para"
+  [ "$(wc -l < "$para" | tr -d ' ')" = "1" ] || note_fail "scripts/README.md does not hold exactly one 'Spend. The script' paragraph"
+  f_has "$para" "about ${heads}k S3 HEADs (one per planned item, skipped or newly embedded)"
+  f_has "$para" 'about 25.7k document PUTs if the earlier vectors were stored (all 41.9k if not)'
+  f_has "$para" "about $calls \`GetVectors\` calls"
+  f_has "$para" "two bounded \`ListObjectsV2\` listings of about $pages pages each"
+  f_has "$para" '(all unmeasured estimates; no price is quoted because none was verified)'
+  f_has_not "$para" 'about 100k'
+  f_has_not_re "$para" '100k|HEAD/GET|HEAD or GET'
+  f_has_not_re "$para" 'USD|\$[0-9]'
+  case_end
+
+  # 4. The main.tf comment, read raw. The comment lines of the "Execution input contract" block are joined
+  # into paragraphs (each line loses its "#", runs of blanks become one space, an empty comment line ends
+  # a paragraph), so a sentence wrapped over two lines can be pinned whole.
+  lf="$CODE_DIR/wf-loader-only-fields-97.txt"
+  cm="$CODE_DIR/wf-comment-paragraphs-97.txt"
+  awk 'index($0, "  loader_only_fields_present = [") == 1 { f = 1 } f == 1 { print } f == 1 && $0 == "  ]" { exit }' "$main" > "$lf"
+  awk '/^[[:space:]]*#/ { t = $0; sub(/^[[:space:]]*#/, "", t); gsub(/[[:space:]]+/, " ", t); sub(/^ /, "", t); sub(/ $/, "", t); if (t == "") { if (b != "") print b; b = ""; next } b = (b == "" ? t : b " " t); next } { if (b != "") print b; b = "" } END { if (b != "") print b }' "$rawmain" > "$cm"
+  static_begin "14.docs.loader-only.workflow-comment-says-validate-input-checks-run-id-and-loader-command-and-the-code-requires-both"
+  if [ "$(wc -l < "$cm" | tr -d ' ')" -lt 3 ]; then note_fail "the comment paragraphs cut out of main.tf have fewer than 3 lines"; fi
+  # Mutation: dropping "and loader_command" (the old wording "checks that run_id is present") fails the
+  # whole-sentence needle and the two absence checks.
+  f_has "$cm" 'ValidateInput only checks that run_id and loader_command are present in that mode; no state uses the run_id value, and the loader takes the run id from loader_command.'
+  f_has_not "$cm" 'only checks that run_id is present'
+  f_has_not_re "$cm" 'checks that run_id (is|alone is|only is) present'
+  f_has_not_re "$cm" 'ValidateInput (only )?(checks|requires|needs) (that )?(only )?run_id[[:space:]]+(is|alone)'
+  # The code the comment describes. Mutation: removing either IsPresent test from the loader-only rule
+  # makes the comment overstate the check; a RunLoader that reads $.run_id makes "no state uses the
+  # run_id value" false.
+  if [ "$(wc -l < "$lf" | tr -d ' ')" != "4" ]; then note_fail "loader_only_fields_present has $(wc -l < "$lf" | tr -d ' ') lines, expected 4 (header, two rules, close)"; fi
+  f_has "$lf" '{ Variable = "$.run_id", IsPresent = true },'
+  f_has "$lf" '{ Variable = "$.loader_command", IsPresent = true },'
+  if [ "$(wc -l < "$rl" | tr -d ' ')" -lt 20 ]; then note_fail "the RunLoader state cut out of main.tf has fewer than 20 lines"; fi
+  f_has_not "$rl" 'run_id'
+  f_has "$rl" '"Command.$" = "$.loader_command"'
+  case_end
+}
+static_wo97_cases
 
 ### Work order 68: the harness impact of infra-engineer work order 67 (static cases) ---------
 # F2: the floor of 15 s for SC_PREFLIGHT_TIMEOUT. F3: timeout -k 5 20 hadoop classpath --glob.
@@ -7503,7 +8392,7 @@ printf 'RC=0\n'
 EOF
 
 pf_sd_fn="$CODE_DIR/rehearse-say-diagnostic-run-fn.sh"
-extract_fn "$CODE_DIR/rehearse-preflight.sh" say_diagnostic "$pf_sd_fn"
+extract_fn "$(code_of "$EMR_DIR/rehearse-preflight.sh")" say_diagnostic "$pf_sd_fn"
 
 pfx_new sd-observed
 cp "$EMR_FX/pf-ev-ce-observed-layout/evaluate-merged.log" "$PFX/evlog.txt"

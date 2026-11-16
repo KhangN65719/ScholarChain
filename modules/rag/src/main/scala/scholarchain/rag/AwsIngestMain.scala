@@ -41,11 +41,25 @@ final class CountingEmbedder(inner: Embedder) extends Embedder:
   * value. No credential is read, held or printed: clients come from
   * `AwsClients`, whose credentials are the SDK default provider chain.
   *
-  * Markers (one per line): `LOADER_INDEX`, `LOADER_TOTAL`, `LOADER_EMBEDDING`,
-  * `NEPTUNE_LOAD=LOADED|SKIPPED|FAILED`, `LOADER_REPORT`, and exactly one
-  * `LOADER_RESULT=SUCCESS|FAILED` last. The ingest step's own result line is
-  * renamed `INGEST_STEP=`, so a later graph failure never follows a line that
-  * reads SUCCESS in the same form.
+  * Markers (one per line): `LOADER_PHASE`, `LOADER_PROGRESS`, `LOADER_INDEX`,
+  * `LOADER_TOTAL`, `LOADER_EMBEDDING`, `NEPTUNE_LOAD=LOADED|SKIPPED|FAILED`,
+  * `LOADER_REPORT`, and exactly one `LOADER_RESULT=SUCCESS|FAILED` last. The
+  * ingest step's own result line is renamed `INGEST_STEP=`, so a later graph
+  * failure never follows a line that reads SUCCESS in the same form.
+  *
+  * `LOADER_PHASE name=<download|ingest|graph|report> state=<start|done>
+  * elapsed_s=<n>` brackets each of the four phases of a run (download of the
+  * export, `IngestMain.execute`, the graph step, the report upload); `n` is
+  * whole seconds since the loader started. `done` means the phase returned, not
+  * that it succeeded (`INGEST_STEP=`, `NEPTUNE_LOAD=` and `LOADER_REPORT=` say
+  * that), and a phase that throws prints `start` and no `done`.
+  *
+  * `LOADER_PROGRESS ...` lines come from `EmbeddingIngest` while the ingest
+  * phase runs (a start line with the item and batch totals, one line per batch,
+  * one line every 100 embeds inside a batch). They pass through `stepOut`
+  * unchanged and are written as they are produced, so a long embedding run is
+  * visible before it ends. Each `out` call is one `println`, and the JVM's
+  * `System.out` flushes on every `println`, so no explicit flush is added.
   */
 object AwsIngestMain:
   val EnvRegion = "AWS_REGION"
@@ -400,6 +414,11 @@ object AwsIngestMain:
       finish: (Boolean, String, Int) => Int
   ): Int =
     val work = Files.createTempDirectory("scholarchain-loader-")
+    def phase(name: String, state: String): Unit =
+      out(
+        s"LOADER_PHASE name=$name state=$state " +
+          s"elapsed_s=${(System.nanoTime() - began) / 1000000000L}"
+      )
     var close: () => Unit = () => ()
     var wired: Option[ObjectStore] = None
     try
@@ -414,7 +433,9 @@ object AwsIngestMain:
       wired = Some(store)
       val exportDir = work.resolve("export")
       val outDir = work.resolve("out")
+      phase("download", "start")
       val files = downloadExport(store, config, exportDir)
+      phase("download", "done")
       out(
         s"LOADER_INPUT run=${config.runId} prefix=${config.exportPrefix} " +
           s"objects=$files"
@@ -425,12 +446,15 @@ object AwsIngestMain:
             "INGEST_STEP=" + line.stripPrefix(IngestMain.ResultPrefix)
           else line
         )
+      phase("ingest", "start")
       val outcome = IngestMain.execute(
         IngestMain.Args(exportDir, outDir, None),
         stepOut,
         identity,
         _ => backend
       )
+      phase("ingest", "done")
+      phase("graph", "start")
       val graph: GraphStep.Result =
         if !outcome.success then
           GraphStep.Result.Skipped(
@@ -459,6 +483,8 @@ object AwsIngestMain:
                     s"${error.getClass.getSimpleName}: ${error.getMessage}"
                   )
       graphLines(graph).foreach(out)
+      phase("graph", "done")
+      phase("report", "start")
       // With a Neptune host configured the graph is required: a skipped graph
       // is a failure. Without one the run is vectors-only and may succeed.
       val graphFailed = graph match
@@ -554,6 +580,7 @@ object AwsIngestMain:
         catch
           case NonFatal(error) =>
             Some(s"${error.getClass.getSimpleName}: ${error.getMessage}")
+      phase("report", "done")
       uploaded match
         case Some(why) =>
           out(s"LOADER_REPORT=FAILED reason=$why")

@@ -39,6 +39,15 @@ trait ObjectStore:
     */
   def listKeys(prefix: String): Vector[String] = list(prefix).map(_.key)
 
+  /** `(key, size in bytes)` of every object under a prefix, sorted by key. It
+    * answers what `list(prefix).map(m => (m.key, m.bytes))` answers. The
+    * default derives it from `list`; an adapter whose `list` costs one request
+    * per object (AwsObjectStore) overrides it with a listing that reads no
+    * object metadata.
+    */
+  def listSizes(prefix: String): Vector[(String, Long)] =
+    list(prefix).map(m => (m.key, m.bytes))
+
   /** Versioned keys are immutable: the same content is a no-op, different
     * content under the same key is an error.
     */
@@ -176,21 +185,30 @@ final class LocalFsObjectStore(root: Path) extends ObjectStore:
     val path = locate(key)
     if Files.isRegularFile(path) then Some(Files.readAllBytes(path)) else None
 
-  def list(prefix: String): Vector[ObjectMeta] =
+  private def listedKeys(prefix: String): Vector[String] =
     if !Files.isDirectory(base) then Vector.empty
     else
       val stream = Files.walk(base)
       try
         val files = stream.iterator.asScala.toVector
-        val keys = files
+        files
           .filter(Files.isRegularFile(_))
           .filterNot(_.getFileName.toString.endsWith(sidecar))
           .filterNot(_.getFileName.toString.startsWith(".put-"))
           .map(path => base.relativize(path).toString)
           .filter(_.startsWith(prefix))
           .sorted
-        keys.flatMap(head)
       finally stream.close()
+
+  def list(prefix: String): Vector[ObjectMeta] =
+    listedKeys(prefix).flatMap(head)
+
+  /** File sizes only: no object is read or hashed. */
+  override def listSizes(prefix: String): Vector[(String, Long)] =
+    listedKeys(prefix).flatMap { key =>
+      val path = locate(key)
+      if Files.isRegularFile(path) then Some((key, Files.size(path))) else None
+    }
 
 final case class S3ObjectEntry(
     key: String,

@@ -92,8 +92,16 @@ final class EmbeddingIngest(
     store: ObjectStore,
     ledgerTable: DynamoTable,
     sleeper: Sleeper = NoSleep,
-    nanoClock: () => Long = () => System.nanoTime()
+    nanoClock: () => Long = () => System.nanoTime(),
+    progress: String => Unit = _ => ()
 ):
+  /** Progress never changes the outcome of a run: a callback that throws is
+    * ignored. Lines carry counts and index names only.
+    */
+  private def emit(line: => String): Unit =
+    try progress(line)
+    catch case NonFatal(_) => ()
+
   private final case class Planned(
       item: EmbeddingWorkItem,
       row: Row,
@@ -229,6 +237,10 @@ final class EmbeddingIngest(
     val drift = Vector.newBuilder[String]
     var unchanged = 0
     val fresh = Vector.newBuilder[VectorRecord]
+    var embedAttempts = 0
+    // Items with no stored vector are the only ones that reach the embedder,
+    // so this is the denominator a long batch can actually reach.
+    val toEmbed = batch.count(p => !stored.contains(p.item.summaryId))
     def expectedMetadata(p: Planned): Map[String, MetaValue] =
       SemanticVectorLoader.metadataFor(
         p.row,
@@ -284,7 +296,15 @@ final class EmbeddingIngest(
           )
         case None =>
           try
-            val embedding = embedder.embed(p.document.text)
+            val embedding =
+              try embedder.embed(p.document.text)
+              finally
+                embedAttempts += 1
+                if embedAttempts % EmbeddingIngest.BatchProgressEvery == 0 then
+                  emit(
+                    s"LOADER_PROGRESS index=${spec.name} " +
+                      s"batch_items=$embedAttempts/$toEmbed"
+                  )
             val metadata = expectedMetadata(p)
             VectorMetadataIngest.validate(metadata)
             putDocument(p)
@@ -386,6 +406,10 @@ final class EmbeddingIngest(
         )
       )
     )
+    val totalItems = planned.planned.size
+    val batchesPerIndex = batches.groupBy(_.index).view.mapValues(_.size).toMap
+    var itemsDone = 0
+    emit(s"LOADER_PROGRESS start items=$totalItems batches=${batches.size}")
     batches.zip(digests).foreach { (work, digest) =>
       val t = totals(work.index)
       val spec = specs.find(_.name == work.index).get
@@ -454,6 +478,16 @@ final class EmbeddingIngest(
               Some(reason),
               digest
             )
+      itemsDone += items.size
+      emit(
+        s"LOADER_PROGRESS index=${work.index} " +
+          s"batch=${work.ordinal + 1}/${batchesPerIndex(work.index)} " +
+          s"items_done=$itemsDone/$totalItems " +
+          s"written=${totals.values.map(_(0)).sum} " +
+          s"elapsed_s=${(nanoClock() - started) / 1000000000L} " +
+          s"skipped=${totals.values.map(t => t(1) + t(2)).sum} " +
+          s"failed_batches=${totals.values.map(_(7)).sum}"
+      )
     }
     val unmappedKeys = planned.unmapped
     val allRejected = rejected.result()
@@ -483,7 +517,9 @@ final class EmbeddingIngest(
       )
     }
     val drifted = driftKeys.result()
-    val stored = store.list(SemanticDocuments.prefix)
+    // Key and size only: on AWS `list` makes one HEAD per document, and this
+    // prefix holds the documents of every run.
+    val stored = store.listSizes(SemanticDocuments.prefix)
     val status =
       if failures.nonEmpty then "FAILED"
       else if allRejected.nonEmpty then "COMPLETED_WITH_REJECTS"
@@ -523,7 +559,7 @@ final class EmbeddingIngest(
       created,
       unchangedDocs,
       stored.size,
-      stored.map(_.bytes).sum,
+      stored.map(_._2).sum,
       LocalTimings(
         LocalTimings.Label,
         (nanoClock() - started) / 1000000L,
@@ -536,6 +572,13 @@ final class EmbeddingIngest(
 object EmbeddingIngest:
   /** How many drifted keys the report and the ledger summary list. */
   val MaxDriftKeys = 20
+
+  /** A long batch reports `batch_items=<n>/<toEmbed>` after every this many
+    * embedding attempts. `n` counts embed attempts (a failed one counts) and
+    * `toEmbed` is the number of items of the batch with no stored vector, so a
+    * batch that is half skipped still reaches its denominator.
+    */
+  val BatchProgressEvery = 100
 
   /** Follows the `textRef` of a vector result to its document and verifies the
     * hash. See `SemanticDocuments.fetch`.

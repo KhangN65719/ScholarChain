@@ -371,7 +371,7 @@ variable "deployer_require_mfa" {
 ### Pipeline bounds
 
 variable "pipeline_max_run_seconds" {
-  description = "Timeout of one whole pipeline execution, 1800 to 10800 seconds. Default 10800 (the 150-minute tier L script cap plus 30 minutes). Set per run in the experiment tfvars: S 7200 (work order 49; was 5400), M 7200, L 10800. When it fires, CleanupOnFailure does NOT run (same as StopExecution): an EMR cluster left behind falls to the 900 s idle auto-termination and to the human's cleanup. Rule A (enforced in the workflow module, changed in work order 49): pipeline_create_cluster_timeout_seconds + pipeline_emr_step_timeout_seconds + 600 must not exceed this value. Known limitation, not enforced (human decision O1, phase 13 D10): create + 300 (fetch) + EMR step + 900 + pipeline_loader_timeout_seconds can exceed it (infra README, Pipeline bounds). The S overlay now sets 7200 (work order 49)."
+  description = "Timeout of one whole pipeline execution, 1800 to 10800 seconds. Default 10800 (the 150-minute tier L script cap plus 30 minutes). Set per run in the experiment tfvars: S 7200 (work order 49; was 5400), M 7200, L 10800. When it fires, CleanupOnFailure does NOT run (same as StopExecution): an EMR cluster left behind falls to the 900 s idle auto-termination and to the human's cleanup. Rule A (enforced in the workflow module, changed in work order 49): pipeline_create_cluster_timeout_seconds + pipeline_emr_step_timeout_seconds + 600 must not exceed this value. Known limitation, not enforced (human decision O1, phase 13 D10): create + 300 (fetch) + EMR step + 900 + pipeline_loader_timeout_seconds can exceed it (infra README, Pipeline bounds). The S overlay now sets 7200 (work order 49). A loader-only execution (work order 86) has no EMR state, so Rule A does not apply to it; its own bound is pipeline_loader_timeout_seconds, which should stay below this value."
   type        = number
   default     = 10800
 
@@ -404,7 +404,7 @@ variable "pipeline_emr_step_timeout_seconds" {
 }
 
 variable "pipeline_loader_timeout_seconds" {
-  description = "Timeout of the RunLoader step, 300 to 7200 seconds. Default 3600. Set per tier in the experiment tfvars: S 1800, M 2700, L 3600 (unchanged from repair round 2; the estimate's HIGH loader time is S 3600, M 7200, L 14400 s, which does not fit the current caps: accepted under human decision O1, see the infra README, Pipeline bounds). On timeout the execution goes to Failed with NO cleanup state; the cluster is already terminated by then."
+  description = "Timeout of the RunLoader step, 300 to 7200 seconds. Default 3600. Set per tier in the experiment tfvars: S 5400 (work order 86, S run 6: the loader hit the old 1800 and needs about 52 more minutes, so the loader-only mode gets 5400; it fits the 7200 s execution timeout only when it runs alone), M 2700, L 3600 (M and L unchanged from repair round 2; the estimate's HIGH loader time is S 3600, M 7200, L 14400 s, which does not fit the current caps: accepted under human decision O1, see the infra README, Pipeline bounds). On timeout the execution goes to Failed with NO cleanup state; in mode pipeline the cluster is already terminated by then, and mode loader-only has none. Rule A does not involve this value."
   type        = number
   default     = 3600
 

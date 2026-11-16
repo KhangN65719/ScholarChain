@@ -44,10 +44,17 @@ locals {
   #   pipeline: { "mode": "pipeline", "snapshot": "<raw/ snapshot id>",
   #               "snapshots": "<value of -Dscholarchain.run.snapshots>",
   #               "run_id": "<run id>", "loader_command": ["MainClass", "arg", ...] }
+  #   loader-only: { "mode": "loader-only", "run_id": "<run id>",
+  #                  "loader_command": ["MainClass", "arg", ...] }
   # There are no free-form argument lists for EMR: each step runs a fixed script and
   # only the three scalar fields reach it, as separate arguments (never through a
   # shell string). The scripts validate them again. loader_command goes to the ECS
-  # loader task only.
+  # loader task only. Mode loader-only creates no cluster: ValidateInput routes it
+  # straight to RunLoader, which reads only $.loader_command, and RunLoader then ends
+  # in Done (success) or Failed (its Catch), so no EMR state runs. It is for a loader
+  # rerun against an export that already sits in S3. ValidateInput only checks that
+  # run_id and loader_command are present in that mode; no state uses the run_id
+  # value, and the loader takes the run id from loader_command.
   #
   # Steps use command-runner.jar, which is local to the node. script-runner.jar is not
   # used: it lives in the regional EMR bucket (s3://us-east-2.elasticmapreduce/libs/
@@ -70,9 +77,17 @@ locals {
     { Variable = "$.run_id", IsPresent = true },
     { Variable = "$.loader_command", IsPresent = true },
   ]
+  mode_is_loader_only = [
+    { Variable = "$.mode", IsPresent = true },
+    { Variable = "$.mode", StringEquals = "loader-only" },
+  ]
+  loader_only_fields_present = [
+    { Variable = "$.run_id", IsPresent = true },
+    { Variable = "$.loader_command", IsPresent = true },
+  ]
 
   definition = {
-    Comment        = "Bounded pipeline. Mode capability-check: create the cluster, run one check script, terminate. Mode pipeline: create the cluster, run the on-node script (Hadoop, entity resolution, Spark, export, publish), terminate, then load. The cluster is terminated before the load."
+    Comment        = "Bounded pipeline. Mode capability-check: create the cluster, run one check script, terminate. Mode pipeline: create the cluster, run the on-node script (Hadoop, entity resolution, Spark, export, publish), terminate, then load. The cluster is terminated before the load. Mode loader-only: no cluster; run the loader once against an export already in S3, then end."
     TimeoutSeconds = var.max_run_seconds
     StartAt        = "ValidateInput"
     States = {
@@ -87,13 +102,17 @@ locals {
             And  = concat(local.mode_is_pipeline, local.pipeline_fields_present)
             Next = "CreateCluster"
           },
+          {
+            And  = concat(local.mode_is_loader_only, local.loader_only_fields_present)
+            Next = "RunLoader"
+          },
         ]
         Default = "InvalidInput"
       }
       InvalidInput = {
         Type  = "Fail"
         Error = "InvalidInput"
-        Cause = "The execution input needs mode capability-check, or mode pipeline with snapshot, snapshots, run_id and loader_command. No cluster was created."
+        Cause = "The execution input needs mode capability-check, or mode pipeline with snapshot, snapshots, run_id and loader_command, or mode loader-only with run_id and loader_command. No cluster was created."
       }
       CreateCluster = {
         Type           = "Task"
@@ -208,6 +227,10 @@ locals {
         }]
         Default = "Done"
       }
+      # Reached from AfterTerminate (mode pipeline, after the cluster is gone) and from
+      # ValidateInput (mode loader-only, where no cluster exists). It reads only
+      # $.loader_command and writes $.load, so it needs no $.cluster. Its Catch goes to
+      # Failed, which is also the right target when there is no cluster to clean up.
       RunLoader = {
         Type     = "Task"
         Resource = "arn:aws:states:::ecs:runTask.sync"

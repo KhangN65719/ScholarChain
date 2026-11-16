@@ -29,7 +29,7 @@ import software.amazon.awssdk.services.s3.model.{
   *     on one immutable key cannot overwrite each other.
   *   - `list` describes every object with one HEAD each, because ListObjectsV2
   *     returns neither SHA-256 nor source reference. `maxListed` bounds it;
-  *     `listKeys` is the cheap form.
+  *     `listKeys` and `listSizes` are the cheap forms (no HEAD).
   */
 final class AwsObjectStore(
     client: S3Client,
@@ -155,6 +155,12 @@ final class AwsObjectStore(
       )
       token = next
     found.result().sortBy(_._1)
+
+  /** Key and size from the ListObjectsV2 response alone: no HEAD per object,
+    * the same `maxListed` bound and the same error classification as `list`.
+    */
+  override def listSizes(prefix: String): Vector[(String, Long)] =
+    listObjects(prefix)
 
   def list(prefix: String): Vector[ObjectMeta] =
     listObjects(prefix).flatMap { case (key, _) => head(key) }

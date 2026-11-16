@@ -33,6 +33,58 @@ class IngestMainSuite extends munit.FunSuite:
   private def report(outDir: Path): ujson.Value =
     ujson.read(Files.readString(outDir.resolve(IngestMain.ReportName)))
 
+  private val Progress = "LOADER_PROGRESS "
+
+  test("progress lines reach out while the ingest runs, before it finishes") {
+    val exportDir = writeExport(tmp())
+    val outDir = tmp().resolve("out")
+    // Each line is stamped with whether the ingest report exists yet. The
+    // report is written right after the ingest returns, so a progress line
+    // seen with no report was delivered during the run, not after it.
+    val seen = mutable.ArrayBuffer.empty[(String, Boolean)]
+    val outcome = IngestMain.execute(
+      IngestMain.Args(exportDir, outDir, None),
+      line =>
+        seen += line -> Files.exists(outDir.resolve(IngestMain.ReportName))
+    )
+    val lines = seen.map(_._1).toVector
+    assert(outcome.success, lines.mkString("\n"))
+    val progress = seen.filter(_._1.startsWith(Progress))
+    assert(progress.nonEmpty, lines.mkString("\n"))
+    assert(progress.forall(!_._2), "a progress line came after the report")
+    assertEquals(
+      lines.indexWhere(!_.startsWith(Progress)),
+      progress.size,
+      "every progress line precedes the first summary line"
+    )
+    assertEquals(
+      lines.head,
+      s"${Progress}start items=12 batches=${batches(outDir)}"
+    )
+    val perBatch = progress.map(_._1).filter(_.contains(" batch="))
+    assertEquals(perBatch.size, batches(outDir))
+    assert(perBatch.last.contains("items_done=12/12"), perBatch.last)
+    assert(perBatch.forall(_.contains(" index=")), perBatch.toString)
+    assert(
+      lines.exists(_.startsWith(IngestMain.ResultPrefix)),
+      "the result line is still printed"
+    )
+  }
+
+  private def batches(outDir: Path): Int =
+    report(outDir)("perIndex").obj.values.map(_("batches").num.toInt).sum
+
+  test("a local main prints the progress lines too") {
+    val exportDir = writeExport(tmp())
+    val sink = new java.io.ByteArrayOutputStream
+    Console.withOut(sink) {
+      IngestMain.main(Array(exportDir.toString, tmp().resolve("out").toString))
+    }
+    val text = sink.toString("UTF-8")
+    assert(text.contains(s"${Progress}start items=12 batches="), text)
+    assert(text.contains(IngestMain.ResultPrefix + "SUCCESS"), text)
+  }
+
   test("a tiny export ingests: counts, objects, samples and a result line") {
     val exportDir = writeExport(tmp())
     val outDir = tmp().resolve("out")
@@ -151,11 +203,16 @@ class IngestMainSuite extends munit.FunSuite:
       before.toVector
     )
     assertEquals(secondOut.result, firstOut.result)
+    // Progress lines count what a run did (written, items done), so a resumed
+    // rerun differs from the first run by design; every other line is equal.
     val stable = (c: Captured) =>
       c.lines.filterNot(l =>
-        l.contains("LOCAL timing") || l.contains("latency")
+        l.contains("LOCAL timing") || l.contains("latency") ||
+          l.startsWith(Progress)
       )
     assertEquals(stable(secondOut), stable(firstOut))
+    assert(firstOut.lines.exists(_.startsWith(Progress)))
+    assert(secondOut.lines.exists(_.startsWith(Progress)))
     val run2 = ujson.read(Files.readString(outDir.resolve(IngestMain.RunName)))
     assertEquals(run2("documentsCreated").num.toInt, 0)
     assertEquals(run2("documentsUnchanged").num.toInt, 12)
@@ -260,6 +317,127 @@ class IngestMainSuite extends munit.FunSuite:
     ).foreach { args =>
       intercept[StorageException](IngestMain.parseArgs(args))
     }
+  }
+
+  /** Records every listing call, so a test can see which form a caller used.
+    * Only `list` is expensive on AWS (one HEAD per object).
+    */
+  private final class CountingStore(val inner: ObjectStore) extends ObjectStore:
+    val calls = mutable.ArrayBuffer.empty[(String, String)]
+    protected def write(key: String, bytes: Array[Byte], ref: String): Unit =
+      inner.putImmutable(key, bytes, ref)
+    def head(key: String): Option[ObjectMeta] = inner.head(key)
+    def get(key: String): Option[Array[Byte]] = inner.get(key)
+    def list(prefix: String): Vector[ObjectMeta] =
+      calls += (("list", prefix))
+      inner.list(prefix)
+    override def listKeys(prefix: String): Vector[String] =
+      calls += (("listKeys", prefix))
+      inner.listKeys(prefix)
+    override def listSizes(prefix: String): Vector[(String, Long)] =
+      calls += (("listSizes", prefix))
+      inner.listSizes(prefix)
+
+  private val OwnedPrefixes = Vector(
+    "documents" -> SemanticDocuments.prefix,
+    "embedding-work" -> s"${S3Prefix.SemanticContext.dir}/embedding-work/",
+    "vector-rejects" -> s"${S3Prefix.Logs.dir}/vector-rejects/"
+  )
+
+  private def countingBackend(
+      store: CountingStore,
+      aws: Boolean
+  ): Args => IngestMain.Backend = _ =>
+    IngestMain.Backend(
+      new HashEmbedder,
+      EmbeddingModels.HashEmbedV1,
+      store,
+      new InMemoryVectorBucket,
+      new InMemoryDynamoTable(RunLedger.spec(TableNames("local"))),
+      aws = aws
+    )
+
+  private type Args = IngestMain.Args
+
+  /** What `objectGroups` answered before listSizes: `list` and its metadata. */
+  private def oldGroups(
+      store: ObjectStore,
+      names: Vector[(String, String)]
+  ): Vector[(String, Int, Long)] =
+    names.map { case (name, prefix) =>
+      val metas = store.list(prefix)
+      (name, metas.size, metas.map(_.bytes).sum)
+    }
+
+  private def reportedGroups(outDir: Path): Vector[(String, Int, Long)] =
+    report(outDir)("objects").obj.toVector.map { case (name, v) =>
+      (name, v("count").num.toInt, v("bytes").num.toLong)
+    }
+
+  test("the AWS object groups come from listSizes: no list, same values") {
+    val exportDir = writeExport(tmp())
+    val outDir = tmp().resolve("out")
+    val store = new CountingStore(new InMemoryObjectStore)
+    val captured = new Captured
+    val outcome = IngestMain.execute(
+      IngestMain.Args(exportDir, outDir, None),
+      captured.out,
+      identity,
+      countingBackend(store, aws = true)
+    )
+    assert(outcome.success, captured.lines.mkString("\n"))
+    assertEquals(
+      store.calls.filter(_._1 == "list").toVector,
+      Vector.empty[(String, String)],
+      "the ingest must not call list: one HEAD per object on AWS"
+    )
+    OwnedPrefixes.foreach { case (_, prefix) =>
+      assert(
+        store.calls.contains(("listSizes", prefix)),
+        s"no listSizes($prefix): ${store.calls}"
+      )
+    }
+    assert(
+      !store.calls.contains(("listSizes", "")),
+      "an AWS run lists only its own prefixes, never the whole bucket"
+    )
+    val expected = oldGroups(store.inner, OwnedPrefixes)
+    assertEquals(reportedGroups(outDir), expected)
+    assertEquals(expected.map(_._2), Vector(12, 1, 0))
+    assert(expected.head._3 > 0 && expected(1)._3 > 0)
+    expected.foreach { case (name, count, bytes) =>
+      assert(
+        captured.lines.contains(s"objects $name: count=$count bytes=$bytes"),
+        captured.lines.mkString("\n")
+      )
+    }
+  }
+
+  test(
+    "the local whole-store groups come from listSizes: no list, same values"
+  ) {
+    val exportDir = writeExport(tmp())
+    val outDir = tmp().resolve("out")
+    val store =
+      new CountingStore(new LocalFsObjectStore(outDir.resolve("objects")))
+    val captured = new Captured
+    val outcome = IngestMain.execute(
+      IngestMain.Args(exportDir, outDir, None),
+      captured.out,
+      identity,
+      countingBackend(store, aws = false)
+    )
+    assert(outcome.success, captured.lines.mkString("\n"))
+    assertEquals(
+      store.calls.filter(_._1 == "list").toVector,
+      Vector.empty[(String, String)]
+    )
+    assert(store.calls.contains(("listSizes", "")), store.calls.toString)
+    val all = store.inner.list("")
+    val expected = oldGroups(store.inner, OwnedPrefixes) :+
+      (("all-objects", all.size, all.map(_.bytes).sum))
+    assertEquals(reportedGroups(outDir), expected)
+    assertEquals(expected.last._2, 13)
   }
 
   test("main returns on success and throws on a failed run") {
