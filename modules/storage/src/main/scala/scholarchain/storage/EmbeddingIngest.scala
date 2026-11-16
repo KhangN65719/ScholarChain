@@ -467,8 +467,19 @@ final class EmbeddingIngest(
         catch
           case NonFatal(error) =>
             t(7) += 1
-            val reason = s"${error.getClass.getSimpleName}: ${error.getMessage}"
+            // Masked here, once, so the report (and the rag run record built
+            // from it), the live line and the ledger all carry the same text.
+            val reason = Text.maskAccountIds(
+              s"${error.getClass.getSimpleName}: ${error.getMessage}"
+            )
             failed += FailedBatch(work.index, work.ordinal, reason)
+            // Before the ledger write, so the reason is live even if that
+            // write fails. One line: control characters become spaces.
+            emit(
+              s"LOADER_BATCH_FAILED index=${work.index} " +
+                s"batch=${work.ordinal + 1} " +
+                s"reason=${EmbeddingIngest.oneLine(reason).take(EmbeddingLedger.MaxFailureChars)}"
+            )
             ledger.recordBatch(
               work.index,
               work.ordinal,
@@ -579,6 +590,12 @@ object EmbeddingIngest:
     * batch that is half skipped still reaches its denominator.
     */
   val BatchProgressEvery = 100
+
+  /** A failure reason on one log line: every control character is a space and
+    * every AWS account ID is masked.
+    */
+  private[storage] def oneLine(text: String): String =
+    Text.maskAccountIds(text.map(c => if c.isControl then ' ' else c))
 
   /** Follows the `textRef` of a vector result to its document and verifies the
     * hash. See `SemanticDocuments.fetch`.

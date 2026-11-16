@@ -449,3 +449,228 @@ class IngestMainSuite extends munit.FunSuite:
       )
     )
   }
+
+  // Failure reasons on the console and in ingest-run.json (S run 7 cut the
+  // PutVectors reason at 160 characters, before the cause).
+
+  /** A bucket whose `getVectors` throws, so every batch fails with `message`.
+    */
+  private final class ThrowingGets(inner: VectorBucketPort, message: String)
+      extends VectorBucketPort:
+    def ensureIndex(spec: VectorIndexSpec): Unit = inner.ensureIndex(spec)
+    def putVectors(index: String, batch: Vector[VectorRecord]): Unit =
+      inner.putVectors(index, batch)
+    def getVectors(index: String, keys: Vector[String]): Vector[VectorRecord] =
+      throw new IllegalStateException(message)
+    def count(index: String): Int = inner.count(index)
+    def query(request: VectorQuery): Vector[VectorMatch] = inner.query(request)
+
+  private val ClassPrefix = "IllegalStateException: "
+
+  /** A message that makes the whole batch reason `total` characters long. The
+    * digits cycle, so a cut at the wrong place shows in the text.
+    */
+  private def messageFor(total: Int): String =
+    Iterator
+      .continually("0123456789")
+      .flatten
+      .take(total - ClassPrefix.length)
+      .mkString
+
+  private def failingBackend(message: String): Args => IngestMain.Backend =
+    args =>
+      val local = IngestMain.localBackend(args)
+      local.copy(bucket = new ThrowingGets(local.bucket, message))
+
+  private def runFailing(
+      exportDir: Path,
+      outDir: Path,
+      message: String
+  ): (IngestMain.Outcome, Captured) =
+    val captured = new Captured
+    val outcome = IngestMain.execute(
+      IngestMain.Args(exportDir, outDir, None),
+      captured.out,
+      identity,
+      failingBackend(message)
+    )
+    (outcome, captured)
+
+  private def runJson(outDir: Path): ujson.Value =
+    ujson.read(Files.readString(outDir.resolve(IngestMain.RunName)))
+
+  private val FirstIndex = "researcher-profile-v1"
+
+  test("a rejected detail of several hundred characters is shown whole") {
+    val key = "q" * 400
+    val otherRun = "run:v1:99999999-9999-4999-8999-999999999999"
+    val prov = provenance("semantic-summaries", key)
+    prov.obj("runId") = otherRun
+    val bad = row(
+      key,
+      "researcher-profile",
+      ada,
+      "Researcher whose provenance names another run.",
+      None,
+      None,
+      Vector(w1),
+      ujson.Arr(),
+      Vector.empty
+    ) + ("provenance" -> prov)
+    val exportDir = writeExport(tmp(), tables(summaries :+ bad))
+    val (outcome, captured) = run(exportDir, tmp().resolve("out"))
+    assert(!outcome.success)
+    val lines = captured.lines.filter(_.startsWith("  reject "))
+    assertEquals(lines.size, 1, captured.lines.mkString("\n"))
+    val summaryId = s"summary:v1:$key"
+    val tail = s"$summaryId carries run $otherRun, the export is of $runId"
+    assert(tail.length > 160, "the fixture must exceed the old cap")
+    assert(lines.head.endsWith(tail), lines.head)
+  }
+
+  test("a failed batch reason of 600 characters is shown whole, 900 is cut") {
+    Vector(600, 900).foreach { total =>
+      val message = messageFor(total)
+      val reason = ClassPrefix + message
+      val outDir = tmp().resolve("out")
+      val (outcome, captured) = runFailing(writeExport(tmp()), outDir, message)
+      assert(!outcome.success)
+      val shown = captured.lines.filter(_.startsWith("  failed batch "))
+      assertEquals(shown.size, 4, captured.lines.mkString("\n"))
+      assertEquals(
+        shown.head,
+        s"  failed batch $FirstIndex #0: ${reason.take(600)}"
+      )
+      assertEquals(shown.head.length - shown.head.indexOf(": ") - 2, 600)
+      assert(!captured.lines.exists(_.contains(" more failed batches")))
+      // The live line carries the same reason, ahead of the summary lines.
+      val live = captured.lines.filter(_.startsWith("LOADER_BATCH_FAILED "))
+      assertEquals(live.size, 4)
+      assertEquals(
+        live.head,
+        s"LOADER_BATCH_FAILED index=$FirstIndex batch=1 reason=${reason.take(600)}"
+      )
+      assert(
+        captured.lines.lastIndexWhere(
+          _.startsWith("LOADER_BATCH_FAILED ")
+        ) < captured.lines.indexWhere(_.startsWith("  failed batch "))
+      )
+      // ingest-run.json holds the same reasons, cut at 600 characters.
+      val recorded = runJson(outDir)("failedBatches").arr.toVector
+      assertEquals(recorded.size, 4)
+      assertEquals(
+        recorded.head.obj.keySet.toSet,
+        Set("index", "ordinal", "reason")
+      )
+      assertEquals(recorded.head("index").str, FirstIndex)
+      assertEquals(recorded.head("ordinal").num.toInt, 0)
+      recorded.foreach(r => assertEquals(r("reason").str, reason.take(600)))
+    }
+  }
+
+  test("25 failed batches print 20 lines and one line for the other 5") {
+    val window = Some(("2000-2009", 2000, 2009))
+    val extra = (1 to 10500).toVector.map { i =>
+      row(
+        f"big$i%05d",
+        "researcher-profile",
+        ada,
+        s"Researcher number $i in window 2000-2009.",
+        window,
+        Some("canonical"),
+        Vector(w1),
+        ujson.Arr("publicationCount"),
+        Vector(ada)
+      )
+    }
+    val exportDir =
+      writeExport(tmp(), tables(summaries ++ extra), rowsPerFile = 1000)
+    val outDir = tmp().resolve("out")
+    val message = messageFor(80)
+    val (outcome, captured) = runFailing(exportDir, outDir, message)
+    assert(!outcome.success)
+    // 22 profile batches (10,504 rows of 500), plus community, work and path.
+    assertEquals(report(outDir)("failedBatches").num.toInt, 25)
+    assert(captured.lines.exists(_.contains("failedBatches=25")))
+    val shown = captured.lines.filter(_.startsWith("  failed batch "))
+    assertEquals(shown.size, 20)
+    shown.zipWithIndex.foreach { case (line, i) =>
+      assertEquals(
+        line,
+        s"  failed batch $FirstIndex #$i: $ClassPrefix$message"
+      )
+    }
+    val more =
+      "  ... 5 more failed batches (all of them are in ingest-run.json)"
+    assertEquals(
+      captured.lines.indexOf(more),
+      captured.lines.lastIndexWhere(_.startsWith("  failed batch ")) + 1,
+      captured.lines.mkString("\n")
+    )
+    assertEquals(captured.lines.count(_.contains(" more failed batches")), 1)
+    // The record keeps all 25, not the 20 shown.
+    assertEquals(runJson(outDir)("failedBatches").arr.size, 25)
+    // The live line is printed for every failed batch, none left out.
+    assertEquals(
+      captured.lines.count(_.startsWith("LOADER_BATCH_FAILED ")),
+      25
+    )
+  }
+
+  test("ingest-run.json keeps its fields and gains an empty failedBatches") {
+    val outDir = tmp().resolve("out")
+    val (outcome, captured) = run(writeExport(tmp()), outDir)
+    assert(outcome.success, captured.lines.mkString("\n"))
+    val json = runJson(outDir)
+    assertEquals(
+      json.obj.keys.toVector,
+      Vector(
+        "label",
+        "totalMillis",
+        "vectorsPerSecond",
+        "documentsCreated",
+        "documentsUnchanged",
+        "batchMillis",
+        "failedBatches"
+      )
+    )
+    assertEquals(json("failedBatches").arr.size, 0)
+    assertEquals(
+      json("batchMillis")(0).obj.keys.toVector,
+      Vector("index", "ordinal", "items", "millis")
+    )
+  }
+
+  // The SHA-256 of ingest-report.json, taken from the code as it was before
+  // failedBatches reached ingest-run.json. The report is deterministic, so a
+  // change to its bytes for the same input is a change to a stable contract.
+  private val GoldenCleanReport =
+    "ead5e080f42b56ed5df2c7da4c31be1f38644355ebaaa11540db74b1db069e08"
+  private val GoldenFailedReport =
+    "e346537dd4515f1635ba5074ed34969e15a77dbc24738461886b060871bf37c0"
+
+  test(
+    "a clean run's ingest-report.json is byte-identical to its earlier form"
+  ) {
+    val cleanOut = tmp().resolve("out")
+    assert(run(writeExport(tmp()), cleanOut)._1.success)
+    assertEquals(
+      Hashing.sha256(
+        Files.readAllBytes(cleanOut.resolve(IngestMain.ReportName))
+      ),
+      GoldenCleanReport
+    )
+  }
+
+  test(
+    "a failed run's ingest-report.json is byte-identical and holds no reason"
+  ) {
+    val failedOut = tmp().resolve("out")
+    val (outcome, _) = runFailing(writeExport(tmp()), failedOut, "boom")
+    assert(!outcome.success)
+    val bytes = Files.readAllBytes(failedOut.resolve(IngestMain.ReportName))
+    assertEquals(Hashing.sha256(bytes), GoldenFailedReport)
+    val json = report(failedOut)
+    assertEquals(json("failedBatches").num.toInt, 4)
+    assert(!new String(bytes, "UTF-8").contains("boom"), "no reason text")
+  }

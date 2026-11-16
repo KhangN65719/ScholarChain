@@ -41,11 +41,19 @@ final class CountingEmbedder(inner: Embedder) extends Embedder:
   * value. No credential is read, held or printed: clients come from
   * `AwsClients`, whose credentials are the SDK default provider chain.
   *
-  * Markers (one per line): `LOADER_PHASE`, `LOADER_PROGRESS`, `LOADER_INDEX`,
-  * `LOADER_TOTAL`, `LOADER_EMBEDDING`, `NEPTUNE_LOAD=LOADED|SKIPPED|FAILED`,
-  * `LOADER_REPORT`, and exactly one `LOADER_RESULT=SUCCESS|FAILED` last. The
-  * ingest step's own result line is renamed `INGEST_STEP=`, so a later graph
-  * failure never follows a line that reads SUCCESS in the same form.
+  * Markers (one per line): `LOADER_PHASE`, `LOADER_PROGRESS`,
+  * `LOADER_BATCH_FAILED`, `LOADER_INDEX`, `LOADER_TOTAL`, `LOADER_EMBEDDING`,
+  * `NEPTUNE_LOAD=LOADED|SKIPPED|FAILED`, `LOADER_REPORT`, and exactly one
+  * `LOADER_RESULT=SUCCESS|FAILED` last (its reason is the first reason line, at
+  * most 600 characters). The ingest step's own result line is renamed
+  * `INGEST_STEP=`, so a later graph failure never follows a line that reads
+  * SUCCESS in the same form.
+  *
+  * `LOADER_BATCH_FAILED index=<index> batch=<n> reason=<text>` is printed by
+  * `EmbeddingIngest` the moment a batch fails, with the reason cut at 600
+  * characters. Like `LOADER_PROGRESS` it passes through `stepOut` unchanged.
+  * `ingest-run.json` (uploaded beside the report) lists every failed batch in
+  * `failedBatches`; `ingest-report.json` holds only their count.
   *
   * `LOADER_PHASE name=<download|ingest|graph|report> state=<start|done>
   * elapsed_s=<n>` brackets each of the four phases of a run (download of the
@@ -75,6 +83,11 @@ object AwsIngestMain:
   val MaxListedObjects = 100000
 
   val ReportVersion = "scholarchain.rag.aws-ingest-report/1"
+
+  /** Characters of the first reason line on `LOADER_RESULT=FAILED`. 500 cut the
+    * S run 7 PutVectors reason; this equals `IngestMain.MaxReasonChars`.
+    */
+  val MaxResultReasonChars = 600
 
   final case class Config(
       region: String,
@@ -394,7 +407,7 @@ object AwsIngestMain:
       out(
         if success then "LOADER_RESULT=SUCCESS"
         else
-          s"LOADER_RESULT=FAILED reason=${reason.linesIterator.nextOption().getOrElse("").take(500)}"
+          s"LOADER_RESULT=FAILED reason=${reason.linesIterator.nextOption().getOrElse("").take(MaxResultReasonChars)}"
       )
       if success then 0 else code
     val config =

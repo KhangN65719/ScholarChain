@@ -336,6 +336,78 @@ class AwsIngestMainSuite extends munit.FunSuite:
     assertEquals(report("scope").str, "vectors-only")
   }
 
+  /** A Neptune loader whose failure message is `size` digits long. */
+  private final class LongMessageLoader(size: Int) extends NeptuneBulkLoader:
+    val message: String =
+      Iterator.continually("0123456789").flatten.take(size).mkString
+    def load(manifestKey: String): BulkLoadResult =
+      Fail(ErrorCode.BulkLoadFailed, message)
+
+  test("the result line keeps up to 600 characters of the reason") {
+    val prefix = "LOADER_RESULT=FAILED reason="
+    // 480 characters of message plus the wrapping text is between the old cap
+    // of 500 and the new one of 600, so it is shown whole.
+    val world = new World()
+    val whole = new LongMessageLoader(480)
+    val (_, wholeLines) = world.run(world.backend(loader = whole))
+    val wholeResult = result(wholeLines).head
+    assert(wholeResult.length > prefix.length + 500, wholeResult)
+    assert(wholeResult.length < prefix.length + 600, wholeResult)
+    assert(wholeResult.endsWith(whole.message), wholeResult)
+    // A longer reason is cut at exactly 600 characters.
+    val other = new World()
+    val (_, cutLines) =
+      other.run(other.backend(loader = new LongMessageLoader(900)))
+    assertEquals(result(cutLines).head.length, prefix.length + 600)
+  }
+
+  test(
+    "a failed batch prints LOADER_BATCH_FAILED live, inside the ingest phase"
+  ) {
+    val world = new World()
+    val (code, lines) =
+      world.run(world.backend(bucketPort = new FailingBucket(world.bucket)))
+    assertEquals(code, 1, lines.mkString("\n"))
+    val failed =
+      lines.zipWithIndex.filter(_._1.startsWith("LOADER_BATCH_FAILED "))
+    assertEquals(failed.size, 4, lines.mkString("\n"))
+    assert(
+      failed.head._1.startsWith(
+        "LOADER_BATCH_FAILED index=researcher-profile-v1 batch=1 reason="
+      ),
+      failed.head._1
+    )
+    failed.foreach { case (line, _) =>
+      assert(line.contains("stubbed PutVectors rejection"), line)
+    }
+    val start = phaseAt(lines, "ingest", "start")
+    val done = phaseAt(lines, "ingest", "done")
+    val step = lines.indexWhere(_.startsWith("INGEST_STEP="))
+    failed.foreach { case (line, at) =>
+      assert(at > start && at < step && step < done, line)
+    }
+    // Passed through unchanged, not renamed into the INGEST_STEP form.
+    assert(!lines.exists(_.startsWith("INGEST_STEP=LOADER_BATCH_FAILED")))
+    // The uploaded run record holds the same batches and reasons.
+    val recorded = world.json(world.runKey)("failedBatches").arr.toVector
+    assertEquals(recorded.size, 4)
+    assertEquals(recorded.head("index").str, "researcher-profile-v1")
+    assertEquals(recorded.head("ordinal").num.toInt, 0)
+    recorded.foreach(r =>
+      assert(r("reason").str.contains("stubbed PutVectors rejection"))
+    )
+    // The deterministic report keeps the count only, never the reasons.
+    assertEquals(world.json(world.reportKey)("failedBatches").num.toInt, 4)
+  }
+
+  test("a clean run uploads an empty failedBatches and no failure line") {
+    val world = new World()
+    val (code, lines) = world.run()
+    assertEquals(code, 0, lines.mkString("\n"))
+    assertEquals(world.json(world.runKey)("failedBatches").arr.size, 0)
+    assert(!lines.exists(_.startsWith("LOADER_BATCH_FAILED ")))
+  }
+
   test("a missing export gives FAILED and a nonzero exit") {
     val world = new World(seeded = false)
     val (code, lines) = world.run()

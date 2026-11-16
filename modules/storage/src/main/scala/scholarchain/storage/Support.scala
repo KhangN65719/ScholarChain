@@ -87,6 +87,24 @@ object Text:
 
   def utf8Size(value: String): Int = value.getBytes(UTF_8).length
 
+  val AccountIdMask = "<account-id>"
+
+  // A run of exactly 12 digits with no digit or letter next to it, so a longer
+  // number and a hex digest that happens to hold 12 digits stay as they are.
+  // The last group of a UUID (an AWS request ID) is excluded the same way.
+  private val AccountId = java.util.regex.Pattern.compile(
+    "(?<![0-9A-Za-z])" +
+      "(?<![0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-)" +
+      "[0-9]{12}(?![0-9A-Za-z])"
+  )
+
+  /** Failure text with every 12-digit AWS account ID masked. AWS error text
+    * names the caller and the resource by ARN. Mask before any cut to a length,
+    * or a cut can leave the first digits of an ID in the text.
+    */
+  def maskAccountIds(text: String): String =
+    AccountId.matcher(text).replaceAll(AccountIdMask)
+
 object Rows:
   private def malformed(column: String, expected: String): Nothing =
     Fail(ErrorCode.MalformedRow, s"Column $column must be $expected")

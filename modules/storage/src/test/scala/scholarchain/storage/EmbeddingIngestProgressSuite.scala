@@ -126,10 +126,13 @@ class EmbeddingIngestProgressSuite extends munit.FunSuite:
       Vector(
         "LOADER_PROGRESS start items=5 batches=3",
         s"LOADER_PROGRESS index=$profile batch=1/3 items_done=2/5 written=2 elapsed_s=1 skipped=0 failed_batches=0",
-        // The failed batch counts its items as done, adds nothing written and
-        // is the only line that raises failed_batches.
-        s"LOADER_PROGRESS index=$profile batch=2/3 items_done=4/5 written=2 elapsed_s=2 skipped=0 failed_batches=1",
-        s"LOADER_PROGRESS index=$profile batch=3/3 items_done=5/5 written=3 elapsed_s=3 skipped=0 failed_batches=1"
+        // The failed batch says why first, then counts its items as done, adds
+        // nothing written and is the only progress line that raises
+        // failed_batches. The test clock ticks once per emitted line, so the
+        // reason line moves every later elapsed_s by one second.
+        s"LOADER_BATCH_FAILED index=$profile batch=2 reason=RuntimeException: boom",
+        s"LOADER_PROGRESS index=$profile batch=2/3 items_done=4/5 written=2 elapsed_s=3 skipped=0 failed_batches=1",
+        s"LOADER_PROGRESS index=$profile batch=3/3 items_done=5/5 written=3 elapsed_s=4 skipped=0 failed_batches=1"
       )
     )
 
@@ -287,7 +290,9 @@ class EmbeddingIngestProgressSuite extends munit.FunSuite:
       mixed
     )
     assertEquals(listened, silent)
-    assertEquals(seen.size, 5)
+    // Four batch lines, the start line and the failed batch's own line.
+    assertEquals(seen.size, 6)
+    assertEquals(seen.count(_.startsWith("LOADER_BATCH_FAILED ")), 1)
   }
 
   test("a callback that throws never changes the outcome of the run") {
@@ -304,6 +309,107 @@ class EmbeddingIngestProgressSuite extends munit.FunSuite:
     assert(actual._2.nonEmpty)
     assert(actual._3.nonEmpty)
     assertEquals(thrown.size, 4)
+  }
+
+  /** A run whose only batch fails with `message`: the progress lines, the
+    * report and the ledger table.
+    */
+  private def failingRun(message: String) =
+    val lines = mutable.ArrayBuffer.empty[String]
+    val bucket = new InMemoryVectorBucket:
+      override def putVectors(i: String, batch: Vector[VectorRecord]): Unit =
+        throw new IllegalStateException(message)
+    val table = new InMemoryDynamoTable(RunLedger.spec(TableNames("t")))
+    val ingest = new EmbeddingIngest(
+      new HashEmbedder,
+      PassThroughRenderer,
+      bucket,
+      new InMemoryObjectStore,
+      table,
+      NoSleep,
+      () => 0L,
+      line =>
+        lines += line
+        ()
+    )
+    val report = ingest.run(
+      tablesOf(profiles(1)),
+      source,
+      IngestConfig("2026-11-08T00:00:00Z", 2)
+    )
+    (lines.toVector, report, table)
+
+  private def storedFailure(table: InMemoryDynamoTable): String =
+    Attr
+      .optS(
+        table.get(s"RUN#embed:$runId:1", s"STAGE#batch#$profile#000000").get,
+        "failure"
+      )
+      .get
+
+  test("a failed batch emits one LOADER_BATCH_FAILED line with its reason") {
+    val (lines, report, _) = failingRun("PutVectors said no")
+    assertEquals(report.failedBatches.size, 1)
+    assertEquals(
+      lines.filter(_.startsWith("LOADER_BATCH_FAILED")),
+      Vector(
+        s"LOADER_BATCH_FAILED index=$profile batch=1 reason=IllegalStateException: PutVectors said no"
+      )
+    )
+    // The line comes before the progress line of the same batch.
+    assertEquals(
+      lines.map(_.takeWhile(_ != ' ')),
+      Vector("LOADER_PROGRESS", "LOADER_BATCH_FAILED", "LOADER_PROGRESS")
+    )
+  }
+
+  test("a reason is cut to 600 characters on the line and in the ledger") {
+    val message = "m" * 1000
+    val full = s"IllegalStateException: $message"
+    val (lines, report, table) = failingRun(message)
+    val failedLine = lines.find(_.startsWith("LOADER_BATCH_FAILED")).get
+    val prefix = s"LOADER_BATCH_FAILED index=$profile batch=1 reason="
+    assert(failedLine.startsWith(prefix), failedLine)
+    assertEquals(failedLine.drop(prefix.length), full.take(600))
+    assertEquals(failedLine.drop(prefix.length).length, 600)
+    assertEquals(storedFailure(table), full.take(600))
+    assertEquals(EmbeddingLedger.MaxFailureChars, 600)
+    // The report keeps the whole reason.
+    assertEquals(report.failedBatches.head.reason, full)
+  }
+
+  test("a reason that was cut at 500 now keeps text up to 600") {
+    val marker =
+      "Invalid record for key 'summary:v1:x': Empty arrays are not " +
+        "allowed in metadata"
+    val message = ("p" * 520) + marker
+    val (lines, _, table) = failingRun(message)
+    assert(storedFailure(table).contains("Empty arrays"), storedFailure(table))
+    assert(lines.exists(_.contains("Empty arrays")), lines.mkString("\n"))
+  }
+
+  test("a reason with line breaks and controls is one line") {
+    val (lines, _, table) = failingRun("first\nsecond\r\nthird\tfourth")
+    val failedLine = lines.find(_.startsWith("LOADER_BATCH_FAILED")).get
+    assert(!failedLine.exists(_.isControl), failedLine)
+    assert(failedLine.endsWith("first second  third fourth"), failedLine)
+    assert(storedFailure(table).contains("first\nsecond"))
+  }
+
+  test(
+    "a callback that throws on LOADER_BATCH_FAILED does not change the run"
+  ) {
+    val bucket = new FlakyBucket(Set(1))
+    val rig = new Rig(bucket, Some(_ => throw new IllegalStateException("x")))
+    val report = rig.run(profiles(2))
+    assertEquals(report.failedBatches.size, 1)
+    assertEquals(
+      Attr.optS(
+        rig.table.get(s"RUN#embed:$runId:1", "META").get,
+        "status"
+      ),
+      Some("FAILED")
+    )
   }
 
   /** An object store that counts both listings of the document prefix. */

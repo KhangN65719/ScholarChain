@@ -136,6 +136,9 @@ object VectorMetadata:
 
   private val hexDigest = "[0-9a-f]{64}"
 
+  val EmptyArrayRule: String =
+    "S3 Vectors rejects empty arrays; confirmed on the real service in S run 7"
+
   /** Facet keys whose value shape is fixed. */
   private val stringKeys = Set("documentType", "communityId")
   private val listKeys = Set("source", "topic", "institution")
@@ -222,6 +225,12 @@ object VectorMetadata:
           Fail.unless(v.isFinite, ErrorCode.MetadataInvalid, s"$key not finite")
         case MetaValue.Flag(_)  => ()
         case MetaValue.Strs(vs) =>
+          Fail.unless(
+            vs.nonEmpty,
+            ErrorCode.MetadataInvalid,
+            s"Metadata $key is an empty list; $EmptyArrayRule. Omit the key " +
+              "instead"
+          )
           Fail.unless(
             vs.size <= Limits.S3Vectors.MaxMetadataListItems,
             ErrorCode.MetadataInvalid,
@@ -515,9 +524,21 @@ trait VectorBucketPort:
   def query(request: VectorQuery): Vector[VectorMatch]
 
 /** Local fake. Unlike the real service (an upsert), it refuses changed content
-  * under an existing key; see decision D7 in VectorWriter.
+  * under an existing key; see decision D7 in VectorWriter. It also enforces the
+  * wire rules of PutVectors (`S3VectorsRules`) on the SDK `Document` form of
+  * every record, so a metadata shape the real service refuses (an empty array,
+  * in S run 7) is refused here too.
   */
 class InMemoryVectorBucket extends VectorBucketPort:
+  /** The in-process metadata check. A test overrides it to prove that the wire
+    * rules hold even when this check lets a record through.
+    */
+  protected def validateMetadata(metadata: Map[String, MetaValue]): Unit =
+    VectorMetadata.validate(metadata)
+
+  protected def nonFilterableKeys: Set[String] =
+    AwsVectorBucket.NonFilterableKeys
+
   private val specs = mutable.LinkedHashMap.empty[String, VectorIndexSpec]
   private val data =
     mutable.LinkedHashMap
@@ -546,7 +567,12 @@ class InMemoryVectorBucket extends VectorBucketPort:
       )
       batch.foreach { record =>
         VectorKeys.validate(record.key)
-        VectorMetadata.validate(record.metadata)
+        validateMetadata(record.metadata)
+        S3VectorsRules.check(
+          record.key,
+          VectorDocuments.metadata(record.metadata),
+          nonFilterableKeys
+        )
         Fail.unless(
           record.embedding.size == spec.dimension,
           ErrorCode.EmbeddingInvalid,
@@ -856,6 +882,13 @@ object SemanticVectorLoader:
   private def firstN(values: Vector[String]): Vector[String] =
     values.take(Limits.S3Vectors.MaxMetadataListItems)
 
+  /** A list key only when the list has an element. */
+  private def listEntry(
+      key: String,
+      values: Vector[String]
+  ): Option[(String, MetaValue)] =
+    Option.when(values.nonEmpty)(key -> MetaValue.Strs(firstN(values)))
+
   def record(
       row: Row,
       embedder: Embedder,
@@ -883,6 +916,7 @@ object SemanticVectorLoader:
       facets: SummaryFacets
   ): Map[String, MetaValue] =
     val workIds = Rows.strList(row, "evidenceWorkIds")
+    val nodeIds = Rows.strList(row, "evidenceNodeIds")
     val base = Map(
       "summaryType" -> MetaValue.Str(Rows.str(row, "summaryType")),
       "subjectId" -> MetaValue.Str(Rows.str(row, "subjectId")),
@@ -893,11 +927,15 @@ object SemanticVectorLoader:
         MetaValue.Str(StorageProvenance.TransformVersion),
       "sparkTransformVersion" ->
         MetaValue.Str(Rows.provenance(row).transformVersion),
-      "evidenceWorkCount" -> MetaValue.Num(workIds.size.toDouble),
-      "evidenceWorkIds" -> MetaValue.Strs(firstN(workIds)),
-      "evidenceNodeIds" ->
-        MetaValue.Strs(firstN(Rows.strList(row, "evidenceNodeIds")))
+      "evidenceWorkCount" -> MetaValue.Num(workIds.size.toDouble)
     )
+    // S3 Vectors rejects an empty array in metadata (confirmed on the real
+    // service in S run 7), so an empty evidence list is an absent key. Absent
+    // and empty read alike everywhere (`VectorFilter`, the rag context).
+    val lists = Vector(
+      listEntry("evidenceWorkIds", workIds),
+      listEntry("evidenceNodeIds", nodeIds)
+    ).flatten
     val optional = Vector(
       Rows.optStr(row, "window").map("window" -> MetaValue.Str(_)),
       Rows.optStr(row, "nodeKind").map("nodeKind" -> MetaValue.Str(_)),
@@ -908,7 +946,7 @@ object SemanticVectorLoader:
         .optLong(row, "windowEnd")
         .map(v => "windowEnd" -> MetaValue.Num(v.toDouble))
     ).flatten
-    base ++ optional ++ facetEntries(row, workIds, facets)
+    base ++ lists ++ optional ++ facetEntries(row, workIds, facets)
 
   /** The filter facets. A facet is set only when a Spark column backs it. Topic
     * and institution are never set: no Phase 6 table links a work to a topic or

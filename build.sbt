@@ -115,6 +115,9 @@ lazy val slowSuites: Set[String] = Set(
   // Runs the pipeline and the export in its first test: about 168 s.
   "scholarchain.tests.analytics.SparkRoundTripSuite",
   "scholarchain.tests.analytics.SparkSummariesSuite",
+  // Runs the real Summaries.build on a tiny graph and checks the S3 Vectors
+  // metadata rules (work order 102); it starts a Spark session.
+  "scholarchain.tests.analytics.SparkSummariesVectorMetadataSuite",
   "scholarchain.tests.analytics.SparkTemporalWindowsSuite",
   // modules/spark suites that run the whole pipeline: 79 to 88 s per test.
   "scholarchain.spark.CollaborationPipelineSuite",

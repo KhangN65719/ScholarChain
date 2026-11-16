@@ -66,6 +66,13 @@ class AwsVectorBucketSuite extends munit.FunSuite:
   private def withIndex(response: GetIndexResponse) =
     stub.on("getIndex")(_ => response)
 
+  /** The PutVectors handler of a stub that enforces the wire rules the way the
+    * real service does: every vector of the request goes through
+    * `S3VectorsRules.check` and a refusal is a 400 ValidationException.
+    */
+  private def rulesPut(request: AnyRef): AnyRef =
+    S3VectorsWire.putHandler()(request)
+
   private def record(key: String, size: Int = 4): VectorRecord =
     VectorRecord(
       key,
@@ -129,7 +136,7 @@ class AwsVectorBucketSuite extends munit.FunSuite:
   test("no adapter call is ever CreateIndex, DeleteIndex or a bucket call") {
     val s = stub
       .on("getIndex")(_ => indexResponse())
-      .on("putVectors")(_ => PutVectorsResponse.builder().build())
+      .on("putVectors")(rulesPut)
       .on("getVectors")(_ => GetVectorsResponse.builder().build())
       .on("listVectors")(_ => ListVectorsResponse.builder().build())
       .on("queryVectors")(_ => QueryVectorsResponse.builder().build())
@@ -154,7 +161,7 @@ class AwsVectorBucketSuite extends munit.FunSuite:
   test("putVectors sends batches of at most 500") {
     val s = stub
       .on("getIndex")(_ => indexResponse())
-      .on("putVectors")(_ => PutVectorsResponse.builder().build())
+      .on("putVectors")(rulesPut)
     val b = bucket(s)
     b.ensureIndex(spec)
     b.putVectors(name, (1 to 1200).toVector.map(i => record(s"k$i")))
@@ -166,7 +173,7 @@ class AwsVectorBucketSuite extends munit.FunSuite:
   }
 
   test("putVectors carries float32 data and typed metadata") {
-    val s = stub.on("putVectors")(_ => PutVectorsResponse.builder().build())
+    val s = stub.on("putVectors")(rulesPut)
     bucket(s).putVectors(name, Vector(record("k1")))
     val sent: PutInputVector = s
       .requests("putVectors")
@@ -181,6 +188,28 @@ class AwsVectorBucketSuite extends munit.FunSuite:
     )
     val md = VectorDocuments.metadataOf(sent.metadata)
     assertEquals(md, record("k1").metadata)
+  }
+
+  test(
+    "the rules-enforcing stub refuses an empty array like the real service"
+  ) {
+    val s = stub.on("putVectors")(rulesPut)
+    val bad = record("summary:v1:k").copy(metadata =
+      record("k").metadata + ("evidenceNodeIds" -> MetaValue.Strs(Vector.empty))
+    )
+    val error = intercept[StorageException](
+      bucket(s).putVectors(name, Vector(record("a"), bad))
+    )
+    assertEquals(error.code, ErrorCode.AwsRejected)
+    assert(error.getMessage.contains("ValidationException"), error.getMessage)
+    assert(
+      error.getMessage.contains("Empty arrays are not allowed in metadata"),
+      error.getMessage
+    )
+    assert(error.getMessage.contains("summary:v1:k"), error.getMessage)
+    // The same record without the empty key passes the same stub.
+    bucket(s).putVectors(name, Vector(record("summary:v1:k")))
+    assertEquals(s.requests("putVectors").size, 2)
   }
 
   test("putVectors refuses a wrong dimension once the index is verified") {

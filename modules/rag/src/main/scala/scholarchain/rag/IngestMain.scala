@@ -27,8 +27,14 @@ import scholarchain.storage.*
   * file that differs from `export-manifest.json`), an output directory that
   * overlaps the export, one that holds something else, and one that holds an
   * ingest of a different export or bound. It writes `ingest-report.json`
-  * (deterministic: identical on a rerun) and `ingest-run.json` (timings and the
-  * created-or-unchanged split of the documents, which differ on a rerun).
+  * (deterministic: identical on a rerun; it counts failed batches and never
+  * holds a reason) and `ingest-run.json` (timings, the created-or-unchanged
+  * split of the documents, and `failedBatches`: every failed batch as `index`,
+  * `ordinal` and `reason` of at most 600 characters; these differ on a rerun).
+  *
+  * On the console, at most 20 failed batches are listed, then one line counts
+  * the rest. A failed batch also prints a live `LOADER_BATCH_FAILED` line from
+  * `EmbeddingIngest` while the run goes on.
   */
 object IngestMain:
   val ResultPrefix = "PHASE8-INGEST RESULT: "
@@ -38,6 +44,21 @@ object IngestMain:
   val ReportVersion = "scholarchain.rag.ingest-report/1"
   val WideTopK = 5
   val DisplayWords = 12
+
+  /** Characters of a reject detail or a failed-batch reason kept on the console
+    * and in `ingest-run.json`. Equal to `EmbeddingLedger.MaxFailureChars`: 160
+    * cut the S run 7 PutVectors reason before its cause.
+    */
+  val MaxReasonChars = 600
+
+  /** Failed batches listed one per line on the console; the rest are counted in
+    * one line. `ingest-run.json` lists all of them.
+    */
+  val MaxFailedBatchLines = 20
+
+  /** One console line: every control character becomes a space. */
+  private def oneLine(text: String): String =
+    text.map(c => if c.isControl then ' ' else c)
 
   /** Hits requested per sample query, so the top-score group can be measured.
     */
@@ -581,6 +602,15 @@ object IngestMain:
             "items" -> b.items,
             "millis" -> ujson.Num(b.millis.toDouble)
           )
+        }),
+        // Every failed batch with its reason, which is why it is here and not
+        // in the deterministic report: a reason can carry a service message.
+        "failedBatches" -> ujson.Arr.from(report.failedBatches.map { f =>
+          ujson.Obj(
+            "index" -> f.index,
+            "ordinal" -> f.ordinal,
+            "reason" -> f.reason.take(MaxReasonChars)
+          )
         })
       )
       if backend.aws then
@@ -623,11 +653,22 @@ object IngestMain:
           s"retries=${report.retries} duplicates=${report.duplicates}"
       )
       report.rejected.take(5).foreach { r =>
-        out(s"  reject ${r.index} ${r.key}: ${r.code} ${r.detail.take(160)}")
+        out(
+          s"  reject ${r.index} ${r.key}: ${r.code} " +
+            oneLine(r.detail).take(MaxReasonChars)
+        )
       }
-      report.failedBatches.take(5).foreach { f =>
-        out(s"  failed batch ${f.index} #${f.ordinal}: ${f.reason.take(160)}")
+      report.failedBatches.take(MaxFailedBatchLines).foreach { f =>
+        out(
+          s"  failed batch ${f.index} #${f.ordinal}: " +
+            oneLine(f.reason).take(MaxReasonChars)
+        )
       }
+      val unlisted = report.failedBatches.size - MaxFailedBatchLines
+      if unlisted > 0 then
+        out(
+          s"  ... $unlisted more failed batches (all of them are in $RunName)"
+        )
       val rate = "%.1f".formatLocal(
         java.util.Locale.ROOT,
         report.timings.vectorsPerSecond(report.written)

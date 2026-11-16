@@ -128,6 +128,12 @@ object WorkBatches:
         .toVector
     }
 
+object EmbeddingLedger:
+  /** Characters of a batch failure the ledger keeps. 500 cut the S run 7
+    * ValidationException before its reason, so the cap is 600.
+    */
+  val MaxFailureChars = 600
+
 /** RunLedger records of one embedding execution, through the existing RunLedger
   * table design. The run item (`RUN#<executionId>`, `META`) holds the status;
   * each batch has a stage item `STAGE#batch#<index>#<ordinal>`. Items are
@@ -217,7 +223,9 @@ final class EmbeddingLedger(
     }
 
   private def clean(message: String): String =
-    message.filterNot(_ == Text.Nul).take(500)
+    Text
+      .maskAccountIds(message.filterNot(_ == Text.Nul))
+      .take(EmbeddingLedger.MaxFailureChars)
 
   def recordBatch(
       index: String,

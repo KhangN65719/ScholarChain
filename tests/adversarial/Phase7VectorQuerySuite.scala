@@ -108,12 +108,15 @@ class Phase7VectorQuerySuite extends FunSuite:
     vec(k5, 0.2f, 0.2f, md("w9", "collaboration-path")),
     // A start without an end, and no year: it has no usable year at all.
     vec(k6, 0.3f, 0.3f, md("w8", "work", "windowStart" -> num(2020))),
-    // Present but empty lists.
+    // Empty source and topic lists. S3 Vectors refuses an empty array (S run
+    // 7), so an empty list is an absent key and an empty `Strs` is rejected on
+    // write (see "an empty list is refused ..."). The other list key is set,
+    // so a list on one key must not leak into the absent ones.
     vec(
       k7,
       0.1f,
       0.9f,
-      md("w7", "work", "source" -> strs(), "topic" -> strs())
+      md("w7", "work", "institution" -> strs("i9"))
     )
   )
 
@@ -744,15 +747,90 @@ class Phase7VectorQuerySuite extends FunSuite:
       Set.empty[String]
     )
 
-  test("empty lists never match, and an absent topic is not a wildcard"):
+  test("an absent list key reads as empty: it never matches, no wildcard"):
+    // k7 has no source or topic key, which is how an empty list is stored
     Vector(
       VectorFilter(source = Some("dblp")),
       VectorFilter(source = Some("openalex")),
       VectorFilter(topic = Some("t1"))
     ).foreach(f => assert(!keysFor(f).contains(k7), f.toString))
-    // only k2 has a topic or institution; the rest are not matched
-    assertEquals(keysFor(VectorFilter(topic = Some("t1"))).size, 1)
-    assertEquals(keysFor(VectorFilter(institution = Some("i1"))).size, 1)
+    // only k2 has a topic; k2 and k7 each have their own institution
+    assertEquals(keysFor(VectorFilter(topic = Some("t1"))), Set(k2))
+    assertEquals(keysFor(VectorFilter(institution = Some("i1"))), Set(k2))
+    assertEquals(keysFor(VectorFilter(institution = Some("i9"))), Set(k7))
+    // a list under one key is not read as a list under another
+    assertEquals(keysFor(VectorFilter(source = Some("i9"))), Set.empty[String])
+    assertEquals(keysFor(VectorFilter(topic = Some("i9"))), Set.empty[String])
+
+  test("an empty list is refused on every list key; absent is the empty list"):
+    val listKeys =
+      Vector(
+        "source",
+        "topic",
+        "institution",
+        "evidenceWorkIds",
+        "evidenceNodeIds"
+      )
+    val rule =
+      "S3 Vectors rejects empty arrays; confirmed on the real service in S run 7"
+    listKeys.foreach { k =>
+      // the in-process validator: MetadataInvalid, naming the key and the rule
+      val e = intercept[StorageException](
+        VectorMetadata.validate(md("w7", "work", k -> strs()))
+      )
+      assertEquals(e.code, ErrorCode.MetadataInvalid, k)
+      assert(e.getMessage.contains(k), e.getMessage)
+      assert(e.getMessage.contains(rule), e.getMessage)
+      // a one-element list and an absent key are both fine
+      VectorMetadata.validate(md("w7", "work", k -> strs("x")))
+      VectorMetadata.validate(md("w7", "work"))
+      // the wire rules refuse the same shape on the SDK Document, whatever the
+      // in-process check says
+      val wire = intercept[StorageException](
+        S3VectorsRules.check(
+          key(7),
+          VectorDocuments.metadata(md("w7", "work", k -> strs())),
+          AwsVectorBucket.NonFilterableKeys
+        )
+      )
+      assertEquals(wire.code, ErrorCode.AwsRejected, k)
+      assert(wire.getMessage.contains(S3VectorsRules.EmptyArrayMessage), k)
+      assert(wire.getMessage.contains(k), wire.getMessage)
+    }
+    // the fake refuses the record and stores nothing
+    val (bucket, name) = loaded(recs = Vector(records.head))
+    val before = bucket.count(name)
+    listKeys.foreach { k =>
+      assertEquals(
+        code(
+          bucket.putVectors(
+            name,
+            Vector(vec(k7, 0.1f, 0.9f, md("w7", "work", k -> strs())))
+          )
+        ),
+        ErrorCode.MetadataInvalid,
+        k
+      )
+    }
+    assertEquals(bucket.count(name), before)
+    // the writer rejects only the bad record and writes the good one
+    val spec = VectorIndexSpec("idx-writer", 2, "euclidean", None)
+    val report = new VectorWriter(
+      new InMemoryVectorBucket,
+      RetryPolicy(1, 0, 0),
+      NoSleep
+    ).write(
+      spec,
+      Vector(
+        vec(k6, 0.3f, 0.3f, md("w8", "work")),
+        vec(k7, 0.1f, 0.9f, md("w7", "work", "topic" -> strs()))
+      )
+    )
+    assertEquals(report.written, 1)
+    assertEquals(
+      report.rejected.map(r => (r.key, r.code)),
+      Vector((k7, ErrorCode.MetadataInvalid))
+    )
 
   test("no vector set by the loader carries topic or institution"):
     val facets = SummaryFacets(
@@ -819,17 +897,19 @@ class Phase7VectorQuerySuite extends FunSuite:
       code(VectorMetadata.validate(base + ("communityId" -> str("a\u0000b")))),
       ErrorCode.NullCharacter
     )
-    // the good shapes pass
+    // an empty list is no longer a good shape: the service refuses it
+    Vector("source", "topic", "institution").foreach(k => bad(k, strs()))
+    // the good shapes pass; an empty institution list is the absent key
     VectorMetadata.validate(
       base ++ Map(
         "year" -> num(2020),
         "documentType" -> str("work"),
         "communityId" -> str("community:x"),
         "source" -> strs("a", "b", "c", "d", "e"),
-        "topic" -> strs("t"),
-        "institution" -> strs()
+        "topic" -> strs("t")
       )
     )
+    VectorMetadata.validate(base + ("institution" -> strs("i")))
     VectorMetadata.validate(base + ("year" -> num(1)))
     VectorMetadata.validate(base + ("year" -> num(9999)))
 
