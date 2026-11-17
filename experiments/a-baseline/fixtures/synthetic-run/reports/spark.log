@@ -1,0 +1,14 @@
+26/11/15 19:42:35 INFO YarnSchedulerBackend$YarnDriverEndpoint: Registered executor NettyRpcEndpointRef(spark-client://Executor) (127.0.0.1:1) with ID 1, ResourceProfileId 0
+26/11/15 19:42:35 INFO YarnSchedulerBackend$YarnDriverEndpoint: Registered executor NettyRpcEndpointRef(spark-client://Executor) (127.0.0.1:2) with ID 2, ResourceProfileId 0
+26/11/15 19:43:00 INFO DAGScheduler: Registering RDD 5 (map at X.scala:1) as input to shuffle 0
+26/11/15 19:43:01 INFO TaskSetManager: Starting task 0.0 in stage 1.0 (TID 1) (host,executor 1, partition 0, NODE_LOCAL, 100 bytes)
+26/11/15 19:43:01 INFO TaskSetManager: Starting task 1.0 in stage 1.0 (TID 2) (host,executor 2, partition 1, NODE_LOCAL, 100 bytes)
+26/11/15 19:43:02 INFO TaskSetManager: Finished task 0.0 in stage 1.0 (TID 1) in 10 ms on host (executor 1) (1/2)
+26/11/15 19:43:02 INFO TaskSetManager: Finished task 1.0 in stage 1.0 (TID 2) in 11 ms on host (executor 2) (2/2)
+26/11/15 19:43:02 INFO DAGScheduler: ShuffleMapStage 1 (map at X.scala:1) finished in 0.02 s
+26/11/15 19:43:03 INFO TaskSetManager: Starting task 0.0 in stage 2.0 (TID 3) (host,executor 1, partition 0, NODE_LOCAL, 100 bytes)
+26/11/15 19:43:03 WARN TaskSetManager: Lost task 0.0 in stage 2.0 (TID 3) (host executor 1): java.io.IOException: synthetic
+26/11/15 19:43:03 INFO TaskSetManager: Starting task 0.1 in stage 2.0 (TID 4) (host,executor 2, partition 0, NODE_LOCAL, 100 bytes)
+26/11/15 19:43:04 INFO TaskSetManager: Finished task 0.1 in stage 2.0 (TID 4) in 12 ms on host (executor 2) (1/1)
+26/11/15 19:43:04 INFO DAGScheduler: ResultStage 2 (count at X.scala:2) finished in 0.03 s
+26/11/15 19:43:04 INFO DAGScheduler: Job 0 finished: count at X.scala:2, took 0.1 s

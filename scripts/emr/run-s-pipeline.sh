@@ -15,7 +15,11 @@
 # the first S run waits for scripts/emr/capability-check.sh to pass.
 #
 # Usage (the state machine runs it):
-#   bash run-s-pipeline.sh <data-bucket> <artifacts-bucket> <snapshot> <snapshots> <run-id>
+#   bash run-s-pipeline.sh <data-bucket> <artifacts-bucket> <snapshot> <snapshots> <run-id> [profile]
+#     profile    optional (Phase 15): 0 to 32 characters of a-z0-9-. It selects the
+#                "<profile>.KEY=VALUE" lines of spark-yarn.conf over the plain KEY lines.
+#                The state machine passes it only when the Terraform variable
+#                pipeline_profile is set; without it every setting is the plain one.
 #     snapshot   id of the raw/<snapshot>/ input prefix (A-Za-z0-9._-)
 #     snapshots  the value of -Dscholarchain.run.snapshots, naming exactly dblp plus the
 #                supplied datasets, e.g. dblp=2026-11-05,openalex=2026-11-07,...
@@ -50,6 +54,28 @@
 # therefore lives on this one node's disk: this is data-size scaling on a single-node
 # EMR cluster (Spark and MapReduce on YARN), not distributed execution, and it breaks
 # on a second node.
+#
+# Phase 15 (Experiment B, core nodes): the paragraph above is the default path and is
+# unchanged. When the cluster has a YARN node other than this one (setting DATA_PATH,
+# auto by default, detects it with yarn node -list; file or hdfs force a choice) the
+# Hadoop stage uses HDFS, the cluster's own default filesystem, for what its containers
+# share: the inputs are put into hdfs:///user/hadoop/sc/run/<run-id>/raw, the MapReduce
+# output is written under .../hadoop-out and is then copied to the same local $hout as
+# before, and the HDFS run directory is removed. Everything after the Hadoop stage (ER,
+# publish, S3 keys) reads the local copy and is unchanged. Why HDFS and not S3: the
+# MapReduce FileOutputCommitter renames (a copy plus a delete on S3, and whether the EMR
+# role may delete under curated/ was not read: UNVERIFIED); the Spark 4 client has no
+# S3 filesystem (UNVERIFIED); HDFS renames are atomic and need no IAM change. The cost is one put and one get of a
+# few megabytes, and HDFS blocks on core nodes, which is why the run directory is
+# removed before the scale-in the experiment wants to observe.
+# The Spark and export stages cannot follow: CollaborationPipeline and JsonlExport read
+# and write java.nio paths and file: URIs (Inputs.fileUri, Algo.checkpoint, Files.isDirectory),
+# so an executor on another node would not see the data. With a remote YARN node the
+# two applications therefore run with --master local[N] on this node (setting
+# SPARK_MASTER, auto by default; LOCAL_CORES, LOCAL_DRIVER_MEMORY). The MapReduce
+# stage is what creates YARN demand for the core nodes. This is a recorded limit of
+# Phase 15, not a claim about Spark scaling: SPARK_MASTER_USED and DATA_PATH_MODE are in
+# the run record.
 SC_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/emr/lib-emr.sh
 source "$SC_SCRIPT_DIR/lib-emr.sh"
@@ -57,7 +83,8 @@ source "$SC_SCRIPT_DIR/lib-emr.sh"
 pipeline_main() {
   install_trap
   local data_bucket="${1:-}" artifacts_bucket="${2:-}" snapshot="${3:-}" snapshots="${4:-}" run_id="${5:-}"
-  local work raw hout erout sout xout rep rc
+  local profile="${6:-}"
+  local work raw hout erout sout xout rep rc spark_events populate
   stage validate-arguments
   validate_bucket "data bucket" "$data_bucket"
   validate_bucket "artifacts bucket" "$artifacts_bucket"
@@ -65,6 +92,8 @@ pipeline_main() {
   validate_snapshots "$snapshots"
   validate_id run-id "$run_id"
   validate_run_id "$run_id"
+  [[ "$profile" =~ ^[a-z0-9-]{0,32}$ ]] || die "profile must be 0 to 32 characters of a-z0-9-"
+  SC_PROFILE="$profile"
   local stable_run_id="$SC_STABLE_RUN_ID"
   work="$SC_HOME/run/$run_id"
   raw="$work/raw"; hout="$work/hadoop-out"; erout="$work/er-out"; sout="$work/spark-out"
@@ -76,8 +105,10 @@ pipeline_main() {
   kv RUN_ID_STABLE "$stable_run_id"
   kv RAW_SNAPSHOT "$snapshot"
   kv RUN_SNAPSHOTS "$snapshots"
+  kv RUN_PROFILE "${profile:-none}"
   kv RUN_USER "$(id -un) uid=$(id -u) gid=$(id -g)"
-  kv RUN_SCOPE "data-size scaling on a single-node EMR cluster (Spark and MapReduce on YARN)"
+  # RUN_SCOPE is recorded in the hadoop stage, once the data path and the Spark master
+  # are resolved: it must describe the mode that actually ran (review 1, m2).
   stage_ok
 
   stage java
@@ -93,6 +124,7 @@ pipeline_main() {
   for f in dblp-subset.xml openalex.jsonl crossref.jsonl orcid.jsonl; do
     [[ -s "$raw/$f" ]] || die "missing or empty input: raw/$snapshot/$f"
     kv "INPUT_BYTES_${f//[.-]/_}" "$(wc -c < "$raw/$f" | tr -d ' ')"
+    kv "INPUT_LINES_${f//[.-]/_}" "$(wc -l < "$raw/$f" | tr -d ' ')"
   done
   local m
   for m in hadoop entity-resolution spark; do
@@ -104,8 +136,14 @@ pipeline_main() {
 
   stage spark-stage
   stage_spark "$artifacts_bucket"
-  write_spark_conf "$(conf_value POPULATE_HADOOP_CLASSPATH false '^(true|false)$')"
-  kv POPULATE_HADOOP_CLASSPATH "$(conf_value POPULATE_HADOOP_CLASSPATH false '^(true|false)$')"
+  # Phase 15: the plain-text Spark event log (setting SPARK_EVENT_LOG, false unless a
+  # profile sets it) is written here and copied into the reports before publish.
+  SC_EVENT_LOG_DIR="$work/spark-events"
+  spark_events="$(conf_value SPARK_EVENT_LOG false '^(true|false)$')" || exit 1
+  kv SPARK_EVENT_LOG "$spark_events"
+  populate="$(conf_value POPULATE_HADOOP_CLASSPATH false '^(true|false)$')" || exit 1
+  write_spark_conf "$populate"
+  kv POPULATE_HADOOP_CLASSPATH "$populate"
   # What the node's site files name for the old-API output committer (S run 5, export
   # stage): recorded as evidence only. spark-defaults.conf overrides it for both Spark
   # applications (write_spark_conf).
@@ -160,9 +198,92 @@ pipeline_main() {
   # refuses a name it has no normalizer for.
   # The names are listed in sorted order: the driver runs one normalization job per
   # dataset in that order.
+  # Phase 15: where the MapReduce containers read and write (see "Phase 15" in the header).
+  # file (the default for a one-node cluster) keeps the file:/// URIs above exactly.
+  local dmode dmode_conf hrun="" h_in h_out hextra=() hextra_text="" pc split mapmb redmb smaster local_cores run_scope nm_wait
+  dmode_conf="$(conf_value DATA_PATH auto '^(auto|file|hdfs)$')" || exit 1
+  dmode="$dmode_conf"
+  if [[ "$dmode_conf" == "hdfs" ]]; then
+    # Forced HDFS (the b-burst profile): the experiment needs a NodeManager on another
+    # host. Wait a bounded time for it to register, then fail clearly. There is no
+    # fallback to file:///, which would run the whole Hadoop stage on one node and
+    # report it as a core-node run (review 1, M1). A count of unknown (yarn node -list
+    # unreadable) is not a proof of absence: it is recorded and the run continues.
+    # Resolved into a variable first: die inside a "$( )" argument ends only the subshell,
+    # so an invalid NM_WAIT_SECONDS would reach the wait as an empty argument.
+    nm_wait="$(conf_value NM_WAIT_SECONDS 300 '^(0|[1-9][0-9]{0,3})$')" || exit 1
+    wait_for_remote_yarn_nodes "$nm_wait"
+    if [[ "$SC_REMOTE_NODES" =~ ^[0-9]+$ && "$SC_REMOTE_NODES" -eq 0 ]]; then
+      kv YARN_REMOTE_NODES "0 (RUNNING NodeManagers on a host other than this one)"
+      die "DATA_PATH=hdfs is forced for profile '${SC_PROFILE:-none}' but yarn node -list shows no RUNNING NodeManager on a host other than this one, after waiting up to $nm_wait s: the core node did not register, so this run would not be a core-node run. Not falling back to file:///"
+    fi
+  else
+    detect_remote_yarn_nodes
+  fi
+  if [[ "$dmode" == "auto" ]]; then
+    if [[ "$SC_REMOTE_NODES" =~ ^[0-9]+$ && "$SC_REMOTE_NODES" -gt 0 ]]; then
+      dmode="hdfs"
+    else
+      dmode="file"
+    fi
+  fi
+  kv YARN_REMOTE_NODES "$SC_REMOTE_NODES (RUNNING NodeManagers on a host other than this one; unknown when yarn node -list gave nothing usable)"
+  kv DATA_PATH_MODE "$dmode"
+  # The Spark master is resolved here, with the data path, so RUN_SCOPE can say what runs.
+  smaster="$(conf_value SPARK_MASTER auto '^(auto|yarn|local)$')" || exit 1
+  if [[ "$smaster" == "auto" ]]; then
+    if [[ "$SC_REMOTE_NODES" =~ ^[0-9]+$ && "$SC_REMOTE_NODES" -gt 0 ]]; then
+      smaster="local"
+    else
+      smaster="yarn"
+    fi
+  fi
+  local_cores="$(conf_value LOCAL_CORES 4 '^[1-9][0-9]?$')" || exit 1
+  if [[ "$dmode" == "hdfs" && "$smaster" == "local" ]]; then
+    run_scope="MapReduce on YARN with HDFS across the cluster's nodes ($SC_REMOTE_NODES remote NodeManager(s)); ER, Spark and export on the primary node only (Spark as local[$local_cores])"
+  elif [[ "$dmode" == "file" && "$smaster" == "yarn" ]]; then
+    run_scope="data-size scaling on a single-node EMR cluster (file:/// paths on the primary; MapReduce and Spark on YARN)"
+  else
+    run_scope="MapReduce data path $dmode ($SC_REMOTE_NODES remote NodeManager(s)); Spark master $smaster; ER on the primary node"
+  fi
+  kv RUN_SCOPE "$run_scope"
+  h_in="file://$raw"
+  h_out="file://$hout"
+  if [[ "$dmode" == "hdfs" ]]; then
+    hrun="/user/hadoop/sc/run/$run_id"
+    timeout 60 hdfs dfs -mkdir -p "$hrun/raw" || die "hdfs dfs -mkdir -p $hrun/raw failed or took over 60 s"
+    timeout 300 hdfs dfs -put "$raw/dblp-subset.xml" "$raw/crossref.jsonl" "$raw/openalex.jsonl" "$raw/orcid.jsonl" "$hrun/raw/" || die "hdfs dfs -put of the inputs to $hrun/raw failed"
+    h_in="hdfs://$hrun/raw"
+    h_out="hdfs://$hrun/hadoop-out"
+    kv HDFS_RUN_DIR "$hrun"
+  fi
+  # Settings that default to nothing (Phase 15, P15-7): a value of 0 or an absent key
+  # adds no option, so the default run is the one it always was. The partition count is
+  # the reducer count of every MapReduce stage (modules/hadoop, PartitionCountSettingSuite).
+  pc="$(conf_value PARTITION_COUNT 0 '^(0|[1-9][0-9]{0,3})$')" || exit 1
+  split="$(conf_value SPLIT_MAX_BYTES 0 '^(0|[1-9][0-9]{0,8})$')" || exit 1
+  mapmb="$(conf_value MAP_MEMORY_MB 0 '^(0|[1-9][0-9]{2,5})$')" || exit 1
+  redmb="$(conf_value REDUCE_MEMORY_MB 0 '^(0|[1-9][0-9]{2,5})$')" || exit 1
+  if [[ "$pc" -gt 0 ]]; then
+    hextra+=("-Dscholarchain.run.partitionCount=$pc")
+    hextra_text="$hextra_text -Dscholarchain.run.partitionCount=$pc"
+  fi
+  if [[ "$split" -gt 0 ]]; then
+    hextra+=("-Dmapreduce.input.fileinputformat.split.maxsize=$split")
+    hextra_text="$hextra_text -Dmapreduce.input.fileinputformat.split.maxsize=$split"
+  fi
+  if [[ "$mapmb" -gt 0 ]]; then
+    hextra+=("-Dmapreduce.map.memory.mb=$mapmb")
+    hextra_text="$hextra_text -Dmapreduce.map.memory.mb=$mapmb"
+  fi
+  if [[ "$redmb" -gt 0 ]]; then
+    hextra+=("-Dmapreduce.reduce.memory.mb=$redmb")
+    hextra_text="$hextra_text -Dmapreduce.reduce.memory.mb=$redmb"
+  fi
+  kv HADOOP_EXTRA_OPTIONS "${hextra_text:-none}"
   local dsets=(crossref openalex orcid) dargs=()
   for f in "${dsets[@]}"; do
-    dargs+=("$f=file://$raw/$f.jsonl")
+    dargs+=("$f=$h_in/$f.jsonl")
   done
   rc=0
   # HADOOP_CLASSPATH reaches only the submitting JVM; -libjars ships the jars to the
@@ -196,7 +317,8 @@ pipeline_main() {
     "-Dmapreduce.map.env=JAVA_HOME=$SC_JAVA_HOME" \
     "-Dmapreduce.reduce.env=JAVA_HOME=$SC_JAVA_HOME" \
     "-Dyarn.app.mapreduce.am.env=JAVA_HOME=$SC_JAVA_HOME" \
-    "file://$hout" "file://$raw/dblp-subset.xml" "${dargs[@]}" > "$rep/hadoop.log" 2>&1 || rc=$?
+    ${hextra[@]+"${hextra[@]}"} \
+    "$h_out" "$h_in/dblp-subset.xml" "${dargs[@]}" > "$rep/hadoop.log" 2>&1 || rc=$?
   tail -n 25 "$rep/hadoop.log" || true
   [[ "$rc" -eq 0 ]] || die "PipelineTool exited $rc: $(last_error_line "$rep/hadoop.log")"
   # The verdict (work order 48, human decision D30, replaces the work order 43 rule).
@@ -244,6 +366,21 @@ pipeline_main() {
       mrn=$((mrn + 1))
     done
   } > "$rep/mapreduce-job-ids.txt"
+  # Phase 15 (Experiment A observability, setting MR_COUNTERS, false unless a profile sets
+  # it): mapred job -status per job, best effort, kept in the reports. The output format on
+  # EMR 7.10.0 and whether the history server answers are UNVERIFIED; a job that gives
+  # nothing leaves an empty file and never stops the run.
+  local mr_counters mrc=0
+  mr_counters="$(conf_value MR_COUNTERS false '^(true|false)$')" || exit 1
+  if [[ "$mr_counters" == "true" ]]; then
+    mkdir -p "$rep/mapreduce-counters"
+    for mrid in ${mrfound[@]+"${mrfound[@]}"}; do
+      [[ "$mrid" =~ ^job_[0-9]+_[0-9]+$ ]] || continue
+      { timeout 60 mapred job -status "$mrid" 2>&1 || true; } > "$rep/mapreduce-counters/$mrid.txt"
+      mrc=$((mrc + 1))
+    done
+    kv MAPREDUCE_COUNTERS_FILES "$mrc (mapreduce-counters/<job id>.txt, one job status query per job id)"
+  fi
   mrkind=$((SC_MR_YARN + mrapps_n))
   if [[ "$SC_MR_LOCAL" -gt 0 && "$mrkind" -gt 0 ]]; then
     mr="mixed"
@@ -287,6 +424,15 @@ pipeline_main() {
   # Checkpoint right after the classification: the verdict, the job ids and the
   # ResourceManager list are then in s3 even if a later stage is killed from outside.
   sc_publish_progress "after-hadoop-classification" || true
+  # HDFS mode (Phase 15): bring the MapReduce output to the local $hout that ER, Spark and
+  # publish read, then remove the HDFS run directory so no block of ours is left on a core
+  # node that managed scaling may want to release. A failed copy is a failed stage; a failed
+  # removal is only reported.
+  if [[ "$dmode" == "hdfs" ]]; then
+    timeout 600 hdfs dfs -get "$hrun/hadoop-out" "$hout" || die "hdfs dfs -get of $hrun/hadoop-out to $hout failed"
+    kv HADOOP_OUT_FETCHED_FROM "hdfs://$hrun/hadoop-out ($(find "$hout" -type f | wc -l | tr -d ' ') files)"
+    timeout 300 hdfs dfs -rm -r -skipTrash "$hrun" > "$rep/hdfs-cleanup.log" 2>&1 || note "hdfs dfs -rm -r $hrun failed: see hdfs-cleanup.log"
+  fi
   # Container user and permissions for file: output are unknown (UNVERIFIED): record
   # them, then make the output readable by whoever runs the java.nio tools.
   kv HADOOP_OUT_OWNER_MODE "$(mode_of "$hout")"
@@ -325,14 +471,28 @@ pipeline_main() {
   sjar="$(main_jar "$work/jars/spark")"
   sjars="$(lib_jars_csv "$work/jars/spark/lib" "$sexcl")"
   kv SPARK_EXCLUDED_LIB_JARS "$(lib_jars_excluded "$work/jars/spark/lib" "$sexcl")"
-  mode="$(conf_value DEPLOY_MODE client '^(client|cluster)$')"
+  mode="$(conf_value DEPLOY_MODE client '^(client|cluster)$')" || exit 1
+  # Phase 15: with a YARN node other than this one the two applications run local[N] on
+  # this node (header, "Phase 15"). yarn (the default on a one-node cluster) is the old path.
+  # smaster was resolved in the hadoop stage (it is in RUN_SCOPE).
+  local shuffle
+  if [[ "$smaster" == "local" ]]; then
+    SC_SPARK_MASTER="local[$local_cores]"
+    SC_LOCAL_DRIVER_MEMORY="$(conf_value LOCAL_DRIVER_MEMORY 6g '^[0-9]+[gm]$')" || exit 1
+    mode="local-master"
+    kv SPARK_LOCAL_DRIVER_MEMORY "$SC_LOCAL_DRIVER_MEMORY"
+  fi
+  kv SPARK_MASTER_USED "$SC_SPARK_MASTER"
+  shuffle="$(conf_value SHUFFLE_PARTITIONS 8 '^[1-9][0-9]{0,4}$')" || exit 1
+  [[ "$shuffle" -le 10000 ]] || die "spark-yarn.conf: SHUFFLE_PARTITIONS must be 1 to 10000"
+  kv SPARK_SHUFFLE_PARTITIONS "$shuffle"
   mkdir -p "$sout"
   sc_chmod 1777 "$sout"
   # No --master application argument: spark-submit supplies the master (work order 18 makes
   # the application honor it). Without that change the application would pick local[2].
   rc=0
   run_spark_submit "$rep/spark.log" "$mode" scholarchain.spark.CollaborationPipeline "$sjar" "$sjars" \
-    --er-run "$erdir" --hadoop-root "$snapdir" --out-root "$sout" || rc=$?
+    --er-run "$erdir" --hadoop-root "$snapdir" --out-root "$sout" --partitions "$shuffle" || rc=$?
   tail -n 20 "$rep/spark.log" || true
   spark_verdict "$rep/spark.log" "$rc"
   verdict="$SC_LAST_VERDICT"
@@ -346,6 +506,10 @@ pipeline_main() {
   srun="$(find "$sout" -maxdepth 1 -type d -name 'run=*' | LC_ALL=C sort)"
   [[ -n "$srun" && "$(printf '%s\n' "$srun" | wc -l | tr -d ' ')" -eq 1 ]] || die "expected exactly one run=<id> directory under the Spark output, found: ${srun:-none}"
   kv SPARK_RUN_DIR "$srun"
+  # Phase 15 (review 1, M4): the run manifest (counts, outputs rows, partitioning) is
+  # copied into the reports, so the experiment derive scripts can read output record
+  # counts from reports/runs/<run-id>/ without the graph prefix.
+  copy_report_file "$srun/run-manifest.json" "$rep/spark-run-manifest.json" SPARK_RUN_MANIFEST_COPY
   sc_chmod_readable_tree "$sout"
   stage_ok
 
@@ -360,6 +524,8 @@ pipeline_main() {
   kv EXPORT_ON_YARN "$mode:$verdict"
   kv EXPORT_APPLICATION "${SC_LAST_APP:-none} state=${SC_LAST_STATE:-none}"
   [[ "$verdict" == "yes" ]] || die "JsonlExport did not run as a successful YARN application (exit $rc): $(last_error_line "$rep/export.log")"
+  # Phase 15 (review 1, M4): the export manifest (rows per exported table) for the derive scripts.
+  copy_report_file "$xout/export/export-manifest.json" "$rep/export-manifest.json" EXPORT_MANIFEST_COPY
   sc_chmod_readable_tree "$xout"
   stage_ok
 
@@ -368,12 +534,46 @@ pipeline_main() {
   # The published record cannot hold the publish stage's own seconds or the final total:
   # both are printed on stdout after the copy (STAGE_SECONDS_PUBLISH, STAGE_SECONDS_TOTAL).
   record_total_seconds STAGE_SECONDS_TOTAL_BEFORE_PUBLISH
+  # Phase 15: the plain-text Spark event logs go to the reports prefix (spark-events/).
+  # The event log is the one file whose size is not ours to bound (review 1, a1), so it
+  # is scanned apart, before the run record is written: each file under a 120 s limit and
+  # at most SC_EVENT_LOG_SCAN_MAX_BYTES (256 MiB). A file that is larger or whose scan did
+  # not finish is NOT published (removed from the reports copy, named in a NOTE and in
+  # SPARK_EVENT_LOG_PUBLISHED); the run does not fail on it. A scan that finds key
+  # material still fails the run, as for every other file.
+  local lf evbytes evdropped=0 evkept=0
+  if [[ "$spark_events" == "true" && -d "$SC_EVENT_LOG_DIR" ]]; then
+    mkdir -p "$rep/spark-events"
+    cp -R "$SC_EVENT_LOG_DIR/." "$rep/spark-events/"
+    while IFS= read -r lf; do
+      evbytes="$(wc -c < "$lf" | tr -d ' ')"
+      rc=0
+      if [[ "$evbytes" -le "${SC_EVENT_LOG_SCAN_MAX_BYTES:-268435456}" ]]; then
+        scan_no_secrets_bounded "$lf" 120 || rc=$?
+      else
+        rc=2
+      fi
+      if [[ "$rc" -ne 0 ]]; then
+        rm -f "$lf"
+        evdropped=$((evdropped + 1))
+        note "Spark event log ${lf##*/} ($evbytes bytes) not published: too large or the key-material scan did not finish in 120 s"
+      else
+        evkept=$((evkept + 1))
+      fi
+    done < <(find "$rep/spark-events" -type f)
+    kv SPARK_EVENT_LOG_PUBLISHED "$evkept file(s) published, $evdropped not published (over 256 MiB or scan unfinished), $(du -sb "$rep/spark-events" | cut -f1) bytes, uncompressed, reports/runs/$run_id/spark-events/"
+  fi
   write_json "$rep/run-record.json"
   printf '%s' "$SC_KV" > "$rep/run-record.env"
-  local lf
   for lf in "$rep"/*; do
     scan_no_secrets "$lf"
   done
+  # Files in the other reports subdirectories (mapreduce-counters/) get the same strict
+  # key-material scan; the loop above reaches only the top level, and the event logs were
+  # scanned above.
+  while IFS= read -r lf; do
+    scan_no_secrets "$lf"
+  done < <(find "$rep" -mindepth 2 -type f -not -path "$rep/spark-events/*")
   publish "$hout" "s3://$data_bucket/curated/runs/$run_id/hadoop/"
   publish "$erout" "s3://$data_bucket/curated/runs/$run_id/er/"
   publish "$sout" "s3://$data_bucket/graph/runs/$run_id/"

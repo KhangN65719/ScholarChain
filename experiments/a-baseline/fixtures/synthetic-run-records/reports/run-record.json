@@ -1,0 +1,11 @@
+{
+  "_synthetic_fixture": "SYNTHETIC test data for the derive-table.py rehearsal (records fixture). Not a measurement.",
+  "RUN_ID": "run-v1-00000000-0000-0000-0000-000000000001",
+  "INPUT_BYTES_dblp_subset_xml": "1000",
+  "INPUT_BYTES_openalex_jsonl": "200",
+  "INPUT_LINES_dblp_subset_xml": "900",
+  "INPUT_LINES_openalex_jsonl": "20",
+  "MAPREDUCE": "yarn",
+  "MAPREDUCE_JOB_COUNT": "4",
+  "STAGE_SECONDS_HADOOP": "700"
+}

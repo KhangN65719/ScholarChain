@@ -107,7 +107,7 @@ variable "task_spot_instance_count" {
 }
 
 variable "managed_scaling_max_units" {
-  description = "Managed scaling cap in instance units (master plus core plus task). Applied only when there is at least one core node. Must cover the fixed node count, 1 + core + Spot task nodes (task nodes only with a core node), at most 1 + 4 + 2 = 7; the module also raises it to that count if it is lower. Default 3; the Phase 15 elasticity example uses 5."
+  description = "Managed scaling cap in instance units (master plus core plus task: the primary is counted here and subtracted in main.tf, because EMR ComputeLimits cover core and task nodes only). Applied only when there is at least one core node. Must cover the fixed node count, 1 + core + Spot task nodes (task nodes only with a core node), at most 1 + 4 + 2 = 7; the module also raises it to that count if it is lower. Default 3; the Phase 15 elasticity example uses 5."
   type        = number
   default     = 3
 

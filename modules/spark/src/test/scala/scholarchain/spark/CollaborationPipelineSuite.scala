@@ -71,7 +71,8 @@ class CollaborationPipelineSuite extends SparkSuite:
 
   private def runPipeline(
       layout: InputLayout,
-      extra: Vector[String]
+      extra: Vector[String],
+      partitions: String = "4"
   ): Outcome =
     val directory = Files.createTempDirectory("scholarchain-spark-out-")
     val buffer = new ByteArrayOutputStream()
@@ -88,7 +89,7 @@ class CollaborationPipelineSuite extends SparkSuite:
         "--master",
         "local[2]",
         "--partitions",
-        "4",
+        partitions,
         "--max-iterations",
         "30",
         "--sample-size",
@@ -111,6 +112,8 @@ class CollaborationPipelineSuite extends SparkSuite:
 
   private lazy val first = runPipeline(Fixtures.clean, Vector.empty)
   private lazy val second = runPipeline(Fixtures.clean, Vector.empty)
+  private lazy val wide =
+    runPipeline(Fixtures.clean, Vector.empty, partitions = "16")
   private lazy val defective = runPipeline(
     Fixtures.defective,
     Vector("--max-integrity-violations", "4")
@@ -620,6 +623,67 @@ class CollaborationPipelineSuite extends SparkSuite:
       "partitioning"
     )
       .foreach(key => assertEquals(m1(key), m2(key), key))
+  }
+
+  test("--partitions defaults to 8 and accepts 1 to 10000 only") {
+    val base = Vector("--er-run", "a", "--hadoop-root", "b", "--out-root", "c")
+    def partitionsOf(extra: Vector[String]): Either[String, Int] =
+      PipelineArgs.parse(base ++ extra).map(_.partitions)
+    assertEquals(partitionsOf(Vector.empty), Right(8))
+    assertEquals(partitionsOf(Vector("--partitions", "64")), Right(64))
+    assertEquals(partitionsOf(Vector("--partitions", "10000")), Right(10000))
+    Vector("0", "10001", "many").foreach { bad =>
+      val result = partitionsOf(Vector("--partitions", bad))
+      assert(
+        result.left.exists(_.contains("--partitions")),
+        s"$bad gave $result"
+      )
+    }
+  }
+
+  test(
+    "a higher --partitions value gives the same logical tables and more tasks"
+  ) {
+    val narrow = first
+    val high = wide
+    assertEquals(high.code, 0, high.output.slice(0, 3000))
+    assertEquals(
+      json(high, "run-manifest.json")("partitioning")(
+        "shufflePartitions"
+      ).num.toInt,
+      16
+    )
+    assertEquals(
+      json(high, "run-manifest.json")("config")("partitions").num.toInt,
+      16
+    )
+    // The partition count is part of the run configuration, so the run ID
+    // differs; every other column of every table must not.
+    assertNotEquals(
+      json(high, "run-manifest.json")("runId").str,
+      json(narrow, "run-manifest.json")("runId").str
+    )
+    tableNames.foreach { name =>
+      val a = table(narrow, name).drop("provenance")
+      val b = table(high, name).drop("provenance")
+      assertEquals(DriverGuard.count(a), DriverGuard.count(b), name)
+      assertEquals(DriverGuard.count(a.exceptAll(b)), 0L, s"$name only at 4")
+      assertEquals(DriverGuard.count(b.exceptAll(a)), 0L, s"$name only at 16")
+    }
+    val tasksNarrow = json(narrow, "stage-metrics.json")("totals")("tasks").num
+    val tasksHigh = json(high, "stage-metrics.json")("totals")("tasks").num
+    assert(
+      tasksHigh > tasksNarrow,
+      s"tasks at 16 partitions ($tasksHigh) vs at 4 ($tasksNarrow)"
+    )
+    Vector("counts", "invariants", "algorithms")
+      .foreach(key =>
+        assertEquals(
+          json(high, "run-manifest.json")(key),
+          json(narrow, "run-manifest.json")(key),
+          key
+        )
+      )
   }
 
   test("the integrity ceiling fails the run when exceeded") {

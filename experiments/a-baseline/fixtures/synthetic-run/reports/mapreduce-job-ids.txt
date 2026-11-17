@@ -1,0 +1,4 @@
+# MapReduce job ids of the Hadoop stage. SYNTHETIC fixture.
+1 job_1_0001 dblp-extraction
+2 job_1_0002 source-normalization/crossref
+3 job_1_0003 source-normalization/openalex

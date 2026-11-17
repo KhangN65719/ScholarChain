@@ -1,0 +1,67 @@
+{
+  "consumed_by": "Phase 14 tier S runs. The S3 keys written by the Phase 14 upload are raw/phase5-dblp-subset/<file>; the snapshot ID labels the content and is not an S3 prefix.",
+  "enrichment_receipt_sha256": "6d0b8d7b1d88a2b08facf922a5f1d915fd891b5263601dd3a5ffc2fd35ea2c60",
+  "evidence": [
+    "docs/agent-runs/phase-14/results-s-tier.md (input snapshot sizes)",
+    "scholarchain-data/logs/phase14-upload-7.log (WOULD_UPLOAD sha256 and bytes of the four files)"
+  ],
+  "id_rule": "scholarchain-s-<last retrieval date, YYYYMMDD>-<first 12 hex of the SHA-256 of the compact, key-sorted JSON list of {dataset, bytes, rows, sha256} for the four members, ordered by dataset>",
+  "limitations": "Rows (4,219) are a sum over four files of different row kinds, not distinct entities. The tier S pipeline indexed 4,118 work records and the export holds 3,556 work nodes; those counts are not reconciled with the 3,472 input works.",
+  "manifest_version": 1,
+  "members": [
+    {
+      "bytes": 2111266,
+      "dataset": "dblp",
+      "format": "xml",
+      "license_spdx": "CC0-1.0",
+      "path": "datasets/subset/dblp-subset.xml",
+      "rows": 3472,
+      "sha256": "9076e8574643fa6f64619aa912956ed0ddef60f8d0634ae4be218b0edce28c7d"
+    },
+    {
+      "bytes": 940131,
+      "dataset": "openalex",
+      "format": "jsonl",
+      "license_spdx": "CC0-1.0",
+      "path": "datasets/subset/openalex.jsonl",
+      "rows": 396,
+      "sha256": "fdeddfa389f0f9af861dff9d7c89b8e91e3d7b2cda96111504bf6ed8f8a062a9"
+    },
+    {
+      "bytes": 174011,
+      "dataset": "crossref",
+      "format": "jsonl",
+      "license_spdx": "NOASSERTION",
+      "path": "datasets/subset/crossref.jsonl",
+      "rows": 251,
+      "sha256": "c403ccbfe67ad475b3788a44cae0cc292c60ef05a4f6d02b8249b25a662cd368"
+    },
+    {
+      "bytes": 19675,
+      "dataset": "orcid",
+      "format": "jsonl",
+      "license_spdx": "CC0-1.0",
+      "path": "datasets/subset/orcid.jsonl",
+      "rows": 100,
+      "sha256": "719a1cdb41069fe520bd2ab37aef5d253483d38c22e517cc714d369d91de35c5"
+    }
+  ],
+  "registered_in": "datasets/dataset-manifest.yaml",
+  "snapshot_id": "scholarchain-s-20261107-10dd7f34121b",
+  "subset_id": "phase5-dblp-subset",
+  "subset_receipt_sha256": "1216b8aa5ed996eed3cfd13c3a1401ed368c3c4baf22feb765260c4a4d5a1e62",
+  "subset_spec_sha256": "3731c8f92db22adbd5b433531a81b44e598ccceb211768e6f293ff72a1778692",
+  "tier": "S",
+  "totals": {
+    "bytes": 3245083,
+    "files": 4,
+    "rows": 4219
+  },
+  "vintages": {
+    "crossref": "live API rows retrieved 2026-11-07",
+    "dblp": "dump release 2026-11-05 (not the registered 2026-11-01 snapshot; see the subset entry)",
+    "openalex": "live API rows retrieved 2026-11-07",
+    "orcid": "live API rows retrieved 2026-11-07"
+  },
+  "works": 3472
+}

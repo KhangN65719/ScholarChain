@@ -96,6 +96,41 @@ variable "max_run_seconds" {
     condition     = var.max_run_seconds >= var.create_cluster_timeout_seconds + var.emr_step_timeout_seconds + 600
     error_message = "Rule A: max_run_seconds must be at least create_cluster_timeout_seconds + emr_step_timeout_seconds + 600 (300 s fetch step plus 300 s cleanup margin), otherwise a hung EMR step ends in the execution timeout and CleanupOnFailure is skipped."
   }
+
+  # Phase 15: Rule A with the optional Wait state. Identical to the rule above when
+  # wait_before_terminate_seconds is 0 (the default); the rule above is kept as it was.
+  validation {
+    condition     = var.max_run_seconds >= var.create_cluster_timeout_seconds + var.emr_step_timeout_seconds + var.wait_before_terminate_seconds + 600
+    error_message = "Rule A with the wait: max_run_seconds must be at least create_cluster_timeout_seconds + emr_step_timeout_seconds + wait_before_terminate_seconds + 600, so the Wait state before TerminateCluster does not push a hung step past the execution timeout."
+  }
+}
+
+variable "wait_before_terminate_seconds" {
+  description = "Phase 15 (P15-1, Experiment B): a bounded Step Functions Wait state before TerminateCluster, 0 to 1800 seconds. Default 0 means NO Wait state exists and the state machine is the same as before. When non-zero, CapabilityStep and PipelineStep go to WaitBeforeTerminate, which waits this many seconds with the cluster still running and idle, so a managed-scaling scale-in can be observed before the cluster is terminated. The cluster's idle auto-termination (emr_idle_timeout_seconds in the course environment) must be longer than this wait, or the cluster can end itself before TerminateCluster runs: the overlay that sets a wait must also raise the idle timeout. The failure paths (CleanupOnFailure) never wait. Rule A counts this value (the second validation on max_run_seconds)."
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.wait_before_terminate_seconds >= 0 && var.wait_before_terminate_seconds <= 1800
+    error_message = "wait_before_terminate_seconds must be 0 to 1800 (0 = no Wait state)."
+  }
+}
+
+variable "skip_loader_after_pipeline" {
+  description = "Phase 15 (Experiments A and B): when true, TerminateCluster of mode pipeline goes straight to Done and the AfterTerminate state is left out of the definition, so a run with Neptune and Bedrock off ends SUCCEEDED without starting the Fargate loader (which has nothing to do then and would fail or idle). Default false: the state machine is unchanged. Mode loader-only still reaches RunLoader. The execution input still needs loader_command in mode pipeline (ValidateInput checks it); its value is not used."
+  type        = bool
+  default     = false
+}
+
+variable "pipeline_profile" {
+  description = "Phase 15: the settings profile passed as the optional sixth argument of scripts/emr/run-s-pipeline.sh, which reads the matching <profile>.KEY lines of spark-yarn.conf (a-baseline for Experiment A, b-burst for B). Empty (default) passes no sixth argument and the Args expression is the one it was. 0 to 32 characters of a-z0-9- so it cannot break the States.Array expression."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]{0,32}$", var.pipeline_profile))
+    error_message = "pipeline_profile must be 0 to 32 characters of a-z0-9-."
+  }
 }
 
 variable "log_retention_days" {

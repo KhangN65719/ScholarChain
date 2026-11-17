@@ -1,0 +1,3 @@
+SYNTHETIC fixture, shaped like `mapred job -status` counter lines. This job reads intermediate data, not the raw inputs.
+		Launched map tasks=2
+		Map input records=70

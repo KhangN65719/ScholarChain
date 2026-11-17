@@ -191,11 +191,11 @@ A flat `KEY=VALUE` file, `#` comments allowed, no spaces in values, every key ex
 | `OUTPUT_ROOT` | absolute, no `.` or `..`, outside the repository (physical path, case ignored). `--out-dir`, if given, must equal it |
 | `ENTRY_POINT` | `script:<path>` with a `.sh` file under `experiments/` or `load-tests/` that is tracked in the commit, or `sbt:<task>`. Started once: `bash <path>` or `sbt <task>` |
 
-Tier caps (UNVERIFIED, decision D12 open). PROVISIONAL: the minute caps are the pipeline caps (`run-bounded-pipeline.sh`); the concurrency and task caps are the infra-engineer's proposal, not confirmed by the human, and are constants at the top of `run-experiment.sh` (`tier_caps`). Raising one is a human decision.
+Tier caps. Decision D12 is decided by P15-1 for tier S (Phase 15 decision of the human, 2026-11-16): 90 minutes, 64 clients (concurrency) and 20,000 requests (tasks). The M and L rows are unchanged and stay PROVISIONAL (the infra-engineer's proposal, not confirmed by the human). The caps are constants at the top of `run-experiment.sh` (`tier_caps`). Raising one is a human decision. The S minute cap used to be 60 (the pipeline cap), concurrency 4 and tasks 1000; a manifest written for those values still passes, and a larger one now needs the P15-1 values.
 
 | Tier | `MAX_MINUTES` | `MAX_CONCURRENCY` | `MAX_TASKS` |
 |---|---|---|---|
-| S | 60 | 4 | 1000 |
+| S | 90 | 64 | 20000 |
 | M | 90 | 16 | 5000 |
 | L | 150 | 32 | 20000 |
 
@@ -445,6 +445,27 @@ Stand-ins, so what it cannot show: `hadoop classpath --glob` is a shim that prin
 
 The whitespace refusal runs on the root path before the root directory is created (after the in-repo refusal), so a root with whitespace outside the repository is not created and then refused. After a change to `lib-emr.sh` the rehearsal has to be run again. `check.sh` does not reach `scripts/emr/`, so also `bash -n` and `shellcheck -x` on `scripts/emr/rehearse-preflight.sh` by hand (an agent's `bash -n` and `shellcheck` are refused by the guard).
 
+### Phase 15 sessions A and B (work order 1b; written, not run, nothing here is observed)
+
+Two overlays, two applies, in this order, each with its own plan and approval record. Both are layered after `course.tfvars` and `experiment-size-s.tfvars` (later `-var-file` wins).
+
+| Order | Overlay | Cluster | State machine | Profile |
+|---|---|---|---|---|
+| 1 (only the A re-run, P15-2) | `baseline-s.tfvars` | 1 primary, no core, Neptune and Bedrock off | no Wait state, loader skipped | `a-baseline` |
+| 2 (B) | `elasticity-s.tfvars` | 1 primary + 1 core, scaling 2 to 4 instances | Wait 900 s before `TerminateCluster`, loader skipped | `b-burst` |
+
+Why two applies and not one: the cluster shape (core 0 against core 1 and the scaling limits), the Wait state, the idle timeout and the profile are part of the state machine definition and the cluster definition, and A is the single-node baseline. Nothing the applies change bills while idle (the cluster is transient, Neptune and Bedrock are off), so an apply from A's overlay to B's is a state machine update. A goes first because it is cheaper and B's overlay then replaces the definition; `session-down.tfvars` after B as before. If the audit verdict were REUSE, only B's apply is needed.
+
+What changed in `scripts/emr/` (every item keeps the single-node behaviour when its setting is unset; the plain run, with no profile, is what S run 6 ran, plus the `INPUT_LINES_*` record keys and `--partitions 8`, which is the Spark default):
+- Optional sixth argument `profile` of `run-s-pipeline.sh`, passed by the state machine only when the Terraform variable `pipeline_profile` is non-empty. `conf_value` reads `<profile>.KEY` lines of `spark-yarn.conf` before `KEY`. This is the route from an overlay to the node: the execution input has no free-form field, and the uploaded `spark-yarn.conf` is one file for every run.
+- Multi-node data path. `DATA_PATH=auto` (default): `detect_remote_yarn_nodes` counts RUNNING NodeManagers on other hosts with `yarn node -list`; zero (a one-node cluster) keeps `file:///` on the primary exactly as before; one or more puts the inputs into `hdfs:///user/hadoop/sc/run/<run-id>/raw`, writes the MapReduce output there, copies it to the same local `hadoop-out` directory, and removes the HDFS run directory. HDFS and not S3 because the Hadoop 3 FileOutputCommitter renames, and an S3 rename is a copy plus a delete (whether the role may delete under `curated/` was not read: UNVERIFIED), the Spark 4 client has no S3 filesystem (UNVERIFIED), and HDFS is the cluster's default filesystem already used for the Spark archive, with no IAM change. The cost is one put and one get of a few megabytes. ER, publish and every S3 key read the local copy and are unchanged.
+- The Spark stage and the export cannot use HDFS: `CollaborationPipeline` and `JsonlExport` read and write `java.nio` paths and `file:` URIs (`Inputs.fileUri`, `Algo.checkpoint`, `Files.isDirectory`), so an executor on another node would not see the data. With a remote YARN node (`SPARK_MASTER=auto`) both run `--master local[4]` on the primary with a 6g driver (`LOCAL_CORES`, `LOCAL_DRIVER_MEMORY`). The YARN verdict is replaced by the exit status for that case (`SPARK_ON_YARN=local-master:yes`, `SPARK_MASTER_USED=local[4]` in the record). Consequence for the evidence: B's scale-out comes from the MapReduce stage, not from Spark. Making Spark use the core nodes would need either a shared filesystem under `file:` (EFS, an infra change) or Spark module support for `hdfs://` paths (spark-engineer); neither is in this order.
+- Settings that create pending YARN demand (item 3), default off: `PARTITION_COUNT` (`-Dscholarchain.run.partitionCount`, the reducer count of every MapReduce stage), `SPLIT_MAX_BYTES` (`-Dmapreduce.input.fileinputformat.split.maxsize`), `MAP_MEMORY_MB` and `REDUCE_MEMORY_MB` (`-Dmapreduce.map.memory.mb`, `-Dmapreduce.reduce.memory.mb`; bigger containers mean fewer fit per node, so the rest queue), and `SHUFFLE_PARTITIONS` (`--partitions` of `CollaborationPipeline`, default 8). The `b-burst` values (16, 131072, 3072, 3072, 32) are PROPOSED, not tuned; the experiment owner confirms them. Spark dynamic allocation was not added: it would need the external shuffle service on EMR and, above all, executors that can read `file:` data, which they cannot on a core node. What EMR managed scaling reacts to (YARN containers pending and memory available, per the EMR managed scaling documentation, from memory) is UNVERIFIED: the aws-documentation tools were not available in this session. If the MapReduce stage never queues containers beyond the primary-plus-core capacity, B shows no scale-out and P15-11 applies.
+- Experiment A observability, default off, on under `a-baseline` and `b-burst`: `MR_COUNTERS=true` writes `mapred job -status <job id>` for each job to `reports/mapreduce-counters/<job id>.txt`; `SPARK_EVENT_LOG=true` adds `spark.eventLog.enabled true`, `spark.eventLog.compress false` and `spark.eventLog.dir` (a local directory under the run directory) to `spark-defaults.conf` and copies the log to `reports/spark-events/` before publish. The event log of the 5,850-stage Spark application can be large (tens to hundreds of MB, UNVERIFIED); the record line `SPARK_EVENT_LOG_PUBLISHED` gives the size. `INPUT_LINES_<file>` (`wc -l`) is recorded for the four inputs on every run.
+- Loader (item 6): Terraform variable `pipeline_skip_loader` removes `AfterTerminate` from the definition and sends `TerminateCluster` to `Done`, so the execution ends SUCCEEDED. Mode `loader-only` still reaches `RunLoader`. The execution input still has to carry `loader_command` in mode pipeline (the state machine checks it); the `-version` override in `experiments/pipeline-inputs/*.template.json` is then never used.
+
+Not verified, because nothing ran: the output format of `yarn node -list` and `mapred job -status` on EMR 7.10.0; that the JDK 17 path `SC_JAVA_HOME` exists on a core node (the MapReduce containers get `JAVA_HOME` from it); that a core node's NodeManager has registered by the Hadoop stage (the stage starts after the 40 s preflight and the Spark staging); that EMR accepts the scaling limits and counts the primary as a unit; the Hadoop stage limit (1,500 s, unchanged) against a 16-reducer run on 3 GiB containers.
+
 ### S3 key layout
 
 | Bucket | Key | Written by | Read by |
@@ -454,6 +475,7 @@ The whitespace refusal runs on the root path before the root directory is create
 | data | `curated/runs/<run_id>/hadoop/`, `curated/runs/<run_id>/er/` | pipeline script | later stages |
 | data | `graph/runs/<run_id>/` (Spark `run=<id>/`), `semantic-context/runs/<run_id>/export/` | pipeline script | loader |
 | data | `reports/runs/<run_id>/` (stage logs, `run-record.env`, `run-record.json`) | pipeline script | human |
+| data | `reports/runs/<run_id>/mapreduce-counters/<job id>.txt` and `reports/runs/<run_id>/spark-events/` (Phase 15, only when a profile sets `MR_COUNTERS` or `SPARK_EVENT_LOG`; inside the reports prefix, no new IAM) | pipeline script | human |
 | data | `reports/runs/<run_id>/failed/<UTC stamp>/` (the reports directory as it stood when a stage failed: `hadoop.log`, `er.log`, `spark.log`, `export.log`, `mapreduce-yarn-list.log` and `mapreduce-job-ids.txt` when they exist, and a partial `run-record.env`) | pipeline script, exit trap, best effort | human |
 | data | `reports/runs/<run_id>/progress/` (work order 48: the LATEST progress checkpoint, overwritten after every finished stage and after the Hadoop classification: `run-record.env` so far, `progress.env` with the checkpoint name, time and elapsed seconds, and the small logs that exist; a log over 2 MB is uploaded as `<name>.tail`, its last 2 MB; best effort, at most 60 s, never aborts the run; the bucket has versioning off, so the same keys are overwritten) | pipeline script, after each stage, best effort | human, after a kill from outside |
 | artifacts | `jars/<module>/<main>.jar` and `jars/<module>/lib/*.jar` for `hadoop`, `entity-resolution`, `spark` | `upload-inputs.sh` | pipeline script |
@@ -557,6 +579,90 @@ One m5.xlarge at 0.22 to 0.35 USD an hour (COST_ESTIMATE U1) for about 30 to 45 
 - `upload-inputs.sh` has no cases: `--help`, `--print-digest`, `--dry-run` (including the `@skip` path with no `target/job`), a missing `--max-objects` or `--max-bytes`, a count or byte limit exceeded, equal buckets, a credential-named file, a record with another action, a changed file list (digest mismatch), and the stub tripwire.
 - `check.sh` runs `bash -n scripts/*.sh` and `shellcheck -x scripts/*.sh`, which do not reach `scripts/emr/`; the human runs `bash -n` and `shellcheck -x` on `scripts/emr/*.sh` until that gate is widened. `archive-evidence.sh` lists script digests from `scripts/*.sh`, so `upload-inputs.sh` appears there with no change.
 
+## Phase 15 pre-session checks (read only, human runs, before session 1)
+
+Decisions P15-4 (Bedrock model access) and P15-8 (vCPU quotas). Every AWS command below is a read call (`get-` or `list-`) except one: `aws stepfunctions validate-state-machine-definition` (item 5) is not a `get-` or `list-` call. It is non-mutating (it checks a definition and creates no state machine). Item 5 also runs `terraform show -json` on a saved plan, a local read of the plan file that calls no AWS API. None of the commands creates, changes or deletes anything, and none reads a secret or object content. They need the AWS profile `scholarchain`, Region us-east-2 only, and write a log under `/Users/winnguyen/scholarchain-data/logs/`. Run each as one `!` line. The `tail` shows the last 60 lines and `exit:` is the pipeline status (`pipefail`).
+
+Status of the facts below: the author could not read the AWS documentation in this turn (the documentation MCP tools were not available to the infra-engineer session), so every quota code and every CLI command here is written from memory and is UNVERIFIED. Each command prints the quota name or the API's own response, so the human can confirm it is the right one before relying on the number. The pages to check them against are listed after the commands; they were not read.
+
+1. EC2 Running On-Demand Standard instances quota (vCPUs, unit is vCPU; Experiment B peaks at 4 x m5.xlarge = 16 vCPU, and the single-node runs used 4):
+
+```
+set -o pipefail; AWS_PROFILE=scholarchain aws service-quotas get-service-quota --service-code ec2 --quota-code L-1216C47A --region us-east-2 --query 'Quota.[QuotaCode,QuotaName,Value,Unit,Adjustable]' --output text 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase15-precheck-ec2-quota.log | tail -n 60; echo "exit: $?"
+```
+
+Expected shape: a line with `L-1216C47A`, a name like "Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances", and a number. Need at least 16 (the cluster at its cap) plus any other running Standard instance. If the number is lower, or the name differs, stop and tell the orchestrator; a quota increase is a human console or support request, not a script.
+
+2. Fargate On-Demand vCPU quota (unit is vCPU; the loader task uses 2 vCPU in the S overlay and 0.5 by default, and the Experiment D load-client and service tasks add to it; the sizes are fixed in Wave 2 work order 10):
+
+```
+set -o pipefail; AWS_PROFILE=scholarchain aws service-quotas get-service-quota --service-code fargate --quota-code L-3032A538 --region us-east-2 --query 'Quota.[QuotaCode,QuotaName,Value,Unit,Adjustable]' --output text 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase15-precheck-fargate-quota.log | tail -n 60; echo "exit: $?"
+```
+
+Expected shape: `L-3032A538`, a name like "Fargate On-Demand vCPU resource count", and a number. If a code is rejected as not found, this read lists the codes instead (it names the quotas, nothing more):
+
+```
+set -o pipefail; AWS_PROFILE=scholarchain aws service-quotas list-service-quotas --service-code fargate --region us-east-2 --query 'Quotas[].[QuotaCode,QuotaName,Value]' --output text 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase15-precheck-fargate-quota-list.log | tail -n 60; echo "exit: $?"
+```
+
+3. Bedrock model access for the Haiku model in us-east-2 (P15-4: smoke test only, at most 10 queries). The profile id below is the default of the `bedrock_haiku_profile_id` Terraform variable; it is a setting, so if the run uses another one, use that value.
+
+3a. Does the model report access for this account (the response carries authorization, agreement and entitlement availability fields; the command and its field names are UNVERIFIED):
+
+```
+set -o pipefail; AWS_PROFILE=scholarchain aws bedrock get-foundation-model-availability --model-id anthropic.claude-haiku-4-5-20251001-v1:0 --region us-east-2 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase15-precheck-bedrock-availability.log | tail -n 60; echo "exit: $?"
+```
+
+3b. Does the geo inference profile exist and is it ACTIVE in us-east-2 (this proves the profile, not account access, so read it together with 3a):
+
+```
+set -o pipefail; AWS_PROFILE=scholarchain aws bedrock get-inference-profile --inference-profile-identifier us.anthropic.claude-haiku-4-5-20251001-v1:0 --region us-east-2 --query '[inferenceProfileId,status,type]' --output text 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase15-precheck-bedrock-profile.log | tail -n 60; echo "exit: $?"
+```
+
+3c. If 3b says the profile is unknown, list the system-defined profiles in the Region (names only):
+
+```
+set -o pipefail; AWS_PROFILE=scholarchain aws bedrock list-inference-profiles --type-equals SYSTEM_DEFINED --region us-east-2 --query 'inferenceProfileSummaries[].[inferenceProfileId,status]' --output text 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase15-precheck-bedrock-profiles.log | tail -n 60; echo "exit: $?"
+```
+
+If access is missing (3a does not show the model as authorized and available), the human enables model access in the Amazon Bedrock console for us-east-2 (and accepts the provider's first-use terms if asked). That is a console action by the human, not a script and not an agent step. Re-run 3a afterwards and keep the log. Nothing here invokes the model, so none of these commands bills Bedrock tokens.
+
+Where to verify the codes and commands (not read in this turn, UNVERIFIED): Service Quotas CLI `get-service-quota` and `list-service-quotas` (https://docs.aws.amazon.com/cli/latest/reference/service-quotas/get-service-quota.html); Amazon EC2 service quotas, "Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances" (https://docs.aws.amazon.com/general/latest/gr/ec2-service.html); AWS Fargate quotas, "Fargate On-Demand vCPU resource count" (https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-quotas.html); Bedrock CLI `get-foundation-model-availability` (https://docs.aws.amazon.com/cli/latest/reference/bedrock/get-foundation-model-availability.html), `get-inference-profile` and `list-inference-profiles` (https://docs.aws.amazon.com/cli/latest/reference/bedrock/list-inference-profiles.html).
+
+4. Dead-letter queue depth (review 1, a5), both queues, read only (`sqs get-queue-url` and `sqs get-queue-attributes` change nothing and read no message). Run before session 1 and again before session 2: a non-zero depth means messages from an earlier session are still waiting and would distort the experiment D and E queue evidence. The queue names are `<name_prefix>-run-requests-dlq` and `<name_prefix>-embedding-work-dlq` (modules/workflow, `aws_sqs_queue.dead_letter`); replace `<name_prefix>` with the course value (the prefix of the state machine `<name_prefix>-pipeline`). The profile needs `sqs:GetQueueUrl` and `sqs:GetQueueAttributes` (UNVERIFIED that the inspection identity has them; if it does not, the call says so and nothing was changed). Expected: `0` for both.
+
+4a. The run-requests dead-letter queue (replace `<name_prefix>` before pasting):
+
+```
+set -o pipefail; AWS_PROFILE=scholarchain aws sqs get-queue-attributes --queue-url "$(AWS_PROFILE=scholarchain aws sqs get-queue-url --queue-name <name_prefix>-run-requests-dlq --region us-east-2 --query QueueUrl --output text)" --attribute-names ApproximateNumberOfMessages ApproximateNumberOfMessagesNotVisible --region us-east-2 --output text 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase15-precheck-dlq-depth-run-requests.log | tail -n 60; echo "exit: $?"
+```
+
+4b. The embedding-work dead-letter queue (replace `<name_prefix>` before pasting):
+
+```
+set -o pipefail; AWS_PROFILE=scholarchain aws sqs get-queue-attributes --queue-url "$(AWS_PROFILE=scholarchain aws sqs get-queue-url --queue-name <name_prefix>-embedding-work-dlq --region us-east-2 --query QueueUrl --output text)" --attribute-names ApproximateNumberOfMessages ApproximateNumberOfMessagesNotVisible --region us-east-2 --output text 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase15-precheck-dlq-depth-embedding-work.log | tail -n 60; echo "exit: $?"
+```
+
+`ApproximateNumberOfMessages` is approximate by definition (SQS reports an eventually consistent count). Read the number with that in mind; a `0` right after a purge or a long idle period is reliable, a small non-zero number is a finding to report, not to fix here.
+
+5. Rendered state-machine definition check (review 1, a7), read only, before an apply of an overlay that changes the state machine (`elasticity-s.tfvars` adds the Wait state, `baseline-s.tfvars` and the S overlay change the loader branch). AWS Step Functions has an API `ValidateStateMachineDefinition` (CLI `aws stepfunctions validate-state-machine-definition --definition ... --type STANDARD`), which checks the syntax of a definition without creating or changing a state machine and returns a result (`OK` or `FAIL`) with diagnostics. Verified: `docs/agent-runs/phase-15/wave-1/doc-verification.md` (section "R4 item 9") records that the API and the CLI command exist and that the call validates a definition "without creating a state machine resource", from https://docs.aws.amazon.com/cli/latest/reference/stepfunctions/validate-state-machine-definition.html and https://docs.aws.amazon.com/step-functions/latest/apireference/API_ValidateStateMachineDefinition.html. That record also says the parameter names in the command below were not checked against the pages, and it does not cover the IAM action name `states:ValidateStateMachineDefinition`, which stays from memory. If the call is refused or fails with a usage error, nothing is changed.
+
+5a. Extract the definition the saved plan would apply (`plan.sh` writes `<out-dir>/<env>-<sha12>.tfplan`; replace `<plan>` with its absolute path; the definition goes to the log directory, outside the repository). Terraform reads the plan only:
+
+```
+set -o pipefail; terraform -chdir=/Users/winnguyen/ScholarChain/infra/terraform/environments/course show -json <plan> | python3 -I -c 'import json,sys; p=json.load(sys.stdin); rc=[r for r in p["resource_changes"] if r["type"]=="aws_sfn_state_machine"]; assert len(rc)==1, "expected exactly one aws_sfn_state_machine change, found %d" % len(rc); c=rc[0]["change"]; assert not (c.get("after_unknown") or {}).get("definition"), "the definition is unknown until apply: this check cannot run before the apply"; open(sys.argv[1], "w").write(c["after"]["definition"]); print("definition written", len(c["after"]["definition"]), "characters")' /Users/winnguyen/scholarchain-data/logs/phase15-precheck-sfn-definition.json; echo "exit: $?"
+```
+
+If the assertion says the definition is unknown until apply (the definition holds an ARN of a resource the plan creates or replaces, for example a new loader task definition), the check cannot be run before the apply: say so in the approval record instead of skipping it silently.
+
+5b. Validate it (a read call; it creates nothing):
+
+```
+set -o pipefail; AWS_PROFILE=scholarchain aws stepfunctions validate-state-machine-definition --definition file:///Users/winnguyen/scholarchain-data/logs/phase15-precheck-sfn-definition.json --type STANDARD --region us-east-2 --output json 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase15-precheck-sfn-validate.log | tail -n 60; echo "exit: $?"
+```
+
+Expected: `"result": "OK"` and no diagnostics (the response field names are UNVERIFIED). Any `FAIL` or error diagnostic stops the apply for the orchestrator. The definition file holds the account ID in ARNs: keep it out of the repository and redact it before any results commit.
+
 ## Idle and cost note
 
 Nothing in these scripts creates a resource that bills while idle except through Terraform. After `deploy.sh`, the default idle items are the eight interface endpoints (nine with Bedrock; $1.92 to $2.88 a day for eight, about $58 to $86 a month, the largest), three secrets and three alarms (the Cloud Map hosted zone is off by default) (see `infra/terraform/README.md`; the rates are mostly UNVERIFIED, each one is marked in `infra/terraform/COST_ESTIMATE.md`). A transient EMR cluster and Neptune cost money only while they exist. After every session run the session-down flow above, which keeps storage; `cleanup.sh` is the end-of-project teardown. Neptune and EMR need the Paid plan (Phase 14 human decision); nothing here recommends or scripts "activate advanced features".
@@ -591,7 +697,7 @@ UNVERIFIED, none run by anyone:
 - The cleanup live listing (`terraform state list`, bucket outputs).
 - Plan reproducibility.
 - The ratified launcher (open item D3).
-- The tier caps of `run-experiment.sh` (decision D12).
+- The tier caps of `run-experiment.sh` for tiers M and L (decision D12; tier S is decided by P15-1).
 - A symlink swapped after the smoke-test `--out-dir` check (the check is one moment in time).
 
 ## Open items

@@ -1,0 +1,5 @@
+ER-BATCH candidates read: 100; distinct pairs: 90; duplicates dropped: 10
+ER-BATCH records indexed: 50 (works 20; researcher mentions 30; duplicate ids 0)
+ER-BATCH decisions: ACCEPTED 1 REJECTED 2 UNRESOLVED 3 CONFLICT 4
+ER-BATCH elapsed ms: 1000; peak heap bytes (sum of pools): 1; max heap bytes: 2
+ER-BATCH RESULT: SUCCESS

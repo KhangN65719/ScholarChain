@@ -1,0 +1,2 @@
+SYNTHETIC fixture, shaped like `mapred job -status` counter lines. Only one of the raw-input jobs has a counter file.
+		Map input records=40

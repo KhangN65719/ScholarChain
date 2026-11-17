@@ -1,0 +1,4 @@
+SYNTHETIC fixture, shaped like `mapred job -status` counter lines.
+		Launched map tasks=3
+		Map input records=40
+		Map output records=39

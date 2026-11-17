@@ -1,0 +1,24 @@
+{
+  "format": "scholarchain-experiment-manifest-json/1",
+  "generated_from": "experiment-b-burst.manifest",
+  "values": {
+    "MANIFEST_VERSION": "1",
+    "EXPERIMENT_ID": "B",
+    "DESCRIPTION": "hadoop-spark-burst-managed-scaling-tier-s-core1-to-3-wait-before-terminate",
+    "ENVIRONMENT": "course",
+    "REGION": "us-east-2",
+    "ACCOUNT_ID": "123456789012",
+    "DATASET_SNAPSHOT": "scholarchain-s-20261107-10dd7f34121b",
+    "SIZE_TIER": "S",
+    "MAX_MINUTES": "90",
+    "MAX_CONCURRENCY": "1",
+    "MAX_TASKS": "1",
+    "SPEND_CEILING_USD": "2.40",
+    "HOURLY_BURN_USD": "1.55",
+    "STOP_CONDITIONS": ["wall-clock", "first-failure", "spend-estimate"],
+    "METRIC_NAMES": ["ExecutionTime", "ExecutionsFailed", "AppsPending", "ContainerPending", "ContainerPendingRatio", "TotalNodesRequested", "TotalNodesRunning", "TotalUnitsRequested", "TotalUnitsRunning", "CoreNodesRunning", "TaskNodesRunning", "YARNMemoryAvailablePercentage"],
+    "METRIC_NAMESPACES": ["AWS/States", "AWS/ElasticMapReduce"],
+    "OUTPUT_ROOT": "/abs/outside/repo/scholarchain-experiments",
+    "ENTRY_POINT": "script:experiments/b-burst/run.sh"
+  }
+}

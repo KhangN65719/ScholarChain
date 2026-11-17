@@ -1,0 +1,18 @@
+{
+  "_synthetic_fixture": "SYNTHETIC test data for the derive-table.py rehearsal. Not a measurement.",
+  "RUN_ID": "run-v1-00000000-0000-0000-0000-000000000000",
+  "INPUT_BYTES_dblp_subset_xml": "1000",
+  "INPUT_BYTES_openalex_jsonl": "200",
+  "INPUT_BYTES_crossref_jsonl": "100",
+  "INPUT_BYTES_orcid_jsonl": "50",
+  "PREFLIGHT_RESULT": "ok",
+  "MAPREDUCE": "yarn",
+  "MAPREDUCE_JOB_COUNT": "9",
+  "STAGE_SECONDS_HADOOP": "700",
+  "STAGE_SECONDS_ENTITY_RESOLUTION": "100",
+  "STAGE_SECONDS_SPARK": "1700",
+  "STAGE_SECONDS_EXPORT": "60",
+  "STAGE_SECONDS_TOTAL_BEFORE_PUBLISH": "2600",
+  "SPARK_APPLICATION": "application_1_0010 state=SUCCEEDED",
+  "EXPORT_APPLICATION": "application_1_0011 state=SUCCEEDED"
+}

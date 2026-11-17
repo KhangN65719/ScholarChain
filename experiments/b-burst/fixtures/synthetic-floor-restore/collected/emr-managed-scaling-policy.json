@@ -1,0 +1,12 @@
+{
+  "_synthetic_fixture": "SYNTHETIC test data. Shape follows `aws emr get-managed-scaling-policy`.",
+  "ManagedScalingPolicy": {
+    "ComputeLimits": {
+      "UnitType": "Instances",
+      "MinimumCapacityUnits": 1,
+      "MaximumCapacityUnits": 3,
+      "MaximumOnDemandCapacityUnits": 3,
+      "MaximumCoreCapacityUnits": 3
+    }
+  }
+}

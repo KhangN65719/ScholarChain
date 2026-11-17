@@ -1,0 +1,53 @@
+{
+  "_synthetic_fixture": "SYNTHETIC test data for the derive-capacity.py rehearsal. Not a measurement. A node is added late, but the collection holds no CloudWatch data and no scaling policy, so the increase has no demand evidence.",
+  "Instances": [
+    {
+      "Id": "ci-PRIMARY0001",
+      "Ec2InstanceId": "i-0synthetic00000021",
+      "InstanceGroupId": "ig-MASTER0000001",
+      "InstanceType": "m5.xlarge",
+      "Market": "ON_DEMAND",
+      "Status": {
+        "State": "TERMINATED",
+        "StateChangeReason": {"Code": "CLUSTER_TERMINATED", "Message": "Terminated by user request"},
+        "Timeline": {
+          "CreationDateTime": "2026-11-18T15:00:04+00:00",
+          "ReadyDateTime": "2026-11-18T15:05:51+00:00",
+          "EndDateTime": "2026-11-18T16:00:00+00:00"
+        }
+      }
+    },
+    {
+      "Id": "ci-CORE0000001",
+      "Ec2InstanceId": "i-0synthetic00000022",
+      "InstanceGroupId": "ig-CORE00000001",
+      "InstanceType": "m5.xlarge",
+      "Market": "ON_DEMAND",
+      "Status": {
+        "State": "TERMINATED",
+        "StateChangeReason": {"Code": "CLUSTER_TERMINATED", "Message": "Terminated by user request"},
+        "Timeline": {
+          "CreationDateTime": "2026-11-18T15:00:05+00:00",
+          "ReadyDateTime": "2026-11-18T15:06:02+00:00",
+          "EndDateTime": "2026-11-18T16:00:00+00:00"
+        }
+      }
+    },
+    {
+      "Id": "ci-CORE0000002",
+      "Ec2InstanceId": "i-0synthetic00000023",
+      "InstanceGroupId": "ig-CORE00000001",
+      "InstanceType": "m5.xlarge",
+      "Market": "ON_DEMAND",
+      "Status": {
+        "State": "TERMINATED",
+        "StateChangeReason": {"Code": "CLUSTER_TERMINATED", "Message": "Terminated by user request"},
+        "Timeline": {
+          "CreationDateTime": "2026-11-18T15:30:00+00:00",
+          "ReadyDateTime": "2026-11-18T15:34:50+00:00",
+          "EndDateTime": "2026-11-18T16:00:00+00:00"
+        }
+      }
+    }
+  ]
+}

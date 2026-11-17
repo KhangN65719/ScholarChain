@@ -86,6 +86,31 @@ locals {
     { Variable = "$.loader_command", IsPresent = true },
   ]
 
+  # Phase 15 (P15-1, Experiment B): with wait_before_terminate_seconds > 0 the two
+  # step states go to WaitBeforeTerminate, which waits with the cluster still running
+  # and idle, then goes to TerminateCluster. With 0 (default) the state exists nowhere
+  # and the steps go straight to TerminateCluster, as before.
+  has_wait         = var.wait_before_terminate_seconds > 0
+  before_terminate = local.has_wait ? "WaitBeforeTerminate" : "TerminateCluster"
+
+  wait_states = local.has_wait ? {
+    WaitBeforeTerminate = {
+      Type    = "Wait"
+      Seconds = var.wait_before_terminate_seconds
+      Next    = "TerminateCluster"
+    }
+  } : {}
+
+  # Phase 15 (Experiments A and B): with skip_loader_after_pipeline TerminateCluster goes
+  # straight to Done and the AfterTerminate state is not in the definition (an unreachable
+  # state is refused by Step Functions). RunLoader stays, reached only by mode loader-only.
+  # With false (default) nothing changes.
+  after_terminate = var.skip_loader_after_pipeline ? "Done" : "AfterTerminate"
+
+  # Phase 15: the optional sixth argument of run-s-pipeline.sh (the settings profile).
+  # Empty (default) adds nothing, so the Args expression is the one it was.
+  profile_arg = var.pipeline_profile == "" ? "" : ", '${var.pipeline_profile}'"
+
   definition = {
     Comment        = "Bounded pipeline. Mode capability-check: create the cluster, run one check script, terminate. Mode pipeline: create the cluster, run the on-node script (Hadoop, entity resolution, Spark, export, publish), terminate, then load. The cluster is terminated before the load. Mode loader-only: no cluster; run the loader once against an export already in S3, then end."
     TimeoutSeconds = var.max_run_seconds
@@ -182,7 +207,7 @@ locals {
         }
         ResultPath     = "$.capability"
         TimeoutSeconds = var.emr_step_timeout_seconds
-        Next           = "TerminateCluster"
+        Next           = local.before_terminate
         Catch          = local.on_failure
       }
       PipelineStep = {
@@ -195,13 +220,13 @@ locals {
             ActionOnFailure = "CONTINUE"
             HadoopJarStep = {
               Jar      = "command-runner.jar"
-              "Args.$" = "States.Array('bash', '${local.script_dir}/run-s-pipeline.sh', '${var.data_bucket}', '${var.artifacts_bucket}', $.snapshot, $.snapshots, $.run_id)"
+              "Args.$" = "States.Array('bash', '${local.script_dir}/run-s-pipeline.sh', '${var.data_bucket}', '${var.artifacts_bucket}', $.snapshot, $.snapshots, $.run_id${local.profile_arg})"
             }
           }
         }
         ResultPath     = "$.pipeline"
         TimeoutSeconds = var.emr_step_timeout_seconds
-        Next           = "TerminateCluster"
+        Next           = local.before_terminate
         Catch          = local.on_failure
       }
       TerminateCluster = {
@@ -212,7 +237,7 @@ locals {
         }
         ResultPath     = "$.terminated"
         TimeoutSeconds = local.terminate_timeout_seconds
-        Next           = "AfterTerminate"
+        Next           = local.after_terminate
         Catch = [{
           ErrorEquals = ["States.ALL"]
           ResultPath  = "$.error"
@@ -326,10 +351,15 @@ resource "aws_cloudwatch_log_group" "pipeline" {
 resource "aws_sfn_state_machine" "pipeline" {
   count = var.enable_pipeline ? 1 : 0
 
-  name       = "${var.name_prefix}-pipeline"
-  role_arn   = var.sfn_role_arn
-  type       = "STANDARD"
-  definition = jsonencode(local.definition)
+  name     = "${var.name_prefix}-pipeline"
+  role_arn = var.sfn_role_arn
+  type     = "STANDARD"
+  definition = jsonencode(merge(local.definition, {
+    States = {
+      for name, state in merge(local.definition.States, local.wait_states) : name => state
+      if !(var.skip_loader_after_pipeline && name == "AfterTerminate")
+    }
+  }))
 
   logging_configuration {
     log_destination        = "${aws_cloudwatch_log_group.pipeline[0].arn}:*"

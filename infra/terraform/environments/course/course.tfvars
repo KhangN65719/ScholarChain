@@ -17,9 +17,8 @@ enable_bedrock           = false
 enable_service_discovery = false
 create_budgets           = false
 
-neptune_mode           = "provisioned"
-neptune_instance_class = "db.t4g.medium"
-neptune_max_ncu        = 2
+neptune_mode    = "provisioned"
+neptune_max_ncu = 2
 
 budget_total_usd            = 20
 budget_alert_thresholds_usd = [10, 15, 20]

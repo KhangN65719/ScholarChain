@@ -1,0 +1,86 @@
+{
+  "built_on": "2026-11-16",
+  "chunkset_id": "tier-s-chunkset-c-v1",
+  "composition": {
+    "by_summary_type": {
+      "community": 314,
+      "researcher-profile": 1685,
+      "work": 1
+    },
+    "by_window": {
+      "2000-2004": 14,
+      "2005-2009": 44,
+      "2010-2014": 97,
+      "2015-2019": 205,
+      "2020-2029": 638,
+      "all": 1001,
+      "not-windowed": 1
+    },
+    "summary_text_utf8_bytes": 1033429
+  },
+  "licenses": "Derived from tier S inputs: DBLP, OpenAlex and ORCID CC0-1.0, Crossref NOASSERTION.",
+  "limitations": "The draw is a hash-ranked sample of all summary types, so its mix follows the export (mostly researcher profiles). It is not a retrieval-quality set.",
+  "linkage_keys": [
+    "summaryId",
+    "subjectId",
+    "evidenceWorkIds",
+    "provenance.sourceRecordId"
+  ],
+  "manifest_version": 1,
+  "output": {
+    "bytes": 3179893,
+    "format": "jsonl",
+    "location": "outside the repository, not tracked in git (P15-14)",
+    "max_bytes": 8388608,
+    "path": "/Users/winnguyen/scholarchain-data/phase15-chunkset-c/chunks.jsonl",
+    "rows": 2000,
+    "sha256": "1ccaefcb892b728b4ed6f97207d29827edca912df970d9c6b47c0f957d220c92"
+  },
+  "privacy_notes": "Rows are generated summaries of public bibliographic metadata; no abstracts or contact fields. Author names appear in summaryText as in the source.",
+  "purpose": "Experiment C embedding backlog: a fixed, bounded set of text chunks to enqueue.",
+  "selection": {
+    "count": 2000,
+    "id_field": "summaryId",
+    "rule": "Rank every semantic-summaries row by SHA-256 of the UTF-8 text 'salt|summaryId' (hex digest, ties broken by summaryId) and keep the 'count' smallest. Rows are written byte for byte, in rank order, each followed by one newline. No random number generator is used, so the result does not depend on row order.",
+    "salt": "phase15-chunkset-c-v1",
+    "text_field": "summaryText"
+  },
+  "snapshot_id": "scholarchain-s-20261107-10dd7f34121b",
+  "source": {
+    "export_manifest_sha256": "7dfaee8cb6a6ebd03b9a1c63f0a1da68603b27294d32f1975eeb9d1531943cc0",
+    "export_source_run_id": "run:v1:9f6e6fb0-2ec3-4148-85fc-f5ba7c56ad05",
+    "export_version": "spark-jsonl-export/1.0.0",
+    "files": [
+      {
+        "bytes": 31833231,
+        "path": "semantic-summaries/part-00000.jsonl",
+        "rows": 20000,
+        "sha256": "c36d3f28f573de2989c87c8561da73a764a3134277889bca3d4ebc4ebb5461bb"
+      },
+      {
+        "bytes": 31902940,
+        "path": "semantic-summaries/part-00001.jsonl",
+        "rows": 20000,
+        "sha256": "c6314456272a07564a38006836e56bb1d635ec2f80b8f96a45775f9d953898a2"
+      },
+      {
+        "bytes": 3007931,
+        "path": "semantic-summaries/part-00002.jsonl",
+        "rows": 1885,
+        "sha256": "8406829d85c6ea5a2884f90efaf7e9614fcb5bbd960c03baa46eae4353b9523f"
+      }
+    ],
+    "local_copy": "scholarchain-data/rehearsal/s-export (outside the repository)",
+    "pipeline_run_id": "run-v1-192de0fd-1442-4508-9065-09c44775643b",
+    "pipeline_run_id_basis": "operator-supplied; recorded in docs/agent-runs/phase-14, not read from the export files",
+    "rows": 41885,
+    "table": "semantic-summaries",
+    "transform_version": "spark-analytics/1.1.0"
+  },
+  "transform": "datasets/scripts/chunkset.py chunks",
+  "validation_commands": [
+    "python3 -B datasets/scripts/chunkset.py validate --chunks-dir <chunks dir>",
+    "python3 -B datasets/scripts/chunkset.py replay --chunks-dir <chunks dir> --export-dir <export dir> --output <dir>",
+    "python3 -B -m unittest discover -s datasets/scripts -p 'test_chunkset.py'"
+  ]
+}

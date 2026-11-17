@@ -1,0 +1,5 @@
+SYNTHETIC fixture, shaped like `mapred job -status` counter lines.
+		Launched map tasks=3
+		Launched reduce tasks=1
+		Reduce shuffle bytes=1000
+		Shuffled Maps =2

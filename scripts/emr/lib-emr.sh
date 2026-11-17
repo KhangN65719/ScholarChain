@@ -88,6 +88,20 @@ SC_ARCHIVE_URI=""
 SC_ARCHIVE_MODE="none"
 SC_SPARK_CONF_DIR="$SC_HOME/spark-conf"
 
+# Phase 15 state, all with the old behaviour as the default.
+#   SC_PROFILE            run-s-pipeline.sh sets it from its optional sixth argument; conf_value
+#                         then reads "<profile>.KEY" lines of spark-yarn.conf before "KEY".
+#   SC_REMOTE_NODES       detect_remote_yarn_nodes: RUNNING NodeManagers on other hosts, or unknown.
+#   SC_SPARK_MASTER       yarn (the only value before Phase 15) or local[N]; run_spark_submit and
+#                         spark_verdict read it.
+#   SC_LOCAL_DRIVER_MEMORY  --driver-memory of a local-master application.
+#   SC_EVENT_LOG_DIR      where write_spark_conf points spark.eventLog.dir when SPARK_EVENT_LOG=true.
+SC_PROFILE=""
+SC_REMOTE_NODES="unknown"
+SC_SPARK_MASTER="yarn"
+SC_LOCAL_DRIVER_MEMORY="6g"
+SC_EVENT_LOG_DIR=""
+
 ### Markers ------------------------------------------------------------------
 
 stage() {
@@ -371,7 +385,9 @@ validate_bucket() {
 }
 
 validate_snapshots() {
-  [[ "$1" =~ ^[A-Za-z0-9._=,:-]{1,300}$ ]] || die "snapshots must be 1 to 300 characters of A-Za-z0-9._=,:-"
+  # The length is checked apart from the character class: bash's regex engine on macOS
+  # refuses a repetition count above 255, and {1,300} is one.
+  [[ ${#1} -ge 1 && ${#1} -le 300 && "$1" =~ ^[A-Za-z0-9._=,:-]+$ ]] || die "snapshots must be 1 to 300 characters of A-Za-z0-9._=,:-"
 }
 
 # scan_no_secrets FILE: refuse to upload a file in which key material patterns match.
@@ -380,6 +396,22 @@ scan_no_secrets() {
   if grep -qE "$SC_SECRET_RE" "$1"; then
     die "possible credential material in $1: not uploading (matched text is not printed)"
   fi
+}
+
+# scan_no_secrets_bounded FILE SECONDS: the same key-material scan under a time limit, for
+# a file whose size is not under our control (a Spark event log). Returns 0 when the scan
+# finished and found nothing, 2 when it could not finish (time limit or grep error): the
+# caller then leaves the file out of the upload. A match is still fatal, like
+# scan_no_secrets: the matched text is never printed. The scan time of a large file never
+# fails the run.
+scan_no_secrets_bounded() {
+  local rc=0
+  timeout "$2" grep -qE "$SC_SECRET_RE" "$1" || rc=$?
+  case "$rc" in
+    0) die "possible credential material in $1: not uploading (matched text is not printed)" ;;
+    1) return 0 ;;
+    *) return 2 ;;
+  esac
 }
 
 ### Java ---------------------------------------------------------------------
@@ -433,7 +465,12 @@ find_java() {
 conf_value() {
   local key="$1" default="$2" pattern="$3" f="$SC_HOME/spark-yarn.conf" v=""
   if [[ -r "$f" ]]; then
-    v="$(awk -F= -v k="$key" '/^[[:space:]]*(#|$)/ { next } $1 == k { sub(/^[^=]*=/, ""); print; exit }' "$f")"
+    if [[ -n "$SC_PROFILE" ]]; then
+      v="$(awk -F= -v k="$SC_PROFILE.$key" '/^[[:space:]]*(#|$)/ { next } $1 == k { sub(/^[^=]*=/, ""); print; exit }' "$f")"
+    fi
+    if [[ -z "$v" ]]; then
+      v="$(awk -F= -v k="$key" '/^[[:space:]]*(#|$)/ { next } $1 == k { sub(/^[^=]*=/, ""); print; exit }' "$f")"
+    fi
   fi
   [[ -n "$v" ]] || v="$default"
   [[ "$v" =~ $pattern ]] || die "spark-yarn.conf: $key has an invalid value"
@@ -487,12 +524,13 @@ stage_spark() {
 # write_spark_conf POPULATE: write spark-defaults.conf in $SC_SPARK_CONF_DIR.
 # POPULATE is the value of spark.yarn.populateHadoopClasspath (true or false).
 write_spark_conf() {
-  local populate="$1" dm em ec ei am
-  dm="$(conf_value DRIVER_MEMORY 2g '^[0-9]+[gm]$')"
-  em="$(conf_value EXECUTOR_MEMORY 3g '^[0-9]+[gm]$')"
-  ec="$(conf_value EXECUTOR_CORES 2 '^[0-9]+$')"
-  ei="$(conf_value EXECUTOR_INSTANCES 2 '^[0-9]+$')"
-  am="$(conf_value AM_MEMORY 1g '^[0-9]+[gm]$')"
+  local populate="$1" dm em ec ei am evlog
+  evlog="$(conf_value SPARK_EVENT_LOG false '^(true|false)$')" || exit 1
+  dm="$(conf_value DRIVER_MEMORY 2g '^[0-9]+[gm]$')" || exit 1
+  em="$(conf_value EXECUTOR_MEMORY 3g '^[0-9]+[gm]$')" || exit 1
+  ec="$(conf_value EXECUTOR_CORES 2 '^[0-9]+$')" || exit 1
+  ei="$(conf_value EXECUTOR_INSTANCES 2 '^[0-9]+$')" || exit 1
+  am="$(conf_value AM_MEMORY 1g '^[0-9]+[gm]$')" || exit 1
   mkdir -p "$SC_SPARK_CONF_DIR"
   {
     printf 'spark.yarn.archive %s\n' "$SC_ARCHIVE_URI"
@@ -529,6 +567,15 @@ write_spark_conf() {
       printf 'spark.yarn.appMasterEnv.JAVA_HOME %s\n' "$SC_JAVA_HOME"
       printf 'spark.executorEnv.JAVA_HOME %s\n' "$SC_JAVA_HOME"
     fi
+    # Phase 15 (Experiment A observability): a plain-text event log, written by the driver
+    # (client mode, this node) to a local directory that must exist before the application
+    # starts. Off unless SPARK_EVENT_LOG is true, so the file above is unchanged by default.
+    if [[ "$evlog" == "true" && -n "$SC_EVENT_LOG_DIR" ]]; then
+      mkdir -p "$SC_EVENT_LOG_DIR"
+      printf 'spark.eventLog.enabled true\n'
+      printf 'spark.eventLog.compress false\n'
+      printf 'spark.eventLog.dir file://%s\n' "$SC_EVENT_LOG_DIR"
+    fi
   } > "$SC_SPARK_CONF_DIR/spark-defaults.conf"
 }
 
@@ -550,6 +597,12 @@ run_spark_submit() {
   local log="$1" mode="$2" class="$3" appjar="$4" jars="$5"
   shift 5
   local cmd=("$SPARK_HOME/bin/spark-submit" --master yarn --deploy-mode "$mode" --class "$class")
+  # Phase 15: a local master (run-s-pipeline.sh sets SC_SPARK_MASTER when the cluster has a
+  # YARN node other than this one). The driver is then the whole application, so it gets
+  # its own memory; the deploy mode is client.
+  if [[ "$SC_SPARK_MASTER" != "yarn" ]]; then
+    cmd=("$SPARK_HOME/bin/spark-submit" --master "$SC_SPARK_MASTER" --deploy-mode client --driver-memory "$SC_LOCAL_DRIVER_MEMORY" --class "$class")
+  fi
   if [[ -n "$jars" ]]; then
     cmd+=(--jars "$jars")
   fi
@@ -563,6 +616,40 @@ run_spark_submit() {
 
 app_id_from_log() {
   grep -oE 'application_[0-9]+_[0-9]+' "$1" | tail -n 1 || true
+}
+
+# detect_remote_yarn_nodes: sets SC_REMOTE_NODES to the number of RUNNING YARN nodes whose
+# host differs from this one, or unknown when the answer cannot be read. Read-only
+# (yarn node -list under timeout 120). Parses the usual table, "<host>:<port> RUNNING ...",
+# comparing the first label of the host with hostname -s; the output format on EMR 7.10.0
+# is UNVERIFIED. A one-node cluster gives 0 (this node is its own only NodeManager) and
+# so keeps the single-node data path; a cluster with a core node gives at least 1.
+# Call it directly, not in a command substitution. Never fails.
+detect_remote_yarn_nodes() {
+  local out me n
+  SC_REMOTE_NODES="unknown"
+  me="$(hostname -s 2>/dev/null)" || me=""
+  [[ -n "$me" ]] || return 0
+  out="$(timeout 120 yarn node -list -states RUNNING 2>/dev/null)" || return 0
+  n="$(printf '%s\n' "$out" | awk -v me="$me" '$2 == "RUNNING" { split($1, a, ":"); split(a[1], b, "."); if (b[1] != me) n++ } END { print n + 0 }')" || return 0
+  # shellcheck disable=SC2034  # read by run-s-pipeline.sh (DATA_PATH, SPARK_MASTER, YARN_REMOTE_NODES)
+  SC_REMOTE_NODES="$n"
+}
+
+# wait_for_remote_yarn_nodes SECONDS: for a forced DATA_PATH=hdfs. Re-runs
+# detect_remote_yarn_nodes every 15 s until SC_REMOTE_NODES is at least 1 or SECONDS have
+# passed (0 = one detection, no wait). Bounded: at most SECONDS plus one detection (each
+# detection is under timeout 120). Call it directly, not in a command substitution. Sets
+# SC_REMOTE_NODES; never fails (the caller decides what a 0 means).
+wait_for_remote_yarn_nodes() {
+  local limit="$1" deadline
+  deadline=$((SECONDS + limit))
+  detect_remote_yarn_nodes
+  while ! [[ "$SC_REMOTE_NODES" =~ ^[1-9][0-9]*$ ]] && [[ "$SECONDS" -lt "$deadline" ]]; do
+    sleep 15
+    detect_remote_yarn_nodes
+  done
+  return 0
 }
 
 # yarn_final_state APP_ID: SUCCEEDED, FAILED, KILLED, UNDEFINED or unknown. The query runs
@@ -591,6 +678,17 @@ SC_LAST_VERDICT="no"
 # shellcheck disable=SC2034  # SC_LAST_VERDICT is read by the sourcing scripts
 spark_verdict() {
   local log="$1" rc="$2"
+  # Phase 15: a local-master run has no YARN application to ask. The verdict is the exit
+  # status alone, and the state says so; SC_SPARK_MASTER is yarn on every other path.
+  if [[ "$SC_SPARK_MASTER" != "yarn" ]]; then
+    SC_LAST_APP=""
+    SC_LAST_STATE="local-exit-$rc"
+    SC_LAST_VERDICT="no"
+    if [[ "$rc" -eq 0 ]]; then
+      SC_LAST_VERDICT="yes"
+    fi
+    return 0
+  fi
   SC_LAST_APP="$(app_id_from_log "$log")"
   SC_LAST_STATE=""
   SC_LAST_VERDICT="no"
@@ -875,6 +973,20 @@ record_hadoop_effective_conf() {
     mapreduce.output.fileoutputformat.compress mapreduce.output.fileoutputformat.compress.codec; do
     kv "NODE_CONF_$(printf '%s' "$key" | tr 'a-z.' 'A-Z_')" "$(conf_xml_value "$key")"
   done
+}
+
+# copy_report_file SRC DEST KEY: copy a small result file into the reports directory and
+# record KEY=<bytes> or KEY=missing. Best effort and never fatal: the pipeline's own
+# verdict stands, and a missing copy is visible in the run record and the log.
+copy_report_file() {
+  local src="$1" dest="$2" key="$3"
+  if [[ -f "$src" ]] && cp "$src" "$dest" 2>/dev/null; then
+    kv "$key" "${dest##*/} ($(wc -c < "$dest" | tr -d ' ') bytes, copied from ${src##*/})"
+  else
+    note "could not copy $src into the reports (${dest##*/})"
+    kv "$key" "missing"
+  fi
+  return 0
 }
 
 local_file_count() {

@@ -1,0 +1,24 @@
+{
+  "format": "scholarchain-experiment-manifest-json/1",
+  "generated_from": "experiment-d-query-load.manifest",
+  "values": {
+    "MANIFEST_VERSION": "1",
+    "EXPERIMENT_ID": "D",
+    "DESCRIPTION": "query-load-four-concurrency-levels-1-4-8-16-tier-m-draft",
+    "ENVIRONMENT": "course",
+    "REGION": "us-east-2",
+    "ACCOUNT_ID": "123456789012",
+    "DATASET_SNAPSHOT": "scholarchain-slice-m-25000-works-DRAFT",
+    "SIZE_TIER": "M",
+    "MAX_MINUTES": "90",
+    "MAX_CONCURRENCY": "16",
+    "MAX_TASKS": "3500",
+    "SPEND_CEILING_USD": "1.50",
+    "HOURLY_BURN_USD": "0.85",
+    "STOP_CONDITIONS": ["wall-clock", "first-failure", "spend-estimate"],
+    "METRIC_NAMES": ["CPUUtilization", "MemoryUtilization", "DesiredTaskCount", "RunningTaskCount", "ThrottledRequests", "SuccessfulRequestLatency", "ReadThrottleEvents", "MainRequestQueuePendingRequests"],
+    "METRIC_NAMESPACES": ["AWS/ECS", "ECS/ContainerInsights", "AWS/DynamoDB", "AWS/Neptune"],
+    "OUTPUT_ROOT": "/abs/outside/repo/scholarchain-experiments",
+    "ENTRY_POINT": "script:load-tests/d-query-load/run.sh"
+  }
+}

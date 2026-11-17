@@ -1,31 +1,38 @@
-# Experiment A: Hadoop and Spark baseline at minimum EMR capacity.
-# DRAFT. Unapproved and unexecuted. Valid only for scripts/run-experiment.sh --dry-run.
+# Experiment A: Hadoop and Spark baseline at minimum EMR capacity, tier S (Phase 15, Wave 1).
+# UNAPPROVED and UNEXECUTED. Used only if the A audit verdict is RE-RUN (see
+# experiments/a-baseline/README.md); if the verdict becomes REUSE this manifest is not run.
 # Format: scripts/README.md, "Experiment manifest contract". No spaces in values.
 # PLACEHOLDERS the human replaces before an approval record is written
 # (the record binds the sha256 of the final file, so any edit needs a new record):
 #   ACCOUNT_ID       123456789012 is the documented example, not a real account.
-#   DATASET_SNAPSHOT a draft name; the dataset-engineer has not defined snapshot ids.
+#   (DATASET_SNAPSHOT is filled: scholarchain-s-20261107-10dd7f34121b, reported by WO-4 and
+#                    verified by the human.)
 #   OUTPUT_ROOT      /abs/outside/repo/... is a placeholder path; pick a durable directory
 #                    outside the repository.
+# Limits (tier S caps of decision P15-1: 90 min, 64 clients, 20000 tasks; all below them):
+#   MAX_MINUTES 75   S run 6 took about 58 min up to the end of the EMR stages; the pipeline
+#                    script inside the entry point stops at 70 min (experiments/a-baseline/run.sh).
+#   MAX_CONCURRENCY 1, MAX_TASKS 1: the entry point starts exactly one pipeline execution. The
+#                    unit of MAX_TASKS here is one start-execution; the script cannot enforce it.
 # Cost basis: HOURLY_BURN_USD 0.60 is the tier S session burn in scripts/README.md,
-# "Pipeline sizes" (UNVERIFIED rates, from COST_ESTIMATE.md). 0.60 x 60 min / 60 = 0.60.
-# MAX_TASKS is a tight bound on the pipeline-level operations the entry point issues;
-# the unit is fixed by the Phase 15 entry point and is unconfirmed.
+# "Pipeline sizes" (UNVERIFIED rates, from COST_ESTIMATE.md). 0.60 x 75 min / 60 = 0.75.
+# Needs the tier S overlay with the cluster as one primary node (core 0, no managed scaling)
+# and no Neptune or Bedrock (the loader command is a no-op). See experiments/a-baseline/README.md.
 MANIFEST_VERSION=1
 EXPERIMENT_ID=A
-DESCRIPTION=hadoop-spark-baseline-minimum-emr-capacity-tier-s-draft
+DESCRIPTION=hadoop-spark-baseline-minimum-emr-capacity-tier-s-rerun
 ENVIRONMENT=course
 REGION=us-east-2
 ACCOUNT_ID=123456789012
-DATASET_SNAPSHOT=scholarchain-slice-s-5000-works-DRAFT
+DATASET_SNAPSHOT=scholarchain-s-20261107-10dd7f34121b
 SIZE_TIER=S
-MAX_MINUTES=60
+MAX_MINUTES=75
 MAX_CONCURRENCY=1
-MAX_TASKS=100
+MAX_TASKS=1
 SPEND_CEILING_USD=0.75
 HOURLY_BURN_USD=0.60
 STOP_CONDITIONS=wall-clock,first-failure,spend-estimate
-METRIC_NAMES=ExecutionTime,ExecutionsFailed,ExecutionsTimedOut,IsIdle,AppsRunning,AppsFailed,TotalNodesRunning,YARNMemoryAvailablePercentage
+METRIC_NAMES=ExecutionTime,ExecutionsFailed,ExecutionsTimedOut,IsIdle,AppsRunning,AppsCompleted,AppsFailed,ContainerAllocated,TotalNodesRunning,YARNMemoryAvailablePercentage
 METRIC_NAMESPACES=AWS/States,AWS/ElasticMapReduce
 OUTPUT_ROOT=/abs/outside/repo/scholarchain-experiments
 ENTRY_POINT=script:experiments/a-baseline/run.sh

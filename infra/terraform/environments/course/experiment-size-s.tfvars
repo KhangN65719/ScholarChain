@@ -1,4 +1,5 @@
-# Overlay for a tier S run (5,000 works). PROPOSED sizes: decision D2c, COST_ESTIMATE.md.
+# Overlay for a tier S run (3,472 works, the real S subset run in Phase 14 run 6; the
+# earlier "5,000 works" was the estimate's proposed size). PROPOSED sizes: decision D2c, COST_ESTIMATE.md.
 # Apply AFTER course.tfvars (later -var-file wins). Values only, no secrets.
 # Adds Neptune (a session resource: destroy it after the run). Pipeline on one
 # primary node, matching the estimate's node-hours for S.
@@ -36,6 +37,14 @@ service_desired_count = 0
 loader_cpu    = 2048
 loader_memory = 8192
 
+# Phase 15 (P15-5, 2026-11-16): the S overlay is back at the Terraform default class,
+# db.t4g.medium, so an ordinary S session-up creates the cheap writer. The bulk load
+# needs db.r6g.xlarge; that class is now the separate overlay graph-load.tfvars, layered
+# after this one for the load only (apply order is documented in that file). The work
+# order 114 text below is kept as history: it describes why the xlarge class was needed
+# (run 10) and was written when this overlay itself set it.
+neptune_instance_class = "db.t4g.medium"
+
 # Work order 114 (human decision, 2026-11-16, after graph-only S run 10): Neptune's
 # bulk loader reported OUT_OF_MEMORY_ERROR ("Out of memory error. Resume load and try
 # again.", 153,760 errors counted after the failure) on edges-COAUTHORED_WITH.csv
@@ -54,7 +63,8 @@ loader_memory = 8192
 # session-down overlay does not set this (Neptune is destroyed there, so the class is
 # moot), and the M and L overlays do not set it: a graph load under them needs the same
 # line. A later S session-up creates Neptune at this class for the whole session.
-neptune_instance_class = "db.r6g.xlarge"
+# (Work order 114 set the xlarge class on this spot. Phase 15 moved that setting to
+# graph-load.tfvars; this file now sets db.t4g.medium above.)
 
 # Work orders 49 and 52 (human decisions D31 and D32, 2026-11-15, after S runs 3 and
 # 4). S run 3: the one on-node pipeline step was cut by the old 1800 s cap while
@@ -80,6 +90,12 @@ neptune_instance_class = "db.r6g.xlarge"
 # segment of a run that has already spent creation, fetch, the step and terminate, so
 # the 7200 s execution timeout (and the script's stop) ends such a run long before
 # 5400 s of loader time is available; 5400 s is for loader-only runs.
+# Phase 15 note on the "660 s" creation figure used below (and in "its observed 660 s"):
+# it is UNSOURCED. No record states it, and docs/agent-runs/phase-14/results-s-tier.md
+# derives cluster create plus input fetch at about 374 s for run 6 (301 s in run 3,
+# about 313 s in run 4; derived, not measured, the API timestamps were not kept). The
+# sums below keep 660 as a deliberately high planning figure so the arithmetic that
+# other files and checks quote does not move; read "observed" as "assumed".
 # The sequential budget of a pipeline run, one segment after the other: creation
 # about 660 s (timeout 1440) + fetch up to 300 + EMR step 3300 to 3900 expected (cap
 # 4800) + terminate up to 900 + loader (cap 5400).

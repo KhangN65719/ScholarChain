@@ -1,0 +1,24 @@
+{
+  "format": "scholarchain-experiment-manifest-json/1",
+  "generated_from": "experiment-e-retrieval-modes.manifest",
+  "values": {
+    "MANIFEST_VERSION": "1",
+    "EXPERIMENT_ID": "E",
+    "DESCRIPTION": "retrieval-modes-graph-only-vector-only-fused-tier-m-draft",
+    "ENVIRONMENT": "course",
+    "REGION": "us-east-2",
+    "ACCOUNT_ID": "123456789012",
+    "DATASET_SNAPSHOT": "scholarchain-slice-m-25000-works-DRAFT",
+    "SIZE_TIER": "M",
+    "MAX_MINUTES": "60",
+    "MAX_CONCURRENCY": "2",
+    "MAX_TASKS": "1500",
+    "SPEND_CEILING_USD": "0.80",
+    "HOURLY_BURN_USD": "0.62",
+    "STOP_CONDITIONS": ["wall-clock", "first-failure", "spend-estimate"],
+    "METRIC_NAMES": ["CPUUtilization", "MemoryUtilization", "SuccessfulRequestLatency", "ThrottledRequests", "MainRequestQueuePendingRequests"],
+    "METRIC_NAMESPACES": ["AWS/ECS", "AWS/DynamoDB", "AWS/Neptune"],
+    "OUTPUT_ROOT": "/abs/outside/repo/scholarchain-experiments",
+    "ENTRY_POINT": "script:experiments/e-retrieval-modes/run.sh"
+  }
+}

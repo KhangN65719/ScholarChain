@@ -1,0 +1,15 @@
+{
+  "_synthetic_fixture": "SYNTHETIC test data. Shape follows `aws emr describe-cluster`.",
+  "Cluster": {
+    "Id": "j-SYNTH0000001",
+    "Name": "synthetic-pipeline",
+    "Status": {
+      "State": "TERMINATED",
+      "Timeline": {
+        "CreationDateTime": "2026-11-18T15:00:03.000000+00:00",
+        "ReadyDateTime": "2026-11-18T15:06:10.000000+00:00",
+        "EndDateTime": "2026-11-18T15:59:40.000000+00:00"
+      }
+    }
+  }
+}

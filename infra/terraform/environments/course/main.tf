@@ -220,6 +220,9 @@ module "workflow" {
   create_cluster_timeout_seconds = var.pipeline_create_cluster_timeout_seconds
   emr_step_timeout_seconds       = var.pipeline_emr_step_timeout_seconds
   loader_timeout_seconds         = var.pipeline_loader_timeout_seconds
+  wait_before_terminate_seconds  = var.pipeline_wait_before_terminate_seconds
+  skip_loader_after_pipeline     = var.pipeline_skip_loader
+  pipeline_profile               = var.pipeline_profile
 }
 
 module "observability" {

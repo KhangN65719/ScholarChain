@@ -16,9 +16,10 @@
 #
 # The manifest is a flat KEY=VALUE file, parsed and never sourced. The contract,
 # every key, the tier caps and a minimal valid example are in scripts/README.md,
-# "Experiment manifest contract". The caps below are PROVISIONAL, proposed by the
-# infra-engineer and not confirmed by the human: minutes 60, 90, 150 (the pipeline
-# caps), concurrency 4, 16, 32 and tasks 1000, 5000, 20000 for tiers S, M and L.
+# "Experiment manifest contract". The tier S caps were ratified by the human in
+# Phase 15 (decision P15-1, 2026-11-16): minutes 90, concurrency 64, tasks 20000.
+# Tiers M and L are unchanged and still PROVISIONAL (the infra-engineer's proposal,
+# not confirmed): minutes 90 and 150, concurrency 16 and 32, tasks 5000 and 20000.
 #
 # Refuses: a missing, unknown or duplicated key, a limit missing, out of range or
 # above the tier cap, a spend ceiling above --cost-ceiling-usd or a projected spend
@@ -86,7 +87,7 @@ mf_count() {
 
 tier_caps() {
   case "$1" in
-    S) CAP_MINUTES=60; CAP_CONC=4; CAP_TASKS=1000 ;;
+    S) CAP_MINUTES=90; CAP_CONC=64; CAP_TASKS=20000 ;;
     M) CAP_MINUTES=90; CAP_CONC=16; CAP_TASKS=5000 ;;
     L) CAP_MINUTES=150; CAP_CONC=32; CAP_TASKS=20000 ;;
     *) die "SIZE_TIER must be S, M or L, got: $1" ;;

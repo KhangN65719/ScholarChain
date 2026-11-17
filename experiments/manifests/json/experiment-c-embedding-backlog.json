@@ -1,0 +1,24 @@
+{
+  "format": "scholarchain-experiment-manifest-json/1",
+  "generated_from": "experiment-c-embedding-backlog.manifest",
+  "values": {
+    "MANIFEST_VERSION": "1",
+    "EXPERIMENT_ID": "C",
+    "DESCRIPTION": "embedding-backlog-sqs-depth-worker-scaling-drain-tier-m-draft",
+    "ENVIRONMENT": "course",
+    "REGION": "us-east-2",
+    "ACCOUNT_ID": "123456789012",
+    "DATASET_SNAPSHOT": "scholarchain-slice-m-25000-works-DRAFT",
+    "SIZE_TIER": "M",
+    "MAX_MINUTES": "60",
+    "MAX_CONCURRENCY": "4",
+    "MAX_TASKS": "5000",
+    "SPEND_CEILING_USD": "1.00",
+    "HOURLY_BURN_USD": "0.70",
+    "STOP_CONDITIONS": ["wall-clock", "first-failure", "spend-estimate"],
+    "METRIC_NAMES": ["ApproximateNumberOfMessagesVisible", "ApproximateAgeOfOldestMessage", "NumberOfMessagesSent", "NumberOfMessagesDeleted", "DesiredTaskCount", "RunningTaskCount", "CPUUtilization"],
+    "METRIC_NAMESPACES": ["AWS/SQS", "ECS/ContainerInsights", "AWS/ECS"],
+    "OUTPUT_ROOT": "/abs/outside/repo/scholarchain-experiments",
+    "ENTRY_POINT": "script:experiments/c-embedding-backlog/run.sh"
+  }
+}

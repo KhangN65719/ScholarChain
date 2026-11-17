@@ -1,33 +1,45 @@
-# Experiment B: Hadoop and Spark burst (larger manifest, EMR managed scaling response).
-# DRAFT. Unapproved and unexecuted. Valid only for scripts/run-experiment.sh --dry-run.
-# Format: scripts/README.md, "Experiment manifest contract". No spaces in values.
+# Experiment B: Hadoop and Spark burst with EMR managed scaling, tier S data (Phase 15, Wave 1).
+# UNAPPROVED and UNEXECUTED. Format: scripts/README.md, "Experiment manifest contract".
+# No spaces in values.
 # PLACEHOLDERS the human replaces before an approval record is written
 # (the record binds the sha256 of the final file, so any edit needs a new record):
 #   ACCOUNT_ID       123456789012 is the documented example, not a real account.
-#   DATASET_SNAPSHOT a draft name; the dataset-engineer has not defined snapshot ids.
+#   (DATASET_SNAPSHOT is filled: scholarchain-s-20261107-10dd7f34121b, reported by WO-4 and
+#                    verified by the human.)
 #   OUTPUT_ROOT      /abs/outside/repo/... is a placeholder path; pick a durable directory
 #                    outside the repository.
-# Needs the tier M overlay plus infra/terraform/environments/course/elasticity-example.tfvars
-# (master plus 4 core nodes, scaling cap 5). Check the On-Demand Standard vCPU quota first.
-# Cost basis: HOURLY_BURN_USD 2.02 is the master plus 4 core nodes burn in scripts/README.md,
-# "Pipeline sizes" (UNVERIFIED rates). 2.02 x 90 min / 60 = 3.03.
-# MAX_TASKS is a tight bound on the pipeline-level operations the entry point issues;
-# the unit is fixed by the Phase 15 entry point and is unconfirmed.
+# Needs the tier S overlay plus infra/terraform/environments/course/elasticity-s.tfvars
+# (primary 1, core 1, managed scaling Min 1, Max 3, core-only: the limits count core and task
+# nodes only, doc-verification.md K2, so at most 4 instances in all; Neptune off, Bedrock off,
+# a bounded wait before the cluster is terminated). Check the On-Demand Standard vCPU quota
+# first (4 x m5.xlarge = 16 vCPUs; applied quota 32, doc-verification.md). The loader command
+# in the execution input is a no-op, see experiments/b-burst/README.md.
+# Limits (tier S caps of decision P15-1: 90 min, 64 clients, 20000 tasks; at the cap, P15-16):
+#   MAX_MINUTES 90   the full tier S cap (decision P15-16, review 1 K1: the earlier 80 min limit
+#                    with a 74 min pipeline stop left about 140 s of slack in the realistic
+#                    case). The pipeline script inside the entry point stops at 88 min
+#                    (experiments/b-burst/run.sh), strictly below this limit.
+#   MAX_CONCURRENCY 1, MAX_TASKS 1: the entry point starts exactly one pipeline execution. The
+#                    unit of MAX_TASKS here is one start-execution; the script cannot enforce it.
+# Cost basis: HOURLY_BURN_USD 1.55 is the highest-capacity rate: 4 instances x 0.35 + 8
+# interface endpoints x 0.015 + loader task 0.0247 (UNVERIFIED rates, COST_ESTIMATE.md).
+# 1.55 x 90 min / 60 = 2.325, so the ceiling is 2.40 (P15-16). Session 1 HIGH is about 3.15 USD
+# in all (decision P15-16); this manifest bounds the entry-point window only.
 MANIFEST_VERSION=1
 EXPERIMENT_ID=B
-DESCRIPTION=hadoop-spark-burst-managed-scaling-tier-m-draft
+DESCRIPTION=hadoop-spark-burst-managed-scaling-tier-s-core1-to-3-wait-before-terminate
 ENVIRONMENT=course
 REGION=us-east-2
 ACCOUNT_ID=123456789012
-DATASET_SNAPSHOT=scholarchain-slice-m-25000-works-DRAFT
-SIZE_TIER=M
+DATASET_SNAPSHOT=scholarchain-s-20261107-10dd7f34121b
+SIZE_TIER=S
 MAX_MINUTES=90
 MAX_CONCURRENCY=1
-MAX_TASKS=100
-SPEND_CEILING_USD=3.50
-HOURLY_BURN_USD=2.02
+MAX_TASKS=1
+SPEND_CEILING_USD=2.40
+HOURLY_BURN_USD=1.55
 STOP_CONDITIONS=wall-clock,first-failure,spend-estimate
-METRIC_NAMES=ExecutionTime,ExecutionsFailed,AppsPending,ContainerPending,TotalNodesRequested,TotalNodesRunning,TotalUnitsRequested,TotalUnitsRunning,CoreNodesRunning,YARNMemoryAvailablePercentage
+METRIC_NAMES=ExecutionTime,ExecutionsFailed,AppsPending,ContainerPending,ContainerPendingRatio,TotalNodesRequested,TotalNodesRunning,TotalUnitsRequested,TotalUnitsRunning,CoreNodesRunning,TaskNodesRunning,YARNMemoryAvailablePercentage
 METRIC_NAMESPACES=AWS/States,AWS/ElasticMapReduce
 OUTPUT_ROOT=/abs/outside/repo/scholarchain-experiments
 ENTRY_POINT=script:experiments/b-burst/run.sh

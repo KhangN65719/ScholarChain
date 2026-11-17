@@ -152,7 +152,7 @@ variable "neptune_mode" {
 }
 
 variable "neptune_instance_class" {
-  description = "Instance class in provisioned mode. Default db.t4g.medium (course.tfvars). The S overlay sets db.r6g.xlarge for the bulk load (work order 114: OUT_OF_MEMORY_ERROR on db.t4g.medium in S run 10). The module sets apply_immediately on the instance, so a change is applied at once as an in-place modify with a restart. No allow-list: any class Neptune orders for the engine version is accepted."
+  description = "Instance class in provisioned mode. Default db.t4g.medium (this variable's default; course.tfvars no longer sets it, so only the S and graph-load overlays assign it). The S overlay sets db.r6g.xlarge for the bulk load (work order 114: OUT_OF_MEMORY_ERROR on db.t4g.medium in S run 10). The module sets apply_immediately on the instance, so a change is applied at once as an in-place modify with a restart. No allow-list: any class Neptune orders for the engine version is accepted."
   type        = string
   default     = "db.t4g.medium"
 }
@@ -432,6 +432,34 @@ variable "pipeline_emr_step_timeout_seconds" {
     condition     = var.pipeline_emr_step_timeout_seconds >= 300 && var.pipeline_emr_step_timeout_seconds <= 7200
     error_message = "pipeline_emr_step_timeout_seconds must be 300 to 7200."
   }
+}
+
+variable "pipeline_wait_before_terminate_seconds" {
+  description = "Phase 15 (P15-1, Experiment B): seconds of a Step Functions Wait state before TerminateCluster, 0 to 1800. Default 0 = no Wait state (the state machine is unchanged). elasticity-s.tfvars sets 900 so a managed-scaling scale-in can be observed while the cluster is idle. Counted by Rule A in the workflow module: pipeline_create_cluster_timeout_seconds + pipeline_emr_step_timeout_seconds + this value + 600 must not exceed pipeline_max_run_seconds. Set emr_idle_timeout_seconds above it, or the cluster can auto-terminate during the wait."
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.pipeline_wait_before_terminate_seconds >= 0 && var.pipeline_wait_before_terminate_seconds <= 1800
+    error_message = "pipeline_wait_before_terminate_seconds must be 0 to 1800."
+  }
+
+  validation {
+    condition     = var.pipeline_wait_before_terminate_seconds == 0 || var.emr_idle_timeout_seconds > var.pipeline_wait_before_terminate_seconds
+    error_message = "emr_idle_timeout_seconds must be greater than pipeline_wait_before_terminate_seconds, otherwise idle auto-termination can end the cluster during the wait."
+  }
+}
+
+variable "pipeline_skip_loader" {
+  description = "Phase 15 (Experiments A and B): true leaves the loader out of mode pipeline, so a run with Neptune and Bedrock off ends SUCCEEDED after TerminateCluster. Default false. baseline-s.tfvars and elasticity-s.tfvars set it. Mode loader-only is unaffected."
+  type        = bool
+  default     = false
+}
+
+variable "pipeline_profile" {
+  description = "Phase 15: settings profile for scripts/emr/run-s-pipeline.sh (sixth argument), selecting the <profile>.KEY lines of scripts/emr/spark-yarn.conf. a-baseline (baseline-s.tfvars) and b-burst (elasticity-s.tfvars) exist; empty (default) is the plain run."
+  type        = string
+  default     = ""
 }
 
 variable "pipeline_loader_timeout_seconds" {

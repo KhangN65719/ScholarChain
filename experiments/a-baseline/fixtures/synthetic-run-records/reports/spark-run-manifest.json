@@ -1,0 +1,8 @@
+{
+  "_synthetic_fixture": "SYNTHETIC test data. Shape follows the Spark run manifest writer (CollaborationPipeline.scala): outputs[].table and outputs[].rows.",
+  "runId": "run-v1-00000000-0000-0000-0000-000000000001",
+  "outputs": [
+    {"table": "nodes-work", "rows": 120, "windowed": false, "partitioned": false, "partitionsAtWrite": 1, "files": 1},
+    {"table": "components", "rows": 7, "windowed": false, "partitioned": false, "partitionsAtWrite": 1, "files": 1}
+  ]
+}

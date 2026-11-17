@@ -1,0 +1,20 @@
+{
+  "_synthetic_fixture": "SYNTHETIC test data. Shape follows `aws stepfunctions get-execution-history`.",
+  "events": [
+    {"timestamp": "2026-11-18T15:00:00.100000+00:00", "type": "ExecutionStarted", "id": 1, "previousEventId": 0},
+    {"timestamp": "2026-11-18T15:00:01.000000+00:00", "type": "TaskStateEntered", "id": 3, "previousEventId": 2, "stateEnteredEventDetails": {"name": "CreateCluster", "input": "{}"}},
+    {"timestamp": "2026-11-18T15:06:05.000000+00:00", "type": "TaskSucceeded", "id": 7, "previousEventId": 6, "taskSucceededEventDetails": {"resourceType": "elasticmapreduce", "resource": "createCluster.sync", "output": "{\"ClusterId\":\"j-SYNTH0000001\"}"}},
+    {"timestamp": "2026-11-18T15:06:05.500000+00:00", "type": "TaskStateExited", "id": 8, "previousEventId": 7, "stateExitedEventDetails": {"name": "CreateCluster", "output": "{}"}},
+    {"timestamp": "2026-11-18T15:06:06.000000+00:00", "type": "TaskStateEntered", "id": 9, "previousEventId": 8, "stateEnteredEventDetails": {"name": "FetchScripts", "input": "{}"}},
+    {"timestamp": "2026-11-18T15:06:19.000000+00:00", "type": "TaskStateExited", "id": 12, "previousEventId": 11, "stateExitedEventDetails": {"name": "FetchScripts", "output": "{}"}},
+    {"timestamp": "2026-11-18T15:06:20.000000+00:00", "type": "TaskStateEntered", "id": 14, "previousEventId": 13, "stateEnteredEventDetails": {"name": "PipelineStep", "input": "{}"}},
+    {"timestamp": "2026-11-18T15:42:00.000000+00:00", "type": "TaskStateExited", "id": 18, "previousEventId": 17, "stateExitedEventDetails": {"name": "PipelineStep", "output": "{}"}},
+    {"timestamp": "2026-11-18T15:42:01.000000+00:00", "type": "WaitStateEntered", "id": 19, "previousEventId": 18, "stateEnteredEventDetails": {"name": "WaitBeforeTerminate", "input": "{}"}},
+    {"timestamp": "2026-11-18T15:57:01.000000+00:00", "type": "WaitStateExited", "id": 21, "previousEventId": 20, "stateExitedEventDetails": {"name": "WaitBeforeTerminate", "output": "{}"}},
+    {"timestamp": "2026-11-18T15:57:02.000000+00:00", "type": "TaskStateEntered", "id": 22, "previousEventId": 21, "stateEnteredEventDetails": {"name": "TerminateCluster", "input": "{}"}},
+    {"timestamp": "2026-11-18T15:59:40.000000+00:00", "type": "TaskStateExited", "id": 26, "previousEventId": 25, "stateExitedEventDetails": {"name": "TerminateCluster", "output": "{}"}},
+    {"timestamp": "2026-11-18T15:59:42.000000+00:00", "type": "TaskStateEntered", "id": 28, "previousEventId": 27, "stateEnteredEventDetails": {"name": "RunLoader", "input": "{}"}},
+    {"timestamp": "2026-11-18T16:01:08.000000+00:00", "type": "TaskStateExited", "id": 32, "previousEventId": 31, "stateExitedEventDetails": {"name": "RunLoader", "output": "{}"}},
+    {"timestamp": "2026-11-18T16:01:10.000000+00:00", "type": "ExecutionSucceeded", "id": 34, "previousEventId": 33}
+  ]
+}

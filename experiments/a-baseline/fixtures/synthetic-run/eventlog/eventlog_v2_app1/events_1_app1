@@ -1,0 +1,4 @@
+{"Event":"SparkListenerLogStart","Spark Version":"synthetic"}
+{"Event":"SparkListenerTaskEnd","Stage ID":1,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Task End Reason":{"Reason":"Success"},"Task Metrics":{"Shuffle Read Metrics":{"Remote Bytes Read":50,"Local Bytes Read":25},"Shuffle Write Metrics":{"Shuffle Bytes Written":100,"Shuffle Records Written":3}}}
+{"Event":"SparkListenerTaskEnd","Stage ID":1,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Task End Reason":{"Reason":"Success"},"Task Metrics":{"Shuffle Read Metrics":{"Remote Bytes Read":0,"Local Bytes Read":0},"Shuffle Write Metrics":{"Shuffle Bytes Written":200,"Shuffle Records Written":5}}}
+{"Event":"SparkListenerTaskEnd","Stage ID":2,"Stage Attempt ID":0,"Task Type":"ResultTask","Task End Reason":{"Reason":"ExceptionFailure"},"Task Metrics":{}}

@@ -1,0 +1,37 @@
+{
+  "_synthetic_fixture": "SYNTHETIC test data for the negative case: a fixed-size cluster (minimum = maximum) never scales. Not a measurement.",
+  "Instances": [
+    {
+      "Id": "ci-PRIMARY0001",
+      "Ec2InstanceId": "i-0synthetic00000001",
+      "InstanceGroupId": "ig-MASTER0000001",
+      "InstanceType": "m5.xlarge",
+      "Market": "ON_DEMAND",
+      "Status": {
+        "State": "TERMINATED",
+        "StateChangeReason": {"Code": "CLUSTER_TERMINATED", "Message": "Terminated by user request"},
+        "Timeline": {
+          "CreationDateTime": "2026-11-18T15:00:04+00:00",
+          "ReadyDateTime": "2026-11-18T15:05:51+00:00",
+          "EndDateTime": "2026-11-18T15:50:31+00:00"
+        }
+      }
+    },
+    {
+      "Id": "ci-CORE0000001",
+      "Ec2InstanceId": "i-0synthetic00000002",
+      "InstanceGroupId": "ig-CORE00000001",
+      "InstanceType": "m5.xlarge",
+      "Market": "ON_DEMAND",
+      "Status": {
+        "State": "TERMINATED",
+        "StateChangeReason": {"Code": "CLUSTER_TERMINATED", "Message": "Terminated by user request"},
+        "Timeline": {
+          "CreationDateTime": "2026-11-18T15:00:05+00:00",
+          "ReadyDateTime": "2026-11-18T15:06:02+00:00",
+          "EndDateTime": "2026-11-18T15:50:31+00:00"
+        }
+      }
+    }
+  ]
+}

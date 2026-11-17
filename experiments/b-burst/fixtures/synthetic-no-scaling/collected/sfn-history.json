@@ -1,0 +1,10 @@
+{
+  "_synthetic_fixture": "SYNTHETIC test data (negative case: no Wait state, no scaling).",
+  "events": [
+    {"timestamp": "2026-11-18T15:00:00+00:00", "type": "ExecutionStarted", "id": 1, "previousEventId": 0},
+    {"timestamp": "2026-11-18T15:06:20+00:00", "type": "TaskStateEntered", "id": 14, "previousEventId": 13, "stateEnteredEventDetails": {"name": "PipelineStep", "input": "{}"}},
+    {"timestamp": "2026-11-18T15:49:50+00:00", "type": "TaskStateExited", "id": 18, "previousEventId": 17, "stateExitedEventDetails": {"name": "PipelineStep", "output": "{}"}},
+    {"timestamp": "2026-11-18T15:49:51+00:00", "type": "TaskStateEntered", "id": 22, "previousEventId": 21, "stateEnteredEventDetails": {"name": "TerminateCluster", "input": "{}"}},
+    {"timestamp": "2026-11-18T15:51:00+00:00", "type": "ExecutionSucceeded", "id": 34, "previousEventId": 33}
+  ]
+}

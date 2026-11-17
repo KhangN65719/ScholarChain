@@ -1,0 +1,9 @@
+{
+  "_synthetic_fixture": "SYNTHETIC test data. Shape follows the JsonlExport export manifest (tables.<name>.rows).",
+  "manifestType": "scholarchain.spark.jsonl-export-manifest/1",
+  "tables": {
+    "nodes-work": {"rows": 120, "idColumns": ["canonicalWorkId"]},
+    "nodes-researcher": {"rows": 80, "idColumns": ["nodeId"]},
+    "edges-coauthored": {"rows": 250, "idColumns": ["researcherA", "researcherB"]}
+  }
+}

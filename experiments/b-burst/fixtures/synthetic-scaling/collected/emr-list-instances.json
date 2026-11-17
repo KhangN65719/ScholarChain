@@ -1,0 +1,69 @@
+{
+  "_synthetic_fixture": "SYNTHETIC test data for the derive-capacity.py rehearsal. Not a measurement. Shape follows `aws emr list-instances` (CLI v2, ISO-8601 timestamps).",
+  "Instances": [
+    {
+      "Id": "ci-PRIMARY0001",
+      "Ec2InstanceId": "i-0synthetic00000001",
+      "InstanceGroupId": "ig-MASTER0000001",
+      "InstanceType": "m5.xlarge",
+      "Market": "ON_DEMAND",
+      "Status": {
+        "State": "TERMINATED",
+        "StateChangeReason": {"Code": "CLUSTER_TERMINATED", "Message": "Terminated by user request"},
+        "Timeline": {
+          "CreationDateTime": "2026-11-18T15:00:04.512000+00:00",
+          "ReadyDateTime": "2026-11-18T15:05:51.100000+00:00",
+          "EndDateTime": "2026-11-18T15:59:31.000000+00:00"
+        }
+      }
+    },
+    {
+      "Id": "ci-CORE0000001",
+      "Ec2InstanceId": "i-0synthetic00000002",
+      "InstanceGroupId": "ig-CORE00000001",
+      "InstanceType": "m5.xlarge",
+      "Market": "ON_DEMAND",
+      "Status": {
+        "State": "TERMINATED",
+        "StateChangeReason": {"Code": "CLUSTER_TERMINATED", "Message": "Terminated by user request"},
+        "Timeline": {
+          "CreationDateTime": "2026-11-18T15:00:05.000000+00:00",
+          "ReadyDateTime": "2026-11-18T15:06:02.000000+00:00",
+          "EndDateTime": "2026-11-18T15:59:31.000000+00:00"
+        }
+      }
+    },
+    {
+      "Id": "ci-CORE0000002",
+      "Ec2InstanceId": "i-0synthetic00000003",
+      "InstanceGroupId": "ig-CORE00000001",
+      "InstanceType": "m5.xlarge",
+      "Market": "ON_DEMAND",
+      "Status": {
+        "State": "TERMINATED",
+        "StateChangeReason": {"Code": "INSTANCE_FAILURE", "Message": "Terminated by managed scaling (synthetic)"},
+        "Timeline": {
+          "CreationDateTime": "2026-11-18T15:20:40.000000+00:00",
+          "ReadyDateTime": "2026-11-18T15:25:33.000000+00:00",
+          "EndDateTime": "2026-11-18T15:50:21.000000+00:00"
+        }
+      }
+    },
+    {
+      "Id": "ci-CORE0000003",
+      "Ec2InstanceId": "i-0synthetic00000004",
+      "InstanceGroupId": "ig-CORE00000001",
+      "InstanceType": "m5.xlarge",
+      "Market": "ON_DEMAND",
+      "Status": {
+        "State": "TERMINATED",
+        "StateChangeReason": {"Code": "INSTANCE_FAILURE", "Message": "Terminated by managed scaling (synthetic)"},
+        "Timeline": {
+          "CreationDateTime": "2026-11-18T15:20:41.000000+00:00",
+          "ReadyDateTime": "2026-11-18T15:25:35.000000+00:00",
+          "EndDateTime": "2026-11-18T15:50:22.000000+00:00"
+        }
+      }
+    }
+  ]
+}

@@ -60,13 +60,31 @@ locals {
   fixed_nodes = 1 + var.core_instance_count + (local.has_task ? var.task_spot_instance_count : 0)
   max_units   = max(var.managed_scaling_max_units, local.fixed_nodes)
 
+  # Phase 15 (review 1, K2, VERIFIED in docs/agent-runs/phase-15/wave-1/doc-verification.md):
+  # EMR ComputeLimits apply ONLY to core and task nodes; "The master node cannot be
+  # scaled after initial configuration"
+  # (https://docs.aws.amazon.com/emr/latest/APIReference/API_ComputeLimits.html).
+  # managed_scaling_max_units keeps its meaning (total instances INCLUDING the primary,
+  # which the overlays and the variable validation use), so the primary is subtracted
+  # here: scalable_max is the most core plus task instances the cluster may hold.
+  # Core-only scaling follows Scenario 1 (instance groups) of
+  # https://docs.aws.amazon.com/emr/latest/ManagementGuide/managed-scaling-allocation-strategy.html:
+  # the maximum core limit and the On-Demand limit equal the maximum boundary, and
+  # the minimum is the core count the cluster starts with (a higher minimum would make
+  # EMR add an instance at start, a false scale-out).
+  # Examples (primary 1): core 1, cap 4  -> Min 1, Max 3, MaxCore 3, MaxOnDemand 3.
+  #                       core 4, cap 5  -> Min 4, Max 4, MaxCore 4, MaxOnDemand 4
+  #                       (the fixed shape; effective bounds as before, the primary
+  #                       no longer counted on either side).
+  # The Spot task nodes, when present, are scaled within Max but not within MaxCore.
+  scalable_max = local.max_units - 1
   managed_scaling = {
     ComputeLimits = {
       UnitType                     = "Instances"
-      MinimumCapacityUnits         = var.core_instance_count + 1
-      MaximumCapacityUnits         = local.max_units
-      MaximumCoreCapacityUnits     = max(var.core_instance_count, 1)
-      MaximumOnDemandCapacityUnits = local.max_units
+      MinimumCapacityUnits         = var.core_instance_count
+      MaximumCapacityUnits         = local.scalable_max
+      MaximumCoreCapacityUnits     = max(var.core_instance_count, local.scalable_max - (local.has_task ? var.task_spot_instance_count : 0), 1)
+      MaximumOnDemandCapacityUnits = local.scalable_max
     }
   }
 

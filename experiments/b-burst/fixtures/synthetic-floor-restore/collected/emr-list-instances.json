@@ -1,0 +1,85 @@
+{
+  "_synthetic_fixture": "SYNTHETIC test data for the derive-capacity.py rehearsal. Not a measurement. One core node is lost and replaced (floor restore), one increase is demand-linked, one has pending-container data but none above 0.",
+  "Instances": [
+    {
+      "Id": "ci-PRIMARY0001",
+      "Ec2InstanceId": "i-0synthetic00000011",
+      "InstanceGroupId": "ig-MASTER0000001",
+      "InstanceType": "m5.xlarge",
+      "Market": "ON_DEMAND",
+      "Status": {
+        "State": "TERMINATED",
+        "StateChangeReason": {"Code": "CLUSTER_TERMINATED", "Message": "Terminated by user request"},
+        "Timeline": {
+          "CreationDateTime": "2026-11-18T15:00:04+00:00",
+          "ReadyDateTime": "2026-11-18T15:05:51+00:00",
+          "EndDateTime": "2026-11-18T16:04:50+00:00"
+        }
+      }
+    },
+    {
+      "Id": "ci-CORE0000001",
+      "Ec2InstanceId": "i-0synthetic00000012",
+      "InstanceGroupId": "ig-CORE00000001",
+      "InstanceType": "m5.xlarge",
+      "Market": "ON_DEMAND",
+      "Status": {
+        "State": "TERMINATED",
+        "StateChangeReason": {"Code": "INSTANCE_FAILURE", "Message": "Instance lost (synthetic)"},
+        "Timeline": {
+          "CreationDateTime": "2026-11-18T15:00:05+00:00",
+          "ReadyDateTime": "2026-11-18T15:06:02+00:00",
+          "EndDateTime": "2026-11-18T15:30:00+00:00"
+        }
+      }
+    },
+    {
+      "Id": "ci-CORE0000002",
+      "Ec2InstanceId": "i-0synthetic00000013",
+      "InstanceGroupId": "ig-CORE00000001",
+      "InstanceType": "m5.xlarge",
+      "Market": "ON_DEMAND",
+      "Status": {
+        "State": "TERMINATED",
+        "StateChangeReason": {"Code": "CLUSTER_TERMINATED", "Message": "Terminated by user request"},
+        "Timeline": {
+          "CreationDateTime": "2026-11-18T15:30:01+00:00",
+          "ReadyDateTime": "2026-11-18T15:34:50+00:00",
+          "EndDateTime": "2026-11-18T16:04:50+00:00"
+        }
+      }
+    },
+    {
+      "Id": "ci-CORE0000003",
+      "Ec2InstanceId": "i-0synthetic00000014",
+      "InstanceGroupId": "ig-CORE00000001",
+      "InstanceType": "m5.xlarge",
+      "Market": "ON_DEMAND",
+      "Status": {
+        "State": "TERMINATED",
+        "StateChangeReason": {"Code": "INSTANCE_FAILURE", "Message": "Terminated by managed scaling (synthetic)"},
+        "Timeline": {
+          "CreationDateTime": "2026-11-18T15:40:10+00:00",
+          "ReadyDateTime": "2026-11-18T15:44:55+00:00",
+          "EndDateTime": "2026-11-18T15:52:00+00:00"
+        }
+      }
+    },
+    {
+      "Id": "ci-CORE0000004",
+      "Ec2InstanceId": "i-0synthetic00000015",
+      "InstanceGroupId": "ig-CORE00000001",
+      "InstanceType": "m5.xlarge",
+      "Market": "ON_DEMAND",
+      "Status": {
+        "State": "TERMINATED",
+        "StateChangeReason": {"Code": "CLUSTER_TERMINATED", "Message": "Terminated by user request"},
+        "Timeline": {
+          "CreationDateTime": "2026-11-18T15:58:00+00:00",
+          "ReadyDateTime": "2026-11-18T16:02:40+00:00",
+          "EndDateTime": "2026-11-18T16:04:50+00:00"
+        }
+      }
+    }
+  ]
+}

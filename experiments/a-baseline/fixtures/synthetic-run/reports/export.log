@@ -1,0 +1,4 @@
+26/11/15 20:11:30 INFO TaskSetManager: Starting task 0.0 in stage 1.0 (TID 1) (host,executor 1, partition 0, NODE_LOCAL, 100 bytes)
+26/11/15 20:11:30 INFO TaskSetManager: Finished task 0.0 in stage 1.0 (TID 1) in 10 ms on host (executor 1) (1/1)
+26/11/15 20:11:30 INFO DAGScheduler: ResultStage 1 (count at Y.scala:1) finished in 0.02 s
+26/11/15 20:11:30 INFO DAGScheduler: Job 0 finished: count at Y.scala:1, took 0.1 s

@@ -1600,10 +1600,13 @@ exp_refuse() {
   case_end
 }
 
-exp_refuse minutes-over-tier-cap set MAX_MINUTES 61 "above the cap 60"
-exp_refuse concurrency-over-tier-cap set MAX_CONCURRENCY 5 "above the cap 4"
-exp_refuse tasks-over-tier-cap set MAX_TASKS 1001 "above the cap 1000"
-exp_refuse minutes-zero set MAX_MINUTES 0 "must be a whole number from 1 to 60"
+# Phase 15 P15-1 (WO-12a): the tier S caps are 90 minutes, 64 concurrent and 20,000 tasks (they were
+# 60, 4 and 1000). MF_BASE is tier S, so these four follow. M and L are pinned in the 15.experiment.*
+# cases near the end of the file.
+exp_refuse minutes-over-tier-cap set MAX_MINUTES 91 "above the cap 90"
+exp_refuse concurrency-over-tier-cap set MAX_CONCURRENCY 65 "above the cap 64"
+exp_refuse tasks-over-tier-cap set MAX_TASKS 20001 "above the cap 20000"
+exp_refuse minutes-zero set MAX_MINUTES 0 "must be a whole number from 1 to 90"
 # Flipped from "manifest REGION must be us-east-1" (Phase 14 D1: the approved Region is us-east-2).
 exp_refuse region-not-us-east-2 set REGION eu-west-1 "manifest REGION must be us-east-2"
 exp_refuse region-us-east-1 set REGION us-east-1 "manifest REGION must be us-east-2, got: us-east-1"
@@ -3843,7 +3846,19 @@ emr_claim="$(grep -hiE 'distributed[[:space:]]+(mapreduce|execution|processing|c
 case_end
 
 static_begin "14.emr.run-s-pipeline.single-node-scope-wording"
-f_has "$emr_run" 'data-size scaling on a single-node EMR cluster (Spark and MapReduce on YARN)'
+# R4 (review 1, m2): RUN_SCOPE moved to the hadoop stage and now names the mode that ran. The single-node text
+# is kept for the file and YARN mode (extended with the paths), the HDFS and local Spark text is new, and the
+# early constant line is gone. Updated for the new wording; the single-node claim is still pinned.
+f_has "$emr_run" 'run_scope="data-size scaling on a single-node EMR cluster (file:/// paths on the primary; MapReduce and Spark on YARN)"'
+f_has "$emr_run" 'run_scope="MapReduce on YARN with HDFS across the cluster'
+f_has "$emr_run" 'ER, Spark and export on the primary node only (Spark as local[$local_cores])'
+f_has "$emr_run" 'kv RUN_SCOPE "$run_scope"'
+f_count_is "$emr_run" 'kv RUN_SCOPE' 1
+f_has_not "$emr_run" 'kv RUN_SCOPE "data-size scaling'
+f_before "$emr_run" 'kv DATA_PATH_MODE "$dmode"' 'kv RUN_SCOPE "$run_scope"'
+f_before "$emr_run" 'smaster="$(conf_value SPARK_MASTER' 'kv RUN_SCOPE "$run_scope"'
+f_before "$emr_run" 'stage hadoop' 'kv RUN_SCOPE "$run_scope"'
+f_before "$emr_run" 'kv RUN_SCOPE "$run_scope"' 'stage entity-resolution'
 case_end
 
 # Work order 46: the on-node side of the run id shape. The slug (run-v1-<uuid>) stays the
@@ -3963,7 +3978,10 @@ f_has_not_re "$emr_boot" 'nogpgcheck|no-gpgcheck|gpgcheck=0'
 case_end
 
 static_begin "14.emr.spark-yarn-conf.holds-only-key-value-settings"
-emr_bad="$(grep -vE '^[[:space:]]*(#.*)?$' "$EMR_DIR/spark-yarn.conf" | grep -vE '^[A-Z_]+=[A-Za-z0-9._-]*$' | head -n 1)"
+# Phase 15 (WO-1b): a line may carry a profile prefix, "<profile>.KEY=VALUE", the profile being the
+# a-z0-9- text that run-s-pipeline.sh accepts as its sixth argument (at most 32 characters). The value
+# class is unchanged.
+emr_bad="$(grep -vE '^[[:space:]]*(#.*)?$' "$EMR_DIR/spark-yarn.conf" | grep -vE '^([a-z0-9-]{1,32}\.)?[A-Z_]+=[A-Za-z0-9._-]*$' | head -n 1)"
 [ -z "$emr_bad" ] || note_fail "a line is not KEY=VALUE: $emr_bad"
 [ -f "$EMR_DIR/spark-yarn.conf" ] || note_fail "scripts/emr/spark-yarn.conf is missing"
 case_end
@@ -4979,6 +4997,8 @@ tf_overlay() {
 }
 
 static_begin "14.terraform.rule-a.the-workflow-module-counts-the-one-step-once-plus-600"
+# Phase 15 (WO-1): the old Rule A validation is kept as it was (infra added a SECOND validation that counts
+# the wait; 15.terraform.wait.rule-a-... pins that one), so the original pins stand unchanged.
 f_has "$WF_VARS" 'condition     = var.max_run_seconds >= var.create_cluster_timeout_seconds + var.emr_step_timeout_seconds + 600'
 f_has "$WF_VARS" 'Rule A: max_run_seconds must be at least create_cluster_timeout_seconds + emr_step_timeout_seconds + 600'
 f_has_not_re "$WF_VARS" '2[[:space:]]*\*[[:space:]]*var[.]emr_step_timeout_seconds|var[.]emr_step_timeout_seconds[[:space:]]*\*[[:space:]]*2'
@@ -9319,6 +9339,2900 @@ grep -qxF 'FAILED_STAGE=4 spark-stage' "$PFX/uploads/run-record.env" || note_fai
 [ "$(pf_up_names)" = "preflight.log preflight.scala run-record.env " ] || note_fail "uploaded names: $(pf_up_names)"
 grep -qF 'x.scala:12: error: not found: value foo' "$PFX/uploads/preflight.log" || note_fail "the uploaded preflight.log lacks the diagnostic"
 case_end
+
+### Case 15: Phase 15 Wave 1 (WO-12a, from the WO-1 and WO-3 specifications) ---------------
+# Written from docs/agent-runs/phase-15/wave-1/work-orders.md before the implementation landed, so no
+# name here is copied from production text that did not exist yet. The Wait variable is DISCOVERED (the
+# one variable whose name holds "wait" in modules/workflow/variables.tf and in the course variables.tf),
+# the overlays are read as text, the tier caps are exercised through run-experiment.sh in the temporary
+# repository, and the pre-session checks are read from the section whose heading is "Phase 15
+# pre-session checks" (scripts/README.md first, then infra/terraform/README.md). Nothing here runs aws,
+# terraform or sbt. A case that depends on a WO-1 file fails until WO-1 lands; it is not loosened.
+
+W15_ENV="$TF_DIR/environments/course"
+W15_GL="$W15_ENV/graph-load.tfvars"
+W15_EL="$W15_ENV/elasticity-s.tfvars"
+W15_EX="$W15_ENV/elasticity-example.tfvars"
+W15_WFMAIN="$TF_DIR/modules/workflow/main.tf"
+W15_CRSMAIN="$W15_ENV/main.tf"
+W15_COURSE="$W15_ENV/course.tfvars"
+
+w15_begin() {
+  case_begin "$1"
+  OUT="$LOGDIR/none.out"; ERR="$LOGDIR/none.err"; RC=0
+}
+
+# w15_need FILE: notes a failure and returns 1 when the file is missing.
+w15_need() {
+  if [ ! -f "$1" ]; then
+    note_fail "missing file: ${1#"$REAL_ROOT"/}"
+    return 1
+  fi
+  return 0
+}
+
+# w15_code FILE: the lines that are neither comments nor blank.
+w15_code() {
+  grep -v '^[[:space:]]*#' "$1" | grep -v '^[[:space:]]*$'
+}
+
+# w15_count FILE KEY: the number of code lines that assign KEY.
+w15_count() {
+  [ -f "$1" ] || { printf '0'; return 0; }
+  grep -v '^[[:space:]]*#' "$1" | grep -cE "^[[:space:]]*$2[[:space:]]*=" || true
+}
+
+# w15_last FILE KEY: the value of the last assignment (later wins), quotes and trailing comment removed.
+w15_last() {
+  [ -f "$1" ] || return 0
+  grep -v '^[[:space:]]*#' "$1" | sed -n "s/^[[:space:]]*$2[[:space:]]*=[[:space:]]*\\(.*\\)\$/\\1/p" | tail -n 1 \
+    | sed -e 's/[[:space:]]*#.*$//' -e 's/^"//' -e 's/"[[:space:]]*$//' -e 's/[[:space:]]*$//'
+}
+
+# w15_eff KEY FILE...: the value after the files are layered in order (later wins), empty if none sets it.
+w15_eff() {
+  local key="$1" f v eff=""
+  shift
+  for f in "$@"; do
+    v="$(w15_last "$f" "$key")"
+    if [ -n "$v" ]; then eff="$v"; fi
+  done
+  printf '%s' "$eff"
+}
+
+# w15_rule_a_wait MAX CREATE STEP WAIT: MAX >= CREATE + STEP + WAIT + 600, all whole numbers.
+w15_rule_a_wait() {
+  tf_is_num "$1" || return 1
+  tf_is_num "$2" || return 1
+  tf_is_num "$3" || return 1
+  tf_is_num "$4" || return 1
+  [ "$1" -ge $((${2} + ${3} + ${4} + 600)) ]
+}
+
+# w15_block FILE VAR: the text of one variable block.
+w15_block() {
+  awk -v v="$2" '
+    $0 ~ "^variable \"" v "\" " { f = 1 }
+    f { print }
+    f && /^}/ { exit }
+  ' "$1"
+}
+
+# w15_wait_vars FILE: names of variable blocks whose name holds "wait".
+w15_wait_vars() {
+  [ -f "$1" ] || return 0
+  sed -n 's/^variable "\([A-Za-z0-9_]*[Ww][Aa][Ii][Tt][A-Za-z0-9_]*\)".*/\1/p' "$1"
+}
+
+W15_WF_WAIT="$(w15_wait_vars "$WF_VARS" | head -n 1)"
+W15_CRS_WAIT="$(w15_wait_vars "$CRS_VARS" | head -n 1)"
+
+### 15.experiment: the tier caps (P15-1) through run-experiment.sh in the temporary repository.
+
+# w15_tier_mf ID TIER MIN CONC TASKS: W15_MF is a tier manifest from MF_BASE. The spend ceiling is raised
+# to 2.00 (still under the project ceiling) so the projected spend at the cap stays under it.
+w15_tier_mf() {
+  W15_MF="$REC/w15-$1.manifest"
+  mf_edit "$MF_BASE" "$W15_MF.1" set SIZE_TIER "$2"
+  mf_edit "$W15_MF.1" "$W15_MF.2" set MAX_MINUTES "$3"
+  mf_edit "$W15_MF.2" "$W15_MF.3" set MAX_CONCURRENCY "$4"
+  mf_edit "$W15_MF.3" "$W15_MF.4" set MAX_TASKS "$5"
+  mf_edit "$W15_MF.4" "$W15_MF" set SPEND_CEILING_USD 2.00
+}
+
+# w15_tier_accept ID TIER MIN CONC TASKS CAPMIN CAPCONC CAPTASKS: a dry run at exactly the caps is accepted.
+w15_tier_accept() {
+  local id="$1" rc s a
+  w15_tier_mf "$id" "$2" "$3" "$4" "$5"
+  exp_args digest "$W15_MF" -
+  run_build
+  rc=$RC
+  s="$(sed -n 's/^SCRIPT_DIGEST=//p' "$OUT" | head -n 1)"
+  a="$(sed -n 's/^ARGS_DIGEST=//p' "$OUT" | head -n 1)"
+  rec_base experiment "$s" "$a" n/a "$HEAD_SHA"
+  rec_write "$REC/w15-$id.env"
+  exp_args dry "$W15_MF" "$REC/w15-$id.env"
+  run_build
+  case_begin "15.experiment.tier-$2-accepts-exactly-the-caps-$6-minutes-$7-concurrent-$8-tasks"
+  [ "$rc" -eq 0 ] || note_fail "--print-digest exited $rc"
+  a_rc 0
+  a_out "DRY_RUN_COMPLETE"
+  a_out "APPROVAL_NOT_CONSUMED dry-run"
+  a_trip_empty
+  a_out "MANIFEST_VALID experiment=A size=$2"
+  a_out_re "^LIMITS max_minutes=$3 max_concurrency=$4 max_tasks=$5 "
+  a_out "(tier caps $6 min, $7 concurrent, $8 tasks)"
+  a_out "APPROVAL_VERIFIED action=experiment"
+  case_end
+}
+
+# w15_tier_refuse ID TIER MIN CONC TASKS FRAGMENT: the manifest is refused with FRAGMENT, before anything runs.
+w15_tier_refuse() {
+  w15_tier_mf "$1" "$2" "$3" "$4" "$5"
+  exp_args dry "$W15_MF" "$REC/does-not-exist.env"
+  run_build
+  case_begin "15.experiment.$1"
+  a_refused "$6"
+  a_not_out "LIMITS"
+  case_end
+}
+
+w15_tier_accept s-at-cap S 90 64 20000 90 64 20000
+w15_tier_refuse s-minutes-91-is-above-the-cap-90 S 91 2 200 "MAX_MINUTES 91 is above the cap 90 for tier S"
+w15_tier_refuse s-concurrency-65-is-above-the-cap-64 S 30 65 200 "MAX_CONCURRENCY 65 is above the cap 64 for tier S"
+w15_tier_refuse s-tasks-20001-is-above-the-cap-20000 S 30 2 20001 "MAX_TASKS 20001 is above the cap 20000 for tier S"
+w15_tier_refuse s-minutes-zero-names-the-new-range S 0 2 200 "MAX_MINUTES must be a whole number from 1 to 90 (the cap for tier S), got: 0"
+w15_tier_refuse s-the-old-concurrency-cap-4-is-not-the-cap-any-more-but-1000-tasks-over-20000-still-is S 30 4 20001 "above the cap 20000 for tier S"
+w15_tier_accept m-at-cap M 90 16 5000 90 16 5000
+w15_tier_refuse m-minutes-91-is-above-the-cap-90 M 91 2 200 "MAX_MINUTES 91 is above the cap 90 for tier M"
+w15_tier_refuse m-concurrency-17-is-above-the-cap-16 M 30 17 200 "MAX_CONCURRENCY 17 is above the cap 16 for tier M"
+w15_tier_refuse m-tasks-5001-is-above-the-cap-5000 M 30 2 5001 "MAX_TASKS 5001 is above the cap 5000 for tier M"
+w15_tier_accept l-at-cap L 150 32 20000 150 32 20000
+w15_tier_refuse l-minutes-151-is-above-the-cap-150 L 151 2 200 "MAX_MINUTES 151 is above the cap 150 for tier L"
+w15_tier_refuse l-concurrency-33-is-above-the-cap-32 L 30 33 200 "MAX_CONCURRENCY 33 is above the cap 32 for tier L"
+w15_tier_refuse l-tasks-20001-is-above-the-cap-20000 L 30 2 20001 "MAX_TASKS 20001 is above the cap 20000 for tier L"
+
+w15_begin "15.experiment.static.tier-caps-line-by-line-in-the-script-s-90-64-20000-m-90-16-5000-l-150-32-20000"
+w15_xs="$REAL_ROOT/scripts/run-experiment.sh"
+if w15_need "$w15_xs"; then
+  w15_xc="$(w15_code "$w15_xs")"
+  printf '%s\n' "$w15_xc" | grep -qE '^[[:space:]]*S\) CAP_MINUTES=90; CAP_CONC=64; CAP_TASKS=20000 ;;$' || note_fail "the S tier line is not 90, 64, 20000"
+  printf '%s\n' "$w15_xc" | grep -qE '^[[:space:]]*M\) CAP_MINUTES=90; CAP_CONC=16; CAP_TASKS=5000 ;;$' || note_fail "the M tier line is not 90, 16, 5000"
+  printf '%s\n' "$w15_xc" | grep -qE '^[[:space:]]*L\) CAP_MINUTES=150; CAP_CONC=32; CAP_TASKS=20000 ;;$' || note_fail "the L tier line is not 150, 32, 20000"
+fi
+case_end
+
+w15_begin "15.experiment.static.readme-marks-d12-as-decided-by-p15-1"
+w15_sr="$REAL_ROOT/scripts/README.md"
+if w15_need "$w15_sr"; then
+  w15_d12="$(grep -F 'D12' "$w15_sr" | grep -F 'P15-1' | head -n 1)"
+  [ -n "$w15_d12" ] || note_fail "no line of scripts/README.md holds both D12 and P15-1"
+  case "$w15_d12" in
+    *[Dd]ecided* | *[Cc]losed* | *[Rr]esolved*) ;;
+    *) [ -z "$w15_d12" ] || note_fail "the D12 line does not say decided, closed or resolved: $w15_d12" ;;
+  esac
+fi
+case_end
+
+### 15.terraform.s-overlay: the S overlay is back at db.t4g.medium (P15-5) and says what it ran.
+
+w15_begin "15.terraform.s-overlay.neptune-class-is-db-t4g-medium-and-is-assigned-exactly-once"
+if w15_need "$TF_S"; then
+  [ "$(w15_count "$TF_S" neptune_instance_class)" = "1" ] || note_fail "neptune_instance_class is assigned $(w15_count "$TF_S" neptune_instance_class) times on code lines, expected once (the last wins, so a second line is a trap)"
+  [ "$(w15_last "$TF_S" neptune_instance_class)" = "db.t4g.medium" ] || note_fail "the effective class is '$(w15_last "$TF_S" neptune_instance_class)', expected db.t4g.medium"
+fi
+case_end
+
+w15_begin "15.terraform.s-overlay.no-code-line-names-the-xlarge-class"
+if w15_need "$TF_S"; then
+  if w15_code "$TF_S" | grep -qF 'db.r6g.xlarge'; then note_fail "a code line of the S overlay names db.r6g.xlarge (it belongs to graph-load.tfvars)"; fi
+fi
+case_end
+
+w15_begin "15.terraform.s-overlay.line-1-states-the-real-size-3472-works"
+if w15_need "$TF_S"; then
+  w15_l1="$(head -n 1 "$TF_S")"
+  case "$w15_l1" in
+    *'3,472'* | *'3472'*) ;;
+    *) note_fail "line 1 does not state 3,472 works: $w15_l1" ;;
+  esac
+  case "$w15_l1" in
+    *'5,000'* | *'5000'*) note_fail "line 1 still states the 5,000 estimate as the size: $w15_l1" ;;
+    *) ;;
+  esac
+fi
+case_end
+
+# Each 660 s creation figure has a source marker or an UNSOURCED/UNVERIFIED mark in the ten lines before it or
+# the two lines after it (review 1, m4: the comment said "within two lines", the window below is ten plus two).
+w15_begin "15.terraform.s-overlay.every-660-s-creation-figure-is-sourced-or-marked-unsourced"
+if w15_need "$TF_S"; then
+  w15_n=0
+  w15_bad=0
+  while IFS= read -r w15_ln; do
+    w15_n=$((w15_n + 1))
+    # The mark may sit in the paragraph above the sums (the Phase 15 note), so the window is the ten
+    # lines before the figure and the two after.
+    w15_lo=$((w15_ln - 10))
+    if [ "$w15_lo" -lt 1 ]; then w15_lo=1; fi
+    w15_win="$(sed -n "${w15_lo},$((w15_ln + 2))p" "$TF_S")"
+    case "$w15_win" in
+      *[Uu][Nn][Ss][Oo][Uu][Rr][Cc][Ee][Dd]* | *UNVERIFIED* | *docs/agent-runs/* | *docs/releases/* | *phase-14/*) ;;
+      *) w15_bad=$((w15_bad + 1)); note_fail "the 660 figure on line $w15_ln has no source or UNSOURCED mark in the ten lines before it or the two after" ;;
+    esac
+  done < <(grep -nE '(^|[^0-9])660([^0-9]|$)' "$TF_S" | grep -E '^[0-9]+:[[:space:]]*#' | cut -d: -f1)
+  [ "$w15_n" -ge 1 ] || note_fail "no comment line holds a 660 figure any more: the case has nothing to pin (remove it only if the figure was dropped on purpose)"
+fi
+case_end
+
+### 15.terraform.graph-load: the xlarge class alone, layered after the S overlay for the session 2 bulk load.
+
+w15_begin "15.terraform.graph-load.file-exists-and-holds-exactly-one-code-line-neptune-instance-class-xlarge"
+if w15_need "$W15_GL"; then
+  [ "$(w15_code "$W15_GL" | wc -l | tr -d ' ')" = "1" ] || note_fail "graph-load.tfvars holds $(w15_code "$W15_GL" | wc -l | tr -d ' ') code lines, expected exactly one"
+  w15_code "$W15_GL" | grep -qE '^neptune_instance_class[[:space:]]*=[[:space:]]*"db\.r6g\.xlarge"[[:space:]]*(#.*)?$' || note_fail "the one code line is not neptune_instance_class = \"db.r6g.xlarge\": $(w15_code "$W15_GL" | head -n 1)"
+fi
+case_end
+
+w15_begin "15.terraform.graph-load.layering-gives-xlarge-over-the-s-overlay-and-t4g-medium-under-the-s-overlay-alone"
+if w15_need "$W15_GL" && w15_need "$TF_S"; then
+  [ "$(w15_eff neptune_instance_class "$TF_S" "$W15_GL")" = "db.r6g.xlarge" ] || note_fail "S then graph-load gives '$(w15_eff neptune_instance_class "$TF_S" "$W15_GL")', expected db.r6g.xlarge"
+  [ "$(w15_eff neptune_instance_class "$TF_S")" = "db.t4g.medium" ] || note_fail "S alone gives '$(w15_eff neptune_instance_class "$TF_S")', expected db.t4g.medium"
+fi
+case_end
+
+w15_begin "15.terraform.graph-load.the-header-documents-the-session-2-apply-order-and-the-approval-records"
+if w15_need "$W15_GL"; then
+  w15_glc="$(grep '^[[:space:]]*#' "$W15_GL")"
+  for w15_t in 'graph-only' 't4g.medium' 'approval record' 'experiment-size-s.tfvars'; do
+    printf '%s\n' "$w15_glc" | grep -qiF -- "$w15_t" || note_fail "the header comment does not mention: $w15_t"
+  done
+  w15_o1="$(printf '%s\n' "$w15_glc" | grep -niF 'graph-only' | head -n 1 | cut -d: -f1)"
+  w15_o0="$(printf '%s\n' "$w15_glc" | grep -niF 'experiment-size-s.tfvars' | head -n 1 | cut -d: -f1)"
+  w15_o2="$(printf '%s\n' "$w15_glc" | grep -niF 't4g.medium' | tail -n 1 | cut -d: -f1)"
+  if [ -n "$w15_o0" ] && [ -n "$w15_o1" ] && [ -n "$w15_o2" ]; then
+    { [ "$w15_o0" -le "$w15_o1" ] && [ "$w15_o1" -le "$w15_o2" ]; } || note_fail "the apply order is not S plus graph-load, then loader graph-only, then S alone (t4g.medium) in the header"
+  fi
+fi
+case_end
+
+w15_begin "15.terraform.graph-load.modify-behaviour-and-downtime-are-unverified-or-cite-aws-documentation"
+if w15_need "$W15_GL"; then
+  w15_glc="$(grep '^[[:space:]]*#' "$W15_GL")"
+  printf '%s\n' "$w15_glc" | grep -qi 'downtime' || note_fail "the header does not state the expected downtime"
+  printf '%s\n' "$w15_glc" | grep -qE 'UNVERIFIED|docs\.aws\.amazon\.com' || note_fail "neither UNVERIFIED nor an AWS documentation URL appears in the header"
+  printf '%s\n' "$w15_glc" | grep -qiE 'in-place|in place|modify' || note_fail "the header does not describe the modify behaviour"
+fi
+case_end
+
+w15_begin "15.terraform.graph-load.sets-nothing-the-s-overlay-owns-and-the-class-is-set-by-no-other-overlay"
+for w15_f in "$TF_M" "$TF_L" "$W15_COURSE"; do
+  if [ -f "$w15_f" ] && [ "$(w15_count "$w15_f" neptune_instance_class)" != "0" ]; then note_fail "${w15_f##*/} assigns neptune_instance_class; only the S and graph-load overlays may"; fi
+done
+if [ -f "$W15_GL" ]; then
+  for w15_k in enable_neptune enable_bedrock loader_cpu loader_memory emr_core_instance_count service_desired_count neptune_mode; do
+    [ "$(w15_count "$W15_GL" "$w15_k")" = "0" ] || note_fail "graph-load.tfvars sets $w15_k"
+  done
+else
+  note_fail "missing file: graph-load.tfvars"
+fi
+case_end
+
+### 15.terraform.elasticity-s: Experiment B on S data (min 2, max 4 instances, 8 to 16 vCPU, no Neptune, no services).
+
+w15_begin "15.terraform.elasticity-s.sets-core-1-max-units-4-no-task-spot-and-no-services-each-exactly-once"
+if w15_need "$W15_EL"; then
+  for w15_kv in 'emr_core_instance_count=1' 'emr_managed_scaling_max_units=4' 'emr_task_spot_instance_count=0' 'service_desired_count=0'; do
+    w15_k="${w15_kv%%=*}"
+    w15_v="${w15_kv#*=}"
+    [ "$(w15_count "$W15_EL" "$w15_k")" = "1" ] || note_fail "$w15_k is assigned $(w15_count "$W15_EL" "$w15_k") times, expected once"
+    [ "$(w15_last "$W15_EL" "$w15_k")" = "$w15_v" ] || note_fail "$w15_k is '$(w15_last "$W15_EL" "$w15_k")', expected $w15_v"
+  done
+fi
+case_end
+
+w15_begin "15.terraform.elasticity-s.min-is-below-max-so-it-can-scale-and-the-vcpu-range-is-8-to-16"
+if w15_need "$W15_EL"; then
+  w15_core="$(w15_last "$W15_EL" emr_core_instance_count)"
+  w15_max="$(w15_last "$W15_EL" emr_managed_scaling_max_units)"
+  if tf_is_num "$w15_core" && tf_is_num "$w15_max"; then
+    # Instances the cluster holds at the floor: the primary (fixed, outside the managed scaling limits: K2,
+    # docs/agent-runs/phase-15/wave-1/doc-verification.md, API_ComputeLimits "The limit only applies to the core
+    # and task nodes") plus the core nodes it starts with. This is a count of instances for the vCPU range, NOT
+    # the MinimumCapacityUnits value; that value is checked by 15.terraform.managed-scaling.* below.
+    w15_min=$((1 + w15_core))
+    [ "$w15_min" -lt "$w15_max" ] || note_fail "min $w15_min (1 primary + $w15_core core) is not below max $w15_max: the cluster cannot scale"
+    [ "$w15_min" = "2" ] || note_fail "min instances is $w15_min, expected 2"
+    [ "$w15_max" = "4" ] || note_fail "max instances is $w15_max, expected 4"
+    [ $((w15_min * 4)) = "8" ] || note_fail "min vCPU on m5.xlarge is $((w15_min * 4)), expected 8"
+    [ $((w15_max * 4)) = "16" ] || note_fail "max vCPU on m5.xlarge is $((w15_max * 4)), expected 16"
+  else
+    note_fail "emr_core_instance_count or emr_managed_scaling_max_units is not a whole number"
+  fi
+fi
+case_end
+
+w15_begin "15.terraform.elasticity-s.neptune-and-bedrock-are-off-when-layered-after-the-s-overlay"
+if w15_need "$W15_EL" && w15_need "$TF_S"; then
+  [ "$(w15_eff enable_neptune "$W15_COURSE" "$TF_S" "$W15_EL")" = "false" ] || note_fail "enable_neptune is '$(w15_eff enable_neptune "$W15_COURSE" "$TF_S" "$W15_EL")' after course, S and elasticity-s; expected false (the S overlay turns it on, so this overlay must turn it off)"
+  [ "$(w15_eff enable_bedrock "$W15_COURSE" "$TF_S" "$W15_EL")" = "false" ] || note_fail "enable_bedrock is '$(w15_eff enable_bedrock "$W15_COURSE" "$TF_S" "$W15_EL")' after course, S and elasticity-s; expected false"
+  [ "$(w15_eff service_desired_count "$W15_COURSE" "$TF_S" "$W15_EL")" = "0" ] || note_fail "service_desired_count is not 0 after layering"
+  if w15_code "$W15_EL" | grep -qE '^(enable_neptune|enable_bedrock)[[:space:]]*=[[:space:]]*true'; then note_fail "a code line turns Neptune or Bedrock on"; fi
+  if w15_code "$W15_EL" | grep -qF 'neptune_instance_class'; then note_fail "the elasticity overlay sets a Neptune class although Neptune is off"; fi
+fi
+case_end
+
+w15_begin "15.terraform.elasticity-s.wait-is-set-once-nonzero-and-about-900-s"
+if w15_need "$W15_EL"; then
+  if [ -z "$W15_WF_WAIT" ]; then
+    note_fail "the workflow module declares no wait variable, so the overlay cannot set one"
+  else
+    [ "$(w15_count "$W15_EL" "$W15_CRS_WAIT")" = "1" ] || note_fail "the course wait variable '$W15_CRS_WAIT' is assigned $(w15_count "$W15_EL" "$W15_CRS_WAIT") times in elasticity-s.tfvars, expected once"
+    w15_wv="$(w15_last "$W15_EL" "$W15_CRS_WAIT")"
+    if tf_is_num "$w15_wv"; then
+      { [ "$w15_wv" -ge 600 ] && [ "$w15_wv" -le 1200 ]; } || note_fail "the wait is $w15_wv s, expected about 900 (600 to 1200)"
+    else
+      note_fail "the wait value '$w15_wv' is not a whole number"
+    fi
+  fi
+fi
+case_end
+
+w15_begin "15.terraform.elasticity-s.effective-pipeline-timeouts-pass-rule-a-with-the-wait-and-stay-in-range"
+if w15_need "$W15_EL" && w15_need "$TF_S"; then
+  w15_mx="$(w15_eff pipeline_max_run_seconds "$TF_S" "$W15_EL")"
+  w15_cr="$(w15_eff pipeline_create_cluster_timeout_seconds "$TF_S" "$W15_EL")"
+  w15_st="$(w15_eff pipeline_emr_step_timeout_seconds "$TF_S" "$W15_EL")"
+  w15_wt="$(w15_eff "${W15_CRS_WAIT:-no_such_wait_variable}" "$TF_S" "$W15_EL")"
+  if tf_is_num "$w15_mx" && tf_is_num "$w15_cr" && tf_is_num "$w15_st" && tf_is_num "$w15_wt"; then
+    w15_rule_a_wait "$w15_mx" "$w15_cr" "$w15_st" "$w15_wt" || note_fail "Rule A with the wait fails: max $w15_mx < create $w15_cr + step $w15_st + wait $w15_wt + 600 = $((w15_cr + w15_st + w15_wt + 600))"
+    { [ "$w15_mx" -ge 1800 ] && [ "$w15_mx" -le 10800 ]; } || note_fail "the effective max run $w15_mx is outside 1800 to 10800"
+  else
+    note_fail "an effective value could not be read: max '$w15_mx', create '$w15_cr', step '$w15_st', wait '$w15_wt'"
+  fi
+fi
+case_end
+
+w15_begin "15.terraform.elasticity-s.the-header-says-how-to-layer-it-and-that-neptune-and-services-are-off"
+if w15_need "$W15_EL"; then
+  w15_elc="$(grep '^[[:space:]]*#' "$W15_EL")"
+  for w15_t in 'experiment-size-s.tfvars' 'course.tfvars' 'Neptune' 'Experiment B'; do
+    printf '%s\n' "$w15_elc" | grep -qF -- "$w15_t" || note_fail "the header comment does not mention: $w15_t"
+  done
+fi
+case_end
+
+w15_begin "15.terraform.elasticity-example.is-unchanged-in-values-and-its-header-says-min-equals-max-so-it-cannot-scale"
+if w15_need "$W15_EX"; then
+  [ "$(w15_last "$W15_EX" emr_core_instance_count)" = "4" ] || note_fail "emr_core_instance_count changed from 4"
+  [ "$(w15_last "$W15_EX" emr_task_spot_instance_count)" = "0" ] || note_fail "emr_task_spot_instance_count changed from 0"
+  [ "$(w15_last "$W15_EX" emr_managed_scaling_max_units)" = "5" ] || note_fail "emr_managed_scaling_max_units changed from 5"
+  [ "$(w15_code "$W15_EX" | wc -l | tr -d ' ')" = "3" ] || note_fail "the example holds $(w15_code "$W15_EX" | wc -l | tr -d ' ') code lines, expected the original 3"
+  w15_exh="$(grep '^[[:space:]]*#' "$W15_EX")"
+  printf '%s\n' "$w15_exh" | grep -qiE 'cannot scale|can not scale|can.t scale|does not scale|no scaling' || note_fail "the header does not say the cluster cannot scale"
+  printf '%s\n' "$w15_exh" | grep -qiE 'min(imum)?[^[:alnum:]]+(=|equals|is equal to)[^[:alnum:]]*max|min = max|min equals max' || note_fail "the header does not say min equals max"
+  printf '%s\n' "$w15_exh" | grep -qF '5' || note_fail "the header does not name the size 5"
+  printf '%s\n' "$w15_exh" | grep -qF 'elasticity-s.tfvars' || note_fail "the header does not point to elasticity-s.tfvars"
+fi
+case_end
+
+### 15.terraform.wait: the bounded Step Functions Wait before TerminateCluster (variable, default 0 = absent).
+
+w15_begin "15.terraform.wait.the-module-and-the-course-declare-one-wait-variable-each-with-default-0"
+if [ -z "$W15_WF_WAIT" ]; then
+  note_fail "modules/workflow/variables.tf declares no variable whose name holds wait"
+else
+  [ "$(w15_wait_vars "$WF_VARS" | wc -l | tr -d ' ')" = "1" ] || note_fail "the module declares $(w15_wait_vars "$WF_VARS" | wc -l | tr -d ' ') wait variables, expected one"
+  [ "$(tf_def_in "$WF_VARS" "$W15_WF_WAIT")" = "0" ] || note_fail "the module default of $W15_WF_WAIT is '$(tf_def_in "$WF_VARS" "$W15_WF_WAIT")', expected 0 (absent)"
+  w15_bt="$(w15_block "$WF_VARS" "$W15_WF_WAIT")"
+  printf '%s\n' "$w15_bt" | grep -qE 'type[[:space:]]*=[[:space:]]*number' || note_fail "$W15_WF_WAIT is not a number"
+fi
+if [ -z "$W15_CRS_WAIT" ]; then
+  note_fail "the course variables.tf declares no variable whose name holds wait"
+else
+  [ "$(w15_wait_vars "$CRS_VARS" | wc -l | tr -d ' ')" = "1" ] || note_fail "the course declares $(w15_wait_vars "$CRS_VARS" | wc -l | tr -d ' ') wait variables, expected one"
+  [ "$(tf_def_in "$CRS_VARS" "$W15_CRS_WAIT")" = "0" ] || note_fail "the course default of $W15_CRS_WAIT is '$(tf_def_in "$CRS_VARS" "$W15_CRS_WAIT")', expected 0 (absent)"
+fi
+case_end
+
+w15_begin "15.terraform.wait.the-variable-is-bounded-above-and-below-by-a-validation"
+if [ -n "$W15_WF_WAIT" ]; then
+  w15_bt="$(w15_block "$WF_VARS" "$W15_WF_WAIT")"
+  printf '%s\n' "$w15_bt" | grep -q 'validation' || note_fail "$W15_WF_WAIT has no validation block"
+  w15_cond="$(printf '%s\n' "$w15_bt" | grep 'condition' | head -n 1)"
+  case "$w15_cond" in
+    *'>= 0'*) ;;
+    *) note_fail "the validation has no lower bound >= 0: $w15_cond" ;;
+  esac
+  case "$w15_cond" in
+    *'<='*) ;;
+    *) note_fail "the validation has no upper bound (<=): $w15_cond" ;;
+  esac
+  w15_ub="$(printf '%s\n' "$w15_cond" | sed -n 's/.*<=[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n 1)"
+  if tf_is_num "$w15_ub"; then
+    { [ "$w15_ub" -ge 900 ] && [ "$w15_ub" -le 3600 ]; } || note_fail "the upper bound $w15_ub is outside 900 to 3600: it must admit the 900 s overlay value and stay bounded"
+  else
+    note_fail "the upper bound is not a whole number literal: $w15_cond"
+  fi
+else
+  note_fail "no wait variable to check"
+fi
+case_end
+
+w15_begin "15.terraform.wait.the-course-passes-the-wait-to-the-workflow-module"
+if w15_need "$W15_CRSMAIN" && [ -n "$W15_WF_WAIT" ] && [ -n "$W15_CRS_WAIT" ]; then
+  w15_code "$W15_CRSMAIN" | grep -qE "^[[:space:]]*$W15_WF_WAIT[[:space:]]*=[[:space:]]*var\\.$W15_CRS_WAIT[[:space:]]*\$" || note_fail "course main.tf does not wire $W15_WF_WAIT = var.$W15_CRS_WAIT"
+else
+  note_fail "the wait variable names could not be discovered"
+fi
+case_end
+
+w15_begin "15.terraform.wait.the-state-machine-has-a-wait-state-only-when-the-variable-is-non-zero-and-it-leads-to-terminate-cluster"
+if w15_need "$W15_WFMAIN" && [ -n "$W15_WF_WAIT" ]; then
+  w15_wm="$(w15_code "$W15_WFMAIN")"
+  printf '%s\n' "$w15_wm" | grep -qE 'Type[[:space:]]*=[[:space:]]*"Wait"' || note_fail "main.tf has no state of Type Wait"
+  printf '%s\n' "$w15_wm" | grep -qE "var\\.$W15_WF_WAIT[[:space:]]*(>|!=)[[:space:]]*0" || note_fail "main.tf has no test that var.$W15_WF_WAIT is non-zero (> 0 or != 0)"
+  printf '%s\n' "$w15_wm" | grep -qE "Seconds[[:space:]]*=[[:space:]]*var\\.$W15_WF_WAIT" || note_fail "the Wait state does not take Seconds from var.$W15_WF_WAIT"
+  w15_wl="$(printf '%s\n' "$w15_wm" | grep -nE 'Type[[:space:]]*=[[:space:]]*"Wait"' | head -n 1 | cut -d: -f1)"
+  if [ -n "$w15_wl" ]; then
+    printf '%s\n' "$w15_wm" | sed -n "${w15_wl},$((w15_wl + 8))p" | grep -qF 'TerminateCluster' || note_fail "the Wait state does not go to TerminateCluster within 8 lines"
+  fi
+  [ "$(printf '%s\n' "$w15_wm" | grep -cE 'Type[[:space:]]*=[[:space:]]*"Wait"')" = "1" ] || note_fail "expected exactly one Wait state"
+else
+  note_fail "the workflow main.tf or the wait variable name is not available"
+fi
+case_end
+
+w15_begin "15.terraform.wait.default-state-machine-is-unchanged-no-overlay-except-elasticity-s-sets-the-wait"
+if [ -n "$W15_CRS_WAIT" ]; then
+  for w15_f in "$W15_COURSE" "$TF_S" "$TF_M" "$TF_L" "$W15_GL" "$W15_EX" "$W15_ENV/session-down.tfvars" "$W15_ENV/cleanup.tfvars"; do
+    [ -f "$w15_f" ] || continue
+    [ "$(w15_count "$w15_f" "$W15_CRS_WAIT")" = "0" ] || note_fail "${w15_f##*/} sets $W15_CRS_WAIT; only elasticity-s.tfvars may"
+  done
+else
+  note_fail "no course wait variable to look for"
+fi
+case_end
+
+w15_begin "15.terraform.wait.rule-a-in-the-module-counts-create-step-wait-and-600-and-the-message-names-the-wait"
+if [ -n "$W15_WF_WAIT" ]; then
+  w15_rl="$(grep -F 'var.max_run_seconds >= var.create_cluster_timeout_seconds' "$WF_VARS" | grep -F "var.$W15_WF_WAIT" | head -n 1)"
+  [ -n "$w15_rl" ] || note_fail "no Rule A condition line (max_run_seconds >= create + ...) holds var.$W15_WF_WAIT"
+  for w15_t in 'var.create_cluster_timeout_seconds' 'var.emr_step_timeout_seconds' "var.$W15_WF_WAIT" '+ 600'; do
+    case "$w15_rl" in
+      *"$w15_t"*) ;;
+      *) note_fail "the Rule A condition lacks $w15_t: $w15_rl" ;;
+    esac
+  done
+  w15_re="$(grep -F 'Rule A' "$WF_VARS" | grep -F 'error_message' | grep -F "$W15_WF_WAIT" | head -n 1)"
+  case "$w15_re" in
+    *"$W15_WF_WAIT"*) ;;
+    *) note_fail "the Rule A error message does not name $W15_WF_WAIT: $w15_re" ;;
+  esac
+  if grep -qE '2[[:space:]]*\*[[:space:]]*var[.]emr_step_timeout_seconds' "$WF_VARS"; then note_fail "Rule A counts the step twice again"; fi
+else
+  note_fail "no wait variable to look for in Rule A"
+fi
+case_end
+
+w15_begin "15.terraform.wait.the-rule-a-evaluator-counts-the-wait-at-the-boundary-and-s-with-900-s-needs-a-longer-execution-timeout"
+w15_rule_a_wait 6540 1440 3600 900 || note_fail "the exact boundary 6540 = 1440 + 3600 + 900 + 600 was refused"
+if w15_rule_a_wait 6539 1440 3600 900; then note_fail "one below the boundary was accepted"; fi
+if w15_rule_a_wait 7200 1440 "" 900; then note_fail "an empty step was accepted"; fi
+if w15_rule_a_wait 7200 1440 4800 900; then note_fail "S values 1440 + 4800 + 900 + 600 = 7740 were accepted under 7200"; fi
+w15_rule_a_wait 7200 1440 4800 0 || note_fail "the S values with no wait (6840) were refused under 7200"
+w15_rule_a_wait 10800 1440 4800 900 || note_fail "the S values with a 900 s wait (7740) were refused under 10800"
+case_end
+
+w15_begin "15.terraform.wait.module-defaults-and-every-size-overlay-still-pass-rule-a-with-the-wait-at-0"
+if [ -n "$W15_WF_WAIT" ]; then
+  w15_w0="$(tf_def_in "$WF_VARS" "$W15_WF_WAIT")"
+  w15_rule_a_wait "$(tf_def_in "$WF_VARS" max_run_seconds)" "$(tf_def_in "$WF_VARS" create_cluster_timeout_seconds)" "$(tf_def_in "$WF_VARS" emr_step_timeout_seconds)" "$w15_w0" || note_fail "the module defaults fail Rule A with the default wait '$w15_w0'"
+  for w15_f in "$TF_S" "$TF_M" "$TF_L"; do
+    tf_overlay "$w15_f"
+    w15_rule_a_wait "$TF_MAX" "$TF_CREATE" "$TF_STEP" "$w15_w0" || note_fail "${w15_f##*/} fails Rule A with the default wait '$w15_w0'"
+  done
+else
+  note_fail "no wait variable to check"
+fi
+case_end
+
+### 15.presession: the read-only checks for the human (P15-8, P15-4) hold no mutating AWS verb.
+
+W15_PS_DOC=""
+W15_PS_SEC="$WORK/w15-presession-section.md"
+W15_PS_BLK="$WORK/w15-presession-blocks"
+for w15_d in "$REAL_ROOT/scripts/README.md" "$TF_DIR/README.md"; do
+  [ -f "$w15_d" ] || continue
+  awk -v pat="phase 15 pre-session checks" '
+    /^```/ { fence = !fence; if (insec) print; next }
+    !fence && /^#+[[:space:]]/ {
+      match($0, /^#+/); lvl = RLENGTH
+      if (insec && lvl <= slvl) { exit }
+      if (!insec && index(tolower($0), pat) > 0) { insec = 1; slvl = lvl; next }
+    }
+    insec { print }
+  ' "$w15_d" > "$W15_PS_SEC"
+  if [ -s "$W15_PS_SEC" ]; then
+    W15_PS_DOC="$w15_d"
+    break
+  fi
+done
+mkdir -p "$W15_PS_BLK"
+if [ -s "$W15_PS_SEC" ]; then
+  awk -v d="$W15_PS_BLK" '
+    /^```/ { if (inb) { inb = 0; close(f) } else { inb = 1; n++; f = d "/" n ".txt" } next }
+    inb { print > f }
+  ' "$W15_PS_SEC"
+fi
+W15_PS_AWS=""
+for w15_b in "$W15_PS_BLK"/*.txt; do
+  [ -f "$w15_b" ] || continue
+  if grep -qE '(^|[[:space:]|;(])aws[[:space:]]' "$w15_b"; then W15_PS_AWS="$W15_PS_AWS $w15_b"; fi
+done
+
+w15_begin "15.presession.the-section-exists-with-the-heading-phase-15-pre-session-checks-and-holds-aws-command-blocks"
+[ -n "$W15_PS_DOC" ] || note_fail "no section headed 'Phase 15 pre-session checks' in scripts/README.md or infra/terraform/README.md"
+w15_psn=0
+for w15_b in $W15_PS_AWS; do w15_psn=$((w15_psn + 1)); done
+[ "$w15_psn" -ge 1 ] || note_fail "the section holds no fenced block with an aws command"
+case_end
+
+# w15_ps_verb_ok SERVICE VERB: succeeds for a get-, list- or describe- verb, for the long-standing read-only
+# `s3 ls`, and for the entries of the explicit allowlist of non-mutating calls below. Nothing else passes.
+#
+# Allowlist of non-mutating AWS calls that are not get-/list-/describe- (exact SERVICE VERB pair, no pattern):
+#   stepfunctions validate-state-machine-definition
+#     Approved by decision P15-8, pre-session check 5b. Verified in
+#     docs/agent-runs/phase-15/wave-1/doc-verification.md: it checks a definition and creates nothing.
+# It is the only entry. Another validate-* verb, or the same verb on another service, is NOT allowed.
+w15_ps_verb_ok() {
+  case "$2" in
+    get-* | list-* | describe-*) return 0 ;;
+  esac
+  [ "$1 $2" = "s3 ls" ] && return 0
+  [ "$1 $2" = "stepfunctions validate-state-machine-definition" ] && return 0
+  return 1
+}
+
+w15_begin "15.presession.every-aws-call-is-a-read-get-list-or-describe-and-no-mutating-verb-appears"
+for w15_b in $W15_PS_AWS; do
+  while read -r w15_svc w15_verb; do
+    [ -n "$w15_svc" ] || continue
+    w15_ps_verb_ok "$w15_svc" "$w15_verb" || note_fail "block ${w15_b##*/}: 'aws $w15_svc $w15_verb' is not a get-, list- or describe- call and is not on the allowlist of non-mutating calls"
+  done < <(awk '{ for (i = 1; i < NF; i++) if ($i == "aws") { s = $(i + 1); v = $(i + 2); if (s !~ /^-/) print s " " v } }' "$w15_b")
+  for w15_m in request-service-quota-increase invoke-model converse create- delete- put- update- modify- start- stop- terminate- run-instances tag- untag- attach- detach- enable- disable- apply-; do
+    if grep -qE -- "(^|[[:space:]])$w15_m" "$w15_b"; then note_fail "block ${w15_b##*/} contains the mutating text: $w15_m"; fi
+  done
+done
+[ -n "$W15_PS_AWS" ] || note_fail "no aws block to check"
+case_end
+
+w15_begin "15.presession.the-allowlist-of-non-mutating-calls-holds-only-validate-state-machine-definition-and-refuses-every-other-verb"
+w15_ps_verb_ok stepfunctions validate-state-machine-definition || note_fail "the approved call (P15-8, check 5b) is refused"
+w15_ps_verb_ok stepfunctions describe-execution || note_fail "describe-execution is refused"
+w15_ps_verb_ok servicequotas get-service-quota || note_fail "get-service-quota is refused"
+w15_ps_verb_ok s3 ls || note_fail "s3 ls is refused"
+for w15_nv in \
+  'stepfunctions validate-state-machine-definition-x' \
+  'stepfunctions validate-state-machine' \
+  'stepfunctions validate-state-machine-definitions' \
+  'stepfunctions validate' \
+  'cloudformation validate-template' \
+  'cloudformation validate-state-machine-definition' \
+  'emr validate-cluster' \
+  'stepfunctions start-execution' \
+  'stepfunctions stop-execution' \
+  'stepfunctions create-state-machine' \
+  'stepfunctions delete-state-machine' \
+  'stepfunctions update-state-machine' \
+  'ec2 run-instances' \
+  'emr terminate-job-flows' \
+  'servicequotas request-service-quota-increase' \
+  's3 rm' \
+  's3 cp' \
+  'validate-state-machine-definition stepfunctions'; do
+  # shellcheck disable=SC2086
+  if w15_ps_verb_ok $w15_nv; then note_fail "'aws $w15_nv' is accepted, expected a refusal"; fi
+done
+case_end
+
+w15_begin "15.presession.the-commands-name-ec2-and-fargate-quotas-through-service-quotas-get-service-quota-with-quota-codes"
+w15_all="$(for w15_b in $W15_PS_AWS; do cat "$w15_b"; done)"
+if [ -n "$w15_all" ]; then
+  [ "$(printf '%s\n' "$w15_all" | grep -c 'aws service-quotas get-service-quota')" -ge 2 ] || note_fail "fewer than two 'aws service-quotas get-service-quota' commands"
+  printf '%s\n' "$w15_all" | grep -qE -- '--service-code[[:space:]]+ec2' || note_fail "no --service-code ec2 (Running On-Demand Standard instances)"
+  printf '%s\n' "$w15_all" | grep -qE -- '--service-code[[:space:]]+fargate' || note_fail "no --service-code fargate (Fargate On-Demand vCPU)"
+  [ "$(printf '%s\n' "$w15_all" | grep -oE 'L-[0-9A-F]{8}' | sort -u | wc -l | tr -d ' ')" -ge 2 ] || note_fail "fewer than two distinct quota codes of the form L-XXXXXXXX"
+else
+  note_fail "no aws block to check"
+fi
+case_end
+
+w15_begin "15.presession.the-bedrock-check-is-read-only-names-haiku-and-runs-in-us-east-2"
+if [ -n "$w15_all" ]; then
+  printf '%s\n' "$w15_all" | grep -qE 'aws bedrock (list-inference-profiles|get-foundation-model-availability|list-foundation-models|get-inference-profile|get-foundation-model)' || note_fail "no read-only aws bedrock command (list-inference-profiles, get-foundation-model-availability, list-foundation-models, get-inference-profile or get-foundation-model)"
+  grep -qi 'haiku' "$W15_PS_SEC" || note_fail "the section does not name the Haiku model"
+else
+  note_fail "no aws block to check"
+fi
+case_end
+
+w15_begin "15.presession.every-command-is-in-us-east-2-and-no-other-region-appears"
+if [ -s "$W15_PS_SEC" ]; then
+  for w15_b in $W15_PS_AWS; do
+    grep -qF 'us-east-2' "$w15_b" || note_fail "block ${w15_b##*/} does not name us-east-2"
+  done
+  if grep -qE '(us-east-1|us-west-[12]|eu-[a-z]+-[0-9]|ap-[a-z]+-[0-9]|ca-central-1|sa-east-1)' "$W15_PS_SEC"; then note_fail "the section names a Region other than us-east-2"; fi
+else
+  note_fail "no section"
+fi
+case_end
+
+w15_begin "15.presession.every-block-has-the-paste-ready-form-profile-pipefail-log-tee-and-the-tail-exit-ending"
+# SC2016: the single-quoted case pattern holds a literal $? that must not expand.
+# shellcheck disable=SC2016
+for w15_b in $W15_PS_AWS; do
+  grep -qF 'AWS_PROFILE=scholarchain' "$w15_b" || note_fail "block ${w15_b##*/} lacks AWS_PROFILE=scholarchain"
+  grep -qF 'set -o pipefail' "$w15_b" || note_fail "block ${w15_b##*/} lacks set -o pipefail"
+  grep -qF '/Users/winnguyen/scholarchain-data/logs/' "$w15_b" || note_fail "block ${w15_b##*/} does not log under /Users/winnguyen/scholarchain-data/logs/"
+  grep -qF 'tee' "$w15_b" || note_fail "block ${w15_b##*/} does not tee its log"
+  w15_lastl="$(grep -v '^[[:space:]]*$' "$w15_b" | tail -n 1)"
+  case "$w15_lastl" in
+    *'| tail -n 60; echo "exit: $?"'*) ;;
+    *) note_fail "block ${w15_b##*/} does not end with | tail -n 60; echo \"exit: \$?\": $w15_lastl" ;;
+  esac
+done
+[ -n "$W15_PS_AWS" ] || note_fail "no aws block to check"
+case_end
+
+w15_begin "15.presession.cites-aws-documentation-pages-for-the-quota-codes-and-the-bedrock-command"
+if [ -s "$W15_PS_SEC" ]; then
+  [ "$(grep -oE 'https://docs\.aws\.amazon\.com/[A-Za-z0-9_./#-]+' "$W15_PS_SEC" | sort -u | wc -l | tr -d ' ')" -ge 2 ] || note_fail "fewer than two distinct docs.aws.amazon.com pages are cited"
+else
+  note_fail "no section"
+fi
+case_end
+
+w15_begin "15.presession.no-account-id-in-the-section-or-in-the-new-overlays"
+for w15_f in "$W15_PS_SEC" "$W15_GL" "$W15_EL"; do
+  [ -s "$w15_f" ] || continue
+  if grep -qE '(^|[^0-9])[0-9]{12}([^0-9]|$)' "$w15_f"; then note_fail "${w15_f##*/} holds a 12-digit number (an account ID?)"; fi
+done
+[ -s "$W15_PS_SEC" ] || note_fail "no section"
+case_end
+
+### Case 15b: Phase 15 Wave 1 work order 1b (the multi-node path, partition pass-through, profile, skip loader,
+### baseline overlay) and the experiment entry points (WO-12a follow-up) ----------------------------------------
+# Static cases read scripts/emr/*, the workflow module and the overlays as text. Dynamic cases CUT a block out of
+# the real run-s-pipeline.sh (comment-free copy) and run it in a child shell that sources the real lib-emr.sh, with
+# shell functions standing in for hdfs, yarn, hostname and timeout, so no stub on PATH is reached. The collector
+# and the two entry points are run against a fake aws and a fake run-bounded-pipeline.sh in a temporary tree.
+# Nothing is run on a node. Expected results are listed in tests/scripts/README.md.
+
+W15_FXROOT="$WORK/w15-fx"
+mkdir -p "$W15_FXROOT"
+
+# w15_cut FILE START END OUT: the lines from the first line holding START up to, not including, the first later
+# line holding END.
+w15_cut() {
+  awk -v s="$2" -v e="$3" 'f == 0 && index($0, s) { f = 1; print; next } f == 1 && index($0, e) { exit } f == 1 { print }' "$1" > "$4"
+}
+
+# w15_fx NAME: a clean fixture directory with an empty home and calls log. Sets W15_FX.
+w15_fx() {
+  W15_FX="$W15_FXROOT/$1"
+  rm -rf "$W15_FX"
+  mkdir -p "$W15_FX/home"
+  : > "$W15_FX/calls.log"
+}
+
+# w15_yarn_list HOST[=STATE]...: the yarn node -list table the fake yarn prints (state RUNNING unless given).
+w15_yarn_list() {
+  local h st
+  {
+    printf 'Total Nodes:%s\n         Node-Id\t     Node-State\tNode-Http-Address\tNumber-of-Running-Containers\n' "$#"
+    for h in "$@"; do
+      st=RUNNING
+      case "$h" in
+        *=*) st="${h#*=}"; h="${h%%=*}" ;;
+      esac
+      printf '%s:8041\t%s\t%s:8042\t0\n' "$h" "$st" "$h"
+    done
+  } > "$W15_FX/yarn.txt"
+}
+
+W15_B_DATA="$CODE_DIR/w15-block-data.sh"
+W15_B_HEXTRA="$CODE_DIR/w15-block-hextra.sh"
+W15_B_SMASTER="$CODE_DIR/w15-block-smaster.sh"
+w15_cut "$emr_run" 'local dmode dmode_conf hrun=""' 'pc="$(conf_value PARTITION_COUNT' "$W15_B_DATA"
+w15_cut "$emr_run" 'pc="$(conf_value PARTITION_COUNT' 'local dsets=(crossref' "$W15_B_HEXTRA"
+# R4: the Spark master is resolved in the hadoop stage with the data path (it is part of RUN_SCOPE), and the
+# spark stage only applies it. The smaster block is the data path block followed by the spark stage block.
+W15_B_SPARKSTAGE="$CODE_DIR/w15-block-sparkstage.sh"
+w15_cut "$emr_run" 'local shuffle' 'mkdir -p "$sout"' "$W15_B_SPARKSTAGE"
+cat "$W15_B_DATA" "$W15_B_SPARKSTAGE" > "$W15_B_SMASTER"
+
+# One child for the three blocks. MODE data runs the data path block (detect_remote_yarn_nodes included), hextra the
+# -D options block, smaster the Spark master and shuffle block, detect only detect_remote_yarn_nodes.
+cat > "$CODE_DIR/w15-block-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"; BLOCK="$3"; MODE="$4"; REMOTE="${5:-unknown}"; PROFILE="${6:-}"
+SC_HOME="$FIX/home"
+source "$LIB"
+SC_PROFILE="$PROFILE"
+SC_REMOTE_NODES="$REMOTE"
+hostname() {
+  if [ -f "$FIX/no-hostname" ]; then return 1; fi
+  printf 'ip-10-0-0-1\n'
+}
+timeout() {
+  if [ "${1:-}" = "-k" ]; then shift 2; fi
+  shift
+  "$@"
+}
+sleep() {
+  printf '%s\n' "${1:-0}" >> "$FIX/sleeps.log"
+  SECONDS=$((SECONDS + ${1%%.*}))
+}
+date() {
+  if [ "${1:-}" = "+%s" ]; then printf '%s\n' "$((1000000000 + SECONDS))"; else command date "$@"; fi
+}
+yarn() {
+  if [ -f "$FIX/yarn-fails" ]; then return 1; fi
+  if [ -f "$FIX/yarn-late-after" ]; then
+    ycount="$(cat "$FIX/yarn-count" 2> /dev/null || printf 0)"
+    ycount=$((ycount + 1))
+    printf '%s\n' "$ycount" > "$FIX/yarn-count"
+    if [ "$ycount" -gt "$(cat "$FIX/yarn-late-after")" ]; then cat "$FIX/yarn-late.txt"; return 0; fi
+  fi
+  cat "$FIX/yarn.txt"
+}
+hdfs() { printf 'HDFS %s\n' "$*" >> "$FIX/calls.log"; }
+raw=/x/raw; hout=/x/hadoop-out; run_id=run-v1-test; mode=client
+PRE=""
+case "$MODE" in
+  data) TAIL='printf "H_IN=%s\nH_OUT=%s\nDMODE=%s\nHRUN=%s\nREMOTE=%s\nSMASTER=%s\n" "$h_in" "$h_out" "$dmode" "$hrun" "$SC_REMOTE_NODES" "$smaster"' ;;
+  hextra) PRE='local hextra=() hextra_text="" pc split mapmb redmb'; TAIL='printf "N=%s\n" "${#hextra[@]}"; for x in ${hextra[@]+"${hextra[@]}"}; do printf "OPT=%s\n" "$x"; done' ;;
+  smaster) TAIL='printf "MASTER=%s\nMODE=%s\nSHUFFLE=%s\nDRIVERMEM=%s\nSMASTER=%s\n" "$SC_SPARK_MASTER" "$mode" "$shuffle" "$SC_LOCAL_DRIVER_MEMORY" "$smaster"' ;;
+  detect) TAIL='detect_remote_yarn_nodes; printf "REMOTE=%s\n" "$SC_REMOTE_NODES"' ;;
+esac
+{ printf 'f() {\n%s\n' "$PRE"; if [ "$MODE" != "detect" ]; then cat "$BLOCK"; fi; printf '%s\n}\n' "$TAIL"; } > "$FIX/f.sh"
+source "$FIX/f.sh"
+f
+EOF
+
+# w15_run MODE BLOCK [REMOTE] [PROFILE]
+w15_run() {
+  run bash "$CODE_DIR/w15-block-child.sh" "$EMR_DIR/lib-emr.sh" "$W15_FX" "$2" "$1" "${3:-unknown}" "${4:-}"
+}
+
+# w15_dies FRAGMENT: the child died with the evidence line.
+w15_dies() {
+  a_rc 1
+  a_err_evidence
+  a_err "$1"
+  a_trip_empty
+}
+
+### 15.emr.data-path: core 0 keeps the file:/// URIs, the HDFS branch only when remote nodes are detected.
+
+w15_fx dp-core0
+w15_yarn_list ip-10-0-0-1.ec2.internal
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.core-0-auto-keeps-the-file-uris-and-calls-no-hdfs"
+mr_ok
+a_out 'H_IN=file:///x/raw'
+a_out 'H_OUT=file:///x/hadoop-out'
+a_out 'DMODE=file'
+a_out_re '^HRUN=$'
+a_out 'REMOTE=0'
+a_out_re '^YARN_REMOTE_NODES=0 '
+a_out 'DATA_PATH_MODE=file'
+a_not_out 'HDFS_RUN_DIR'
+[ ! -s "$W15_FX/calls.log" ] || note_fail "hdfs was called on a one-node cluster: $(head -n 1 "$W15_FX/calls.log")"
+case_end
+
+w15_fx dp-core1
+w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.a-remote-yarn-node-switches-auto-to-hdfs-with-the-run-directory-under-user-hadoop-sc-run"
+mr_ok
+a_out 'DMODE=hdfs'
+a_out 'REMOTE=1'
+a_out 'H_IN=hdfs:///user/hadoop/sc/run/run-v1-test/raw'
+a_out 'H_OUT=hdfs:///user/hadoop/sc/run/run-v1-test/hadoop-out'
+a_out 'HRUN=/user/hadoop/sc/run/run-v1-test'
+a_out 'DATA_PATH_MODE=hdfs'
+a_out 'HDFS_RUN_DIR=/user/hadoop/sc/run/run-v1-test'
+grep -qxF 'HDFS dfs -mkdir -p /user/hadoop/sc/run/run-v1-test/raw' "$W15_FX/calls.log" || note_fail "no hdfs dfs -mkdir -p of the raw directory: $(head -n 1 "$W15_FX/calls.log")"
+grep -qxF 'HDFS dfs -put /x/raw/dblp-subset.xml /x/raw/crossref.jsonl /x/raw/openalex.jsonl /x/raw/orcid.jsonl /user/hadoop/sc/run/run-v1-test/raw/' "$W15_FX/calls.log" || note_fail "the four inputs were not put into the HDFS raw directory"
+[ "$(grep -c '^HDFS ' "$W15_FX/calls.log")" = "2" ] || note_fail "expected two hdfs calls in this block (mkdir and put)"
+case_end
+
+w15_fx dp-unknown
+w15_yarn_list ip-10-0-0-1.ec2.internal
+: > "$W15_FX/yarn-fails"
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.an-unreadable-node-list-gives-unknown-and-stays-on-file-uris"
+mr_ok
+a_out 'DMODE=file'
+a_out 'REMOTE=unknown'
+a_out 'H_IN=file:///x/raw'
+[ ! -s "$W15_FX/calls.log" ] || note_fail "hdfs was called although no remote node was detected"
+case_end
+
+w15_fx dp-no-hostname
+w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal
+: > "$W15_FX/no-hostname"
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.no-hostname-gives-unknown-even-with-a-remote-node-listed-and-stays-on-file-uris"
+mr_ok
+a_out 'DMODE=file'
+a_out 'REMOTE=unknown'
+[ ! -s "$W15_FX/calls.log" ] || note_fail "hdfs was called without a host name to compare"
+case_end
+
+w15_fx dp-two-remote
+w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal ip-10-0-0-3.ec2.internal
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.two-remote-nodes-are-counted-as-two"
+mr_ok
+a_out 'REMOTE=2'
+a_out 'DMODE=hdfs'
+case_end
+
+w15_fx dp-not-running
+w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal=LOST ip-10-0-0-3.ec2.internal=DECOMMISSIONED
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.a-node-that-is-not-running-is-not-a-remote-node"
+mr_ok
+a_out 'REMOTE=0'
+a_out 'DMODE=file'
+case_end
+
+w15_fx dp-same-label
+w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-1.other.domain
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.the-host-is-compared-by-its-first-label-as-the-code-says"
+mr_ok
+a_out 'REMOTE=0'
+case_end
+
+w15_fx dp-force-file
+w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal
+printf 'DATA_PATH=file\n' > "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.data-path-file-forces-file-uris-even-with-a-remote-node"
+mr_ok
+a_out 'DMODE=file'
+a_out 'REMOTE=1'
+[ ! -s "$W15_FX/calls.log" ] || note_fail "hdfs was called with DATA_PATH=file"
+case_end
+
+# M1 (review 1), R4: DATA_PATH=hdfs is forced for b-burst. With a numeric 0 remote nodes, after a bounded wait
+# (NM_WAIT_SECONDS, default 300), the block dies clearly and does not fall back to file:///. This replaces
+# the old case that expected DMODE=hdfs on a one-node cluster (that behaviour is the defect M1 names).
+# The stub clock: sleep advances SECONDS and date +%s follows it, so the wait costs no real time.
+# w15_slept: the simulated seconds slept so far.
+w15_slept() {
+  if [ -f "$W15_FX/sleeps.log" ]; then awk '{ s += $1 } END { print s + 0 }' "$W15_FX/sleeps.log"; else printf '0'; fi
+}
+w15_fx dp-force-hdfs-none
+w15_yarn_list ip-10-0-0-1.ec2.internal
+printf 'DATA_PATH=hdfs\n' > "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.data-path-hdfs-with-no-remote-node-fails-clearly-after-a-bounded-wait-and-never-falls-back-to-file-uris"
+w15_dies 'DATA_PATH=hdfs is forced'
+a_err 'Not falling back to file:///'
+grep -qiE 'NodeManager' "$ERR" || note_fail "the refusal does not name the missing NodeManager"
+a_not_out 'DMODE='
+a_not_out 'H_IN=file://'
+[ ! -s "$W15_FX/calls.log" ] || note_fail "hdfs was called although no remote node was found: $(head -n 1 "$W15_FX/calls.log")"
+[ "$(w15_slept)" -le 330 ] || note_fail "the wait slept $(w15_slept) s in the stub clock, more than the default 300 s plus one poll"
+case_end
+
+w15_fx dp-force-hdfs-none-wait-30
+w15_yarn_list ip-10-0-0-1.ec2.internal
+printf 'DATA_PATH=hdfs\nNM_WAIT_SECONDS=30\n' > "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.nm-wait-seconds-30-bounds-the-wait-to-about-30-s"
+w15_dies 'DATA_PATH=hdfs is forced'
+[ "$(w15_slept)" -le 60 ] || note_fail "the wait slept $(w15_slept) s with NM_WAIT_SECONDS=30"
+a_not_out 'DMODE='
+case_end
+
+w15_fx dp-force-hdfs-none-wait-0
+w15_yarn_list ip-10-0-0-1.ec2.internal
+printf 'DATA_PATH=hdfs\nNM_WAIT_SECONDS=0\n' > "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.nm-wait-seconds-0-fails-at-once-without-sleeping"
+w15_dies 'DATA_PATH=hdfs is forced'
+[ "$(w15_slept)" -le 15 ] || note_fail "the wait slept $(w15_slept) s with NM_WAIT_SECONDS=0"
+case_end
+
+w15_fx dp-force-hdfs-bad-wait
+w15_yarn_list ip-10-0-0-1.ec2.internal
+printf 'DATA_PATH=hdfs\nNM_WAIT_SECONDS=-5\n' > "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.a-bad-nm-wait-seconds-is-refused"
+w15_dies 'spark-yarn.conf: NM_WAIT_SECONDS has an invalid value'
+[ ! -s "$W15_FX/calls.log" ] || note_fail "hdfs was called before the refusal"
+case_end
+
+w15_fx dp-force-hdfs-remote
+w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal
+printf 'DATA_PATH=hdfs\n' > "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.data-path-hdfs-with-a-remote-node-uses-hdfs"
+mr_ok
+a_out 'DMODE=hdfs'
+a_out 'REMOTE=1'
+a_out 'H_IN=hdfs:///user/hadoop/sc/run/run-v1-test/raw'
+a_out 'RUN_SCOPE='
+case_end
+
+w15_fx dp-force-hdfs-late
+w15_yarn_list ip-10-0-0-1.ec2.internal
+w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal
+cp "$W15_FX/yarn.txt" "$W15_FX/yarn-late.txt"
+w15_yarn_list ip-10-0-0-1.ec2.internal
+printf '2\n' > "$W15_FX/yarn-late-after"
+printf 'DATA_PATH=hdfs\n' > "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.a-core-node-that-registers-during-the-wait-lets-the-forced-hdfs-run-go-on"
+mr_ok
+a_out 'DMODE=hdfs'
+a_out 'REMOTE=1'
+[ "$(w15_slept)" -ge 1 ] || note_fail "no wait happened although the node was not there at first"
+case_end
+
+w15_fx dp-force-hdfs-unknown
+w15_yarn_list ip-10-0-0-1.ec2.internal
+: > "$W15_FX/yarn-fails"
+printf 'DATA_PATH=hdfs\n' > "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.data-path-hdfs-with-an-unreadable-node-list-is-recorded-as-unknown-and-the-run-continues"
+mr_ok
+a_out 'DMODE=hdfs'
+a_out 'REMOTE=unknown'
+a_out 'YARN_REMOTE_NODES=unknown'
+case_end
+
+# The real conf, per profile: a-baseline pins file, b-burst pins hdfs, whatever the node list says.
+w15_fx dp-real-a-remote
+w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal
+cp "$EMR_DIR/spark-yarn.conf" "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA" unknown a-baseline
+case_begin "15.emr.data-path.the-real-conf-pins-profile-a-baseline-to-file-uris-even-with-a-remote-node"
+mr_ok
+a_out 'DMODE=file'
+a_out 'H_IN=file:///x/raw'
+a_out 'SMASTER=yarn'
+[ ! -s "$W15_FX/calls.log" ] || note_fail "hdfs was called for a-baseline"
+case_end
+
+w15_fx dp-real-a-one
+w15_yarn_list ip-10-0-0-1.ec2.internal
+cp "$EMR_DIR/spark-yarn.conf" "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA" unknown a-baseline
+case_begin "15.emr.data-path.the-real-conf-gives-profile-a-baseline-file-uris-on-a-one-node-cluster"
+mr_ok
+a_out 'DMODE=file'
+a_out 'SMASTER=yarn'
+case_end
+
+w15_fx dp-real-b-remote
+w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal
+cp "$EMR_DIR/spark-yarn.conf" "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA" unknown b-burst
+case_begin "15.emr.data-path.the-real-conf-pins-profile-b-burst-to-hdfs-and-a-local-spark-master"
+mr_ok
+a_out 'DMODE=hdfs'
+a_out 'SMASTER=local'
+a_out 'H_IN=hdfs:///user/hadoop/sc/run/run-v1-test/raw'
+grep -qxF 'HDFS dfs -mkdir -p /user/hadoop/sc/run/run-v1-test/raw' "$W15_FX/calls.log" || note_fail "no hdfs dfs -mkdir -p of the raw directory"
+case_end
+
+w15_fx dp-real-b-none
+w15_yarn_list ip-10-0-0-1.ec2.internal
+cp "$EMR_DIR/spark-yarn.conf" "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA" unknown b-burst
+case_begin "15.emr.data-path.the-real-conf-makes-profile-b-burst-fail-clearly-when-no-core-node-registers"
+w15_dies 'DATA_PATH=hdfs is forced'
+a_err "profile 'b-burst'"
+a_not_out 'DMODE='
+[ ! -s "$W15_FX/calls.log" ] || note_fail "hdfs was called"
+case_end
+
+# R4 item 6 (m2): RUN_SCOPE is recorded once the data path and the Spark master are resolved and says which mode ran.
+w15_fx rs-hdfs-local
+w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal
+cp "$EMR_DIR/spark-yarn.conf" "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA" unknown b-burst
+case_begin "15.emr.run-scope.hdfs-and-local-spark-run-says-so"
+mr_ok
+a_out_re '^RUN_SCOPE=.*HDFS'
+a_out_re '^RUN_SCOPE=.*local\['
+a_not_out 'single-node EMR cluster'
+case_end
+w15_fx rs-file-yarn
+w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal
+cp "$EMR_DIR/spark-yarn.conf" "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA" unknown a-baseline
+case_begin "15.emr.run-scope.file-and-yarn-run-says-so-and-not-hdfs-or-local-spark"
+mr_ok
+a_out_re '^RUN_SCOPE=.*file:///'
+a_out_re '^RUN_SCOPE=.*YARN'
+a_not_out_re '^RUN_SCOPE=.*HDFS'
+a_not_out_re '^RUN_SCOPE=.*local\['
+case_end
+w15_fx rs-generic
+w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal
+printf 'DATA_PATH=hdfs\nSPARK_MASTER=yarn\n' > "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.run-scope.a-mixed-mode-names-the-data-path-and-the-spark-master"
+mr_ok
+a_out_re '^RUN_SCOPE=.*hdfs'
+a_out_re '^RUN_SCOPE=.*yarn'
+case_end
+
+w15_fx dp-bad
+w15_yarn_list ip-10-0-0-1.ec2.internal
+printf 'DATA_PATH=s3\n' > "$W15_FX/home/spark-yarn.conf"
+w15_run data "$W15_B_DATA"
+case_begin "15.emr.data-path.an-unknown-data-path-value-is-refused"
+w15_dies 'spark-yarn.conf: DATA_PATH has an invalid value'
+[ ! -s "$W15_FX/calls.log" ] || note_fail "hdfs was called before the refusal"
+case_end
+
+w15_fx dt-detect
+w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal
+w15_run detect "$W15_B_DATA" unknown
+case_begin "15.emr.data-path.detect-remote-yarn-nodes-counts-running-nodes-on-other-hosts"
+mr_ok
+a_out 'REMOTE=1'
+case_end
+
+### 15.emr.hadoop-options: the -D options appear only when positive, in a fixed order.
+
+w15_hx() { # NAME CONF-TEXT-OR-EMPTY PROFILE [REALCONF]
+  w15_fx "hx-$1"
+  if [ "${4:-}" = "real" ]; then cp "$EMR_DIR/spark-yarn.conf" "$W15_FX/home/spark-yarn.conf"; elif [ -n "$2" ]; then printf '%s\n' "$2" > "$W15_FX/home/spark-yarn.conf"; fi
+  w15_run hextra "$W15_B_HEXTRA" unknown "$3"
+}
+
+w15_hx none "" ""
+case_begin "15.emr.hadoop-options.no-conf-file-adds-no-option-and-records-none"
+mr_ok
+a_out 'N=0'
+a_out 'HADOOP_EXTRA_OPTIONS=none'
+a_not_out 'OPT='
+case_end
+
+w15_hx plain-real "" "" real
+case_begin "15.emr.hadoop-options.the-real-conf-without-a-profile-adds-no-option-the-default-run-is-the-old-run"
+mr_ok
+a_out 'N=0'
+a_out 'HADOOP_EXTRA_OPTIONS=none'
+case_end
+
+w15_hx a-baseline "" a-baseline real
+case_begin "15.emr.hadoop-options.profile-a-baseline-adds-no-hadoop-option"
+mr_ok
+a_out 'N=0'
+a_out 'HADOOP_EXTRA_OPTIONS=none'
+case_end
+
+w15_hx b-burst "" b-burst real
+case_begin "15.emr.hadoop-options.profile-b-burst-adds-the-four-options-in-order-and-the-record-lists-them"
+mr_ok
+a_out 'N=4'
+a_order 'OPT=-Dscholarchain.run.partitionCount=16' 'OPT=-Dmapreduce.input.fileinputformat.split.maxsize=131072' 'OPT=-Dmapreduce.map.memory.mb=3072' 'OPT=-Dmapreduce.reduce.memory.mb=3072'
+a_out 'HADOOP_EXTRA_OPTIONS= -Dscholarchain.run.partitionCount=16 -Dmapreduce.input.fileinputformat.split.maxsize=131072 -Dmapreduce.map.memory.mb=3072 -Dmapreduce.reduce.memory.mb=3072'
+case_end
+
+w15_hx zeros "PARTITION_COUNT=0
+SPLIT_MAX_BYTES=0
+MAP_MEMORY_MB=0
+REDUCE_MEMORY_MB=0" ""
+case_begin "15.emr.hadoop-options.explicit-zeros-add-nothing"
+mr_ok
+a_out 'N=0'
+a_out 'HADOOP_EXTRA_OPTIONS=none'
+case_end
+
+w15_hx only-partitions "PARTITION_COUNT=4" ""
+case_begin "15.emr.hadoop-options.only-a-positive-partition-count-adds-only-its-option"
+mr_ok
+a_out 'N=1'
+a_out 'OPT=-Dscholarchain.run.partitionCount=4'
+a_not_out 'mapreduce.'
+case_end
+
+w15_hx only-map-memory "MAP_MEMORY_MB=1024" ""
+case_begin "15.emr.hadoop-options.only-a-positive-map-memory-adds-only-its-option"
+mr_ok
+a_out 'N=1'
+a_out 'OPT=-Dmapreduce.map.memory.mb=1024'
+case_end
+
+for w15_bad in 'PARTITION_COUNT=abc' 'PARTITION_COUNT=10000' 'PARTITION_COUNT=007' 'PARTITION_COUNT=-1' 'SPLIT_MAX_BYTES=1.5' 'MAP_MEMORY_MB=99' 'REDUCE_MEMORY_MB=1000000'; do
+  w15_hx "bad-${w15_bad//[^A-Za-z0-9]/-}" "$w15_bad" ""
+  case_begin "15.emr.hadoop-options.refuses-$w15_bad"
+  w15_dies "spark-yarn.conf: ${w15_bad%%=*} has an invalid value"
+  a_not_out 'OPT='
+  case_end
+done
+
+### 15.emr.spark-master: auto picks local[N] only with a remote node; the shuffle partitions come from the conf.
+
+# w15_sm NAME CONF-TEXT-OR-EMPTY REMOTE PROFILE [real]
+w15_sm() {
+  w15_fx "sm-$1"
+  if [ "${5:-}" = "real" ]; then cp "$EMR_DIR/spark-yarn.conf" "$W15_FX/home/spark-yarn.conf"; elif [ -n "$2" ]; then printf '%s\n' "$2" > "$W15_FX/home/spark-yarn.conf"; fi
+  # The block now detects the remote nodes itself (the Spark master is resolved with the data path), so
+  # the REMOTE argument is turned into a fake yarn node list: unknown = yarn fails, N = N remote nodes.
+  case "$3" in
+    unknown) w15_yarn_list ip-10-0-0-1.ec2.internal; : > "$W15_FX/yarn-fails" ;;
+    0) w15_yarn_list ip-10-0-0-1.ec2.internal ;;
+    1) w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal ;;
+    *) w15_yarn_list ip-10-0-0-1.ec2.internal ip-10-0-0-2.ec2.internal ip-10-0-0-3.ec2.internal ;;
+  esac
+  w15_run smaster "$W15_B_SMASTER" "$3" "$4"
+}
+
+w15_sm one-node "" 0 ""
+case_begin "15.emr.spark-master.one-node-keeps-yarn-the-deploy-mode-and-8-shuffle-partitions"
+mr_ok
+a_out 'MASTER=yarn'
+a_out 'MODE=client'
+a_out 'SHUFFLE=8'
+a_out 'SPARK_MASTER_USED=yarn'
+a_out 'SPARK_SHUFFLE_PARTITIONS=8'
+a_not_out 'SPARK_LOCAL_DRIVER_MEMORY'
+case_end
+
+w15_sm remote "" 1 ""
+case_begin "15.emr.spark-master.a-remote-node-switches-auto-to-local-4-with-6g-and-the-local-master-mode"
+mr_ok
+a_out 'MASTER=local[4]'
+a_out 'MODE=local-master'
+a_out 'DRIVERMEM=6g'
+a_out 'SPARK_LOCAL_DRIVER_MEMORY=6g'
+a_out 'SPARK_MASTER_USED=local[4]'
+case_end
+
+w15_sm unknown "" unknown ""
+case_begin "15.emr.spark-master.an-unknown-remote-count-keeps-yarn"
+mr_ok
+a_out 'MASTER=yarn'
+a_out 'MODE=client'
+case_end
+
+w15_sm force-yarn "SPARK_MASTER=yarn" 1 ""
+case_begin "15.emr.spark-master.spark-master-yarn-forces-yarn-with-a-remote-node"
+mr_ok
+a_out 'MASTER=yarn'
+a_out 'MODE=client'
+case_end
+
+w15_sm force-local "SPARK_MASTER=local" 0 ""
+case_begin "15.emr.spark-master.spark-master-local-forces-local-4-on-a-one-node-cluster"
+mr_ok
+a_out 'MASTER=local[4]'
+a_out 'MODE=local-master'
+case_end
+
+w15_sm cores "SPARK_MASTER=local
+LOCAL_CORES=2
+LOCAL_DRIVER_MEMORY=4g" 0 ""
+case_begin "15.emr.spark-master.local-cores-and-driver-memory-follow-the-conf"
+mr_ok
+a_out 'MASTER=local[2]'
+a_out 'DRIVERMEM=4g'
+case_end
+
+# P15-16 (review 1, M2): b-burst uses 8 shuffle partitions, not 32. Updated, not weakened: the case pinned the
+# old proposed value. Remote 1 because b-burst forces HDFS and the block now dies with no remote node.
+w15_sm b-burst "" 1 b-burst real
+case_begin "15.emr.spark-master.profile-b-burst-gives-8-shuffle-partitions-and-the-local-master"
+mr_ok
+a_out 'SHUFFLE=8'
+a_out 'SPARK_SHUFFLE_PARTITIONS=8'
+a_out 'MASTER=local[4]'
+a_out 'MODE=local-master'
+a_not_out 'SHUFFLE=32'
+case_end
+
+# M1 (review 1): the Spark master is pinned per profile, whatever the node list says.
+w15_sm a-baseline-remote "" 1 a-baseline real
+case_begin "15.emr.spark-master.profile-a-baseline-pins-yarn-even-with-a-remote-node"
+mr_ok
+a_out 'MASTER=yarn'
+a_out 'MODE=client'
+a_out 'SMASTER=yarn'
+a_not_out 'SPARK_LOCAL_DRIVER_MEMORY'
+case_end
+
+w15_sm a-baseline-one-node "" 0 a-baseline real
+case_begin "15.emr.spark-master.profile-a-baseline-gives-yarn-on-a-one-node-cluster"
+mr_ok
+a_out 'MASTER=yarn'
+a_out 'SHUFFLE=8'
+case_end
+
+w15_sm a-baseline-unknown "" unknown a-baseline real
+case_begin "15.emr.spark-master.profile-a-baseline-gives-yarn-when-the-node-list-is-unreadable"
+mr_ok
+a_out 'MASTER=yarn'
+case_end
+
+w15_sm plain-real "" 0 "" real
+case_begin "15.emr.spark-master.the-real-conf-without-a-profile-gives-8-shuffle-partitions"
+mr_ok
+a_out 'SHUFFLE=8'
+case_end
+
+for w15_bad in 'SPARK_MASTER=standalone' 'LOCAL_CORES=0' 'LOCAL_DRIVER_MEMORY=six' 'SHUFFLE_PARTITIONS=0' 'SHUFFLE_PARTITIONS=100000'; do
+  # The LOCAL_* keys are read only in the local branch, so those two cases force it first.
+  case "$w15_bad" in
+    LOCAL_*) w15_conf="SPARK_MASTER=local
+$w15_bad" ;;
+    *) w15_conf="$w15_bad" ;;
+  esac
+  w15_sm "bad-${w15_bad//[^A-Za-z0-9]/-}" "$w15_conf" 0 ""
+  case_begin "15.emr.spark-master.refuses-$w15_bad"
+  w15_dies "spark-yarn.conf: ${w15_bad%%=*} has an invalid value"
+  case_end
+done
+
+w15_sm shuffle-10001 "SHUFFLE_PARTITIONS=10001" 0 ""
+case_begin "15.emr.spark-master.shuffle-partitions-10001-is-refused-by-the-range-line"
+w15_dies 'spark-yarn.conf: SHUFFLE_PARTITIONS must be 1 to 10000'
+case_end
+
+### 15.emr.conf-value: the profile line wins over the plain line, and only for its own profile.
+
+cat > "$CODE_DIR/w15-conf-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"; PROFILE="$3"; KEY="$4"; DEFAULT="$5"; PATTERN="$6"
+SC_HOME="$FIX/home"
+source "$LIB"
+SC_PROFILE="$PROFILE"
+printf 'V=%s\n' "$(conf_value "$KEY" "$DEFAULT" "$PATTERN")"
+EOF
+w15_cv() { # NAME PROFILE KEY DEFAULT
+  run bash "$CODE_DIR/w15-conf-child.sh" "$EMR_DIR/lib-emr.sh" "$W15_FX" "$2" "$3" "$4" '^[0-9a-z]+$'
+}
+w15_fx cv
+printf 'X=1\np.X=2\nq.X=3\np.Y=5\n' > "$W15_FX/home/spark-yarn.conf"
+w15_cv cv p X 0
+case_begin "15.emr.conf-value.a-profile-line-wins-over-the-plain-line"
+mr_ok
+a_out 'V=2'
+case_end
+w15_cv cv q X 0
+case_begin "15.emr.conf-value.another-profile-reads-its-own-line"
+mr_ok
+a_out 'V=3'
+case_end
+w15_cv cv "" X 0
+case_begin "15.emr.conf-value.no-profile-reads-only-the-plain-line"
+mr_ok
+a_out 'V=1'
+case_end
+w15_cv cv pp X 0
+case_begin "15.emr.conf-value.a-profile-name-that-only-starts-like-another-does-not-match-it"
+mr_ok
+a_out 'V=1'
+case_end
+w15_cv cv p Y 0
+case_begin "15.emr.conf-value.a-profile-only-key-is-read-for-that-profile-and-not-for-the-plain-run"
+mr_ok
+a_out 'V=5'
+w15_cv cv "" Y 9
+a_out 'V=9'
+case_end
+w15_cv cv p Z 9
+case_begin "15.emr.conf-value.an-absent-key-gives-the-default-under-a-profile"
+mr_ok
+a_out 'V=9'
+case_end
+
+### 15.emr.event-log: write_spark_conf writes the plain event log only when SPARK_EVENT_LOG is true.
+
+cat > "$CODE_DIR/w15-sparkconf-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"; PROFILE="$3"; EVDIR="$4"
+SC_HOME="$FIX/home"
+source "$LIB"
+SC_ARCHIVE_URI="hdfs://harness/spark-jars.zip"
+SC_PROFILE="$PROFILE"
+SC_EVENT_LOG_DIR="$EVDIR"
+write_spark_conf false
+cat "$SC_SPARK_CONF_DIR/spark-defaults.conf"
+EOF
+w15_fx el-default
+cp "$EMR_DIR/spark-yarn.conf" "$W15_FX/home/spark-yarn.conf"
+run bash "$CODE_DIR/w15-sparkconf-child.sh" "$EMR_DIR/lib-emr.sh" "$W15_FX" "" "$W15_FX/events"
+case_begin "15.emr.event-log.the-default-run-writes-no-event-log-lines-and-makes-no-directory"
+mr_ok
+a_not_out 'eventLog'
+[ ! -e "$W15_FX/events" ] || note_fail "the event log directory was made with SPARK_EVENT_LOG false"
+a_out_re '^spark\.executor\.instances 2$'
+case_end
+w15_fx el-a-baseline
+cp "$EMR_DIR/spark-yarn.conf" "$W15_FX/home/spark-yarn.conf"
+run bash "$CODE_DIR/w15-sparkconf-child.sh" "$EMR_DIR/lib-emr.sh" "$W15_FX" a-baseline "$W15_FX/events"
+case_begin "15.emr.event-log.profile-a-baseline-writes-an-uncompressed-event-log-into-the-given-directory"
+mr_ok
+a_out_re '^spark\.eventLog\.enabled true$'
+a_out_re '^spark\.eventLog\.compress false$'
+a_out "spark.eventLog.dir file://$W15_FX/events"
+[ -d "$W15_FX/events" ] || note_fail "the event log directory was not made"
+case_end
+w15_fx el-no-dir
+cp "$EMR_DIR/spark-yarn.conf" "$W15_FX/home/spark-yarn.conf"
+run bash "$CODE_DIR/w15-sparkconf-child.sh" "$EMR_DIR/lib-emr.sh" "$W15_FX" a-baseline ""
+case_begin "15.emr.event-log.no-directory-means-no-event-log-lines-even-with-the-flag-on"
+mr_ok
+a_not_out 'eventLog'
+case_end
+
+### 15.emr.local-master: run_spark_submit and spark_verdict with a local master.
+
+cat > "$CODE_DIR/w15-ss-local-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"
+source "$LIB"
+PATH="$FIX/bin:$PATH"
+export PATH
+SPARK_HOME="$FIX/spark"
+SC_SPARK_MASTER='local[4]'
+SC_LOCAL_DRIVER_MEMORY=6g
+rc=0
+run_spark_submit "$FIX/spark.log" local-master scholarchain.spark.CollaborationPipeline /app.jar "/a.jar,/b.jar" --out-root /out --partitions 32 || rc=$?
+printf 'RC=%s\n' "$rc"
+EOF
+ss_new w15-local
+run env -u SC_SPARK_TIMEOUT bash "$CODE_DIR/w15-ss-local-child.sh" "$EMR_DIR/lib-emr.sh" "$SS_FIX"
+case_begin "15.emr.local-master.run-spark-submit-uses-the-local-master-client-mode-driver-memory-and-keeps-timeout-k-30-3000"
+mr_ok
+a_out_re '^RC=0$'
+grep -qF -- "TIMEOUT-ARGS -k 30 3000 $SS_FIX/spark/bin/spark-submit --master local[4] --deploy-mode client --driver-memory 6g --class scholarchain.spark.CollaborationPipeline --jars /a.jar,/b.jar /app.jar --out-root /out --partitions 32" "$SS_FIX/calls.log" || note_fail "the local-master command is not as expected: $(head -n 1 "$SS_FIX/calls.log")"
+if grep -qF -- '--master yarn' "$SS_FIX/calls.log"; then note_fail "a local-master call still says --master yarn"; fi
+if grep -qF -- 'local-master' "$SS_FIX/calls.log"; then note_fail "the local-master mode name leaked into the spark-submit command"; fi
+case_end
+
+cat > "$CODE_DIR/w15-verdict-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"; RC="$3"
+source "$LIB"
+SC_SPARK_MASTER='local[4]'
+CALLS="$FIX/calls.log"
+timeout() { printf 'TIMEOUT %s\n' "$1" >> "$CALLS"; shift; "$@"; }
+yarn() { printf 'YARN %s\n' "$*" >> "$CALLS"; printf 'Final-State : SUCCEEDED\n'; }
+spark_verdict "$FIX/spark.log" "$RC"
+printf 'VERDICT=%s\nSTATE=%s\nAPP=%s\n' "$SC_LAST_VERDICT" "$SC_LAST_STATE" "$SC_LAST_APP"
+EOF
+for w15_rc in 0 1 124; do
+  w15_fx "verdict-$w15_rc"
+  printf 'INFO Client: Submitted application application_1794701635353_0001\n' > "$W15_FX/spark.log"
+  run bash "$CODE_DIR/w15-verdict-child.sh" "$EMR_DIR/lib-emr.sh" "$W15_FX" "$w15_rc"
+  case_begin "15.emr.local-master.spark-verdict-is-the-exit-status-alone-for-exit-$w15_rc-and-asks-yarn-nothing"
+  mr_ok
+  if [ "$w15_rc" = "0" ]; then a_out 'VERDICT=yes'; else a_out 'VERDICT=no'; fi
+  a_out "STATE=local-exit-$w15_rc"
+  a_out_re '^APP=$'
+  [ ! -s "$W15_FX/calls.log" ] || note_fail "yarn or timeout was called for a local-master verdict: $(head -n 1 "$W15_FX/calls.log")"
+  case_end
+done
+
+### 15.emr.profile-arg: the sixth argument of run-s-pipeline.sh is validated before anything is made.
+
+w15_ps() { # NAME PROFILE
+  W15_PHOME="$W15_FXROOT/ps-$1"
+  rm -rf "$W15_PHOME"
+  mkdir -p "$W15_PHOME"
+  run env SC_HOME="$W15_PHOME/home" bash "$EMR_DIR/run-s-pipeline.sh" harness-data-bucket harness-artifacts-bucket harness-snap dblp=harness-snap "$PI_RUN" "$2"
+}
+for w15_p in 'Bad' 'b_burst' 'b.burst' 'b burst' 'b-burst;x' 'a123456789012345678901234567890123'; do
+  w15_ps "bad-${w15_p//[^A-Za-z0-9]/-}" "$w15_p"
+  case_begin "15.emr.profile-arg.refuses-the-profile-${w15_p//[^A-Za-z0-9]/-}-before-the-work-directory-is-made"
+  w15_dies 'profile must be 0 to 32 characters of a-z0-9-'
+  [ ! -e "$W15_PHOME/home" ] || note_fail "the SC_HOME directory was made before the refusal"
+  a_not_out 'RUN_PROFILE='
+  case_end
+done
+# The accepted profiles must not let the whole script run on (it would go on to find_java and then the input
+# fetch, which reaches the aws stub and the tripwire). So the first stage, validate-arguments, is CUT out of
+# the real run-s-pipeline.sh (from "stage validate-arguments" up to "stage java") and run in a child shell
+# that sources the real lib-emr.sh. It ends at the first stage_ok, with no later stage and no aws call;
+# sc_publish_progress is replaced by a function, as the checkpoint is not what is tested here.
+W15_B_ARGS="$CODE_DIR/w15-block-args.sh"
+w15_cut "$emr_run" 'stage validate-arguments' 'stage java' "$W15_B_ARGS"
+cat > "$CODE_DIR/w15-args-child.sh" <<'EOF'
+LIB="$1"; BLOCK="$2"; HOMEDIR="$3"; RUNID="$4"; PROFILE="$5"
+SC_HOME="$HOMEDIR"
+source "$LIB"
+sc_publish_progress() { return 0; }
+f() {
+  local data_bucket="harness-data-bucket" artifacts_bucket="harness-artifacts-bucket" snapshot="harness-snap" snapshots="dblp=harness-snap" run_id="$RUNID" profile="$PROFILE"
+  local work raw hout erout sout xout rep rc spark_events
+  eval "$(cat "$BLOCK")"
+  printf 'PROFILE_VAR=%s\nBLOCK_DONE\n' "$SC_PROFILE"
+}
+f
+EOF
+w15_pv() { # NAME PROFILE
+  W15_PHOME="$W15_FXROOT/pv-$1"
+  rm -rf "$W15_PHOME"
+  mkdir -p "$W15_PHOME"
+  run bash "$CODE_DIR/w15-args-child.sh" "$EMR_DIR/lib-emr.sh" "$W15_B_ARGS" "$W15_PHOME/home" "$PI_RUN" "$2"
+}
+w15_pv ok-profile b-burst
+case_begin "15.emr.profile-arg.a-valid-profile-is-recorded-before-the-first-stage-ends"
+f_min_lines "$W15_B_ARGS" 15 "the validate-arguments block cut out of run-s-pipeline.sh"
+a_rc 0
+a_out 'RUN_PROFILE=b-burst'
+a_out 'PROFILE_VAR=b-burst'
+a_out 'STAGE[1] validate-arguments: ok'
+a_out 'BLOCK_DONE'
+a_not_out 'profile must be'
+a_trip_empty
+case_end
+w15_pv ok-empty ""
+case_begin "15.emr.profile-arg.no-profile-is-recorded-as-none"
+a_rc 0
+a_out 'RUN_PROFILE=none'
+a_out_re '^PROFILE_VAR=$'
+a_out 'BLOCK_DONE'
+a_not_out 'profile must be'
+a_trip_empty
+case_end
+w15_pv ok-32 "a1234567890123456789012345678901"
+case_begin "15.emr.profile-arg.exactly-32-characters-are-accepted"
+a_rc 0
+a_out 'RUN_PROFILE=a1234567890123456789012345678901'
+a_out 'BLOCK_DONE'
+a_not_out 'profile must be'
+a_trip_empty
+case_end
+w15_pv bad-33 "a123456789012345678901234567890123"
+case_begin "15.emr.profile-arg.33-characters-are-refused-by-the-same-block"
+w15_dies 'profile must be 0 to 32 characters of a-z0-9-'
+a_not_out 'BLOCK_DONE'
+a_not_out 'RUN_PROFILE='
+case_end
+
+### Static cases for work order 1b.
+
+# SC2016: single-quoted needles are literal text of node scripts, Terraform and tfvars.
+# shellcheck disable=SC2016
+static_w15b_cases() {
+  local conf="$EMR_DIR/spark-yarn.conf" wfv="$WF_VARS" wfm="$W15_WFMAIN" crsv="$CRS_VARS" crm="$W15_CRSMAIN"
+  local k p n wfmc wfstate hdr
+
+  static_begin "15.emr.static.core-0-keeps-the-file-uris-set-first-and-the-hdfs-names-are-assigned-only-in-the-hdfs-branch"
+  f_has "$emr_run" 'h_in="file://$raw"'
+  f_has "$emr_run" 'h_out="file://$hout"'
+  f_count_is "$emr_run" 'h_in=' 2
+  f_count_is "$emr_run" 'h_out=' 2
+  f_has "$emr_run" 'h_in="hdfs://$hrun/raw"'
+  f_has "$emr_run" 'h_out="hdfs://$hrun/hadoop-out"'
+  f_before "$emr_run" 'h_in="file://$raw"' 'if [[ "$dmode" == "hdfs" ]]; then'
+  f_before "$emr_run" 'if [[ "$dmode" == "hdfs" ]]; then' 'h_in="hdfs://$hrun/raw"'
+  f_has "$emr_run" 'dargs+=("$f=$h_in/$f.jsonl")'
+  f_has "$emr_run" '"$h_out" "$h_in/dblp-subset.xml" "${dargs[@]}" > "$rep/hadoop.log" 2>&1 || rc=$?'
+  f_has_not "$emr_run" '"file://$hout" "file://$raw/dblp-subset.xml"'
+  f_has_not "$emr_run" 'dargs+=("$f=file://$raw/$f.jsonl")'
+  f_has "$emr_run" 'dmode_conf="$(conf_value DATA_PATH auto '"'"'^(auto|file|hdfs)$'"'"')"'
+  f_has "$emr_run" 'dmode="$dmode_conf"'
+  f_has "$emr_run" 'dmode="file"'
+  f_has "$emr_run" 'kv DATA_PATH_MODE "$dmode"'
+  f_has "$emr_run" 'kv YARN_REMOTE_NODES "$SC_REMOTE_NODES'
+  case_end
+
+  static_begin "15.emr.static.hdfs-commands-sit-only-inside-the-hdfs-branches-and-the-run-directory-is-removed-after-the-copy-back"
+  f_count_is "$emr_run" 'hdfs dfs ' 4
+  f_count_is "$emr_run" 'if [[ "$dmode" == "hdfs" ]]; then' 2
+  f_before "$emr_run" 'if [[ "$dmode" == "hdfs" ]]; then' 'hdfs dfs -mkdir -p "$hrun/raw"'
+  f_before "$emr_run" 'hdfs dfs -mkdir -p "$hrun/raw"' 'hdfs dfs -put'
+  f_before "$emr_run" 'hdfs dfs -put' 'hadoop jar "$hjar"'
+  f_before "$emr_run" 'hadoop jar "$hjar"' 'hdfs dfs -get "$hrun/hadoop-out" "$hout"'
+  f_before "$emr_run" 'hdfs dfs -get "$hrun/hadoop-out" "$hout"' 'hdfs dfs -rm -r -skipTrash "$hrun"'
+  f_before "$emr_run" 'hdfs dfs -rm -r -skipTrash "$hrun"' 'sc_chmod_readable_tree "$hout"'
+  f_count_is "$emr_run" 'skipTrash "$hrun"' 1
+  f_has "$emr_run" 'hrun="/user/hadoop/sc/run/$run_id"'
+  case_end
+
+  static_begin "15.emr.static.the-hadoop-options-come-after-the-generic-options-and-before-the-positional-arguments-and-each-needs-a-positive-value"
+  f_has "$emr_run" '${hextra[@]+"${hextra[@]}"} \'
+  f_before "$emr_run" '"-Dyarn.app.mapreduce.am.env=JAVA_HOME=$SC_JAVA_HOME"' '${hextra[@]+"${hextra[@]}"}'
+  f_before "$emr_run" '${hextra[@]+"${hextra[@]}"}' '"$h_out" "$h_in/dblp-subset.xml"'
+  f_count_is "$emr_run" 'if [[ "$pc" -gt 0 ]]; then' 1
+  f_count_is "$emr_run" 'if [[ "$split" -gt 0 ]]; then' 1
+  f_count_is "$emr_run" 'if [[ "$mapmb" -gt 0 ]]; then' 1
+  f_count_is "$emr_run" 'if [[ "$redmb" -gt 0 ]]; then' 1
+  f_has "$emr_run" 'hextra+=("-Dscholarchain.run.partitionCount=$pc")'
+  f_has "$emr_run" 'hextra+=("-Dmapreduce.input.fileinputformat.split.maxsize=$split")'
+  f_has "$emr_run" 'hextra+=("-Dmapreduce.map.memory.mb=$mapmb")'
+  f_has "$emr_run" 'hextra+=("-Dmapreduce.reduce.memory.mb=$redmb")'
+  f_count_is "$emr_run" 'hextra+=(' 4
+  f_count_is "$emr_run" 'partitionCount' 2
+  f_has "$emr_run" 'kv HADOOP_EXTRA_OPTIONS "${hextra_text:-none}"'
+  case_end
+
+  static_begin "15.emr.static.partitions-is-passed-to-the-pipeline-application-only-with-the-validated-shuffle-value"
+  f_has "$emr_run" '--er-run "$erdir" --hadoop-root "$snapdir" --out-root "$sout" --partitions "$shuffle" || rc=$?'
+  f_count_is "$emr_run" '--partitions' 1
+  f_has "$emr_run" 'shuffle="$(conf_value SHUFFLE_PARTITIONS 8 '"'"'^[1-9][0-9]{0,4}$'"'"')"'
+  f_has "$emr_run" '[[ "$shuffle" -le 10000 ]] || die "spark-yarn.conf: SHUFFLE_PARTITIONS must be 1 to 10000"'
+  f_before "$emr_run" 'shuffle="$(conf_value SHUFFLE_PARTITIONS' 'run_spark_submit "$rep/spark.log"'
+  f_before "$emr_run" 'kv SPARK_SHUFFLE_PARTITIONS "$shuffle"' 'run_spark_submit "$rep/spark.log"'
+  f_has "$emr_run" 'run_spark_submit "$rep/export.log" "$mode" scholarchain.spark.JsonlExport "$sjar" "$sjars" "$srun" "$xout/export" || rc=$?'
+  f_has_not "$emr_run" 'run_spark_submit "$rep/spark.log" "$mode" scholarchain.spark.CollaborationPipeline "$sjar" "$sjars" --er-run "$erdir" --hadoop-root "$snapdir" --out-root "$sout" || rc=$?'
+  case_end
+
+  static_begin "15.emr.static.the-profile-argument-is-validated-before-the-work-directory-and-the-terraform-pattern-is-the-same-text"
+  f_has "$emr_run" 'local profile="${6:-}"'
+  f_has "$emr_run" '[[ "$profile" =~ ^[a-z0-9-]{0,32}$ ]] || die "profile must be 0 to 32 characters of a-z0-9-"'
+  f_has "$emr_run" 'SC_PROFILE="$profile"'
+  f_before "$emr_run" 'validate_run_id "$run_id"' '[[ "$profile" =~'
+  f_before "$emr_run" '[[ "$profile" =~' 'work="$SC_HOME/run/$run_id"'
+  f_before "$emr_run" '[[ "$profile" =~' 'mkdir -p "$raw" "$rep"'
+  f_before "$emr_run" 'SC_PROFILE="$profile"' 'register_failure_logs'
+  f_has "$emr_run" 'kv RUN_PROFILE "${profile:-none}"'
+  f_has "$wfv" 'condition     = can(regex("^[a-z0-9-]{0,32}$", var.pipeline_profile))'
+  f_has "$crsv" 'variable "pipeline_profile"'
+  case_end
+
+  static_begin "15.emr.static.the-conf-defaults-equal-the-old-behaviour-and-each-profile-line-overrides-a-known-plain-key"
+  for k in 'SHUFFLE_PARTITIONS=8' 'DATA_PATH=auto' 'SPARK_MASTER=auto' 'LOCAL_CORES=4' 'LOCAL_DRIVER_MEMORY=6g' 'SPARK_EVENT_LOG=false' 'MR_COUNTERS=false' 'PARTITION_COUNT=0' 'SPLIT_MAX_BYTES=0' 'MAP_MEMORY_MB=0' 'REDUCE_MEMORY_MB=0' 'EXECUTOR_INSTANCES=2' 'EXECUTOR_MEMORY=3g' 'EXECUTOR_CORES=2'; do
+    [ "$(grep -cxF -- "$k" "$conf")" = "1" ] || note_fail "the plain line $k is not present exactly once"
+  done
+  while IFS= read -r p; do
+    k="${p#*.}"
+    k="${k%%=*}"
+    [ "$(grep -cE "^$k=" "$conf")" = "1" ] || note_fail "the profile line $p overrides $k, which is not a plain key set exactly once"
+  done < <(grep -E '^[a-z0-9-]+\.[A-Z_]+=' "$conf")
+  # Review 1, M1: a-baseline holds its two observability lines and, new, the two pins that keep it on run 6's
+  # path (file:/// paths, Spark on YARN). Updated from 2 lines to 4; the observability lines are still required.
+  [ "$(grep -cE '^a-baseline\.' "$conf")" = "4" ] || note_fail "profile a-baseline holds $(grep -cE '^a-baseline\.' "$conf") lines, expected 4 (observability and the two pins)"
+  for k in 'a-baseline.SPARK_EVENT_LOG=true' 'a-baseline.MR_COUNTERS=true' 'a-baseline.DATA_PATH=file' 'a-baseline.SPARK_MASTER=yarn'; do
+    [ "$(grep -cxF -- "$k" "$conf")" = "1" ] || note_fail "$k is not present exactly once"
+  done
+  # b-burst: the pins (M1), 8 shuffle partitions and no Spark event log (P15-16, M2); the old proposed values
+  # b-burst.SHUFFLE_PARTITIONS=32 and b-burst.SPARK_EVENT_LOG=true are replaced.
+  for k in 'b-burst.DATA_PATH=hdfs' 'b-burst.SPARK_MASTER=local' 'b-burst.SPARK_EVENT_LOG=false' 'b-burst.MR_COUNTERS=true' 'b-burst.SHUFFLE_PARTITIONS=8' 'b-burst.PARTITION_COUNT=16' 'b-burst.SPLIT_MAX_BYTES=131072' 'b-burst.MAP_MEMORY_MB=3072' 'b-burst.REDUCE_MEMORY_MB=3072'; do
+    [ "$(grep -cxF -- "$k" "$conf")" = "1" ] || note_fail "$k is not present exactly once"
+  done
+  [ "$(grep -cE '^b-burst\.SHUFFLE_PARTITIONS=' "$conf")" = "1" ] || note_fail "b-burst.SHUFFLE_PARTITIONS is not set exactly once"
+  [ "$(grep -cE '^b-burst\.SPARK_EVENT_LOG=' "$conf")" = "1" ] || note_fail "b-burst.SPARK_EVENT_LOG is not set exactly once"
+  grep -qxF 'NM_WAIT_SECONDS=300' "$conf" || note_fail "the plain line NM_WAIT_SECONDS=300 is missing"
+  if grep -E '^[a-z0-9-]+\.[A-Z_]+=' "$conf" | grep -vE '^(a-baseline|b-burst)\.' | grep -q .; then note_fail "a profile other than a-baseline and b-burst has lines"; fi
+  case_end
+
+  static_begin "15.emr.static.counters-and-the-event-log-are-gated-and-the-report-subdirectories-are-scanned-for-key-material"
+  # MR_COUNTERS gates `mapred job -status`. Accepted forms: the old inline test in the `if`, or (preferred, the
+  # infra repair) a variable assigned from conf_value with the same default and pattern and `|| exit 1` or
+  # `|| die`, then `if [[ "$var" == "true" ]]; then`. The exact text of the variable form is not pinned yet.
+  f_count_is "$emr_run" 'mapred job -status' 1
+  w15_mrn="$(grep -nF 'conf_value MR_COUNTERS' "$emr_run" | head -n 1 | cut -d: -f1)"
+  w15_mrt=""
+  [ -z "$w15_mrn" ] || w15_mrt="$(sed -n "${w15_mrn}p" "$emr_run")"
+  case "$w15_mrt" in
+    '')
+      note_fail "run-s-pipeline.sh does not read MR_COUNTERS through conf_value"
+      ;;
+    *'if [[ "$(conf_value MR_COUNTERS false '"'"'^(true|false)$'"'"')" == "true" ]]; then'*)
+      f_before "$emr_run" 'if [[ "$(conf_value MR_COUNTERS' 'mapred job -status'
+      ;;
+    *)
+      w15_mrv="${w15_mrt%%=*}"
+      w15_mrv="${w15_mrv#"${w15_mrv%%[![:space:]]*}"}"
+      w15_mrv="${w15_mrv#local }"
+      case "$w15_mrt" in
+        *'="$(conf_value MR_COUNTERS false '"'"'^(true|false)$'"'"')" || exit 1'* | *'="$(conf_value MR_COUNTERS false '"'"'^(true|false)$'"'"')" || die'*) ;;
+        *) note_fail "the MR_COUNTERS line is neither the inline test nor an assignment with the default false, the pattern ^(true|false)\$ and || exit 1 or || die: $w15_mrt" ;;
+      esac
+      if printf '%s' "$w15_mrv" | grep -qE '^[A-Za-z_][A-Za-z0-9_]*$'; then
+        f_has "$emr_run" "if [[ \"\$$w15_mrv\" == \"true\" ]]; then"
+        f_before "$emr_run" "$w15_mrv=\"\$(conf_value MR_COUNTERS" "if [[ \"\$$w15_mrv\" == \"true\" ]]; then"
+        f_before "$emr_run" "if [[ \"\$$w15_mrv\" == \"true\" ]]; then" 'mapred job -status'
+      else
+        note_fail "the MR_COUNTERS line does not assign a plain variable: $w15_mrt"
+      fi
+      ;;
+  esac
+  f_has "$emr_run" 'spark_events="$(conf_value SPARK_EVENT_LOG false '"'"'^(true|false)$'"'"')"'
+  f_has "$emr_run" 'if [[ "$spark_events" == "true" && -d "$SC_EVENT_LOG_DIR" ]]; then'
+  # R4 item 8 (a1): the strict subdirectory scan now excludes spark-events/, which has its own bounded scan.
+  f_has "$emr_run" 'done < <(find "$rep" -mindepth 2 -type f -not -path "$rep/spark-events/*")'
+  f_before "$emr_run" 'cp -R "$SC_EVENT_LOG_DIR/." "$rep/spark-events/"' 'done < <(find "$rep" -mindepth 2 -type f -not -path'
+  f_before "$emr_run" 'done < <(find "$rep" -mindepth 2 -type f -not -path' 'publish "$hout" "s3://$data_bucket/curated/runs/$run_id/hadoop/"'
+  f_has "$emr_run" 'INPUT_LINES_${f//[.-]/_}'
+  case_end
+
+  static_begin "15.emr.static.every-conf-value-call-is-a-plain-assignment-followed-by-exit-1-or-die"
+  # A die or exit inside "$( )" ends only the subshell, so a conf_value used inline as an argument or in a [[ ]]
+  # test turns a refused value into an empty one. Every use must be `name="$(conf_value ...)" || exit 1` (or die).
+  w15_cvc="$(code_of "$emr_run")"
+  w15_cvn="$(grep -c 'conf_value' "$w15_cvc")"
+  { tf_is_num "$w15_cvn" && [ "$w15_cvn" -ge 8 ]; } || note_fail "fewer than 8 lines name conf_value ($w15_cvn): the check would pin too little"
+  w15_cvbad="$(grep 'conf_value' "$w15_cvc" | grep -vE '^[[:space:]]*(local[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*="\$\(conf_value [A-Z_]+ .*\)"[[:space:]]*\|\|[[:space:]]*(exit 1|die)([[:space:]]|$)' || true)"
+  [ -z "$w15_cvbad" ] || note_fail "a conf_value call is not a plain assignment followed by || exit 1 or || die: $(printf '%s\n' "$w15_cvbad" | head -n 2 | sed 's/^[[:space:]]*//' | tr '\n' '|')"
+  case_end
+
+  # R4 item 8 (a1): a large Spark event log must not fail the run; a key-material match still must.
+  static_begin "15.emr.static.the-event-log-is-scanned-in-bounded-fashion-before-the-record-and-the-strict-scan-skips-it"
+  f_has "$emr_run" 'scan_no_secrets_bounded "$lf" 120 || rc=$?'
+  f_has "$emr_run" 'SC_EVENT_LOG_SCAN_MAX_BYTES:-268435456'
+  f_has "$emr_run" 'rm -f "$lf"'
+  f_before "$emr_run" 'scan_no_secrets_bounded "$lf" 120' 'write_json "$rep/run-record.json"'
+  f_before "$emr_run" 'scan_no_secrets_bounded "$lf" 120' 'scan_no_secrets "$lf"'
+  f_has "$emr_run" 'not published: too large or the key-material scan did not finish in 120 s'
+  f_has "$emr_run" 'kv SPARK_EVENT_LOG_PUBLISHED "$evkept file(s) published, $evdropped not published'
+  f_count_is "$emr_run" 'scan_no_secrets_bounded' 1
+  f_has "$emr_lib" 'scan_no_secrets_bounded()'
+  f_has_not "$emr_run" 'find "$rep" -mindepth 2 -type f)'
+  case_end
+
+  # R4 item 7 (m7): every hdfs call of run-s-pipeline.sh is under timeout with a whole number of seconds up to 900.
+  static_begin "15.emr.static.every-hdfs-call-is-under-timeout-with-a-bounded-limit"
+  w15_hd="$(awk '
+    {
+      if (match($0, /(^|[;&|({]|then|do)[ \t]*(timeout[ \t]+(-k[ \t]+[0-9]+[ \t]+)?[0-9]+[ \t]+)?hdfs[ \t]/)) {
+        seg = substr($0, RSTART, RLENGTH)
+        if (seg ~ /timeout/) { t = seg; sub(/^.*timeout[ \t]+(-k[ \t]+[0-9]+[ \t]+)?/, "", t); sub(/[ \t].*$/, "", t); print "T " t }
+        else print "BARE " $0
+      }
+    }' "$emr_run")"
+  [ "$(printf '%s\n' "$w15_hd" | grep -c '^T ')" -ge 4 ] || note_fail "fewer than four timeout-wrapped hdfs calls found: $w15_hd"
+  if printf '%s\n' "$w15_hd" | grep -q '^BARE '; then note_fail "an hdfs call has no timeout: $(printf '%s\n' "$w15_hd" | grep '^BARE ' | head -n 1)"; fi
+  while read -r w15_k w15_t; do
+    [ "$w15_k" = "T" ] || continue
+    { tf_is_num "$w15_t" && [ "$w15_t" -ge 1 ] && [ "$w15_t" -le 900 ]; } || note_fail "an hdfs timeout is '$w15_t', expected a whole number from 1 to 900"
+  done <<< "$w15_hd"
+  f_has "$emr_run" 'timeout 60 hdfs dfs -mkdir -p "$hrun/raw"'
+  case_end
+
+  # R4 item 4 and M1: the forced HDFS wait is bounded and its refusal is a die, not a fallback.
+  static_begin "15.emr.static.forced-hdfs-waits-a-bounded-time-and-dies-on-a-numeric-zero-and-never-assigns-file-after-that"
+  # The wait count is resolved into nm_wait first, with `|| exit 1`: a die inside a "$( )" argument ends only the
+  # subshell, so an invalid NM_WAIT_SECONDS would reach the wait as an empty argument. Updated for the new form
+  # and stricter: the old pin was the call with the substitution inline; the inline form must not come back.
+  f_has "$emr_run" 'nm_wait="$(conf_value NM_WAIT_SECONDS 300 '"'"'^(0|[1-9][0-9]{0,3})$'"'"')" || exit 1'
+  f_has "$emr_run" 'wait_for_remote_yarn_nodes "$nm_wait"'
+  f_has_not "$emr_run" 'wait_for_remote_yarn_nodes "$(conf_value'
+  f_before "$emr_run" 'nm_wait="$(conf_value NM_WAIT_SECONDS' 'wait_for_remote_yarn_nodes "$nm_wait"'
+  f_has "$emr_run" "is forced for profile '\${SC_PROFILE:-none}'"
+  f_has_not "$emr_run" "is forced for profile '\${profile:-none}'"
+  f_has "$emr_lib" 'wait_for_remote_yarn_nodes()'
+  f_has "$emr_run" 'Not falling back to file:///'
+  f_before "$emr_run" 'wait_for_remote_yarn_nodes' 'Not falling back to file:///'
+  f_before "$emr_run" 'Not falling back to file:///' 'kv DATA_PATH_MODE "$dmode"'
+  f_count_is "$emr_run" 'dmode="file"' 1
+  case_end
+
+  # The workflow module: the skip-loader variable removes AfterTerminate, the profile argument is empty by default.
+  wfmc="$(code_of "$wfm")"
+  static_begin "15.terraform.skip-loader.the-variable-defaults-to-false-and-removes-after-terminate-from-the-definition-and-terminate-cluster-goes-to-done"
+  f_has "$wfv" 'variable "skip_loader_after_pipeline"'
+  [ "$(tf_def_in "$wfv" skip_loader_after_pipeline)" = "false" ] || note_fail "skip_loader_after_pipeline default is '$(tf_def_in "$wfv" skip_loader_after_pipeline)', expected false"
+  [ "$(tf_def_in "$crsv" pipeline_skip_loader)" = "false" ] || note_fail "pipeline_skip_loader default is '$(tf_def_in "$crsv" pipeline_skip_loader)', expected false"
+  f_has "$wfmc" 'after_terminate = var.skip_loader_after_pipeline ? "Done" : "AfterTerminate"'
+  f_has "$wfmc" 'Next           = local.after_terminate'
+  f_has "$wfmc" 'if !(var.skip_loader_after_pipeline && name == "AfterTerminate")'
+  f_count_is "$wfmc" 'local.after_terminate' 1
+  f_count_is "$wfmc" 'Next = "AfterTerminate"' 0
+  f_has_re "$wfmc" '^      AfterTerminate = \{$'
+  f_has_re "$wfmc" '^      RunLoader = \{$'
+  f_count_is "$wfmc" 'Next = "RunLoader"' 2
+  f_has "$wfmc" 'Resource = "arn:aws:states:::ecs:runTask.sync"'
+  wfstate="$(awk 'index($0, "      TerminateCluster = {") == 1 { f = 1 } f == 1 { print } f == 1 && $0 == "      }" { exit }' "$wfmc")"
+  case "$wfstate" in
+    *'Next           = local.after_terminate'*) ;;
+    *) note_fail "the TerminateCluster state does not go to local.after_terminate" ;;
+  esac
+  case_end
+
+  static_begin "15.terraform.skip-loader.the-course-wires-both-variables-and-only-the-two-session-overlays-turn-them-on"
+  if w15_need "$crm"; then
+    w15_code "$crm" | grep -qE '^[[:space:]]*skip_loader_after_pipeline[[:space:]]*=[[:space:]]*var\.pipeline_skip_loader[[:space:]]*$' || note_fail "course main.tf does not wire skip_loader_after_pipeline = var.pipeline_skip_loader"
+    w15_code "$crm" | grep -qE '^[[:space:]]*pipeline_profile[[:space:]]*=[[:space:]]*var\.pipeline_profile[[:space:]]*$' || note_fail "course main.tf does not wire pipeline_profile = var.pipeline_profile"
+  fi
+  for k in "$W15_COURSE" "$TF_S" "$TF_M" "$TF_L" "$W15_GL" "$W15_EX" "$W15_ENV/session-down.tfvars" "$W15_ENV/cleanup.tfvars"; do
+    [ -f "$k" ] || continue
+    [ "$(w15_count "$k" pipeline_skip_loader)" = "0" ] || note_fail "${k##*/} sets pipeline_skip_loader"
+    [ "$(w15_count "$k" pipeline_profile)" = "0" ] || note_fail "${k##*/} sets pipeline_profile"
+  done
+  [ "$(w15_last "$W15_EL" pipeline_skip_loader)" = "true" ] || note_fail "elasticity-s.tfvars does not set pipeline_skip_loader = true"
+  [ "$(w15_last "$W15_ENV/baseline-s.tfvars" pipeline_skip_loader)" = "true" ] || note_fail "baseline-s.tfvars does not set pipeline_skip_loader = true"
+  case_end
+
+  static_begin "15.terraform.profile.the-args-expression-is-the-old-one-with-an-optional-trailing-profile-and-each-overlay-profile-exists-in-the-conf"
+  f_has "$wfmc" 'profile_arg = var.pipeline_profile == "" ? "" : ", '"'"'${var.pipeline_profile}'"'"'"'
+  f_has "$wfmc" '"Args.$" = "States.Array('"'"'bash'"'"', '"'"'${local.script_dir}/run-s-pipeline.sh'"'"', '"'"'${var.data_bucket}'"'"', '"'"'${var.artifacts_bucket}'"'"', $.snapshot, $.snapshots, $.run_id${local.profile_arg})"'
+  f_count_is "$wfmc" 'local.profile_arg' 1
+  f_count_is "$wfmc" 'var.pipeline_profile' 1
+  [ "$(tf_def_in "$wfv" pipeline_profile)" = '""' ] || note_fail "the module default of pipeline_profile is '$(tf_def_in "$wfv" pipeline_profile)', expected the empty string"
+  [ "$(tf_def_in "$crsv" pipeline_profile)" = '""' ] || note_fail "the course default of pipeline_profile is '$(tf_def_in "$crsv" pipeline_profile)', expected the empty string"
+  for k in "$W15_EL" "$W15_ENV/baseline-s.tfvars"; do
+    p="$(w15_last "$k" pipeline_profile)"
+    case "$p" in
+      a-baseline | b-burst) ;;
+      *) note_fail "${k##*/} sets pipeline_profile '$p', expected a-baseline or b-burst" ;;
+    esac
+    [ -n "$p" ] && { grep -qE "^$p\\.[A-Z_]+=" "$conf" || note_fail "the profile $p of ${k##*/} has no line in spark-yarn.conf"; }
+  done
+  [ "$(w15_last "$W15_EL" pipeline_profile)" = "b-burst" ] || note_fail "elasticity-s.tfvars does not select b-burst"
+  [ "$(w15_last "$W15_ENV/baseline-s.tfvars" pipeline_profile)" = "a-baseline" ] || note_fail "baseline-s.tfvars does not select a-baseline"
+  case_end
+
+  static_begin "15.terraform.baseline-s.core-0-neptune-bedrock-and-services-off-no-wait-and-rule-a-holds"
+  p="$W15_ENV/baseline-s.tfvars"
+  if w15_need "$p"; then
+    for k in 'emr_core_instance_count=0' 'emr_task_spot_instance_count=0' 'emr_managed_scaling_max_units=3' 'enable_neptune=false' 'enable_bedrock=false' 'service_desired_count=0' 'loader_cpu=512' 'loader_memory=1024'; do
+      [ "$(w15_count "$p" "${k%%=*}")" = "1" ] || note_fail "${k%%=*} is assigned $(w15_count "$p" "${k%%=*}") times in baseline-s.tfvars, expected once"
+      [ "$(w15_last "$p" "${k%%=*}")" = "${k#*=}" ] || note_fail "${k%%=*} is '$(w15_last "$p" "${k%%=*}")' in baseline-s.tfvars, expected ${k#*=}"
+    done
+    [ "$(w15_eff enable_neptune "$W15_COURSE" "$TF_S" "$p")" = "false" ] || note_fail "Neptune is not off after course, S and baseline-s"
+    [ "$(w15_eff enable_bedrock "$W15_COURSE" "$TF_S" "$p")" = "false" ] || note_fail "Bedrock is not off after course, S and baseline-s"
+    [ "$(w15_eff emr_core_instance_count "$W15_COURSE" "$TF_S" "$p")" = "0" ] || note_fail "the core count is not 0 after layering"
+    [ "$(w15_eff service_desired_count "$W15_COURSE" "$TF_S" "$p")" = "0" ] || note_fail "the service count is not 0 after layering"
+    if w15_code "$p" | grep -qE '^(neptune_instance_class|neptune_mode)[[:space:]]*='; then note_fail "baseline-s.tfvars sets a Neptune setting although Neptune is off"; fi
+    if [ -n "$W15_CRS_WAIT" ]; then
+      [ "$(w15_count "$p" "$W15_CRS_WAIT")" = "0" ] || note_fail "baseline-s.tfvars sets the wait: A's state machine must stay free of the Wait state"
+    fi
+    w15_mx="$(w15_eff pipeline_max_run_seconds "$TF_S" "$p")"
+    w15_cr="$(w15_eff pipeline_create_cluster_timeout_seconds "$TF_S" "$p")"
+    w15_st="$(w15_eff pipeline_emr_step_timeout_seconds "$TF_S" "$p")"
+    if tf_is_num "$w15_mx" && tf_is_num "$w15_cr" && tf_is_num "$w15_st"; then
+      w15_rule_a_wait "$w15_mx" "$w15_cr" "$w15_st" 0 || note_fail "Rule A fails for baseline-s: $w15_mx < $w15_cr + $w15_st + 600"
+      { [ "$w15_mx" -ge 1800 ] && [ "$w15_mx" -le 10800 ]; } || note_fail "the max run $w15_mx is outside 1800 to 10800"
+      [ $((w15_cr + w15_st + 600)) = "6840" ] || note_fail "Rule A for baseline-s is $((w15_cr + w15_st + 600)), the file says 6840"
+      f_has "$p" "$w15_cr + $w15_st + 600 = $((w15_cr + w15_st + 600)) <= $w15_mx"
+    else
+      note_fail "an effective timeout of baseline-s could not be read: max '$w15_mx', create '$w15_cr', step '$w15_st'"
+    fi
+    w15_ld="$(w15_last "$p" pipeline_loader_timeout_seconds)"
+    { tf_is_num "$w15_ld" && [ "$w15_ld" -ge 300 ] && [ "$w15_ld" -le 7200 ]; } || note_fail "the loader timeout '$w15_ld' is outside 300 to 7200"
+    w15_hdr="$(grep '^[[:space:]]*#' "$p")"
+    for k in 'experiment-size-s.tfvars' 'course.tfvars' 'Experiment A' 'core'; do
+      printf '%s\n' "$w15_hdr" | grep -qF -- "$k" || note_fail "the header does not mention: $k"
+    done
+  fi
+  case_end
+
+  static_begin "15.terraform.elasticity-s.timeouts-and-idle-timeout-agree-with-the-wait-and-the-worst-case-sum-is-stated-as-computed"
+  if w15_need "$W15_EL"; then
+    w15_wt="$(w15_last "$W15_EL" "${W15_CRS_WAIT:-no_such_wait_variable}")"
+    w15_it="$(w15_last "$W15_EL" emr_idle_timeout_seconds)"
+    w15_cr="$(w15_eff pipeline_create_cluster_timeout_seconds "$TF_S" "$W15_EL")"
+    w15_st="$(w15_eff pipeline_emr_step_timeout_seconds "$TF_S" "$W15_EL")"
+    if tf_is_num "$w15_wt" && tf_is_num "$w15_it" && tf_is_num "$w15_cr" && tf_is_num "$w15_st"; then
+      [ "$w15_it" -gt "$w15_wt" ] || note_fail "the idle timeout $w15_it is not above the wait $w15_wt: the cluster could end itself during the wait"
+      f_has "$W15_EL" "$w15_cr + 300 + $w15_st + $w15_wt + 900 = $((w15_cr + 300 + w15_st + w15_wt + 900)) > $(w15_last "$W15_EL" pipeline_max_run_seconds)"
+      f_has "$W15_EL" "$w15_cr + $w15_st + $w15_wt + 600 = $((w15_cr + w15_st + w15_wt + 600)) <= $(w15_last "$W15_EL" pipeline_max_run_seconds)"
+    else
+      note_fail "a value could not be read: wait '$w15_wt', idle '$w15_it', create '$w15_cr', step '$w15_st'"
+    fi
+  fi
+  case_end
+}
+static_w15b_cases
+
+### 15.experiment.b-collect: experiments/b-burst/collect.sh against a fake aws (read-only verbs, write once).
+
+W15_CBIN="$WORK/w15-collect-bin"
+mkdir -p "$W15_CBIN"
+cat > "$W15_CBIN/aws" <<'EOF'
+#!/bin/sh
+printf 'AWS' >> "$W15_AWS_LOG"
+for a in "$@"; do printf ' %s' "$a" >> "$W15_AWS_LOG"; done
+printf '\n' >> "$W15_AWS_LOG"
+case "$2" in
+  get-execution-history) cat "$W15_HISTORY" ;;
+  *) printf '{"fake":"%s"}\n' "$2" ;;
+esac
+EOF
+chmod 755 "$W15_CBIN/aws"
+W15_HISTORY="$REAL_ROOT/experiments/b-burst/fixtures/synthetic-scaling/collected/sfn-history.json"
+W15_COLLECT="$REAL_ROOT/experiments/b-burst/collect.sh"
+
+# w15_collect_dir NAME: a run directory with the two files the collector needs.
+w15_collect_dir() {
+  W15_RUND="$WORK/w15-collect-run-$1"
+  rm -rf "$W15_RUND"
+  mkdir -p "$W15_RUND/raw"
+  printf 'RUN_ID=harness\n' > "$W15_RUND/run-record.env"
+  printf '{\n  "pipeline_record": "x",\n  "execution_arn": "arn:aws:states:us-east-2:%s:execution:harness:harness",\n  "start_utc": "2026-11-18T15:00:00Z",\n  "end_utc": "2026-11-18T16:01:10Z",\n  "final_status": "SUCCEEDED",\n  "pipeline_exit": 0\n}\n' "$ACCT" > "$W15_RUND/raw/window.json"
+  W15_ALOG="$WORK/w15-collect-aws-$1.log"
+  : > "$W15_ALOG"
+}
+w15_collect_run() { # [extra env NAME=VALUE ...]
+  run env PATH="$W15_CBIN:$TOOLDIR" AWS_PROFILE=harness-profile W15_AWS_LOG="$W15_ALOG" W15_HISTORY="$W15_HISTORY" "$@" bash "$W15_COLLECT" --run-dir "$W15_RUND"
+}
+
+w15_collect_dir first
+w15_collect_run
+case_begin "15.experiment.b-collect.a-first-run-makes-the-raw-files-and-ends-complete"
+a_rc 0
+a_out_re '^CLUSTER_ID=j-SYNTH0000001$'
+a_out_re '^COLLECT_COMPLETE cluster=j-SYNTH0000001 window=2026-11-18T14:50:00Z\.\.2026-11-18T16:11:10Z$'
+a_out "COLLECTED_DIR=$W15_RUND/collected"
+for w15_f in sfn-execution.json sfn-history.json emr-describe-cluster.json emr-list-instance-groups.json emr-list-instances.json emr-managed-scaling-policy.json emr-list-steps.json cloudwatch-list-metrics.json metric-queries.json cloudwatch-metric-data.json COLLECTED.txt SHA256SUMS; do
+  [ -s "$W15_RUND/collected/$w15_f" ] || note_fail "collected/$w15_f is missing or empty"
+done
+cmp -s "$W15_RUND/collected/sfn-history.json" "$W15_HISTORY" || note_fail "sfn-history.json is not the raw output of the call"
+a_trip_empty
+case_end
+
+case_begin "15.experiment.b-collect.every-aws-call-is-a-get-list-or-describe-in-us-east-2-and-there-are-nine"
+OUT="$LOGDIR/none.out"; ERR="$LOGDIR/none.err"; RC=0
+[ "$(wc -l < "$W15_ALOG" | tr -d ' ')" = "9" ] || note_fail "expected 9 aws calls, found $(wc -l < "$W15_ALOG" | tr -d ' ')"
+while read -r w15_a w15_svc w15_verb w15_rest; do
+  case "$w15_verb" in
+    get-* | list-* | describe-*) ;;
+    *) note_fail "a call is not read-only: aws $w15_svc $w15_verb" ;;
+  esac
+  case "$w15_rest" in
+    *' --region us-east-2 '*) ;;
+    *) note_fail "a call does not carry --region us-east-2: $w15_verb" ;;
+  esac
+done < "$W15_ALOG"
+for w15_v in describe-execution get-execution-history describe-cluster list-instance-groups list-instances get-managed-scaling-policy list-steps list-metrics get-metric-data; do
+  grep -qE "^AWS [a-z]+ $w15_v " "$W15_ALOG" || note_fail "the call $w15_v was not made"
+done
+if grep -qE '^AWS [a-z]+ (create|delete|put|update|modify|start|stop|terminate|run|tag|untag|set|add|remove|cancel)-' "$W15_ALOG"; then note_fail "a mutating verb was called"; fi
+case_end
+
+case_begin "15.experiment.b-collect.the-files-are-read-only-and-sha256sums-match-them"
+OUT="$LOGDIR/none.out"; ERR="$LOGDIR/none.err"; RC=0
+for w15_f in "$W15_RUND"/collected/*; do
+  if [ -w "$w15_f" ]; then note_fail "${w15_f##*/} is writable"; fi
+done
+[ ! -w "$W15_RUND/collected" ] || note_fail "the collected directory is writable"
+w15_nbad=0
+w15_nsum=0
+while read -r w15_h w15_n; do
+  [ -n "$w15_n" ] || continue
+  w15_nsum=$((w15_nsum + 1))
+  [ "$(sha_of "$W15_RUND/collected/$w15_n")" = "$w15_h" ] || w15_nbad=$((w15_nbad + 1))
+done < "$W15_RUND/collected/SHA256SUMS"
+[ "$w15_nsum" -ge 10 ] || note_fail "SHA256SUMS lists only $w15_nsum files"
+[ "$w15_nbad" = "0" ] || note_fail "$w15_nbad checksum line(s) do not match"
+case_end
+
+w15_before="$(cat "$W15_RUND/collected/SHA256SUMS")"
+w15_ncalls="$(wc -l < "$W15_ALOG" | tr -d ' ')"
+w15_collect_run
+case_begin "15.experiment.b-collect.a-second-run-on-the-same-directory-is-refused-and-makes-no-aws-call"
+a_rc 1
+a_err 'COLLECT_REFUSED:'
+a_err 'collected files are written once and never overwritten'
+[ "$(wc -l < "$W15_ALOG" | tr -d ' ')" = "$w15_ncalls" ] || note_fail "the second run made aws calls"
+[ "$(cat "$W15_RUND/collected/SHA256SUMS")" = "$w15_before" ] || note_fail "the first run's SHA256SUMS changed"
+a_not_out 'COLLECT_COMPLETE'
+case_end
+
+w15_collect_dir no-profile
+run env PATH="$W15_CBIN:$TOOLDIR" W15_AWS_LOG="$W15_ALOG" W15_HISTORY="$W15_HISTORY" bash "$W15_COLLECT" --run-dir "$W15_RUND"
+case_begin "15.experiment.b-collect.refuses-without-aws-profile-before-any-call-and-makes-no-directory"
+a_rc 1
+a_err 'AWS_PROFILE must be set'
+[ ! -s "$W15_ALOG" ] || note_fail "aws was called without AWS_PROFILE"
+[ ! -e "$W15_RUND/collected" ] || note_fail "collected/ was made before the refusal"
+case_end
+
+w15_collect_dir no-window
+rm -f "$W15_RUND/raw/window.json"
+w15_collect_run
+case_begin "15.experiment.b-collect.refuses-a-run-directory-without-window-json-before-any-call"
+a_rc 1
+a_err 'window.json is missing'
+[ ! -s "$W15_ALOG" ] || note_fail "aws was called without a window"
+[ ! -e "$W15_RUND/collected" ] || note_fail "collected/ was made before the refusal"
+case_end
+
+w15_collect_dir relative
+run env PATH="$W15_CBIN:$TOOLDIR" AWS_PROFILE=harness-profile W15_AWS_LOG="$W15_ALOG" W15_HISTORY="$W15_HISTORY" bash "$W15_COLLECT" --run-dir relative/run
+case_begin "15.experiment.b-collect.refuses-a-relative-run-directory"
+a_rc 1
+a_err 'COLLECT_REFUSED: --run-dir must be an existing absolute directory'
+[ ! -s "$W15_ALOG" ] || note_fail "aws was called"
+case_end
+
+# aws_read, cut out of the script and run with a mutating verb and a read verb.
+cat > "$CODE_DIR/w15-aws-read-child.sh" <<'EOF'
+FN="$1"; SVC="$2"; VERB="$3"
+REGION=us-east-2
+die() { printf 'COLLECT_REFUSED: %s\n' "$*" >&2; exit 1; }
+source "$FN"
+aws_read "$SVC" "$VERB" --x y
+printf 'RETURNED\n'
+EOF
+mkdir -p "$WORK/w15-awsread"
+extract_fn "$W15_COLLECT" aws_read "$WORK/w15-awsread/fn.sh"
+# SC2086: the verb pair is split into the two arguments of aws_read on purpose.
+# shellcheck disable=SC2086
+for w15_vb in 'emr terminate-job-flows' 'emr add-steps' 'stepfunctions stop-execution' 'cloudwatch put-metric-data' 'emr run-job-flow' 'servicequotas request-service-quota-increase'; do
+  : > "$W15_CBIN/calls.log"
+  run env PATH="$W15_CBIN:$TOOLDIR" W15_AWS_LOG="$W15_CBIN/calls.log" W15_HISTORY="$W15_HISTORY" bash "$CODE_DIR/w15-aws-read-child.sh" "$WORK/w15-awsread/fn.sh" $w15_vb
+  case_begin "15.experiment.b-collect.aws-read-refuses-${w15_vb// /-}-and-never-reaches-aws"
+  [ -s "$WORK/w15-awsread/fn.sh" ] || note_fail "aws_read was not cut out of collect.sh"
+  a_rc 1
+  a_err "COLLECT_REFUSED: not a read-only AWS verb: $w15_vb"
+  a_not_out 'RETURNED'
+  [ ! -s "$W15_CBIN/calls.log" ] || note_fail "aws was called for a mutating verb"
+  case_end
+done
+# shellcheck disable=SC2086
+for w15_vb in 'emr describe-cluster' 'emr list-steps' 'emr get-managed-scaling-policy'; do
+  : > "$W15_CBIN/calls.log"
+  run env PATH="$W15_CBIN:$TOOLDIR" W15_AWS_LOG="$W15_CBIN/calls.log" W15_HISTORY="$W15_HISTORY" bash "$CODE_DIR/w15-aws-read-child.sh" "$WORK/w15-awsread/fn.sh" $w15_vb
+  case_begin "15.experiment.b-collect.aws-read-passes-${w15_vb// /-}-with-the-region-and-timeouts"
+  a_rc 0
+  a_out 'RETURNED'
+  grep -qE '^AWS (emr) (describe-cluster|list-steps|get-managed-scaling-policy) --x y --region us-east-2 --cli-connect-timeout 10 --cli-read-timeout 60 --output json$' "$W15_CBIN/calls.log" || note_fail "the call is not as expected: $(head -n 1 "$W15_CBIN/calls.log")"
+  case_end
+done
+
+# w15_cs_audit FILE: one line per rm, mv or cp line of the (comment-stripped) FILE that is not on the exact
+# allowlist of the lines collect.sh has: the rename of the stage to the output, the rename of the stage to
+# the failed name, the checksum file rename inside the stage, and the two rm -f of a file inside the stage.
+# shellcheck disable=SC2016
+w15_cs_audit() {
+  local l
+  sed 's/^[[:space:]]*//' "$1" | grep -E '(^|[[:space:];(&|])(rm|mv|cp)[[:space:]]' | while IFS= read -r l; do
+    case "$l" in
+      'if mv "$STAGE" "$failed" 2>/dev/null; then' | 'mv "$STAGE" "$OUT"' | 'mv "$STAGE/SHA256SUMS.new" "$STAGE/SHA256SUMS"' | 'rm -f "$STAGE/$name.error.txt"' | 'rm -f "$STAGE/$name"') ;;
+      *) printf 'not allowed: %s\n' "$l" ;;
+    esac
+  done
+}
+
+static_begin "15.experiment.b-collect.static.no-aws-call-outside-aws-read-and-the-directory-is-made-with-mkdir-without-p"
+w15_cc="$(code_of "$W15_COLLECT")"
+f_count_is "$w15_cc" '  aws "$@" --region "$REGION"' 1
+w15_nraw="$(grep -cE '(^|[[:space:];(])aws[[:space:]]' "$w15_cc" || true)"
+[ "$w15_nraw" = "2" ] || note_fail "$w15_nraw code lines name aws, expected 2 (the type -P check and the one call in aws_read)"
+# Review m5: the writes go to "$STAGE" (collected.staging) and ONE rename makes "$OUT" (collected). The protections
+# of the old case hold under the new names: the directory is made with mkdir and no -p, an existing "$OUT" or
+# "$STAGE" is refused, every result is written with noclobber, the files are made read-only before the rename
+# and the directory after it, and only an exact allowlist of rm and mv lines exists.
+f_has "$w15_cc" '[[ ! -e "$OUT" ]] || die '
+f_has "$w15_cc" '[[ ! -e "$STAGE" ]] || die '
+f_has "$w15_cc" 'mkdir "$STAGE" || die'
+f_has_not_re "$w15_cc" '(^|[[:space:];(&|])mkdir[[:space:]]+-'
+f_has_not_re "$w15_cc" 'mkdir[[:space:]]+("|)[$][{]?OUT'
+[ "$(grep -cE '(^|[[:space:];(&|])mkdir[[:space:]]' "$w15_cc")" = "1" ] || note_fail "collect.sh makes a directory with mkdir other than the one 'mkdir \"\$STAGE\" || die'"
+f_before "$w15_cc" '[[ ! -e "$OUT" ]] || die ' 'mkdir "$STAGE" || die'
+f_before "$w15_cc" '[[ ! -e "$STAGE" ]] || die ' 'mkdir "$STAGE" || die'
+f_count_is "$w15_cc" '(set -C; aws_read "$@" > "$STAGE/$name"' 2
+f_count_is "$w15_cc" 'aws_read "$@"' 2
+f_has "$w15_cc" '(set -C; python3 -I "$SC_COLLECT_DIR/derive-capacity.py" queries --cluster-id "$CLUSTER_ID" > "$STAGE/metric-queries.json")'
+f_has_not_re "$w15_cc" '>>?[[:space:]]*"?[$][{]?OUT'
+f_has_not_re "$w15_cc" '[$][{]?OUT[}]?/'
+f_has "$w15_cc" 'chmod a-w "$STAGE"/*'
+f_has "$w15_cc" 'chmod a-w "$OUT"'
+[ "$(grep -cE '(^|[[:space:];(&|])chmod[[:space:]]' "$w15_cc")" = "2" ] || note_fail "collect.sh holds a chmod line other than the two read-only steps"
+f_before "$w15_cc" 'chmod a-w "$STAGE"/*' 'mv "$STAGE" "$OUT"'
+f_before "$w15_cc" 'mv "$STAGE" "$OUT"' 'chmod a-w "$OUT"'
+f_has "$w15_cc" 'collect-failed.'
+f_has_not_re "$w15_cc" '(^|[[:space:];(&|])cp[[:space:]]'
+f_has_not_re "$w15_cc" '(^|[[:space:];(&|])rm[[:space:]]+(-[A-Za-z]*[rR]|--recursive)'
+f_has_not_re "$w15_cc" '(^|[[:space:];(&|])(rm|mv)[[:space:]].*(/raw|[$][{]?RUN_DIR)'
+f_has_not_re "$w15_cc" '(^|[[:space:];(&|])rm[[:space:]].*[$][{]?OUT'
+f_has_not_re "$w15_cc" '(^|[[:space:];(&|])mv[[:space:]]+"?[$][{]?OUT'
+w15_cl_lines="$(sed 's/^[[:space:]]*//' "$w15_cc")"
+w15_cs_n() {
+  local n
+  n="$(printf '%s\n' "$w15_cl_lines" | grep -cxF -- "$1")"
+  [ "$n" = "$2" ] || note_fail "collect.sh holds the line '$1' $n time(s), expected $2"
+}
+# shellcheck disable=SC2016
+w15_cs_n 'if mv "$STAGE" "$failed" 2>/dev/null; then' 1
+# shellcheck disable=SC2016
+w15_cs_n 'mv "$STAGE" "$OUT"' 1
+# shellcheck disable=SC2016
+w15_cs_n 'mv "$STAGE/SHA256SUMS.new" "$STAGE/SHA256SUMS"' 1
+# shellcheck disable=SC2016
+w15_cs_n 'rm -f "$STAGE/$name.error.txt"' 2
+# shellcheck disable=SC2016
+w15_cs_n 'rm -f "$STAGE/$name"' 1
+w15_cs_viol="$(w15_cs_audit "$w15_cc")"
+[ -z "$w15_cs_viol" ] || note_fail "an rm, mv or cp line is outside the exact allowlist: $(printf '%s\n' "$w15_cs_viol" | head -n 3 | tr '\n' '|')"
+case_end
+
+w15_begin "15.experiment.b-collect.static.the-rm-mv-cp-allowlist-refuses-any-other-line"
+w15_cs_neg() {
+  local f="$WORK/w15-collect-neg.sh"
+  cp "$w15_cc" "$f"
+  printf '%s\n' "$1" >> "$f"
+  [ -n "$(w15_cs_audit "$f")" ] || note_fail "the added line was accepted: $1"
+}
+# shellcheck disable=SC2016
+for w15_nl in \
+  'cp "$STAGE/a" "$OUT/a"' \
+  'cp -p "$STAGE/a" "$STAGE/b"' \
+  'rm -rf "$OUT"' \
+  'rm -f "$OUT"' \
+  'rm -r "$STAGE"' \
+  'rm -R "$STAGE"' \
+  'rm "$STAGE/$name"' \
+  'rm -f "$STAGE/other"' \
+  'rm -f "$RUN_DIR/raw/window.json"' \
+  'mv "$OUT" "$OUT.old"' \
+  'mv "$STAGE" "$RUN_DIR/raw"' \
+  'mv "$STAGE/a" "$RUN_DIR/a"' \
+  'if mv "$STAGE" "$OUT" 2>/dev/null; then'; do
+  w15_cs_neg "$w15_nl"
+done
+[ -z "$(w15_cs_audit "$w15_cc")" ] || note_fail "the real collect.sh already violates the allowlist"
+case_end
+
+### 15.experiment.entry: experiments/a-baseline/run.sh and experiments/b-burst/run.sh with a fake run-bounded-pipeline.sh.
+
+W15_TREE="$WORK/w15-exp-tree"
+rm -rf "$W15_TREE"
+mkdir -p "$W15_TREE/experiments/lib" "$W15_TREE/experiments/a-baseline" "$W15_TREE/experiments/b-burst" "$W15_TREE/scripts"
+cp "$REAL_ROOT/experiments/lib/exp-lib.sh" "$W15_TREE/experiments/lib/exp-lib.sh"
+cp "$REAL_ROOT/experiments/a-baseline/run.sh" "$W15_TREE/experiments/a-baseline/run.sh"
+cp "$REAL_ROOT/experiments/b-burst/run.sh" "$W15_TREE/experiments/b-burst/run.sh"
+cat > "$W15_TREE/scripts/run-bounded-pipeline.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'CALL' >> "$W15_CALLS"
+for a in "$@"; do printf ' %s' "$a" >> "$W15_CALLS"; done
+printf '\n' >> "$W15_CALLS"
+out=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --out-dir) out="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+printf 'POLL status=RUNNING\n'
+if [ -n "$out" ]; then
+  printf 'EXECUTION_ARN=arn:aws:states:us-east-2:%s:execution:harness:harness\nSTART_UTC=2026-11-18T15:00:00Z\nEND_UTC=2026-11-18T16:00:00Z\nFINAL_STATUS=%s\n' "$W15_ACCT" "${W15_FINAL:-SUCCEEDED}" > "$out/pipeline-fake.record.env"
+fi
+exit "${W15_RC:-0}"
+EOF
+chmod 755 "$W15_TREE/scripts/run-bounded-pipeline.sh"
+W15_PIN="$WORK/w15-pipeline-input.json"
+printf '{"mode":"pipeline","snapshot":"%s","snapshots":"%s","run_id":"%s","loader_command":["-version"]}\n' "$PI_SNAP" "$PI_SNAPS" "$PI_RUN" > "$W15_PIN"
+W15_PREC="$WORK/w15-pipeline-approval.env"
+printf 'harness approval placeholder\n' > "$W15_PREC"
+
+# w15_entry NAME EXP MAXMIN [NAME=VALUE ...]: runs the entry point of experiment EXP in a fresh run directory.
+# EXP is the ID exported to the entry point. The script run is that experiment's own, unless W15_ENTRY_DIR
+# (a-baseline or b-burst) names the entry point under test: the wrong-ID cases export the OTHER ID to it.
+# (Before this, the directory was always chosen from EXP, so a wrong-ID call ran the other experiment's own
+# entry point with its own valid ID, and nothing was refused.)
+w15_entry() {
+  local n="$1" exp="$2" maxmin="$3" dir
+  shift 3
+  case "$exp" in
+    A) dir=a-baseline ;;
+    *) dir=b-burst ;;
+  esac
+  if [ -n "${W15_ENTRY_DIR:-}" ]; then dir="$W15_ENTRY_DIR"; fi
+  W15_ERUN="$WORK/w15-entry-$n"
+  rm -rf "$W15_ERUN"
+  mkdir -p "$W15_ERUN"
+  W15_ECALLS="$WORK/w15-entry-$n.calls"
+  : > "$W15_ECALLS"
+  run env SCHOLARCHAIN_EXPERIMENT_ID="$exp" SCHOLARCHAIN_RUN_ID="exp-$exp-harness" SCHOLARCHAIN_RUN_DIR="$W15_ERUN" \
+    SCHOLARCHAIN_MAX_MINUTES="$maxmin" SCHOLARCHAIN_MAX_CONCURRENCY=1 SCHOLARCHAIN_MAX_TASKS=1 SCHOLARCHAIN_REGION=us-east-2 \
+    SCHOLARCHAIN_ACCOUNT_ID="$ACCT" SCHOLARCHAIN_DATASET_SNAPSHOT=harness-snap \
+    SCHOLARCHAIN_PIPELINE_INPUT_FILE="$W15_PIN" SCHOLARCHAIN_PIPELINE_APPROVAL_RECORD="$W15_PREC" \
+    W15_CALLS="$W15_ECALLS" W15_ACCT="$ACCT" "$@" bash "$W15_TREE/experiments/$dir/run.sh"
+}
+
+# w15_entry_ok EXP DIRNAME MAXMIN SIZE MINUTES SPEND BURN: the normal run, once, with the committed constants.
+w15_entry_ok() {
+  local exp="$1" mm="$3" size="$4" min="$5" spend="$6" burn="$7" want n
+  w15_entry "ok-$exp" "$exp" "$mm"
+  case_begin "15.experiment.entry-$exp.starts-the-pipeline-once-with-the-committed-limits-and-records-utc-events-and-the-window"
+  a_rc 0
+  [ "$(wc -l < "$W15_ECALLS" | tr -d ' ')" = "1" ] || note_fail "the pipeline script was called $(wc -l < "$W15_ECALLS" | tr -d ' ') times, expected once"
+  want="CALL --environment course --account-id $ACCT --region us-east-2 --cost-ceiling-usd 20 --approval-record $W15_PREC --size $size --max-minutes $min --spend-ceiling-usd $spend --hourly-burn-usd $burn --stop-on first-failure,dlq-nonempty --input-file $W15_PIN --out-dir $W15_ERUN/pipeline"
+  grep -qxF -- "$want" "$W15_ECALLS" || note_fail "the pipeline call is not as expected: $(head -n 1 "$W15_ECALLS")"
+  [ -s "$W15_ERUN/events.jsonl" ] || note_fail "events.jsonl is missing"
+  for n in ENTRY_START PIPELINE_START PIPELINE_END ENTRY_END; do
+    grep -qF "\"event\":\"$n\"" "$W15_ERUN/events.jsonl" || note_fail "events.jsonl has no $n event"
+  done
+  [ "$(grep -c . "$W15_ERUN/events.jsonl")" = "4" ] || note_fail "events.jsonl holds $(grep -c . "$W15_ERUN/events.jsonl") lines, expected 4"
+  if grep -vE '^\{"ts_utc":"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z","event":"[A-Z_]+","detail":"[^"\\]*"\}$' "$W15_ERUN/events.jsonl" | grep -q .; then note_fail "an event line is not {ts_utc (UTC ISO-8601 Z), event, detail}"; fi
+  grep -qF "\"event\":\"ENTRY_END\",\"detail\":\"exit=0\"" "$W15_ERUN/events.jsonl" || note_fail "ENTRY_END does not record exit=0"
+  grep -qF "size=$size max_minutes=$min spend_ceiling_usd=$spend hourly_burn_usd=$burn" "$W15_ERUN/events.jsonl" || note_fail "PIPELINE_START does not record the committed limits"
+  cmp -s "$W15_PIN" "$W15_ERUN/pipeline-input.json" || note_fail "pipeline-input.json is not a copy of the input"
+  [ "$(awk '{ print $1 }' "$W15_ERUN/pipeline-input.sha256")" = "$(sha_of "$W15_PIN")" ] || note_fail "pipeline-input.sha256 does not match the input"
+  [ -s "$W15_ERUN/pipeline-run.log" ] || note_fail "pipeline-run.log is missing"
+  grep -qF '"execution_arn": "arn:aws:states:us-east-2:' "$W15_ERUN/window.json" || note_fail "window.json has no execution ARN"
+  grep -qF '"start_utc": "2026-11-18T15:00:00Z"' "$W15_ERUN/window.json" || note_fail "window.json has no start time"
+  grep -qF '"end_utc": "2026-11-18T16:00:00Z"' "$W15_ERUN/window.json" || note_fail "window.json has no end time"
+  grep -qF '"final_status": "SUCCEEDED"' "$W15_ERUN/window.json" || note_fail "window.json has no final status"
+  grep -qF '"pipeline_exit": 0' "$W15_ERUN/window.json" || note_fail "window.json has no pipeline exit"
+  a_trip_empty
+  case_end
+}
+w15_entry_ok A a-baseline 75 medium 70 0.75 0.60
+# P15-16 (review 1, K1): B stops its pipeline at 88 minutes under the manifest's 90 (the full tier S cap), with a
+# spend ceiling of 2.30 (1.55 x 88 / 60 = 2.27). Updated from 80, 74 and 2.00; the checks are the same.
+w15_entry_ok B b-burst 90 medium 88 2.30 1.55
+
+for w15_e in A B; do
+  if [ "$w15_e" = "A" ]; then w15_mm=75; else w15_mm=90; fi
+  w15_entry "fail-$w15_e" "$w15_e" "$w15_mm" W15_RC=3 W15_FINAL=FAILED
+  case_begin "15.experiment.entry-$w15_e.a-failing-pipeline-is-not-retried-and-its-status-reaches-the-event-log-the-window-and-the-exit-code"
+  a_rc 3
+  [ "$(wc -l < "$W15_ECALLS" | tr -d ' ')" = "1" ] || note_fail "the pipeline script was called $(wc -l < "$W15_ECALLS" | tr -d ' ') times after a failure, expected once (no retry)"
+  grep -qF '"event":"PIPELINE_END","detail":"exit=3"' "$W15_ERUN/events.jsonl" || note_fail "PIPELINE_END does not record exit=3"
+  grep -qF '"event":"ENTRY_END","detail":"exit=3"' "$W15_ERUN/events.jsonl" || note_fail "ENTRY_END does not record exit=3"
+  grep -qF '"final_status": "FAILED"' "$W15_ERUN/window.json" || note_fail "window.json does not carry FAILED"
+  grep -qF '"pipeline_exit": 3' "$W15_ERUN/window.json" || note_fail "window.json does not carry exit 3"
+  case_end
+
+  # The entry point under test is the one of experiment $w15_e; the ID exported to it is the other one.
+  if [ "$w15_e" = "A" ]; then W15_ENTRY_DIR=a-baseline; else W15_ENTRY_DIR=b-burst; fi
+  w15_entry "wrongid-$w15_e" "$([ "$w15_e" = "A" ] && printf B || printf A)" "$w15_mm"
+  W15_ENTRY_DIR=""
+  case_begin "15.experiment.entry-$w15_e.refuses-the-other-experiment-id-and-starts-nothing"
+  a_rc 1
+  a_err "EXPERIMENT_REFUSED: this entry point is for experiment $w15_e"
+  [ ! -s "$W15_ECALLS" ] || note_fail "the pipeline script ran for the wrong experiment"
+  [ ! -e "$W15_ERUN/events.jsonl" ] || note_fail "an event log was made for the wrong experiment"
+  case_end
+
+  w15_entry "unset-$w15_e" "$w15_e" "$w15_mm" SCHOLARCHAIN_ACCOUNT_ID=
+  case_begin "15.experiment.entry-$w15_e.refuses-an-unset-run-experiment-variable-and-starts-nothing"
+  a_rc 1
+  a_err 'EXPERIMENT_REFUSED: SCHOLARCHAIN_ACCOUNT_ID is not set'
+  [ ! -s "$W15_ECALLS" ] || note_fail "the pipeline script ran with a variable unset"
+  case_end
+
+  w15_entry "region-$w15_e" "$w15_e" "$w15_mm" SCHOLARCHAIN_REGION=us-east-1
+  case_begin "15.experiment.entry-$w15_e.refuses-a-region-other-than-us-east-2"
+  a_rc 1
+  a_err 'EXPERIMENT_REFUSED: Region must be us-east-2'
+  [ ! -s "$W15_ECALLS" ] || note_fail "the pipeline script ran in another Region"
+  case_end
+
+  w15_entry "limit-$w15_e" "$w15_e" "$([ "$w15_e" = "A" ] && printf 70 || printf 88)"
+  case_begin "15.experiment.entry-$w15_e.refuses-when-the-experiment-limit-is-not-above-the-pipeline-limit"
+  a_rc 1
+  a_err 'EXPERIMENT_REFUSED: the pipeline limit'
+  [ ! -s "$W15_ECALLS" ] || note_fail "the pipeline script ran although its limit was not below the experiment limit"
+  case_end
+
+  w15_entry "relin-$w15_e" "$w15_e" "$w15_mm" SCHOLARCHAIN_PIPELINE_INPUT_FILE=relative/input.json
+  case_begin "15.experiment.entry-$w15_e.refuses-a-relative-input-path"
+  a_rc 1
+  a_err 'EXPERIMENT_REFUSED: SCHOLARCHAIN_PIPELINE_INPUT_FILE must be an existing absolute path'
+  [ ! -s "$W15_ECALLS" ] || note_fail "the pipeline script ran with a relative input path"
+  case_end
+
+  w15_entry "norec-$w15_e" "$w15_e" "$w15_mm" SCHOLARCHAIN_PIPELINE_APPROVAL_RECORD=
+  case_begin "15.experiment.entry-$w15_e.refuses-a-missing-approval-record"
+  a_rc 1
+  a_err 'EXPERIMENT_REFUSED: SCHOLARCHAIN_PIPELINE_APPROVAL_RECORD must be an existing absolute path'
+  [ ! -s "$W15_ECALLS" ] || note_fail "the pipeline script ran without an approval record"
+  case_end
+
+  # A second start in the same raw directory: the event log is written once.
+  w15_entry "ok2-$w15_e" "$w15_e" "$w15_mm"
+  w15_dir2="$W15_ERUN"
+  if [ "$w15_e" = "A" ]; then w15_sc="a-baseline"; else w15_sc="b-burst"; fi
+  run env SCHOLARCHAIN_EXPERIMENT_ID="$w15_e" SCHOLARCHAIN_RUN_ID="exp-$w15_e-harness" SCHOLARCHAIN_RUN_DIR="$w15_dir2" \
+    SCHOLARCHAIN_MAX_MINUTES="$w15_mm" SCHOLARCHAIN_MAX_CONCURRENCY=1 SCHOLARCHAIN_MAX_TASKS=1 SCHOLARCHAIN_REGION=us-east-2 \
+    SCHOLARCHAIN_ACCOUNT_ID="$ACCT" SCHOLARCHAIN_DATASET_SNAPSHOT=harness-snap \
+    SCHOLARCHAIN_PIPELINE_INPUT_FILE="$W15_PIN" SCHOLARCHAIN_PIPELINE_APPROVAL_RECORD="$W15_PREC" \
+    W15_CALLS="$W15_ECALLS" W15_ACCT="$ACCT" bash "$W15_TREE/experiments/$w15_sc/run.sh"
+  case_begin "15.experiment.entry-$w15_e.a-second-start-in-the-same-directory-is-refused-and-the-event-log-is-kept"
+  a_rc 1
+  a_err 'EXPERIMENT_REFUSED: cannot create'
+  [ "$(wc -l < "$W15_ECALLS" | tr -d ' ')" = "1" ] || note_fail "the pipeline script ran again: $(wc -l < "$W15_ECALLS" | tr -d ' ') calls"
+  [ "$(grep -c . "$w15_dir2/events.jsonl")" = "4" ] || note_fail "the first run's event log was changed"
+  case_end
+done
+
+static_begin "15.experiment.entry.static.committed-pipeline-limits-sit-below-the-manifest-limits-and-the-projected-spend-fits-both-ceilings"
+for w15_e in A B; do
+  if [ "$w15_e" = "A" ]; then w15_sc="a-baseline"; w15_mf="experiment-a-baseline.manifest"; else w15_sc="b-burst"; w15_mf="experiment-b-burst.manifest"; fi
+  w15_line="$(grep -E '^exp_run_pipeline ' "$REAL_ROOT/experiments/$w15_sc/run.sh" | head -n 1)"
+  read -r w15_x w15_size w15_min w15_spend w15_burn _ <<< "$w15_line"
+  w15_mmin="$(sed -n 's/^MAX_MINUTES=//p' "$REAL_ROOT/experiments/manifests/$w15_mf" | head -n 1)"
+  w15_mspend="$(sed -n 's/^SPEND_CEILING_USD=//p' "$REAL_ROOT/experiments/manifests/$w15_mf" | head -n 1)"
+  w15_mburn="$(sed -n 's/^HOURLY_BURN_USD=//p' "$REAL_ROOT/experiments/manifests/$w15_mf" | head -n 1)"
+  if tf_is_num "$w15_min" && tf_is_num "$w15_mmin"; then
+    [ "$w15_min" -lt "$w15_mmin" ] || note_fail "$w15_sc: the pipeline limit $w15_min is not below the manifest limit $w15_mmin"
+    [ "$w15_size" = "medium" ] || note_fail "$w15_sc: the pipeline size is '$w15_size', expected medium (the 90 minute tier cap)"
+    [ "$w15_min" -le 90 ] || note_fail "$w15_sc: the pipeline limit $w15_min is above the medium tier cap 90"
+    awk -v s="$w15_spend" -v ms="$w15_mspend" -v b="$w15_burn" -v m="$w15_min" -v c="$CEIL" 'BEGIN { exit !(s <= ms && s <= c && b * m / 60 <= s) }' || note_fail "$w15_sc: spend $w15_spend, manifest ceiling $w15_mspend, burn $w15_burn x $w15_min min do not fit"
+    awk -v b="$w15_burn" -v mb="$w15_mburn" 'BEGIN { exit !(b <= mb) }' || note_fail "$w15_sc: the pipeline burn $w15_burn is above the manifest burn $w15_mburn"
+  else
+    note_fail "$w15_sc: the limits could not be read (pipeline '$w15_min', manifest '$w15_mmin')"
+  fi
+  f_has "$REAL_ROOT/experiments/$w15_sc/run.sh" "exp_init $w15_e"
+  f_count_is "$REAL_ROOT/experiments/$w15_sc/run.sh" 'exp_run_pipeline' 1
+  f_has_not_re "$(code_of "$REAL_ROOT/experiments/$w15_sc/run.sh")" '(^|[[:space:]])(aws|terraform|sbt)[[:space:]]'
+done
+case_end
+
+### 15.terraform.managed-scaling: the EMR ComputeLimits the module renders (review 1, K2, repair R7 item 2) ---------
+# VERIFIED rule (docs/agent-runs/phase-15/wave-1/doc-verification.md, K2): ComputeLimits apply only to core and
+# task nodes ("The master node cannot be scaled after initial configuration",
+# https://docs.aws.amazon.com/emr/latest/APIReference/API_ComputeLimits.html); core-only scaling sets the maximum
+# core limit and the On-Demand limit equal to the maximum boundary (Scenario 1 of
+# https://docs.aws.amazon.com/emr/latest/ManagementGuide/managed-scaling-allocation-strategy.html). So for the
+# cluster the module builds (primary 1, core C, Spot task T, cap N counting the primary): Min = C (the core count
+# it starts with, so EMR adds nothing at start), Max = max(N, 1 + C + T) - 1, and no value counts the primary.
+# The module's own expressions are read from modules/emr/main.tf and evaluated with python3 for each shape, so
+# the harness follows the file and no formula is copied here (only the rule above is asserted).
+
+W15_EMRMAIN="$TF_DIR/modules/emr/main.tf"
+cat > "$CODE_DIR/w15-computelimits.py" <<'EOF'
+import re
+import sys
+
+path, mode = sys.argv[1], sys.argv[2]
+
+
+def strip_comments(text):
+    out = []
+    for line in text.splitlines():
+        if line.strip().startswith('#'):
+            continue
+        out.append(re.sub(r'\s+#.*$', '', line))
+    return '\n'.join(out)
+
+
+def block_after(text, head):
+    i = text.index(head)
+    j = text.index('{', i)
+    d = 0
+    for k in range(j, len(text)):
+        if text[k] == '{':
+            d += 1
+        elif text[k] == '}':
+            d -= 1
+            if d == 0:
+                return text[j + 1:k]
+    raise ValueError('unbalanced braces after ' + head)
+
+
+def delta(s):
+    return sum(s.count(c) for c in '([{') - sum(s.count(c) for c in ')]}')
+
+
+def entries(body):
+    ent = {}
+    lines = body.splitlines()
+    i = 0
+    while i < len(lines):
+        m = re.match(r'^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$', lines[i])
+        if not m:
+            i += 1
+            continue
+        buf = [m.group(2)]
+        d = delta(m.group(2))
+        while d > 0 and i + 1 < len(lines):
+            i += 1
+            buf.append(lines[i])
+            d += delta(lines[i])
+        ent[m.group(1)] = ' '.join(b.strip() for b in buf)
+        i += 1
+    return ent
+
+
+def split_top(s, ch):
+    parts, d, cur = [], 0, ''
+    for c in s:
+        if c in '([{':
+            d += 1
+        elif c in ')]}':
+            d -= 1
+        if c == ch and d == 0:
+            parts.append(cur)
+            cur = ''
+        else:
+            cur += c
+    parts.append(cur)
+    return parts
+
+
+def find_top(s, ch):
+    d = 0
+    for i, c in enumerate(s):
+        if c in '([{':
+            d += 1
+        elif c in ')]}':
+            d -= 1
+        elif c == ch and d == 0:
+            return i
+    return -1
+
+
+def tern(s):
+    q = find_top(s, '?')
+    if q < 0:
+        return s
+    d, n, c = 0, 0, -1
+    for i in range(q + 1, len(s)):
+        ch = s[i]
+        if ch in '([{':
+            d += 1
+        elif ch in ')]}':
+            d -= 1
+        elif d == 0 and ch == '?':
+            n += 1
+        elif d == 0 and ch == ':':
+            if n == 0:
+                c = i
+                break
+            n -= 1
+    return '((%s) if (%s) else (%s))' % (tern(s[q + 1:c]), s[:q], tern(s[c + 1:]))
+
+
+def conv(s):
+    out, i = '', 0
+    while i < len(s):
+        if s[i] == '(':
+            d = 0
+            for j in range(i, len(s)):
+                if s[j] == '(':
+                    d += 1
+                elif s[j] == ')':
+                    d -= 1
+                    if d == 0:
+                        break
+            out += '(' + ', '.join(conv(a) for a in split_top(s[i + 1:j], ',')) + ')'
+            i = j + 1
+        else:
+            out += s[i]
+            i += 1
+    return tern(out)
+
+
+def ops(s):
+    s = re.sub(r'\bvar\.([A-Za-z_]\w*)', r"V['\1']", s)
+    s = re.sub(r'\blocal\.([A-Za-z_]\w*)', r"L('\1')", s)
+    s = re.sub(r'\btrue\b', 'True', s)
+    s = re.sub(r'\bfalse\b', 'False', s)
+    s = s.replace('&&', ' and ').replace('||', ' or ')
+    return re.sub(r'!(?!=)', ' not ', s)
+
+
+text = strip_comments(open(path).read())
+loc = entries(block_after(text, 'locals'))
+lim = entries(block_after(text, 'ComputeLimits'))
+V = {}
+memo = {}
+
+
+def L(name):
+    if name not in memo:
+        memo[name] = ev(loc[name])
+    return memo[name]
+
+
+def ev(expr):
+    return eval(conv(ops(expr)), {'max': max, 'min': min, 'V': V, 'L': L})
+
+
+def render(core, task, cap):
+    V.clear()
+    memo.clear()
+    V.update({'core_instance_count': core, 'task_spot_instance_count': task, 'managed_scaling_max_units': cap})
+    has_core = L('has_core') if 'has_core' in loc else core > 0
+    if not has_core:
+        return None
+    return tuple(int(ev(lim[k])) for k in ('MinimumCapacityUnits', 'MaximumCapacityUnits', 'MaximumCoreCapacityUnits', 'MaximumOnDemandCapacityUnits'))
+
+
+try:
+    if mode == 'one':
+        r = render(int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5]))
+        print('POLICY=none' if r is None else 'MIN=%d MAX=%d MAXCORE=%d MAXOD=%d' % r)
+    else:
+        n, bad = 0, 0
+        for core in range(0, 5):
+            for task in range(0, 3):
+                te = task if core > 0 else 0
+                for cap in range(1, 8):
+                    if cap < 1 + core + te:
+                        continue
+                    n += 1
+                    r = render(core, task, cap)
+                    tag = 'core=%d task=%d cap=%d' % (core, task, cap)
+                    if core == 0:
+                        if r is not None:
+                            bad += 1
+                            print('BAD %s: a policy is rendered for a one-node cluster: %s' % (tag, r))
+                        continue
+                    if r is None:
+                        bad += 1
+                        print('BAD %s: no policy for a cluster with core nodes' % tag)
+                        continue
+                    mn, mx, mc, mo = r
+                    fixed = 1 + core + te
+                    want_max = max(cap, fixed) - 1
+                    if mn != core:
+                        bad += 1
+                        print('BAD %s: Min %d, expected the core count %d (the primary is not counted)' % (tag, mn, core))
+                    if mx != want_max:
+                        bad += 1
+                        print('BAD %s: Max %d, expected %d (cap or fixed size, minus the primary)' % (tag, mx, want_max))
+                    if not (core <= mc <= mx):
+                        bad += 1
+                        print('BAD %s: MaxCore %d outside core..Max (%d..%d)' % (tag, mc, core, mx))
+                    if not (core <= mo <= mx):
+                        bad += 1
+                        print('BAD %s: MaxOnDemand %d outside core..Max (%d..%d)' % (tag, mo, core, mx))
+                    if te == 0 and not (mc == mx and mo == mx):
+                        bad += 1
+                        print('BAD %s: core-only scaling needs MaxCore == MaxOnDemand == Max, got %d %d %d' % (tag, mc, mo, mx))
+                    if cap <= fixed and mx != core + te:
+                        bad += 1
+                        print('BAD %s: a fixed-size shape must have Max equal to its core plus task nodes' % tag)
+        print('GRID shapes=%d bad=%d' % (n, bad))
+except Exception as e:
+    print('ERROR %s: %s' % (type(e).__name__, e))
+    sys.exit(3)
+EOF
+
+# w15_cl CORE TASKS CAP: the rendered limits, one line.
+w15_cl() {
+  python3 "$CODE_DIR/w15-computelimits.py" "$W15_EMRMAIN" one "$1" "$2" "$3" 2>&1
+}
+
+w15_begin "15.terraform.managed-scaling.b-renders-min-1-max-3-maxcore-3-maxondemand-3-for-core-1-no-task-cap-4"
+if w15_need "$W15_EMRMAIN"; then
+  [ "$(w15_cl 1 0 4)" = "MIN=1 MAX=3 MAXCORE=3 MAXOD=3" ] || note_fail "core 1, task 0, cap 4 renders '$(w15_cl 1 0 4)', expected MIN=1 MAX=3 MAXCORE=3 MAXOD=3 (core-only scaling, Scenario 1, K2)"
+fi
+case_end
+
+w15_begin "15.terraform.managed-scaling.the-elasticity-s-values-render-min-1-max-3-maxcore-3-maxondemand-3"
+if w15_need "$W15_EMRMAIN" && w15_need "$W15_EL" && w15_need "$TF_S"; then
+  w15_ec="$(w15_eff emr_core_instance_count "$W15_COURSE" "$TF_S" "$W15_EL")"
+  w15_et="$(w15_eff emr_task_spot_instance_count "$W15_COURSE" "$TF_S" "$W15_EL")"
+  w15_em="$(w15_eff emr_managed_scaling_max_units "$W15_COURSE" "$TF_S" "$W15_EL")"
+  if tf_is_num "$w15_ec" && tf_is_num "$w15_et" && tf_is_num "$w15_em"; then
+    [ "$(w15_cl "$w15_ec" "$w15_et" "$w15_em")" = "MIN=1 MAX=3 MAXCORE=3 MAXOD=3" ] || note_fail "the effective B values (core $w15_ec, task $w15_et, cap $w15_em) render '$(w15_cl "$w15_ec" "$w15_et" "$w15_em")', expected MIN=1 MAX=3 MAXCORE=3 MAXOD=3"
+  else
+    note_fail "an effective B value could not be read: core '$w15_ec', task '$w15_et', cap '$w15_em'"
+  fi
+fi
+case_end
+
+w15_begin "15.terraform.managed-scaling.the-elasticity-example-renders-4-4-4-4-and-cannot-scale"
+if w15_need "$W15_EMRMAIN" && w15_need "$W15_EX"; then
+  w15_xc="$(w15_eff emr_core_instance_count "$W15_COURSE" "$W15_EX")"
+  w15_xt="$(w15_eff emr_task_spot_instance_count "$W15_COURSE" "$W15_EX")"
+  w15_xm="$(w15_eff emr_managed_scaling_max_units "$W15_COURSE" "$W15_EX")"
+  [ -n "$w15_xt" ] || w15_xt=0
+  if tf_is_num "$w15_xc" && tf_is_num "$w15_xt" && tf_is_num "$w15_xm"; then
+    [ "$(w15_cl "$w15_xc" "$w15_xt" "$w15_xm")" = "MIN=4 MAX=4 MAXCORE=4 MAXOD=4" ] || note_fail "the example (core $w15_xc, task $w15_xt, cap $w15_xm) renders '$(w15_cl "$w15_xc" "$w15_xt" "$w15_xm")', expected MIN=4 MAX=4 MAXCORE=4 MAXOD=4"
+  else
+    note_fail "an example value could not be read: core '$w15_xc', task '$w15_xt', cap '$w15_xm'"
+  fi
+fi
+case_end
+
+w15_begin "15.terraform.managed-scaling.a-one-node-cluster-renders-no-policy-for-every-shape-and-the-definition-adds-it-only-with-a-core-node"
+if w15_need "$W15_EMRMAIN"; then
+  for w15_cap in 1 3 5 7; do
+    [ "$(w15_cl 0 0 "$w15_cap")" = "POLICY=none" ] || note_fail "core 0, cap $w15_cap renders '$(w15_cl 0 0 "$w15_cap")', expected POLICY=none"
+  done
+  w15_emc="$(code_of "$W15_EMRMAIN")"
+  f_has "$w15_emc" 'ManagedScalingPolicy = local.managed_scaling } : k => v if local.has_core }'
+  # The baseline overlay is core 0: the same rule through its effective values.
+  w15_bc="$(w15_eff emr_core_instance_count "$W15_COURSE" "$TF_S" "$W15_ENV/baseline-s.tfvars")"
+  [ "$w15_bc" = "0" ] || note_fail "the effective core count of baseline-s is '$w15_bc', expected 0 (no policy)"
+fi
+case_end
+
+w15_begin "15.terraform.managed-scaling.every-valid-shape-follows-the-verified-rule-and-fixed-size-shapes-keep-their-size"
+if w15_need "$W15_EMRMAIN"; then
+  w15_grid="$(python3 "$CODE_DIR/w15-computelimits.py" "$W15_EMRMAIN" grid 2>&1)"
+  case "$w15_grid" in
+    *'GRID shapes='*' bad=0') ;;
+    *) note_fail "the grid check failed: $(printf '%s\n' "$w15_grid" | head -n 4 | tr '\n' '|')" ;;
+  esac
+  case "$w15_grid" in
+    *'GRID shapes=0 '*) note_fail "the grid evaluated no shape" ;;
+    *) ;;
+  esac
+fi
+case_end
+
+w15_begin "15.terraform.managed-scaling.the-module-cites-the-verified-pages-and-never-counts-the-primary-in-the-minimum"
+if w15_need "$W15_EMRMAIN"; then
+  w15_emhdr="$(grep '^[[:space:]]*#' "$W15_EMRMAIN")"
+  printf '%s\n' "$w15_emhdr" | grep -qF 'API_ComputeLimits' || note_fail "the module comment does not cite API_ComputeLimits"
+  printf '%s\n' "$w15_emhdr" | grep -qF 'managed-scaling-allocation-strategy' || note_fail "the module comment does not cite managed-scaling-allocation-strategy"
+  w15_emc="$(code_of "$W15_EMRMAIN")"
+  f_has_not_re "$w15_emc" 'MinimumCapacityUnits[[:space:]]*=.*\+[[:space:]]*1([^0-9]|$)'
+  f_has_not_re "$w15_emc" 'MaximumCapacityUnits[[:space:]]*=[[:space:]]*local\.max_units[[:space:]]*$'
+  f_has_not_re "$w15_emc" 'MaximumOnDemandCapacityUnits[[:space:]]*=[[:space:]]*local\.max_units[[:space:]]*$'
+fi
+case_end
+
+static_begin "15.experiment.entry.static.b-uses-the-full-tier-s-cap-about-88-minutes-under-a-manifest-90-and-a-ceiling-of-about-2-40"
+w15_bl="$(grep -E '^exp_run_pipeline ' "$REAL_ROOT/experiments/b-burst/run.sh" | head -n 1)"
+read -r w15_x w15_size w15_min w15_spend w15_burn _ <<< "$w15_bl"
+w15_bm="$REAL_ROOT/experiments/manifests/experiment-b-burst.manifest"
+[ "$(sed -n 's/^MAX_MINUTES=//p' "$w15_bm" | head -n 1)" = "90" ] || note_fail "the B manifest MAX_MINUTES is not 90"
+{ tf_is_num "$w15_min" && [ "$w15_min" -ge 86 ] && [ "$w15_min" -le 89 ]; } || note_fail "the B pipeline stop is '$w15_min' minutes, expected about 88 (86 to 89) and below the manifest 90"
+w15_ms="$(sed -n 's/^SPEND_CEILING_USD=//p' "$w15_bm" | head -n 1)"
+awk -v s="$w15_ms" 'BEGIN { exit !(s >= 2.30 && s <= 2.50) }' || note_fail "the B manifest SPEND_CEILING_USD is '$w15_ms', expected about 2.40"
+case_end
+
+### 15.workflow.wait: no Catch targets WaitBeforeTerminate (review 1, m3) ---------------------------------------
+
+w15_wfc="$(code_of "$W15_WFMAIN")"
+w15_catch="$(awk '
+  /^[[:space:]]*(Catch|on_failure)[[:space:]]*=/ { f = 1; d = 0 }
+  f {
+    print
+    t = $0
+    d += gsub(/[[{(]/, "", t)
+    t = $0
+    d -= gsub(/[]})]/, "", t)
+    if (d <= 0) { f = 0; print "----" }
+  }' "$w15_wfc")"
+w15_begin "15.terraform.wait.no-catch-targets-the-wait-state-and-every-catch-goes-to-cleanup-or-failed"
+if [ -f "$w15_wfc" ]; then
+  [ "$(printf '%s\n' "$w15_catch" | grep -c '^----$')" -ge 5 ] || note_fail "fewer than five Catch blocks found ($(printf '%s\n' "$w15_catch" | grep -c '^----$')): the extraction found too little to pin"
+  if printf '%s\n' "$w15_catch" | grep -qE 'WaitBeforeTerminate|before_terminate'; then note_fail "a Catch block names the wait state"; fi
+  w15_targets="$(printf '%s\n' "$w15_catch" | sed -n 's/.*Next[[:space:]]*=[[:space:]]*"\([A-Za-z]*\)".*/\1/p' | sort -u | tr '\n' ' ')"
+  case "$w15_targets" in
+    'CleanupOnFailure Failed ' | 'Failed ' | 'CleanupOnFailure ') ;;
+    *) note_fail "the Catch targets are '$w15_targets', expected only CleanupOnFailure and Failed" ;;
+  esac
+else
+  note_fail "missing the workflow module main.tf"
+fi
+case_end
+
+w15_begin "15.terraform.wait.the-wait-state-is-reached-only-by-next-from-the-two-step-states-and-leads-to-terminate-cluster"
+if [ -f "$w15_wfc" ]; then
+  [ "$(grep -c 'local.before_terminate' "$w15_wfc")" = "2" ] || note_fail "local.before_terminate is used $(grep -c 'local.before_terminate' "$w15_wfc") times, expected the two step states"
+  grep 'local.before_terminate' "$w15_wfc" | grep -qvE '^[[:space:]]*Next[[:space:]]*=[[:space:]]*local\.before_terminate[[:space:]]*$' && note_fail "local.before_terminate is used on a line other than a Next of a step state"
+  [ "$(grep -c 'WaitBeforeTerminate' "$w15_wfc")" = "2" ] || note_fail "WaitBeforeTerminate is named $(grep -c 'WaitBeforeTerminate' "$w15_wfc") times, expected 2 (the local and the state key)"
+  w15_ws="$(awk 'index($0, "WaitBeforeTerminate = {") { f = 1 } f { print } f && /^[[:space:]]*}[[:space:]]*$/ { exit }' "$w15_wfc")"
+  printf '%s\n' "$w15_ws" | grep -qE 'Type[[:space:]]*=[[:space:]]*"Wait"' || note_fail "the wait state is not Type = Wait"
+  printf '%s\n' "$w15_ws" | grep -qE 'Next[[:space:]]*=[[:space:]]*"TerminateCluster"' || note_fail "the wait state does not go to TerminateCluster"
+  if printf '%s\n' "$w15_ws" | grep -q 'Catch'; then note_fail "the wait state has a Catch"; fi
+fi
+case_end
+
+### 15.emr.copy-back: the HDFS copy-back after the Hadoop stage (review 1, m3, run-s-pipeline.sh) -----------------
+# -get fails: the stage dies. -rm fails or times out: only a NOTE, and the stage goes on. The block is cut out of
+# the real script (the first line holding the -get call up to the line before the owner-mode record) and run in a
+# child shell with the real lib-emr.sh and a fake hdfs.
+
+W15_B_COPYBACK="$CODE_DIR/w15-block-copyback.sh"
+w15_cut "$emr_run" 'hdfs dfs -get "$hrun/hadoop-out" "$hout"' 'kv HADOOP_OUT_OWNER_MODE "$(mode_of "$hout")"' "$W15_B_COPYBACK"
+cat > "$CODE_DIR/w15-copyback-child.sh" <<'EOF'
+LIB="$1"; FIX="$2"; BLOCK="$3"
+SC_HOME="$FIX/home"
+source "$LIB"
+timeout() {
+  printf 'TIMEOUT %s\n' "$*" >> "$FIX/timeouts.log"
+  if [ "${1:-}" = "-k" ]; then shift 2; fi
+  shift
+  "$@"
+}
+hdfs() {
+  printf 'HDFS %s\n' "$*" >> "$FIX/calls.log"
+  case "$2" in
+    -get)
+      if [ -f "$FIX/get-fails" ]; then printf 'get failed\n' >&2; return "$(cat "$FIX/get-fails")"; fi
+      mkdir -p "$4/snapshot=1"
+      printf 'x\n' > "$4/snapshot=1/part-r-00000"
+      ;;
+    -rm)
+      if [ -f "$FIX/rm-fails" ]; then printf 'RMSTUBTEXT rm failed\n' >&2; return "$(cat "$FIX/rm-fails")"; fi
+      ;;
+  esac
+}
+{
+  printf 'f() {\n  local dmode=hdfs hrun=/user/hadoop/sc/run/run-v1-test hout="%s/hadoop-out" rep="%s/rep"\n  mkdir -p "$rep"\n  if [[ "$dmode" == "hdfs" ]]; then\n' "$FIX" "$FIX"
+  cat "$BLOCK"
+  printf '  printf "BLOCK_DONE\\n"\n}\n'
+} > "$FIX/f.sh"
+source "$FIX/f.sh"
+f
+EOF
+w15_cb() { # NAME [GET-RC] [RM-RC]
+  w15_fx "cb-$1"
+  if [ -n "${2:-}" ]; then printf '%s\n' "$2" > "$W15_FX/get-fails"; fi
+  if [ -n "${3:-}" ]; then printf '%s\n' "$3" > "$W15_FX/rm-fails"; fi
+  run bash "$CODE_DIR/w15-copyback-child.sh" "$EMR_DIR/lib-emr.sh" "$W15_FX" "$W15_B_COPYBACK"
+}
+
+w15_cb ok
+case_begin "15.emr.copy-back.both-calls-succeed-records-the-fetched-files-and-notes-nothing"
+f_min_lines "$W15_B_COPYBACK" 4 "the copy-back block cut out of run-s-pipeline.sh"
+[ "$(tail -n 1 "$W15_B_COPYBACK" | tr -d '[:space:]')" = "fi" ] || note_fail "the cut block does not end with fi: $(tail -n 1 "$W15_B_COPYBACK")"
+mr_ok
+a_out 'BLOCK_DONE'
+a_out 'HADOOP_OUT_FETCHED_FROM=hdfs:///user/hadoop/sc/run/run-v1-test/hadoop-out (1 files)'
+a_not_out 'NOTE:'
+grep -qxF 'HDFS dfs -get /user/hadoop/sc/run/run-v1-test/hadoop-out '"$W15_FX/hadoop-out" "$W15_FX/calls.log" || note_fail "the -get call is not as expected: $(head -n 1 "$W15_FX/calls.log")"
+grep -qxF 'HDFS dfs -rm -r -skipTrash /user/hadoop/sc/run/run-v1-test' "$W15_FX/calls.log" || note_fail "the -rm call is not as expected"
+f_has "$W15_B_COPYBACK" 'hdfs dfs -get'
+[ -f "$W15_FX/rep/hdfs-cleanup.log" ] || note_fail "hdfs-cleanup.log was not written"
+case_end
+
+w15_cb get-fails 1
+case_begin "15.emr.copy-back.a-failed-get-fails-the-stage-with-the-evidence-and-records-no-fetch"
+a_rc 1
+a_err_evidence
+a_err 'hdfs dfs -get of /user/hadoop/sc/run/run-v1-test/hadoop-out'
+a_not_out 'BLOCK_DONE'
+a_not_out 'HADOOP_OUT_FETCHED_FROM'
+a_trip_empty
+case_end
+
+w15_cb get-times-out 124
+case_begin "15.emr.copy-back.a-get-that-times-out-fails-the-stage-too"
+a_rc 1
+a_err_evidence
+a_err 'hdfs dfs -get'
+a_not_out 'BLOCK_DONE'
+case_end
+
+w15_cb rm-fails "" 1
+case_begin "15.emr.copy-back.a-failed-rm-only-notes-keeps-its-output-in-the-cleanup-log-and-the-stage-goes-on"
+a_rc 0
+a_trip_empty
+a_out 'BLOCK_DONE'
+a_out 'HADOOP_OUT_FETCHED_FROM=hdfs://'
+a_out_re '^NOTE: hdfs dfs -rm -r /user/hadoop/sc/run/run-v1-test failed'
+a_out 'hdfs-cleanup.log'
+grep -qF 'RMSTUBTEXT' "$W15_FX/rep/hdfs-cleanup.log" || note_fail "hdfs-cleanup.log does not hold the failed call's output"
+case_end
+
+w15_cb rm-times-out "" 124
+case_begin "15.emr.copy-back.an-rm-that-times-out-only-notes-too"
+a_rc 0
+a_out 'BLOCK_DONE'
+a_out_re '^NOTE: hdfs dfs -rm -r '
+case_end
+
+w15_cb timeouts
+case_begin "15.emr.copy-back.the-get-and-the-rm-run-under-timeout-with-bounded-limits"
+mr_ok
+[ "$(wc -l < "$W15_FX/timeouts.log" | tr -d ' ')" = "2" ] || note_fail "expected two timeout wrappers, found $(wc -l < "$W15_FX/timeouts.log" | tr -d ' ')"
+while read -r w15_t1 w15_t2 w15_t3 w15_t4; do
+  case "$w15_t2" in
+    -k) w15_lim="$w15_t4" ;;
+    *) w15_lim="$w15_t2" ;;
+  esac
+  { tf_is_num "$w15_lim" && [ "$w15_lim" -ge 1 ] && [ "$w15_lim" -le 900 ]; } || note_fail "a copy-back timeout is '$w15_lim', expected 1 to 900"
+done < "$W15_FX/timeouts.log"
+case_end
+
+### 15.emr.event-log: profile b-burst writes no Spark event log (P15-16, M2) ---------------------------------------
+
+w15_fx el-b-burst
+cp "$EMR_DIR/spark-yarn.conf" "$W15_FX/home/spark-yarn.conf"
+run bash "$CODE_DIR/w15-sparkconf-child.sh" "$EMR_DIR/lib-emr.sh" "$W15_FX" b-burst "$W15_FX/events"
+case_begin "15.emr.event-log.profile-b-burst-writes-no-event-log-lines-and-makes-no-directory"
+mr_ok
+a_not_out 'eventLog'
+[ ! -e "$W15_FX/events" ] || note_fail "the event log directory was made for b-burst"
+a_out_re '^spark\.executor\.instances 2$'
+case_end
+
+### 15.experiment.manifests: a generated JSON copy of each manifest and the check that they agree (R5 item 4, P15-17) --
+# The JSON copies and the check script are DISCOVERED (the work order names no paths): the copies are the
+# *.json files under experiments/ (outside fixtures/ and pipeline-inputs/) whose name holds the manifest's stem;
+# the check script is the file under experiments/ (up to two levels) whose name holds both "check" and
+# "manifest". Equality is also computed here, independently of that script.
+
+W15_MFDIR="$REAL_ROOT/experiments/manifests"
+W15_MFLIST="$(find "$W15_MFDIR" -maxdepth 1 -type f -name '*.manifest' 2> /dev/null | LC_ALL=C sort)"
+W15_MFCHECK="$(find "$REAL_ROOT/experiments" -maxdepth 2 -type f -name '*check*manifest*' -not -name '*.json' -not -name '*.md' 2> /dev/null | LC_ALL=C sort | head -n 1)"
+if [ -z "$W15_MFCHECK" ]; then
+  W15_MFCHECK="$(find "$REAL_ROOT/experiments" -maxdepth 2 -type f -name '*manifest*check*' -not -name '*.json' -not -name '*.md' 2> /dev/null | LC_ALL=C sort | head -n 1)"
+fi
+
+# w15_json_of MANIFEST: the path of its JSON copy, empty when there is none.
+w15_json_of() {
+  local stem
+  stem="$(basename "$1" .manifest)"
+  find "$REAL_ROOT/experiments" -type f -name "*${stem}*.json" -not -path '*/fixtures/*' -not -path '*/pipeline-inputs/*' -not -path '*/collected/*' 2> /dev/null | LC_ALL=C sort | head -n 1
+}
+
+cat > "$CODE_DIR/w15-mf-compare.py" <<'EOF'
+import json
+import sys
+
+kv_path, json_path = sys.argv[1], sys.argv[2]
+# Independent of experiments/lib/manifest-json.py. The rule (stated in that file's header, mirrored here): the JSON
+# copy holds {"values": {KEY: ...}}; every value is the exact string of the KEY=VALUE line, except the three list
+# keys, which are arrays of the comma-separated parts (order kept, exact strings; an empty value is []).
+LIST_KEYS = ('STOP_CONDITIONS', 'METRIC_NAMES', 'METRIC_NAMESPACES')
+kv = {}
+for n, raw in enumerate(open(kv_path, encoding='utf-8'), 1):
+    line = raw.rstrip('\n')
+    if not line.strip() or line.lstrip().startswith('#'):
+        continue
+    if '=' not in line:
+        print('BADLINE %d not a KEY=VALUE line' % n)
+        sys.exit(1)
+    k, _, v = line.partition('=')
+    if k in kv:
+        print('DUPLICATE %s' % k)
+        sys.exit(1)
+    kv[k] = v
+
+data = json.load(open(json_path, encoding='utf-8'))
+bad = 0
+if not isinstance(data, dict) or not isinstance(data.get('values'), dict):
+    print('NOVALUES the JSON has no values object')
+    sys.exit(1)
+js = data['values']
+for k, v in kv.items():
+    if k not in js:
+        print('MISSING %s' % k)
+        bad += 1
+        continue
+    j = js[k]
+    if isinstance(j, list):
+        want = (v.split(',') if v else [])
+        if k not in LIST_KEYS:
+            print('DIFFERENT %s is an array in the JSON but is a scalar key' % k)
+            bad += 1
+        elif not all(isinstance(e, str) for e in j):
+            print('DIFFERENT %s json has a non-string element: %r' % (k, j))
+            bad += 1
+        elif j != want:
+            print('DIFFERENT %s json=%r kv=%r (split on comma)' % (k, j, want))
+            bad += 1
+    elif isinstance(j, str):
+        if k in LIST_KEYS:
+            print('DIFFERENT %s must be an array, json holds the string %r' % (k, j))
+            bad += 1
+        elif j != v:
+            print('DIFFERENT %s json=%r kv=%r' % (k, j, v))
+            bad += 1
+    else:
+        print('DIFFERENT %s json holds a %s, expected a string or an array of strings' % (k, type(j).__name__))
+        bad += 1
+for k in js:
+    if k not in kv:
+        print('EXTRA %s' % k)
+        bad += 1
+if data.get('generated_from') != kv_path.rsplit('/', 1)[-1]:
+    print('DIFFERENT generated_from json=%r file=%r' % (data.get('generated_from'), kv_path.rsplit('/', 1)[-1]))
+    bad += 1
+print('COMPARED keys=%d bad=%d' % (len(kv), bad))
+sys.exit(1 if bad else 0)
+EOF
+
+w15_begin "15.experiment.manifests.each-of-the-six-manifests-has-a-json-copy-that-says-the-same-as-its-key-value-file"
+w15_nmf="$(printf '%s\n' "$W15_MFLIST" | grep -c '.')"
+[ "$w15_nmf" = "6" ] || note_fail "experiments/manifests holds $w15_nmf manifests, expected 6"
+for w15_m in $W15_MFLIST; do
+  w15_j="$(w15_json_of "$w15_m")"
+  if [ -z "$w15_j" ]; then
+    note_fail "$(basename "$w15_m") has no JSON copy under experiments/"
+  else
+    w15_cmp="$(python3 -I "$CODE_DIR/w15-mf-compare.py" "$w15_m" "$w15_j" 2>&1)" || note_fail "$(basename "$w15_m") and ${w15_j##*/} differ: $(printf '%s\n' "$w15_cmp" | head -n 3 | tr '\n' '|')"
+  fi
+done
+case_end
+
+w15_begin "15.experiment.manifests.a-check-script-exists-and-experiments-readme-documents-it"
+if [ -z "$W15_MFCHECK" ]; then
+  note_fail "no file under experiments/ has check and manifest in its name"
+else
+  w15_mfr="$REAL_ROOT/experiments/README.md"
+  w15_need "$w15_mfr" && {
+    grep -qF "${W15_MFCHECK##*/}" "$w15_mfr" || note_fail "experiments/README.md does not name ${W15_MFCHECK##*/}"
+    grep -qi 'json' "$w15_mfr" || note_fail "experiments/README.md does not mention the JSON copies"
+  }
+fi
+case_end
+
+# The check script, in a copy of experiments/ and scripts/ (a temporary tree with its own git directory, since
+# the script's way of finding the repository root is not known). Baseline passes; each mutation must fail.
+W15_MFT="$WORK/w15-mf-tree"
+w15_mf_tree() {
+  rm -rf "$W15_MFT"
+  mkdir -p "$W15_MFT"
+  cp -R "$REAL_ROOT/experiments" "$W15_MFT/experiments"
+  cp -R "$REAL_ROOT/scripts" "$W15_MFT/scripts"
+  git -C "$W15_MFT" init -q 2> /dev/null
+  W15_MFT_CHECK="$W15_MFT/${W15_MFCHECK#"$REAL_ROOT"/}"
+}
+w15_mf_run() {
+  run bash "$W15_MFT_CHECK"
+}
+# w15_mf_mutate_json FILE: change the first leaf value of the JSON.
+cat > "$CODE_DIR/w15-mf-mutate.py" <<'EOF'
+import json
+import sys
+
+p = sys.argv[1]
+d = json.load(open(p))
+done = [False]
+
+
+def walk(n):
+    if isinstance(n, dict):
+        for k in list(n):
+            if done[0]:
+                return
+            v = n[k]
+            if isinstance(v, (dict, list)):
+                walk(v)
+            else:
+                if isinstance(v, bool):
+                    n[k] = not v
+                elif isinstance(v, (int, float)):
+                    n[k] = v + 1
+                else:
+                    n[k] = str(v) + 'x'
+                done[0] = True
+    elif isinstance(n, list):
+        for v in n:
+            if done[0]:
+                return
+            walk(v)
+
+
+walk(d)
+json.dump(d, open(p, 'w'), indent=2)
+EOF
+
+if [ -n "$W15_MFCHECK" ] && [ -n "$W15_MFLIST" ]; then
+  w15_mf_first="$(printf '%s\n' "$W15_MFLIST" | head -n 1)"
+  w15_mf_tree
+  w15_mf_run
+  case_begin "15.experiment.manifests.check-passes-on-the-committed-files"
+  a_rc 0
+  a_trip_empty
+  case_end
+
+  w15_mf_tree
+  w15_mfjj="$(w15_json_of "$w15_mf_first")"
+  w15_mfjj="$W15_MFT/${w15_mfjj#"$REAL_ROOT"/}"
+  python3 -I "$CODE_DIR/w15-mf-mutate.py" "$w15_mfjj"
+  w15_mf_run
+  case_begin "15.experiment.manifests.check-fails-when-a-json-value-differs-from-the-key-value-file"
+  a_rc_nonzero
+  a_trip_empty
+  case_end
+
+  w15_mf_tree
+  w15_mfk="$W15_MFT/${w15_mf_first#"$REAL_ROOT"/}"
+  sed 's/^MAX_MINUTES=.*/MAX_MINUTES=1/' "$w15_mfk" > "$w15_mfk.new" && mv "$w15_mfk.new" "$w15_mfk"
+  w15_mf_run
+  case_begin "15.experiment.manifests.check-fails-when-the-key-value-file-changes-and-the-json-does-not"
+  a_rc_nonzero
+  case_end
+
+  w15_mf_tree
+  rm -f "$(w15_json_of "$w15_mf_first" | sed "s|^$REAL_ROOT|$W15_MFT|")"
+  w15_mf_run
+  case_begin "15.experiment.manifests.check-fails-when-a-json-copy-is-missing"
+  a_rc_nonzero
+  case_end
+
+  w15_mf_tree
+  printf 'EXTRA_KEY_FOR_TEST=1\n' >> "$W15_MFT/${w15_mf_first#"$REAL_ROOT"/}"
+  w15_mf_run
+  case_begin "15.experiment.manifests.check-fails-when-the-key-value-file-gains-a-key-the-json-lacks"
+  a_rc_nonzero
+  case_end
+else
+  case_begin "15.experiment.manifests.check-passes-on-the-committed-files"
+  note_fail "no check script or no manifest was found, so the check cannot be run"
+  case_end
+fi
 
 ### Case 12: secrets, the tripwire and the real repository ---------------------------------
 
