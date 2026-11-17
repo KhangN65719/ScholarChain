@@ -18,6 +18,17 @@ Tradeoff: the 20,000 request cap fixes the minimum mean cycle at `81 x 480 / 20,
 ## Experiment E schedule
 `--sequence rotate-modes --modes graph,vector,fused`: every one of the 351 built-in questions is sent once in every mode (1,053 requests, one client, think time 0.2 to 0.4 s), mode order rotated by question. See `../../experiments/e-retrieval-modes/run.sh` for why interleaved.
 
+## Smoke (at most 4 queries, P15-27) and Experiment E subsets
+The image holds only `load_client.py`, so a question file would not be in it; the smoke uses `builtin:windows` with `--limit-queries 4` (the first four of the seeded order, the same four every time). `--sequence none` is NOT usable: it needs `--levels`. Use the one-mode sequence below. Hard caps: `--max-clients 1 --max-requests 4 --max-minutes 5`.
+
+One `ecs run-task` (the same call `load-tests/lib/ecs-load-client.sh` makes; placeholders as in `../../experiments/e-retrieval-modes/README.md`):
+```
+aws ecs run-task --cluster "$SCHOLARCHAIN_LC_CLUSTER" --task-definition "$SCHOLARCHAIN_LC_TASK_DEFINITION" --launch-type FARGATE --count 1 --started-by sc-smoke-haiku --network-configuration "awsvpcConfiguration={subnets=[$SCHOLARCHAIN_LC_SUBNETS],securityGroups=[$SCHOLARCHAIN_LC_SECURITY_GROUPS],assignPublicIp=DISABLED}" --overrides "{\"containerOverrides\":[{\"name\":\"$SCHOLARCHAIN_LC_CONTAINER\",\"command\":[\"--base-url\",\"$SMOKE_BASE_URL\",\"--out-dir\",\"/tmp/loadclient/SMOKE1\",\"--run-tag\",\"SMOKE1\",\"--sequence\",\"rotate-modes\",\"--modes\",\"graph\",\"--limit-queries\",\"4\",\"--clients\",\"1\",\"--mode-field\",\"retrievalMode\",\"--think-min\",\"1\",\"--think-max\",\"2\",\"--timeout\",\"60\",\"--max-clients\",\"1\",\"--max-requests\",\"4\",\"--max-minutes\",\"5\",\"--echo\"]}]}" --region us-east-2 --output json
+```
+The result is the four `LOADCLIENT_RAW` lines and a `LOAD_CLIENT_DONE requests=4 stop_reason=none` line in the task's CloudWatch log stream (exit code 0; 3 would mean a cap stopped it). Per line check `status` 200, `evidence_items`, `abstained`. UNVERIFIED: that the service uses Haiku in `graph` mode (planner and synthesis are model calls in every mode; retries may add calls per query, so "4 queries" is not "4 model calls"); that the four fixed questions return evidence.
+
+Experiment E subsets: `experiments/e-retrieval-modes/run.sh` reads `SCHOLARCHAIN_E_MODES` and `SCHOLARCHAIN_E_LIMIT_QUERIES` (see its header). New raw fields `uncertainty_chars` and `vector_gap_note`: `vector_gap_note: true` is the fused or vector gap note (`evidence.uncertainty` holds "Semantic context from index <name> was unavailable (the vector read failed) ..."); it is false on a healthy vector read, so it only appears when the vector read actually fails. A graph-mode response never carries it.
+
 ## Questions
 `builtin:windows`: 325 year-range questions ("Which authors collaborated most between 2003 and 2011?") and 26 single-year questions from 2000 to 2025, in a seeded order. They need no author IDs, so they do not depend on the dataset snapshot; the form is the one the smoke test already uses. UNVERIFIED: that each returns evidence on the tier S data; the raw lines record `evidence_items` and `abstained` per response so the results show it. `--queries FILE` takes one question per line instead.
 
@@ -35,7 +46,7 @@ See the header of `load_client.py`. In ECS the raw lines are also printed as `LO
 set -o pipefail
 python3 -I /Users/winnguyen/ScholarChain/load-tests/query-load/rehearse.py 2>&1 | tee "/Users/winnguyen/scholarchain-data/logs/phase15-w2-loadclient-rehearse.log" | tail -n 8; echo "exit: $?"
 ```
-Expected last line `REHEARSAL pass=42 fail=0`. It starts a fake HTTP server on 127.0.0.1 (a sandbox without local port binding cannot run it) and checks: the 12-request sequence with rotated modes and exact request IDs, the levels schedule (between 8 and 18 requests for a 1.0 s, 1-and-2-client plan whose bound is 18), the refusals (cap, clients, minutes, token, existing out-dir), the run-time guards, recorded 503 and refused-connection failures, the token not in any output, and exact percentile arithmetic (20 synthetic requests: ok p50 10, p95 19, p99 19, throughput 1.0).
+Expected last line `REHEARSAL pass=45 fail=0`. It starts a fake HTTP server on 127.0.0.1 (a sandbox without local port binding cannot run it) and checks: the 12-request sequence with rotated modes and exact request IDs, the levels schedule (between 8 and 18 requests for a 1.0 s, 1-and-2-client plan whose bound is 18), the refusals (cap, clients, minutes, token, existing out-dir), the run-time guards, recorded 503 and refused-connection failures, the token not in any output, and exact percentile arithmetic (20 synthetic requests: ok p50 10, p95 19, p99 19, throughput 1.0).
 The help text, no AWS, no network:
 ```
 set -o pipefail

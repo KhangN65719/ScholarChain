@@ -27,7 +27,8 @@ service_desired_count = 0
 # 1024 MiB (JVM heap 75 percent of that, about 768 MiB). The S session now gives it
 # 2 vCPU and 8 GiB (heap about 6 GiB). 2048 CPU allows 4096 to 16384 MiB in 1024 steps,
 # so 8192 is a valid Fargate pair. Ephemeral storage is not set and stays at the
-# 20 GiB default (the S export is 324 MB). Fargate X86_64 Linux, us-east-2, about
+# 20 GiB default (the S export was 324 MB at 11 tables; A's 17-table export is 100.9 MiB in 34
+# objects, check 2.10 PASSED, session-ab/session-record.md). Fargate X86_64 Linux, us-east-2, about
 # 0.1165 USD an hour against 0.0247 (rates from memory, UNVERIFIED): about +0.09 USD
 # an hour while the loader runs. The loader task definition is replaced; the state
 # machine references it without a revision, so it changes in place only because the

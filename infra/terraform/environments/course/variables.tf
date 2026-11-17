@@ -418,7 +418,7 @@ variable "service_cpu" {
 }
 
 variable "service_memory" {
-  description = "Fargate memory in MiB of the query service task. The task holds the whole S3 export in the heap. PROVISIONAL 4096 (about 3 GiB heap at MaxRAMPercentage 75) until the local measurement of SESSION2.md sets the final value."
+  description = "Fargate memory in MiB of the query service task. The task holds the whole S3 export in the heap. PROVISIONAL 4096 (about 3 GiB heap at MaxRAMPercentage 75) until the heap measure sets it by the ratified P15-30 rule (SESSION2.md section 7): on A's 17-table export, retained <= 400 MiB and peak <= 800 MiB gives 2048; otherwise, an OutOfMemoryError at -Xmx1g, or a void measure, gives 4096."
   type        = number
   default     = 512
 }

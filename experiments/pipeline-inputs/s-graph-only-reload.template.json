@@ -1,0 +1,1 @@
+{"mode":"loader-only","run_id":"run-v1-b76e2d37-2ac1-40d4-923b-9418d5ff72c7","loader_command":["scholarchain.rag.AwsIngestMain","run-v1-b76e2d37-2ac1-40d4-923b-9418d5ff72c7","--graph-only"]}

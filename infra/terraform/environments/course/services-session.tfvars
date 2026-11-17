@@ -30,7 +30,9 @@ service_layout = "combined"
 
 # One query task (role both: fast 8080, slow 8081) of 0.5 vCPU. The AwsRuntime holds the whole S3
 # export in the heap, so memory is the large part: 4096 MiB (about 3 GiB heap at the image's
-# MaxRAMPercentage 75). PROVISIONAL until the local measurement of SESSION2.md sets the final value.
+# MaxRAMPercentage 75). PROVISIONAL until the heap measure sets the final value by the ratified
+# P15-30 rule (SESSION2.md section 7): on A's 17-table export, retained <= 400 MiB and peak <= 800 MiB
+# gives 2048 MiB; otherwise, an OutOfMemoryError at -Xmx1g, or a void measure, gives 4096 MiB.
 # 512 CPU allows 1024 to 4096 MiB, so 4096 is the largest pair at 0.5 vCPU.
 service_desired_count = 1
 service_cpu           = 512

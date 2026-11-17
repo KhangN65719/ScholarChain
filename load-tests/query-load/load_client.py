@@ -34,7 +34,9 @@ Request budget for the levels schedule (the think-time arithmetic, also in READM
 Outputs (in --out-dir, created once; an existing directory is refused):
   requests.jsonl   one line per request: send_utc, latency_ms, status, mode, request_id, plus
                    server_request_id, level, clients, client, seq, bytes, error, evidence_items,
-                   abstained, question_index (the index, never the question text)
+                   abstained, uncertainty_chars and vector_gap_note (null unless a 200 body was
+                   parsed; vector_gap_note is true when evidence.uncertainty holds the fixed text
+                   "the vector read failed"), question_index (the index, never the question text)
   events.jsonl     LEVEL_START, LEVEL_END, COOLDOWN_START, COOLDOWN_END, SEQUENCE_START, ... (UTC)
   run-config.json  the arguments and the plan (no token)
   summary.json     counts by status, stop_reason (none, max-requests, max-minutes, signal)
@@ -203,6 +205,7 @@ class Client:
         if self.token:
             headers["Authorization"] = "Bearer " + self.token
         status, error, size, server_id, items, abstained = 0, "", 0, None, None, None
+        uncertainty_chars, vector_gap = None, None
         send_utc = utc_ms()
         started = time.perf_counter()
         try:
@@ -224,6 +227,11 @@ class Client:
                         evidence = document.get("evidence")
                         if isinstance(evidence, dict) and isinstance(evidence.get("items"), list):
                             items = len(evidence["items"])
+                            # evidence.uncertainty holds the gap notes (modules/rag Retrieval.scala
+                            # degradedNote); only its length and one boolean are kept, never the text
+                            note = evidence.get("uncertainty")
+                            uncertainty_chars = len(note) if isinstance(note, str) else 0
+                            vector_gap = isinstance(note, str) and "the vector read failed" in note
                         if isinstance(document.get("abstained"), bool):
                             abstained = document["abstained"]
                 except ValueError:
@@ -254,6 +262,8 @@ class Client:
                 "error": error,
                 "evidence_items": items,
                 "abstained": abstained,
+                "uncertainty_chars": uncertainty_chars,
+                "vector_gap_note": vector_gap,
                 "question_index": question_index,
             }
         )

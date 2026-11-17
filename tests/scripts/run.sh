@@ -3265,6 +3265,93 @@ a_not_out_re '^STEP\[[0-9]+\] input-scan: ok$'
 if grep -qF -- "$FAKE_AKIA" "$OUT" "$ERR"; then note_fail "the matched text was printed"; fi
 case_end
 
+# Phase 15 readiness repair: the committed pipeline input template
+# experiments/pipeline-inputs/s-graph-only-reload.template.json (mode loader-only, --graph-only), used with
+# the flags of the S graph-only reload. The harness repository copy holds no experiments/pipeline-inputs, so
+# the template is read from the real repository (read only, absolute path). --print-digest exits in
+# maybe_print_digest before the script prints INPUT_MODE or LOADER_GRAPH_ONLY, so those two markers are
+# asserted on the --dry-run with a record made from the template's own digests; --print-digest itself is
+# asserted on the digest fields and on the input digest inside ARGS_CANONICAL.
+TPL="$REAL_ROOT/experiments/pipeline-inputs/s-graph-only-reload.template.json"
+TPL_TAIL=(--size large --max-minutes 100 --spend-ceiling-usd 1.70 --hourly-burn-usd 0.97 --stop-on first-failure,dlq-nonempty)
+TPL_RUN="$(sed -n 's/.*"run_id":"\([^"]*\)".*/\1/p' "$TPL" 2> /dev/null | head -n 1)"
+
+static_begin "15.pipeline-inputs.template.has-exactly-the-loader-only-keys-and-the-graph-only-command"
+if [ ! -f "$TPL" ]; then
+  note_fail "the template file is missing: $TPL"
+elif ! python3 -I -c 'import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+ok = isinstance(d, dict) and set(d) == {"mode", "run_id", "loader_command"} and d["mode"] == "loader-only"
+ok = ok and d["loader_command"] == ["scholarchain.rag.AwsIngestMain", d["run_id"], "--graph-only"]
+sys.exit(0 if ok else 1)' "$TPL"; then
+  note_fail "the template is not exactly mode loader-only, run_id and loader_command [AwsIngestMain, run_id, --graph-only]"
+fi
+case_end
+
+common_args "$ACCT" us-east-2 20
+SN=run-bounded-pipeline
+A=(--print-digest "${CA[@]}" "${TPL_TAIL[@]}" --input-file "$TPL")
+run_build
+TPL_S="$(sed -n 's/^SCRIPT_DIGEST=//p' "$OUT" | head -n 1)"
+TPL_A="$(sed -n 's/^ARGS_DIGEST=//p' "$OUT" | head -n 1)"
+case_begin "15.pipeline-inputs.template.print-digest-accepted-with-the-s-graph-only-flags-and-binds-the-input-file"
+a_rc 0
+a_out "ACTION=pipeline"
+a_out_re '^SCRIPT_DIGEST=[0-9a-f]{64}$'
+a_out_re '^ARGS_DIGEST=[0-9a-f]{64}$'
+a_out "size=large;max_minutes=100;spend_ceiling=1.70;hourly_burn=0.97;stop_on=first-failure,dlq-nonempty;input=$(sha_of "$TPL")"
+a_not_out "DRY_RUN=yes"
+a_trip_empty
+case_end
+
+rec_base pipeline "$TPL_S" "$TPL_A" n/a n/a
+rec_write "$REC/tpl.env"
+A=(--dry-run "${CA[@]}" "${TPL_TAIL[@]}" --input-file "$TPL" --approval-record "$REC/tpl.env")
+run_build
+case_begin "15.pipeline-inputs.template.dry-run-prints-input-mode-loader-only-and-loader-graph-only-yes"
+a_dry_common
+a_out "INPUT_MODE=loader-only"
+a_out_re '^LOADER_GRAPH_ONLY=yes \('
+[ "$(grep -c 'LOADER_GRAPH_ONLY' "$OUT")" = "1" ] || note_fail "expected exactly one LOADER_GRAPH_ONLY line, found $(grep -c 'LOADER_GRAPH_ONLY' "$OUT")"
+a_order "INPUT_MODE=loader-only" "LOADER_GRAPH_ONLY=yes" "OUTPUT_PREFIX=reports/runs/$TPL_RUN/loader/"
+[ -n "$TPL_RUN" ] || note_fail "run_id could not be read from the template"
+a_out "INPUT_FILE=$TPL"
+a_out "INPUT_SHA256=$(sha_of "$TPL")"
+a_out "LIMITS size=large max_minutes=100 spend_ceiling_usd=1.70 hourly_burn_usd=0.97 stop_on=first-failure,dlq-nonempty cost_ceiling_usd=20"
+a_out "PROJECTED_SPEND_USD=1.62 CEILING_USD=1.70"
+a_out "OUTPUT_PREFIX=reports/runs/$TPL_RUN/loader/ (key prefix in the data bucket)"
+a_out "DATASET_SNAPSHOT=n/a (loader-only reads no dataset) run_id=$TPL_RUN"
+a_out "APPROVAL_VERIFIED action=pipeline"
+a_out "APPROVAL_NOT_CONSUMED dry-run"
+a_not_out "snapshots="
+a_not_out "curated/runs/"
+case_end
+
+# The same template with an extra snapshot key is refused by the input check in all three modes, before the
+# approval record, the identity check and any stub, and prints nothing of the input.
+sed 's/}$/,"snapshot":"s1"}/' "$TPL" > "$REC/tpl-snapshot.json"
+common_args "$ACCT" us-east-2 20
+SN=run-bounded-pipeline
+for tpl_mode in real dry digest; do
+  case "$tpl_mode" in
+    real) A=("${CA[@]}" "${TPL_TAIL[@]}" --input-file "$REC/tpl-snapshot.json" --approval-record "$REC/tpl.env") ;;
+    dry) A=(--dry-run "${CA[@]}" "${TPL_TAIL[@]}" --input-file "$REC/tpl-snapshot.json" --approval-record "$REC/tpl.env") ;;
+    digest) A=(--print-digest "${CA[@]}" "${TPL_TAIL[@]}" --input-file "$REC/tpl-snapshot.json") ;;
+  esac
+  run_build
+  case_begin "15.pipeline-inputs.template.with-an-extra-snapshot-key-is-refused.$tpl_mode"
+  a_refused "unknown input key(s) for mode loader-only: snapshot"
+  a_err "execution input refused"
+  grep -qF '"snapshot":"s1"' "$REC/tpl-snapshot.json" || note_fail "the variant file lacks the snapshot key (the sed edit did not apply)"
+  a_not_out "INPUT_MODE="
+  a_not_out "LOADER_GRAPH_ONLY"
+  a_not_out "SCRIPT_DIGEST="
+  a_not_out "ARGS_DIGEST="
+  a_not_out "identity-check"
+  a_not_out "EXECUTION_ARN="
+  case_end
+done
+
 # Static content of scripts/run-bounded-pipeline.sh for mode loader-only: the Python rules, the record,
 # the teardown check and stop_everything. The run record and the stop path are not reachable by a
 # stubbed harness, so they are read as text.
@@ -12820,6 +12907,251 @@ w2_guard_case "a-collector-added-secretsmanager-get-secret-value-is-refused" fai
 w2_guard_case "a-collector-added-ssm-get-parameter-is-refused" fail load-tests/lib/collect-common.sh "$W2_CC_TAIL" '"dynamodb get-item" | "s3vectors get-vectors" | "ssm get-parameter") ;;'
 w2_guard_case "a-collector-allowed-pair-dropped-is-refused" fail load-tests/lib/collect-common.sh '"dynamodb get-item" | ' ''
 w2_guard_case "a-load-client-launcher-starting-five-tasks-is-refused" fail load-tests/lib/ecs-load-client.sh '--count 1' '--count 5'
+
+### 15.tonight: load_client.py smoke (README arguments) and experiments/e-retrieval-modes/run.sh subsets ---------
+
+# The smoke command array is read out of load-tests/query-load/README.md (not retyped here), run against
+# a stub HTTP server on 127.0.0.1 with the made-up token below. Nothing leaves the machine.
+W3="$WORK/w15tonight"
+mkdir -p "$W3/e"
+cat > "$W3/smoke_stub.py" <<'PYEOF'
+import http.server, json, os, re, subprocess, sys, threading
+
+readme, client, out = sys.argv[1:4]
+TOKEN = "TONIGHT-TOKEN-NOT-A-SECRET"
+GAP = "Semantic context from index chunks was unavailable (the vector read failed); fused ranking used graph evidence only."
+OTHER = "Graph evidence was not retrieved for this request."
+STATE = {"status": 200}
+SEEN = []
+
+
+def ok(name, cond):
+    print("ASSERT %s %s" % (name, "PASS" if cond else "FAIL"), flush=True)
+
+
+class H(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def do_POST(self):
+        doc = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
+        n = int(self.headers["X-Request-Id"].rsplit("-n", 1)[1])
+        SEEN.append(doc)
+        if STATE["status"] != 200:
+            code, body = 503, {"error": "stub"}
+        else:
+            ev = {"items": [{"evidenceId": "e%d" % n}, {"evidenceId": "f%d" % n}]}
+            if n == 0:
+                ev["uncertainty"] = GAP
+            elif n == 1:
+                ev["uncertainty"] = OTHER
+            elif n == 3:
+                ev["uncertainty"] = 7
+            code, body = 200, {"evidence": ev, "abstained": False}
+        data = json.dumps(body).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("X-Request-Id", self.headers["X-Request-Id"])
+        self.end_headers()
+        self.wfile.write(data)
+
+    def log_message(self, *_a):
+        pass
+
+
+server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+threading.Thread(target=server.serve_forever, daemon=True).start()
+base = "http://127.0.0.1:%d" % server.server_address[1]
+text = open(readme, encoding="utf-8").read()
+m = re.search(r'\\"command\\":(\[.*?\])\}\]\}', text)
+argv = json.loads(m.group(1).replace('\\"', '"')) if m else []
+ok("smoke-the-readme-command-array-was-found-and-parsed", bool(argv) and argv[0] == "--base-url" and "--echo" in argv)
+
+
+def with_values(args, **swap):
+    args = list(args)
+    for flag, value in swap.items():
+        args[args.index("--" + flag.replace("_", "-")) + 1] = value
+    return args
+
+
+env = dict(os.environ)
+env["SCHOLARCHAIN_QUERY_TOKEN"] = TOKEN
+
+
+def run_client(args):
+    done = subprocess.run([sys.executable, "-I", client] + args, capture_output=True, text=True, env=env, timeout=100)
+    return done.returncode, done.stdout
+
+
+def file_rows(path):
+    with open(path, encoding="utf-8") as handle:
+        return [json.loads(x) for x in handle if x.strip()]
+
+
+def echo_rows(stdout):
+    return [json.loads(x[len("LOADCLIENT_RAW "):]) for x in stdout.splitlines() if x.startswith("LOADCLIENT_RAW ")]
+
+
+d1 = os.path.join(out, "smoke")
+rc, stdout = run_client(with_values(argv, base_url=base, out_dir=d1))
+raw = sorted(echo_rows(stdout), key=lambda r: r["seq"])
+rows = sorted(file_rows(os.path.join(d1, "requests.jsonl")), key=lambda r: r["seq"])
+ok("smoke-exit-0-and-done-line-requests-4", rc == 0 and "LOAD_CLIENT_DONE requests=4 stop_reason=none" in stdout)
+ok("smoke-four-requests-four-echo-lines-four-file-lines", len(SEEN) == 4 and len(raw) == 4 and len(rows) == 4)
+ok("smoke-readme-arguments-send-graph-only-and-four-different-questions",
+   {d.get("retrievalMode") for d in SEEN} == {"graph"} and len({d["question"] for d in SEEN}) == 4
+   and {r["mode"] for r in raw} == {"graph"} and all(r["status"] == 200 and r["evidence_items"] == 2 and r["abstained"] is False for r in raw))
+old = {"send_utc", "latency_ms", "status", "mode", "request_id", "server_request_id", "level", "clients", "client", "seq", "bytes",
+       "error", "evidence_items", "abstained", "question_index"}
+ok("smoke-both-new-fields-on-every-line-and-the-old-fields-stay",
+   all((old | {"uncertainty_chars", "vector_gap_note"}) <= set(r) for r in raw + rows))
+ok("smoke-uncertainty-chars-equal-the-note-lengths", [r["uncertainty_chars"] for r in raw] == [len(GAP), len(OTHER), 0, 0])
+ok("smoke-vector-gap-note-true-only-for-the-vector-read-failed-text", [r["vector_gap_note"] for r in raw] == [True, False, False, False])
+ok("smoke-field-types-are-int-and-bool", all(type(r["uncertainty_chars"]) is int and type(r["vector_gap_note"]) is bool for r in raw))
+ok("smoke-echo-lines-equal-file-lines", raw == rows)
+leaked = TOKEN in stdout or GAP in stdout or OTHER in stdout
+for name in os.listdir(d1):
+    body = open(os.path.join(d1, name), encoding="utf-8").read()
+    leaked = leaked or TOKEN in body or GAP in body or OTHER in body
+ok("smoke-note-text-and-token-in-no-output", not leaked)
+
+STATE["status"] = 503
+d2 = os.path.join(out, "fail")
+rc2, stdout2 = run_client(with_values(argv, base_url=base, out_dir=d2, limit_queries="1", max_requests="1"))
+rows2 = file_rows(os.path.join(d2, "requests.jsonl"))
+ok("non-200-both-new-fields-null",
+   rc2 == 0 and len(rows2) == 1 and rows2[0]["status"] == 503 and "uncertainty_chars" in rows2[0] and "vector_gap_note" in rows2[0]
+   and rows2[0]["uncertainty_chars"] is None and rows2[0]["vector_gap_note"] is None)
+server.shutdown()
+print("STUB_DONE")
+PYEOF
+
+run env SCHOLARCHAIN_QUERY_TOKEN= python3 -I "$W3/smoke_stub.py" "$REAL_ROOT/load-tests/query-load/README.md" "$REAL_ROOT/load-tests/query-load/load_client.py" "$W3/smoke-out"
+case_begin "15.tonight.load-client.smoke-stub-ran-to-the-end-and-no-assertion-failed"
+a_rc 0
+a_out "STUB_DONE"
+a_not_out_re '^ASSERT .* FAIL$'
+case_end
+for tn_a in smoke-the-readme-command-array-was-found-and-parsed \
+  smoke-exit-0-and-done-line-requests-4 \
+  smoke-four-requests-four-echo-lines-four-file-lines \
+  smoke-readme-arguments-send-graph-only-and-four-different-questions \
+  smoke-both-new-fields-on-every-line-and-the-old-fields-stay \
+  smoke-uncertainty-chars-equal-the-note-lengths \
+  smoke-vector-gap-note-true-only-for-the-vector-read-failed-text \
+  smoke-field-types-are-int-and-bool \
+  smoke-echo-lines-equal-file-lines \
+  smoke-note-text-and-token-in-no-output \
+  non-200-both-new-fields-null; do
+  case_begin "15.tonight.load-client.$tn_a"
+  a_out "ASSERT $tn_a PASS"
+  case_end
+done
+
+# E subsets: no dry-run flag exists, and ec_require_env refuses BEFORE the plan is recorded (ec_add), so the run is
+# given every setting it requires (identifiers made up; the base URL is a closed local port) and goes on to the first
+# AWS call, elc_run's `ecs run-task`, which is a PATH stub of this case only: it appends the call to its own log
+# (E_AWS, not the shared tripwire) and exits 1. run.sh then records TASK_START_FAILED, sets status failed and exits 1
+# with window.json written. The assertions: exactly one aws call, and it is run-task; no task started; no polling.
+E_SH="$REAL_ROOT/experiments/e-retrieval-modes/run.sh"
+E_N=0
+E_RD=""
+E_BIN="$W3/e-bin"
+E_AWS="$W3/e-aws-calls.log"
+mkdir -p "$E_BIN"
+printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s"\nexit 1\n' "$E_AWS" > "$E_BIN/aws"
+chmod 755 "$E_BIN/aws"
+for t in terraform docker curl sbt java; do
+  make_stub "$E_BIN" "$t"
+done
+# e_run MODES LIMIT: an empty argument leaves that variable unset.
+e_run() {
+  E_N=$((E_N + 1))
+  E_RD="$W3/e/run-$E_N"
+  mkdir -p "$E_RD"
+  : > "$E_AWS"
+  local a=(env -u SCHOLARCHAIN_E_MODES -u SCHOLARCHAIN_E_LIMIT_QUERIES "PATH=$E_BIN:$TOOLDIR"
+    SCHOLARCHAIN_E_BASE_URL=http://127.0.0.1:9 SCHOLARCHAIN_LC_CLUSTER=harness-cluster
+    SCHOLARCHAIN_LC_TASK_DEFINITION=harness-load-client SCHOLARCHAIN_LC_CONTAINER=load-client
+    SCHOLARCHAIN_LC_SUBNETS=subnet-00000001,subnet-00000002 SCHOLARCHAIN_LC_SECURITY_GROUPS=sg-00000001
+    SCHOLARCHAIN_EXPERIMENT_ID=E "SCHOLARCHAIN_RUN_ID=harness-e-$E_N" "SCHOLARCHAIN_RUN_DIR=$E_RD" SCHOLARCHAIN_MAX_MINUTES=90
+    SCHOLARCHAIN_MAX_CONCURRENCY=8 SCHOLARCHAIN_MAX_TASKS=1500 SCHOLARCHAIN_REGION=us-east-2 "SCHOLARCHAIN_ACCOUNT_ID=$ACCT"
+    SCHOLARCHAIN_DATASET_SNAPSHOT=scholarchain-s-fixture)
+  [ -z "$1" ] || a+=("SCHOLARCHAIN_E_MODES=$1")
+  [ -z "$2" ] || a+=("SCHOLARCHAIN_E_LIMIT_QUERIES=$2")
+  run "${a[@]}" bash "$E_SH"
+}
+# e_plan MODES LIMIT SCOPE REQUESTS: accepted, plan recorded, the only aws call is the stubbed run-task, no task started.
+e_plan() {
+  a_rc 1
+  a_trip_empty
+  if grep -q 'EXPERIMENT_REFUSED' "$ERR"; then note_fail "the run was refused: $(grep -m 1 'EXPERIMENT_REFUSED' "$ERR" | cut -c1-120)"; fi
+  local kv n_aws
+  for kv in "modes|$1" "limit_queries|$2" "run_scope|$3" "planned_requests|$4"; do
+    grep -qF -- "\"${kv%%|*}\": \"${kv#*|}\"" "$E_RD/window.json" 2>/dev/null || note_fail "window.json lacks ${kv%%|*}=${kv#*|}"
+  done
+  n_aws="$(wc -l < "$E_AWS" | tr -d ' ')"
+  [ "$n_aws" = "1" ] || note_fail "expected exactly one aws call, saw $n_aws"
+  grep -q '^ecs run-task ' "$E_AWS" || note_fail "the one aws call is not ecs run-task"
+  if grep -q 'TASK_STARTED' "$E_RD/events.jsonl" 2>/dev/null; then note_fail "a task started event was written"; fi
+  grep -q 'TASK_START_FAILED' "$E_RD/events.jsonl" 2>/dev/null || note_fail "no TASK_START_FAILED event: the run did not reach the stubbed run-task"
+}
+# e_refused FRAGMENT: refused with the named reason before the plan was recorded.
+e_refused() {
+  a_rc 1
+  a_err "EXPERIMENT_REFUSED: $1"
+  a_not_out "TASK_"
+  a_trip_empty
+  if [ -s "$E_AWS" ]; then note_fail "aws was called for a refused value"; fi
+  if grep -q 'planned_requests' "$E_RD/window.json" 2>/dev/null; then note_fail "a plan was recorded for a refused value"; fi
+}
+
+e_run "" ""
+case_begin "15.tonight.e-modes.the-defaults-plan-1053-requests-and-are-scope-full"
+e_plan "graph,vector,fused" 351 full 1053
+case_end
+e_run graph ""
+case_begin "15.tonight.e-modes.graph-only-plans-351-requests-and-is-a-labeled-subset"
+e_plan graph 351 subset-smoke 351
+case_end
+e_run graph,vector,fused 12
+case_begin "15.tonight.e-modes.limit-12-in-all-modes-plans-36-requests-and-is-a-labeled-subset"
+e_plan "graph,vector,fused" 12 subset-smoke 36
+case_end
+e_run graph,vector ""
+case_begin "15.tonight.e-modes.graph-and-vector-plan-702-requests"
+e_plan "graph,vector" 351 subset-smoke 702
+case_end
+e_run vector,fused 1
+case_begin "15.tonight.e-modes.the-lower-limit-1-in-two-modes-plans-2-requests"
+e_plan "vector,fused" 1 subset-smoke 2
+case_end
+
+for e_bad in vector,graph graph,graph all Graph graph,; do
+  e_run "$e_bad" ""
+  case_begin "15.tonight.e-modes.refuses-the-mode-list-$(printf '%s' "$e_bad" | tr ',' '+')"
+  e_refused "SCHOLARCHAIN_E_MODES"
+  case_end
+done
+for e_bad in 0 352 -1 abc 12.5; do
+  e_run graph "$e_bad"
+  case_begin "15.tonight.e-limit.refuses-the-limit-$e_bad"
+  e_refused "SCHOLARCHAIN_E_LIMIT_QUERIES must be 1 to 351"
+  case_end
+done
+
+# Bash reads a leading zero as octal inside (( )) and [[ -ge ]] (010 is 8), Python's int() reads it as 10, so the
+# planned count and the count the client really sends would differ. Either a refusal or the decimal 30 passes.
+e_run graph,vector,fused 010
+case_begin "15.tonight.e-limit.a-leading-zero-limit-is-refused-or-planned-as-decimal"
+if grep -q 'EXPERIMENT_REFUSED: SCHOLARCHAIN_E_LIMIT_QUERIES' "$ERR"; then
+  :
+elif ! grep -qF '"planned_requests": "30"' "$E_RD/window.json" 2>/dev/null; then
+  note_fail "limit 010 was accepted but planned_requests is not 30: $(grep -F planned_requests "$E_RD/window.json" 2>/dev/null | head -n 1)"
+fi
+a_trip_empty
+case_end
 
 ### Case 12: secrets, the tripwire and the real repository ---------------------------------
 
