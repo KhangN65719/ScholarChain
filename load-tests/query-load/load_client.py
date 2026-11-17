@@ -76,16 +76,25 @@ def utc_ms():
 
 
 def builtin_windows():
-    """351 fixed questions: 325 year ranges and 26 single years from 2000 to 2025, in a seeded order."""
-    years = range(2000, 2026)
+    """351 fixed ranking questions, in a seeded order.
+
+    Each names one stored Spark metric window (2000-2004, 2005-2009, 2010-2014,
+    2015-2019, 2020-2029 or all time), one rankable metric in the planner's
+    words and a top-N size, so the rules planner plans a ranked metric lookup
+    instead of refusing for want of a researcher name. 6 windows x 6 metrics x
+    19 sizes (2 to 20) give 684 distinct questions; the seeded shuffle keeps 351.
+    """
+    windows = ["between 2000 and 2004", "between 2005 and 2009", "between 2010 and 2014",
+               "between 2015 and 2019", "between 2020 and 2029", "overall"]
+    metrics = ["distinct coauthors", "publications", "weighted degree",
+               "total coauthor occurrences", "average coauthors per paper", "team size"]
     questions = []
-    for start in years:
-        for end in years:
-            if start < end:
-                questions.append("Which authors collaborated most between %d and %d?" % (start, end))
-        questions.append("Which authors collaborated most in %d?" % start)
+    for window in windows:
+        for metric in metrics:
+            for top in range(2, 21):
+                questions.append("Who are the top %d researchers by %s %s?" % (top, metric, window))
     random.Random(15).shuffle(questions)
-    return questions
+    return questions[:351]
 
 
 def load_queries(spec):
