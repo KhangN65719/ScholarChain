@@ -53,17 +53,57 @@ locals {
     }) : tomap({}),
   )
 
-  # PROPOSED names, for the fast and slow services only. No loader reads these.
-  # Whether the current services code reads any of them is UNVERIFIED (it could
-  # not be searched in work order 31), so the services map is unchanged.
-  container_environment = {
-    AWS_REGION                 = var.region
-    SCHOLARCHAIN_TABLE_PREFIX  = local.name_prefix
-    SCHOLARCHAIN_DATA_BUCKET   = module.data_lake.data_bucket
-    SCHOLARCHAIN_VECTOR_BUCKET = module.s3vectors.bucket_name
-    SCHOLARCHAIN_VECTOR_DIM    = tostring(var.vector_dimension)
-    SCHOLARCHAIN_BEDROCK       = var.enable_bedrock ? "on" : "off"
-    SCHOLARCHAIN_NEPTUNE_HOST  = var.enable_neptune ? module.neptune[0].endpoint : ""
+  # Service environment. Phase 15 (WO-10): matched to what scholarchain.services.runtime.
+  # AwsSettings reads (WO-8 and WO-8b: AwsSettings.scala, read in full). Required there:
+  # AWS_REGION, SCHOLARCHAIN_TABLE_PREFIX, _DATA_BUCKET, _VECTOR_BUCKET, _NEPTUNE_HOST,
+  # _GRAPH_RUN_ID and the two bearer tokens (those arrive through the ECS secrets block of
+  # the runtime module, never here). SCHOLARCHAIN_VECTOR_DIM must be 256 (the code refuses
+  # anything else; the vector_dimension default is 256). SCHOLARCHAIN_BEDROCK on enables
+  # Titan query embedding (vector and fused retrieval) and permits the bedrock answer
+  # model. The NEPTUNE_HOST entry is "" while Neptune is off, which AwsRuntime refuses
+  # (exit 2): services are only turned on together with Neptune. The two ports and the
+  # role are left at their code defaults (8080, 8081, both).
+  # SCHOLARCHAIN_GRAPH_RUN_ID (run:v1:<uuid>, the manifest sourceRunId) and
+  # SCHOLARCHAIN_EXPORT_RUN_ID (run-v1-<uuid>, the pipeline slug of the export prefix
+  # semantic-context/runs/<slug>/export/) are "" until graph_run_id and export_run_id are set
+  # (the runtime module refuses a service above zero tasks without them). The null-safe
+  # conditional is used because coalesce() rejects an all-null or empty argument list.
+  # SCHOLARCHAIN_BEDROCK_MODEL_ID is read by the code
+  # only with the bedrock answer model and is set always: it is the inference profile ID
+  # variable (P15-4), never a code constant.
+  service_environment_base = {
+    AWS_REGION                     = var.region
+    SCHOLARCHAIN_TABLE_PREFIX      = local.name_prefix
+    SCHOLARCHAIN_DATA_BUCKET       = module.data_lake.data_bucket
+    SCHOLARCHAIN_VECTOR_BUCKET     = module.s3vectors.bucket_name
+    SCHOLARCHAIN_VECTOR_DIM        = tostring(var.vector_dimension)
+    SCHOLARCHAIN_BEDROCK           = var.enable_bedrock ? "on" : "off"
+    SCHOLARCHAIN_NEPTUNE_HOST      = var.enable_neptune ? module.neptune[0].endpoint : ""
+    SCHOLARCHAIN_GRAPH_RUN_ID      = var.graph_run_id == null ? "" : var.graph_run_id
+    SCHOLARCHAIN_EXPORT_RUN_ID     = var.export_run_id == null ? "" : var.export_run_id
+    SCHOLARCHAIN_ANSWER_MODEL      = var.answer_model
+    SCHOLARCHAIN_BEDROCK_MODEL_ID  = var.bedrock_haiku_profile_id
+    SCHOLARCHAIN_BEDROCK_MAX_CALLS = var.bedrock_max_calls
+  }
+
+  container_environment = merge(
+    local.service_environment_base,
+    var.slow_deadline_millis == 0 ? tomap({}) : tomap({ SCHOLARCHAIN_SERVICES_SLOW_DEADLINE_MILLIS = tostring(var.slow_deadline_millis) }),
+  )
+
+  # Embedding worker environment: exactly the names EmbeddingWorkerMain reads (WO-7 report
+  # and EmbeddingWorkerMain.scala, read in full). The queue URL has the form the worker's
+  # own pattern requires (https://sqs.us-east-2.amazonaws.com/<account>/<name>). Visibility
+  # and lease are in range (30 to 900; lease 10 to visibility - 5) and are set so a poison
+  # message reaches its third receive within minutes (variables.tf).
+  worker_environment = {
+    AWS_REGION                             = var.region
+    SCHOLARCHAIN_EMBEDDING_QUEUE_URL       = module.workflow.queue_urls["embedding-work"]
+    SCHOLARCHAIN_DATA_BUCKET               = module.data_lake.data_bucket
+    SCHOLARCHAIN_VECTOR_BUCKET             = module.s3vectors.bucket_name
+    SCHOLARCHAIN_TABLE_PREFIX              = local.name_prefix
+    SCHOLARCHAIN_WORKER_VISIBILITY_SECONDS = tostring(var.worker_visibility_seconds)
+    SCHOLARCHAIN_WORKER_LEASE_SECONDS      = tostring(var.worker_lease_seconds)
   }
 }
 
@@ -152,6 +192,9 @@ module "identity" {
   secret_recovery_days            = var.cleanup_mode ? 0 : 7
   deployer_trusted_principal_arns = var.deployer_trusted_principal_arns
   deployer_require_mfa            = var.deployer_require_mfa
+
+  # OD-1: the worker role is a session 2 principal, so the A and B applies stay IAM_CHANGES none.
+  enable_worker_role = var.enable_services_stack
 }
 
 module "emr" {
@@ -200,6 +243,32 @@ module "runtime" {
   loader_memory              = var.loader_memory
   container_environment      = local.container_environment
   loader_environment         = local.loader_environment
+
+  # Phase 15 (WO-10). enable_services_stack (OD-1) gates every resource session 2 adds beside
+  # the Phase 14 shape; off, the plan equals session 1's resource set.
+  enable_services_stack       = var.enable_services_stack
+  service_layout              = var.service_layout
+  service_cpu                 = var.service_cpu
+  service_memory              = var.service_memory
+  service_jvm_options         = var.service_jvm_options
+  endpoints_security_group_id = module.network.security_group_ids["endpoints"]
+  s3_prefix_list_id           = module.network.s3_prefix_list_id
+  enable_load_balancer        = var.enable_load_balancer
+  health_check_grace_seconds  = var.enable_load_balancer ? var.health_check_grace_seconds : 0
+  enable_autoscaling          = var.enable_autoscaling
+  query_min_tasks             = var.query_min_tasks
+  query_max_tasks             = var.query_max_tasks
+  request_count_target        = var.request_count_target
+  cpu_target_percent          = var.cpu_target_percent
+  p95_latency_alarm_seconds   = var.p95_latency_alarm_seconds
+  alarm_actions               = var.alarm_sns_topic_arns
+  enable_worker               = var.enable_worker
+  worker_role_arn             = module.identity.role_arns["worker"]
+  worker_environment          = local.worker_environment
+  worker_desired_count        = var.worker_desired_count
+  worker_min_tasks            = var.worker_min_tasks
+  worker_max_tasks            = var.worker_max_tasks
+  load_client_image_tag       = var.load_client_image_tag
 }
 
 module "workflow" {
@@ -231,6 +300,7 @@ module "observability" {
   name_prefix                = local.name_prefix
   region                     = var.region
   enable_dashboard           = var.enable_dashboard
+  enable_scaling_dashboard   = var.enable_services_stack
   pipeline_enabled           = var.enable_pipeline
   neptune_enabled            = var.enable_neptune
   state_machine_arn          = module.workflow.state_machine_arn
@@ -241,4 +311,12 @@ module "observability" {
   neptune_mode               = var.neptune_mode
   neptune_max_ncu            = var.neptune_max_ncu
   alarm_actions              = var.alarm_sns_topic_arns
+
+  alb_enabled             = var.enable_load_balancer
+  alb_arn_suffix          = module.runtime.alb_arn_suffix
+  target_group_arn_suffix = module.runtime.target_group_arn_suffix
+  worker_enabled          = var.enable_worker
+  worker_service_name     = module.runtime.worker_service_name
+  embedding_queue_name    = "${local.name_prefix}-embedding-work"
+  dynamodb_table_names    = module.dynamodb.table_names
 }

@@ -1,5 +1,6 @@
 package scholarchain.storage
 
+import java.io.{BufferedReader, ByteArrayInputStream, InputStreamReader}
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.{Files, Path}
 
@@ -36,14 +37,23 @@ final class JsonlExportSource private (
     }
 
   def rows(table: String): Vector[Row] =
+    val out = Vector.newBuilder[Row]
+    foreachRow(table)(out += _)
+    out.result()
+
+  /** Hands each row of a table to `f` as it is parsed and keeps none, so a
+    * caller that folds rows into a smaller structure never holds the table.
+    * Every file is verified before its first row is passed on.
+    */
+  def foreachRow(table: String)(f: Row => Unit): Unit =
     plan
       .getOrElse(
         table,
         Fail(ErrorCode.MalformedManifest, s"Table $table is absent")
       )
-      .flatMap { file =>
+      .foreach { file =>
         val bytes = JsonlExportSource.verified(directory, table, file)
-        JsonlExportSource.parse(bytes, table, file.path)
+        JsonlExportSource.parseEach(bytes, table, file.path)(f)
       }
 
 object JsonlExportSource:
@@ -93,8 +103,23 @@ object JsonlExportSource:
       .map(_.toLong)
       .getOrElse(bad(s"$what has no usable '$name'"))
 
-  private def lines(bytes: Array[Byte]): Vector[String] =
-    new String(bytes, UTF_8).linesIterator.toVector
+  /** Calls `f(line, number)` for each line, decoding through a small buffer so
+    * the file is never held as one string or as a vector of lines. Returns the
+    * line count.
+    */
+  private def eachLine(bytes: Array[Byte])(f: (String, Long) => Unit): Long =
+    val reader = new BufferedReader(
+      new InputStreamReader(new ByteArrayInputStream(bytes), UTF_8)
+    )
+    try
+      var count = 0L
+      var line = reader.readLine()
+      while line != null do
+        count += 1
+        f(line, count)
+        line = reader.readLine()
+      count
+    finally reader.close()
 
   /** Reads one part file and checks it against its manifest entry. */
   private[storage] def verified(
@@ -144,7 +169,7 @@ object JsonlExportSource:
       ErrorCode.ChecksumMismatch,
       s"${file.path} does not match the SHA-256 in $ManifestName"
     )
-    val count = lines(bytes).size.toLong
+    val count = eachLine(bytes)((_, _) => ())
     Fail.unless(
       count == file.rows,
       ErrorCode.RowCountMismatch,
@@ -157,27 +182,41 @@ object JsonlExportSource:
       table: String,
       path: String
   ): Vector[Row] =
-    lines(bytes).zipWithIndex.map { case (line, index) =>
+    val out = Vector.newBuilder[Row]
+    parseEach(bytes, table, path)(out += _)
+    out.result()
+
+  private[storage] def parseEach(
+      bytes: Array[Byte],
+      table: String,
+      path: String
+  )(f: Row => Unit): Unit =
+    eachLine(bytes) { (line, number) =>
       val parsed =
         try ujson.read(line)
         catch
           case _: Exception =>
             Fail(
               ErrorCode.MalformedRow,
-              s"$table $path line ${index + 1} is not JSON"
+              s"$table $path line $number is not JSON"
             )
       parsed.objOpt match
-        case Some(fields) => fields.toMap
+        case Some(fields) => f(fields.toMap)
         case None         =>
           Fail(
             ErrorCode.MalformedRow,
-            s"$table $path line ${index + 1} is not a JSON object"
+            s"$table $path line $number is not a JSON object"
           )
     }
 
+  /** Opens and verifies an export. `only` names the tables to use: every other
+    * table of the manifest is ignored, so its files need not be present and are
+    * neither counted against the bounds nor checked. `None` uses all tables.
+    */
   def open(
       path: Path,
-      bounds: LoadBounds = LoadBounds.Default
+      bounds: LoadBounds = LoadBounds.Default,
+      only: Option[Set[String]] = None
   ): JsonlExportSource =
     val directory = path.toAbsolutePath.normalize()
     Fail.unless(
@@ -217,7 +256,10 @@ object JsonlExportSource:
       manifest.getOrElse("tables", bad(s"$ManifestName has no tables")),
       "tables"
     )
-    val plan = tables.toVector.map { case (name, value) =>
+    val chosen = tables.toVector.filter { case (name, _) =>
+      only.forall(_.contains(name))
+    }
+    val plan = chosen.map { case (name, value) =>
       val fields = objectOf(value, s"table $name")
       val files = fields
         .get("files")

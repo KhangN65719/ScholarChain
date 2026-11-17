@@ -6,6 +6,7 @@ output "role_arns" {
     ecs_execution = aws_iam_role.ecs_execution.arn
     runtime       = aws_iam_role.runtime.arn
     loader        = aws_iam_role.loader.arn
+    worker        = one(aws_iam_role.worker[*].arn)
     sfn           = aws_iam_role.sfn.arn
     deployer      = one(aws_iam_role.deployer[*].arn)
   }

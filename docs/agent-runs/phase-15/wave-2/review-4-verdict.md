@@ -1,0 +1,8 @@
+# Review 4 verdict, narrow re-review of w2rb5 and runbook revision 2 (code-reviewer, Opus; received 2026-11-17; summary as received)
+
+**REQUEST CHANGES.** 0 BLOCKER, 0 MAJOR, 2 MINOR (infra prose). Runbook and harness scopes pass.
+- MINOR-1 (infra): `SESSION2.md:70-71` §5 table omits `session2.tfvars` for A2 and A3 (A4 row `:72`, `services-session.tfvars:9, :12`, §8 `:166-167` include it).
+- MINOR-2 (infra): `services-session.tfvars:39-40` comment says IDs come "from session 2's own Experiment A run"; must match `SESSION2.md:111` (A run of the combined A + B session, P15-26).
+- Low notes: `services-smoke.tfvars:3-4` layering example omits `session2.tfvars` (infra); runbook `:1007` drop the six-table-name UNVERIFIED item (verified via `JsonlExportSource.scala:29-36`, `AwsReadModels.scala:135-140`) (deploy); `tfcheck.py:444-445` smoke exemption also applies to worker targets and stack-overlays (`:1051-1060`) does not refuse other keys in the smoke file, so a future `worker_max_tasks = 1` there would slip (test); a `data.aws_iam_*` read line would fail the IAM test (errs toward stopping; no change).
+Checked and correct: plan checks vs `lib.sh:854-868`, `:836`, `plan.sh:97, 122-136`; IAM `-A1` test; strip from `PLAN_SUMMARY_BEGIN`; three checks wired alike, FAIL ends `false`; no old forms; b1 IDs `:978`; 4.2 layout `:819` vs `ExportHeapMeasureSuite.scala:125-133`; 4.2b parse; conventions; tfvars header layering; SESSION2 `:70`, `:191`, `:215` (`run-s-pipeline.sh:94` calls `validate_run_id`); exact-path exemption and both new cases sound.
+Pending: `bash -n`, shellcheck and harness 1880/0; runbook shell unrun until the session; terraform fmt/validate.

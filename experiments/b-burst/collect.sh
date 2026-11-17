@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Experiment B capacity collector. READ-ONLY: every AWS call below is a describe-, list-
-# or get- call, enforced by aws_read(). The human runs it after the experiment run has
+# Experiment B capacity collector. READ-ONLY: every AWS call below is one of 8 exact
+# (service, verb) pairs, enforced by aws_read(). The human runs it after the experiment run has
 # ended and the cluster is gone (an EMR cluster stays describable for about two months;
 # CloudWatch keeps 5-minute data for 63 days). It writes immutable raw files, one per
 # call, into <run dir>/collected/ and refuses an existing collected/ directory.
@@ -25,8 +25,11 @@
 # Files written (raw, as returned by the CLI, one call each):
 #   sfn-execution.json              stepfunctions describe-execution            (required)
 #   sfn-history.json                stepfunctions get-execution-history, with execution data (required)
-#   emr-describe-cluster.json       emr describe-cluster                        (required)
-#   emr-list-instance-groups.json   emr list-instance-groups                    (required)
+#   emr-describe-cluster.json       emr describe-cluster: cluster timeline and Cluster.InstanceGroups
+#                                   (id, name, type MASTER/CORE/TASK, counts), which derive-capacity.py
+#                                   uses to name the role of each instance                (required)
+#                                   (There is no `emr list-instance-groups` subcommand in the installed
+#                                   AWS CLI: the 2026-11-17 run failed with "invalid choice".)
 #   emr-list-instances.json         emr list-instances: creation, ready and end time of every
 #                                   instance, the provisioned and released timeline (required)
 #   emr-managed-scaling-policy.json emr get-managed-scaling-policy: the bounds in force (optional)
@@ -101,11 +104,17 @@ mkdir "$STAGE" || die "cannot create $STAGE"
 trap keep_failed_stage EXIT
 trap 'exit 143' TERM INT
 
-# aws_read SERVICE VERB ARGS...: refuses any verb that is not describe-, list- or get-.
+# aws_read SERVICE VERB ARGS...: runs ONLY the exact (service, verb) pairs this collector calls
+# (the 8 calls below); anything else is refused, so a verb that merely starts with get- (for
+# example secretsmanager get-secret-value or ssm get-parameter) can never pass. Review 1, m5.
+# The rehearsal (rehearse-collect.sh) extracts this function by its first and last line: keep
+# it a single top-level function.
 aws_read() {
-  case "$2" in
-    describe-* | list-* | get-*) ;;
-    *) die "not a read-only AWS verb: $1 $2" ;;
+  case "$1 $2" in
+    "stepfunctions describe-execution" | "stepfunctions get-execution-history" | \
+    "emr describe-cluster" | "emr list-instances" | "emr get-managed-scaling-policy" | "emr list-steps" | \
+    "cloudwatch list-metrics" | "cloudwatch get-metric-data") ;;
+    *) die "not an allowed read-only AWS call: $1 $2" ;;
   esac
   aws "$@" --region "$REGION" --cli-connect-timeout 10 --cli-read-timeout 60 --output json
 }
@@ -163,7 +172,6 @@ CLUSTER_ID="$(python3 -I "$SC_COLLECT_DIR/derive-capacity.py" cluster-id --histo
 printf 'CLUSTER_ID=%s\n' "$CLUSTER_ID"
 
 save emr-describe-cluster.json emr describe-cluster --cluster-id "$CLUSTER_ID"
-save emr-list-instance-groups.json emr list-instance-groups --cluster-id "$CLUSTER_ID"
 save emr-list-instances.json emr list-instances --cluster-id "$CLUSTER_ID" --instance-states AWAITING_FULFILLMENT PROVISIONING BOOTSTRAPPING RUNNING TERMINATED
 save_optional emr-managed-scaling-policy.json emr get-managed-scaling-policy --cluster-id "$CLUSTER_ID"
 save_optional emr-list-steps.json emr list-steps --cluster-id "$CLUSTER_ID"
@@ -189,7 +197,7 @@ save cloudwatch-metric-data.json cloudwatch get-metric-data \
     printf 'METRIC_WINDOW_TO_UTC=%s\n' "$WINDOW_TO"
     printf 'METRIC_PERIOD_SECONDS=300\n'
     printf 'COLLECTED_AT_UTC=%s\n' "$(utc_now)"
-    printf 'AWS_CALLS=describe-execution get-execution-history describe-cluster list-instance-groups list-instances get-managed-scaling-policy list-steps list-metrics get-metric-data\n'
+    printf 'AWS_CALLS=describe-execution get-execution-history describe-cluster list-instances get-managed-scaling-policy list-steps list-metrics get-metric-data\n'
     printf 'CALL_STATUS=see CALL_STATUS.txt (a FAILED optional call leaves its file absent)\n'
   } > "$STAGE/COLLECTED.txt"
 )

@@ -134,9 +134,9 @@ variable "pipeline_profile" {
 }
 
 variable "log_retention_days" {
-  description = "CloudWatch log retention."
+  description = "CloudWatch log retention in days. Phase 15: 7 (was 3), so the raw lines of an experiment can be collected after the session. The course environment passes var.log_retention_days (7)."
   type        = number
-  default     = 3
+  default     = 7
 }
 
 variable "queue_retention_seconds" {

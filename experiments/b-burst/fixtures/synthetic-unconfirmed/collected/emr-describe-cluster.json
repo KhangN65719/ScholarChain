@@ -1,5 +1,5 @@
 {
-  "_synthetic_fixture": "SYNTHETIC test data. Shape follows `aws emr describe-cluster`.",
+  "_synthetic_fixture": "SYNTHETIC test data. Shape follows `aws emr describe-cluster`, including Cluster.InstanceGroups.",
   "Cluster": {
     "Id": "j-SYNTH0000003",
     "Name": "synthetic-pipeline",
@@ -10,6 +10,11 @@
         "ReadyDateTime": "2026-11-18T15:06:10+00:00",
         "EndDateTime": "2026-11-18T16:00:00+00:00"
       }
-    }
+    },
+    "InstanceCollectionType": "INSTANCE_GROUP",
+    "InstanceGroups": [
+      {"Id": "ig-MASTER0000001", "Name": "primary", "Market": "ON_DEMAND", "InstanceGroupType": "MASTER", "InstanceType": "m5.xlarge", "RequestedInstanceCount": 1, "RunningInstanceCount": 0, "Status": {"State": "TERMINATED"}},
+      {"Id": "ig-CORE00000001", "Name": "core", "Market": "ON_DEMAND", "InstanceGroupType": "CORE", "InstanceType": "m5.xlarge", "RequestedInstanceCount": 1, "RunningInstanceCount": 0, "Status": {"State": "TERMINATED"}}
+    ]
   }
 }

@@ -307,12 +307,36 @@ data "aws_iam_policy_document" "runtime" {
     resources = [local.run_requests_queue]
   }
 
+  # neptune-db:QueryLanguage is a String condition key (values Gremlin, OpenCypher,
+  # Sparql) supported on ReadDataViaQuery, WriteDataViaQuery, DeleteDataViaQuery,
+  # GetQueryStatus and CancelQuery, and not on GetEngineStatus, which therefore sits in
+  # its own statement without the condition. Verified 2026-11-17:
+  #   https://docs.aws.amazon.com/neptune/latest/userguide/iam-data-condition-keys.html
+  #   https://docs.aws.amazon.com/neptune/latest/userguide/data-api-dp-queries.html
+  # The runtime reads the graph with openCypher only. UNVERIFIED until a live run: that
+  # GetQueryStatus is authorized with the key populated for an openCypher query.
   dynamic "statement" {
     for_each = var.neptune_enabled ? [1] : []
 
     content {
-      sid       = "NeptuneReadOnly"
-      actions   = ["neptune-db:ReadDataViaQuery", "neptune-db:GetQueryStatus", "neptune-db:GetEngineStatus"]
+      sid       = "NeptuneReadOpenCypher"
+      actions   = ["neptune-db:ReadDataViaQuery", "neptune-db:GetQueryStatus"]
+      resources = [local.neptune_arn]
+
+      condition {
+        test     = "StringEquals"
+        variable = "neptune-db:QueryLanguage"
+        values   = ["OpenCypher"]
+      }
+    }
+  }
+
+  dynamic "statement" {
+    for_each = var.neptune_enabled ? [1] : []
+
+    content {
+      sid       = "NeptuneEngineStatus"
+      actions   = ["neptune-db:GetEngineStatus"]
       resources = [local.neptune_arn]
     }
   }
@@ -463,6 +487,94 @@ resource "aws_iam_role_policy" "loader" {
   name   = "loader-write"
   role   = aws_iam_role.loader.id
   policy = data.aws_iam_policy_document.loader.json
+}
+
+# Phase 15 (WO-10): the embedding worker (scholarchain.storage.EmbeddingWorkerMain).
+# Matched to the WO-7 report and the EmbeddingWorker source, not to a live run:
+#   SQS       ReceiveMessage, DeleteMessage, ChangeMessageVisibility, GetQueueAttributes
+#             on the embedding-work queue only (not its dead-letter queue: the queue's
+#             redrive policy moves a poison message, the worker never sends one).
+#   DynamoDB  GetItem and PutItem on the run-ledger table (the EMBEDWORK# ledger items:
+#             get, conditional put-if-absent and conditional put-if-version).
+#   S3 Vectors GetIndex, GetVectors, PutVectors on the index ARNs (the worker checks for
+#             an existing identical vector, then writes).
+#   S3        GetObject and PutObject under semantic-context/documents/ (the chunk
+#             document, so textRef resolves). The prefix is from the WO-7 report and is
+#             UNVERIFIED against the object key the code builds: a wrong prefix is an
+#             AccessDenied on the first message.
+#   Bedrock   InvokeModel on the Titan V2 foundation-model ARN, only with enable_bedrock.
+# No Neptune, no secrets, no Haiku, no write to any other table or prefix.
+data "aws_iam_policy_document" "worker" {
+  statement {
+    sid = "ConsumeEmbeddingWork"
+    actions = [
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:ChangeMessageVisibility",
+      "sqs:GetQueueAttributes",
+    ]
+    resources = [local.embedding_work_queue]
+  }
+
+  statement {
+    sid       = "ChunkLedger"
+    actions   = ["dynamodb:GetItem", "dynamodb:PutItem"]
+    resources = [var.table_arns["run-ledger"]]
+  }
+
+  statement {
+    sid       = "WriteVectors"
+    actions   = ["s3vectors:GetIndex", "s3vectors:GetVectors", "s3vectors:PutVectors"]
+    resources = var.vector_index_arns
+  }
+
+  # StringLikeIfExists for the same reason as the loader's list statement: a HeadObject
+  # on a missing key is a 403 without s3:ListBucket, and HeadObject sends no s3:prefix.
+  statement {
+    sid       = "ListDocumentPrefix"
+    actions   = ["s3:ListBucket"]
+    resources = [var.data_bucket_arn]
+
+    condition {
+      test     = "StringLikeIfExists"
+      variable = "s3:prefix"
+      values   = ["semantic-context/documents/*"]
+    }
+  }
+
+  statement {
+    sid       = "ChunkDocuments"
+    actions   = ["s3:GetObject", "s3:PutObject"]
+    resources = ["${var.data_bucket_arn}/semantic-context/documents/*"]
+  }
+
+  dynamic "statement" {
+    for_each = var.enable_bedrock ? [1] : []
+
+    content {
+      sid       = "BedrockEmbeddingsOnly"
+      actions   = ["bedrock:InvokeModel"]
+      resources = var.bedrock_embedding_model_arns
+    }
+  }
+}
+
+# The role and its policy exist only with enable_worker_role (OD-1): the Experiment A and B
+# applies are IAM_CHANGES none, so a new principal waits for session 2. The policy
+# document above is only data and plans no change.
+resource "aws_iam_role" "worker" {
+  count = var.enable_worker_role ? 1 : 0
+
+  name               = "${var.name_prefix}-worker"
+  assume_role_policy = data.aws_iam_policy_document.ecs_trust.json
+}
+
+resource "aws_iam_role_policy" "worker" {
+  count = var.enable_worker_role ? 1 : 0
+
+  name   = "worker-embed"
+  role   = aws_iam_role.worker[0].id
+  policy = data.aws_iam_policy_document.worker.json
 }
 
 # Step Functions: bounded pipeline of EMR (Hadoop, Spark) then the loader task.
@@ -702,7 +814,7 @@ data "aws_iam_policy_document" "deployer" {
   statement {
     sid       = "PassTaskRoles"
     actions   = ["iam:PassRole"]
-    resources = [aws_iam_role.ecs_execution.arn, aws_iam_role.runtime.arn, aws_iam_role.loader.arn]
+    resources = concat([aws_iam_role.ecs_execution.arn, aws_iam_role.runtime.arn, aws_iam_role.loader.arn], aws_iam_role.worker[*].arn)
 
     condition {
       test     = "StringEquals"

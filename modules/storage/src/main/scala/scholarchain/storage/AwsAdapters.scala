@@ -3,10 +3,11 @@ package scholarchain.storage
 /** What stays DEFERRED in the AWS adapter set.
   *
   * Implemented against the AWS SDK v2 (see AwsObjectStore, AwsVectorBucket,
-  * TitanEmbedder, AwsNeptuneBulkLoader, AwsDynamoTable and the AwsClients
-  * factory): S3 objects, S3 Vectors, the Titan embedder, the Neptune bulk
-  * loader and DynamoDB. Still deferred: the Neptune openCypher query port
-  * (`DeferredAwsNeptuneQuery`), for which no data-plane query adapter exists.
+  * TitanEmbedder, AwsNeptuneBulkLoader, AwsNeptuneQuery, AwsReadModels,
+  * AwsDynamoTable and the AwsClients factory): S3 objects, S3 Vectors, the
+  * Titan embedder, the Neptune bulk loader, the Neptune openCypher query port
+  * and the export-backed read models, and DynamoDB. `DeferredAwsNeptuneQuery`
+  * is the superseded placeholder; the runtime uses `AwsNeptuneQuery`.
   *
   * An adapter is constructed only with explicit arguments (client, bucket,
   * region, role ARN). This module hardcodes no endpoint, account, bucket or

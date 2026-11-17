@@ -32,4 +32,4 @@ emr_idle_timeout_seconds      = 900
 
 service_desired_count = 0
 use_fargate_spot      = false
-log_retention_days    = 3
+log_retention_days    = 7

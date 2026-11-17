@@ -28,11 +28,23 @@ final case class ModelResponse(
     tokensEstimated: Boolean
 )
 
-/** The only way the runtime reaches a model. Phase 12 supplies a Bedrock
-  * adapter; this phase has the deterministic offline stub.
+/** The only way the runtime reaches a model. The deterministic offline stub and
+  * `BedrockAnswerModel` implement it.
   */
 trait ModelPort:
   def complete(request: ModelRequest): ModelResponse
+
+/** A model failure with a stable `kind` and no model, prompt or answer text in
+  * its message. A non-retryable one (call cap reached, timeout, access denied)
+  * ends `StructuredCall` at once, so a failing service is called once, not once
+  * per retry.
+  */
+final class ModelCallException(
+    val kind: String,
+    message: String,
+    val retryable: Boolean = false,
+    cause: Throwable = null
+) extends RuntimeException(message, cause)
 
 /** A versioned prompt. The hash covers the whole text, so any edit is a new
   * hash and must be a new version.
@@ -588,7 +600,8 @@ object StructuredCall:
       var attempt = 0
       var reasons = Vector.empty[String]
       var result: Option[ujson.Value] = None
-      while result.isEmpty && attempt < policy.maxAttempts do
+      var stop = false
+      while result.isEmpty && !stop && attempt < policy.maxAttempts do
         attempt += 1
         val hinted =
           if reasons.isEmpty then request
@@ -628,6 +641,9 @@ object StructuredCall:
                 if problems.isEmpty then result = Some(json)
                 else reasons = problems
         catch
+          case e: ModelCallException =>
+            reasons = Vector(s"model call failed: ${e.kind}")
+            if !e.retryable then stop = true
           case NonFatal(error) =>
             reasons = Vector(
               s"model call failed: ${error.getClass.getSimpleName}"

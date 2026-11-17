@@ -86,6 +86,11 @@ final class Request(
 ):
   var route: String = "unmatched"
 
+  // Filled by the query handler for the latency log. Never the question text.
+  var retrievalMode: Option[String] = None
+  var executionMode: Option[String] = None
+  var stageTimings: Vector[(String, Option[Long])] = Vector.empty
+
   def header(name: String): Option[String] = headers.get(name.toLowerCase)
 
   lazy val body: Array[Byte] = readBody()
@@ -205,7 +210,8 @@ final class ServiceServer private (
     config: ServiceConfig,
     metrics: Metrics,
     server: HttpServer,
-    pool: ExecutorService
+    pool: ExecutorService,
+    requestLog: RequestLog
 ):
   private val log = LoggerFactory.getLogger(s"scholarchain.services.$name")
 
@@ -404,6 +410,15 @@ final class ServiceServer private (
       response.status,
       millis
     )
+    if request != null && route == RequestLog.QueryRoute then
+      requestLog.query(
+        ctx.requestId,
+        request.retrievalMode,
+        request.executionMode,
+        response.status,
+        millis,
+        request.stageTimings
+      )
     // A fatal error (out of memory, a linkage error) is answered above and then
     // rethrown; an interrupt is not an error, its flag is already restored.
     if failure != null && !wasInterrupted && !NonFatal(failure) then
@@ -416,7 +431,8 @@ object ServiceServer:
       config: ServiceConfig,
       metrics: Metrics,
       host: String = "127.0.0.1",
-      port: Int = 0
+      port: Int = 0,
+      requestLog: RequestLog = RequestLog.default
   ): ServiceServer =
     // The transport queue is bounded. When it is full the JDK server drops the
     // connection without a response (the server gives the refused task no
@@ -433,7 +449,8 @@ object ServiceServer:
         new InetSocketAddress(InetAddress.getByName(host), port),
         0
       )
-    val service = new ServiceServer(name, router, config, metrics, server, pool)
+    val service =
+      new ServiceServer(name, router, config, metrics, server, pool, requestLog)
     server.createContext("/", (ex: HttpExchange) => service.handle(ex))
     server.setExecutor(pool)
     server.start()

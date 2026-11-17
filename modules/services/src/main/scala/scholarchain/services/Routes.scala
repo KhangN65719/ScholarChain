@@ -79,12 +79,18 @@ object Routes:
   ): Response =
     req.requireJson()
     val parsed = QueryRequests.parse(req.body, config)
+    req.retrievalMode = Some(
+      RetrievalModes.wire(
+        parsed.retrievalMode.getOrElse(RetrievalModes.Default)
+      )
+    )
     val key = req.header("idempotency-key").map(Ids.idempotencyKey)
     val request = QueryRequests.resolve(
       parsed,
       QueryRequests.prefersAsync(req.header("prefer")),
       config
     )
+    req.executionMode = Some(request.mode.wire)
     val fingerprint = QueryRequests.fingerprint(req.body, request.mode)
     queries.submit(
       request,
@@ -92,7 +98,9 @@ object Routes:
       fingerprint,
       new Deadline(config.slowDeadlineMillis)
     ) match
-      case Answered(outcome)  => Response.json(200, outcome.toJson)
+      case Answered(outcome) =>
+        req.stageTimings = outcome.timings
+        Response.json(200, outcome.toJson)
       case accepted: Accepted =>
         Response.json(
           202,

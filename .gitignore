@@ -16,3 +16,5 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 /datasets/tier-s/chunks-c/chunks.jsonl
+__pycache__/
+*.pyc

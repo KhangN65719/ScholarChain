@@ -1,0 +1,12 @@
+# Wave 2 review 2 verdict, narrow re-review of repair batch w2-2 (code-reviewer, Opus; received 2026-11-17; summary as received)
+
+**REQUEST CHANGES.** 0 BLOCKER, 1 MAJOR, 1 MINOR. Code repairs B1a, M1 (code), B1b, m7, B2, B1c, B1d, harness line 1667, m5, m1, m6, m2 all correct.
+
+- **MAJOR-1** (infra-engineer `SESSION2.md`; deploy-engineer runbook): `infra/terraform/SESSION2.md:98` and `docs/releases/phase-15/session-ab-runbook-draft.md:567` say the slug and `sourceRunId` "normally share the same UUID"; runbook `:573` expects `UUID_PARTS_EQUAL=yes`. They are independent (`Inputs.scala:113-117` SHA-256 over inputs; slug operator-supplied `lib-emr.sh:372-379`; run 6 differs). Predictable false alarm inviting the B1 error. Related minor: `SESSION2.md:111` and runbook `:573` mark the `run-v1-<uuid>` form UNVERIFIED though `validate_run_id` enforces it and `run-s-pipeline.sh:580` publishes under it.
+- **MINOR-1** (infra-engineer): `course/main.tf:68-69` comment says the runtime module refuses services without both IDs; `modules/runtime/main.tf:522-525` checks only `SCHOLARCHAIN_GRAPH_RUN_ID`. Environment validation (`variables.tf:452-455`) covers `export_run_id`. Add the matching precondition or correct the comment.
+- Out of scope note: `services-smoke.tfvars:5` still says "at most 10 queries"; P15-27 says 1 task, at most 4 Haiku queries.
+- Residual note (not a finding): the Dockerfile digest check runs inside the pulled base image; a host-side check would be stronger.
+
+Checked and correct (evidence in reviewer message): export prefix from `exportRunId` (`AwsReadModels.scala:179-180`), `sourceRunId` check and pin kept, `live` refuses before any client (`:485-489`), fallback unreachable from deployed runtime; heap overlay leaves production check unchanged; services env required, no value echo, us-east-2 only, by-name pass-through, every AwsRuntime task gets it via `container_environment`, worker unaffected; null-safe conditionals, validations, Terraform >= 1.10; `scripts/README.md:463` matches conf; tfcheck accepts only bare or exact null-safe form, 12 new self-tests; expcheck exact pair set, 5 guard mutations; b-burst refusal cases; cc_aws 11 pairs, b-burst 8 pairs; `.gitignore:19-20`; Dockerfile `:1-5`. No assertion weakened.
+
+Pending: agent `sbt check` (running); harness (1780/0 expected); check.sh; first plan (B2); rehearsals; HEAP-MEASURE on A's export; §4 Docker build; human `sbt clean check`.

@@ -1,0 +1,19 @@
+[
+  {"id": "alb_p50", "label": "ALB target response time s:p50", "namespace": "AWS/ApplicationELB", "metric": "TargetResponseTime", "dimensions": {"LoadBalancer": "{ALB}"}, "stat": "p50", "period": 60},
+  {"id": "alb_p95", "label": "ALB target response time s:p95", "namespace": "AWS/ApplicationELB", "metric": "TargetResponseTime", "dimensions": {"LoadBalancer": "{ALB}"}, "stat": "p95", "period": 60},
+  {"id": "alb_p99", "label": "ALB target response time s:p99", "namespace": "AWS/ApplicationELB", "metric": "TargetResponseTime", "dimensions": {"LoadBalancer": "{ALB}"}, "stat": "p99", "period": 60},
+  {"id": "alb_requests", "label": "ALB requests per minute:RequestCount", "namespace": "AWS/ApplicationELB", "metric": "RequestCount", "dimensions": {"LoadBalancer": "{ALB}"}, "stat": "Sum", "period": 60},
+  {"id": "alb_target_5xx", "label": "ALB errors per minute:target 5xx", "namespace": "AWS/ApplicationELB", "metric": "HTTPCode_Target_5XX_Count", "dimensions": {"LoadBalancer": "{ALB}"}, "stat": "Sum", "period": 60},
+  {"id": "alb_elb_5xx", "label": "ALB errors per minute:ELB 5xx", "namespace": "AWS/ApplicationELB", "metric": "HTTPCode_ELB_5XX_Count", "dimensions": {"LoadBalancer": "{ALB}"}, "stat": "Sum", "period": 60},
+  {"id": "alb_healthy", "label": "ALB healthy targets:HealthyHostCount", "namespace": "AWS/ApplicationELB", "metric": "HealthyHostCount", "dimensions": {"LoadBalancer": "{ALB}", "TargetGroup": "{TARGET_GROUP}"}, "stat": "Minimum", "period": 60},
+  {"id": "ecs_desired", "label": "service tasks:desired", "namespace": "ECS/ContainerInsights", "metric": "DesiredTaskCount", "dimensions": {"ClusterName": "{CLUSTER}", "ServiceName": "{SERVICE}"}, "stat": "Maximum", "period": 60},
+  {"id": "ecs_running", "label": "service tasks:running", "namespace": "ECS/ContainerInsights", "metric": "RunningTaskCount", "dimensions": {"ClusterName": "{CLUSTER}", "ServiceName": "{SERVICE}"}, "stat": "Maximum", "period": 60},
+  {"id": "ecs_cpu", "label": "service CPU and memory percent:CPUUtilization", "namespace": "AWS/ECS", "metric": "CPUUtilization", "dimensions": {"ClusterName": "{CLUSTER}", "ServiceName": "{SERVICE}"}, "stat": "Average", "period": 60},
+  {"id": "ecs_memory", "label": "service CPU and memory percent:MemoryUtilization", "namespace": "AWS/ECS", "metric": "MemoryUtilization", "dimensions": {"ClusterName": "{CLUSTER}", "ServiceName": "{SERVICE}"}, "stat": "Average", "period": 60},
+  {"id": "neptune_cpu", "label": "Neptune:CPUUtilization", "namespace": "AWS/Neptune", "metric": "CPUUtilization", "dimensions": {"DBClusterIdentifier": "{NEPTUNE_CLUSTER}"}, "stat": "Average", "period": 60},
+  {"id": "neptune_pending", "label": "Neptune pending requests:MainRequestQueuePendingRequests", "namespace": "AWS/Neptune", "metric": "MainRequestQueuePendingRequests", "dimensions": {"DBClusterIdentifier": "{NEPTUNE_CLUSTER}"}, "stat": "Maximum", "period": 60},
+  {"id": "ddb_read_throttle", "label": "DynamoDB throttle events:read", "namespace": "AWS/DynamoDB", "metric": "ReadThrottleEvents", "dimensions": {"TableName": "{TABLES}"}, "stat": "Sum", "period": 60, "for_each": "TABLES"},
+  {"id": "ddb_write_throttle", "label": "DynamoDB throttle events:write", "namespace": "AWS/DynamoDB", "metric": "WriteThrottleEvents", "dimensions": {"TableName": "{TABLES}"}, "stat": "Sum", "period": 60, "for_each": "TABLES"},
+  {"id": "ddb_read_units", "label": "DynamoDB consumed units per minute:read", "namespace": "AWS/DynamoDB", "metric": "ConsumedReadCapacityUnits", "dimensions": {"TableName": "{TABLES}"}, "stat": "Sum", "period": 60, "for_each": "TABLES"},
+  {"id": "ddb_write_units", "label": "DynamoDB consumed units per minute:write", "namespace": "AWS/DynamoDB", "metric": "ConsumedWriteCapacityUnits", "dimensions": {"TableName": "{TABLES}"}, "stat": "Sum", "period": 60, "for_each": "TABLES"}
+]

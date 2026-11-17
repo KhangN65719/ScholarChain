@@ -275,6 +275,26 @@ lazy val root = project
       (serviceJar +: runtimeJars.filterNot(_ == serviceJar)).foreach { jar =>
         IO.copyFile(jar, context / "lib" / jar.getName)
       }
+      // The image has one classpath and the ECS task command names the main,
+      // so fail the stage when a main class or an SDK jar it needs is absent.
+      val stagedJars =
+        IO.listFiles(context / "lib").toSeq.filter(_.getName.endsWith(".jar"))
+      def jarHasEntry(jar: File, entry: String): Boolean = {
+        val zip = new java.util.zip.ZipFile(jar)
+        try zip.getEntry(entry) != null
+        finally zip.close()
+      }
+      val missingMains = Seq(
+        "scholarchain/services/runtime/AwsRuntime.class",
+        "scholarchain/storage/EmbeddingWorkerMain.class"
+      ).filterNot(entry => stagedJars.exists(jarHasEntry(_, entry)))
+      val missingSdk = Seq("sqs-", "bedrockruntime-", "url-connection-")
+        .filterNot(prefix => stagedJars.exists(_.getName.startsWith(prefix)))
+      if (missingMains.nonEmpty || missingSdk.nonEmpty)
+        sys.error(
+          s"Staged lib/ lacks main classes ${missingMains.mkString(",")} " +
+            s"or SDK jars ${missingSdk.mkString(",")}"
+        )
       val exit = Process(
         Seq(
           "docker",
@@ -369,6 +389,7 @@ lazy val storage = project
       "s3",
       "s3vectors",
       "bedrockruntime",
+      "sqs",
       "neptunedata",
       "dynamodb",
       "url-connection-client"

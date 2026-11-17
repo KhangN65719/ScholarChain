@@ -21,12 +21,14 @@ import scholarchain.storage.{
   CachedMetrics,
   CommunityReadPort,
   ComponentReadPort,
+  CypherQuery,
   DynamoTable,
   Hashing,
   NeptuneQueryPort,
   PathEvidencePort,
   PathLookup,
   ResearcherDirectoryPort,
+  Row,
   StorageException,
   WindowLabels
 }
@@ -72,7 +74,8 @@ final case class WorkflowConfig(
     retry: ModelRetryPolicy = ModelRetryPolicy(),
     paths: PathLimits = PathLimits(),
     caps: EvidenceCaps = EvidenceCaps(),
-    auditTtlSeconds: Long = 7L * 24 * 3600
+    auditTtlSeconds: Long = 7L * 24 * 3600,
+    stageClock: StageClock = StageClock.system
 )
 
 final case class AuditEntry(
@@ -91,9 +94,15 @@ final case class WorkflowResult(
     abstained: Boolean,
     abstentionReason: Option[String],
     flags: Vector[String],
-    audit: AuditEntry
+    audit: AuditEntry,
+    mode: RetrievalMode = RetrievalMode.Fused,
+    timings: StageTimings = StageTimings.empty
 ):
   def verdict: Option[VerificationVerdict] = verification.flatMap(_.overall)
+
+/** A graph port that answers every query with no rows. */
+private object NoGraph extends NeptuneQueryPort:
+  def run(query: CypherQuery): Vector[Row] = Vector.empty
 
 /** The runtime collaboration-analysis workflow. `answer` composes the stages
   * over the injected ports: plan, resolve, retrieve (metrics, paths,
@@ -110,6 +119,13 @@ final class CollaborationWorkflow(
   private val resolver = new ResearcherResolverAgent(
     ports.directory,
     ports.neptune,
+    config.resolver
+  )
+  // Vector mode reads no graph, not even the coauthor context that tells two
+  // candidates apart, so its resolver gets a Neptune port that returns nothing.
+  private val graphFreeResolver = new ResearcherResolverAgent(
+    ports.directory,
+    NoGraph,
     config.resolver
   )
   private val metricsAgent = new CollaborationMetricsAgent(
@@ -131,10 +147,31 @@ final class CollaborationWorkflow(
       val claims: Vector[AnswerClaim]
   ) extends RuntimeException(message, null, false, false)
 
-  def answer(question: String, session: Session): WorkflowResult =
-    new Run(question, session).execute()
+  def answer(
+      question: String,
+      session: Session,
+      mode: RetrievalMode = RetrievalMode.Fused
+  ): WorkflowResult =
+    new Run(question, session, mode).execute()
 
-  private final class Run(question: String, session: Session):
+  private final class Run(
+      question: String,
+      session: Session,
+      mode: RetrievalMode
+  ):
+    private val timings =
+      mutable.Map.empty[PipelineStage, StageTiming]
+
+    /** Times `body` on the stage clock and records it even when `body` throws,
+      * so an abstaining stage still reports how long it took.
+      */
+    private def timed[A](stage: PipelineStage)(body: => A): A =
+      val t0 = config.stageClock.nanos()
+      try body
+      finally
+        val ms = math.max(0L, config.stageClock.nanos() - t0) / 1000000L
+        timings.update(stage, StageTiming.Ran(ms))
+
     private val started = ports.clock.nowMillis()
     private val queryId = "query:v1:" + Hashing.sha256(
       s"${session.sessionId}|${session.ordinal}|$question"
@@ -241,7 +278,9 @@ final class CollaborationWorkflow(
         abstained,
         reason,
         (flags ++ builder.flags).toVector.distinct,
-        entry
+        entry,
+        mode,
+        StageTimings(timings.toMap)
       )
 
     private final case class Done(
@@ -258,34 +297,62 @@ final class CollaborationWorkflow(
           "invalid-question",
           s"The question must be 1 to ${RagRuntime.MaxQuestionChars} characters."
         )
-      val d = planner.plan(question, queryId) match
-        case PlannerResult.Refused(reason, f, u) =>
-          flags ++= f
-          addUsage(u, Prompts.Planner)
-          stage("plan", "refused")
-          abstain("planner-refused", s"The question was not planned: $reason.")
-        case PlannerResult.Planned(planned, u) =>
-          flags ++= planned.flags
-          addUsage(u, Prompts.Planner)
-          stage("plan", s"${planned.operation.wire} by ${planned.classifiedBy}")
-          planned
-      draft = Some(d)
-      val ids = resolve(d)
-      plan = Some(d.toQueryPlan(ids.distinct, prov(queryId)))
-      retrieve(d, ids)
-      semantic(d, ids)
-      val lookupOnly =
-        d.operation == QueryOperation.ResearcherLookup && builder.hasIdentity
-      if !builder.hasDeterministic && !lookupOnly then
-        stage("evidence", "no deterministic evidence")
-        abstain(
-          "no-deterministic-evidence",
-          ("The stored graph and metrics hold no evidence that answers the question." +
-            (if gaps.isEmpty then "" else " " + gaps.mkString(" "))).trim
+      val (d, ids) = timed(PipelineStage.Planning) {
+        val planned = planner.plan(question, queryId) match
+          case PlannerResult.Refused(reason, f, u) =>
+            flags ++= f
+            addUsage(u, Prompts.Planner)
+            stage("plan", "refused")
+            abstain(
+              "planner-refused",
+              s"The question was not planned: $reason."
+            )
+          case PlannerResult.Planned(planned, u) =>
+            flags ++= planned.flags
+            addUsage(u, Prompts.Planner)
+            stage(
+              "plan",
+              s"${planned.operation.wire} by ${planned.classifiedBy}"
+            )
+            planned
+        draft = Some(planned)
+        val resolved = resolve(planned)
+        plan = Some(planned.toQueryPlan(resolved.distinct, prov(queryId)))
+        (planned, resolved)
+      }
+      if mode.runsGraph then
+        timed(PipelineStage.GraphRetrieval)(retrieve(d, ids))
+      else
+        stage("retrieve", s"skipped: retrieval mode ${mode.wire}")
+        gaps += "Graph evidence was not retrieved in vector retrieval mode, so no exact metric, path or component is stated."
+      if mode.runsVector then
+        if semanticAgent.isDefined then
+          timed(PipelineStage.VectorRetrieval)(semantic(d, ids))
+      else stage("semantic", s"skipped: retrieval mode ${mode.wire}")
+      val bundle = timed(PipelineStage.Fusion) {
+        val lookupOnly =
+          d.operation == QueryOperation.ResearcherLookup && builder.hasIdentity
+        val semanticOnly =
+          mode == RetrievalMode.Vector && builder.hasSemantic
+        if !builder.hasDeterministic && !lookupOnly && !semanticOnly then
+          stage("evidence", "no deterministic evidence")
+          abstain(
+            "no-deterministic-evidence",
+            if mode == RetrievalMode.Vector then
+              "The vector index holds no context that answers the question."
+            else
+              ("The stored graph and metrics hold no evidence that answers the question." +
+                (if gaps.isEmpty then "" else " " + gaps.mkString(" "))).trim
+          )
+        val built = builder.build(gaps.toVector)
+        stage("evidence", s"${built.items.size} item(s)")
+        built
+      }
+      val synthesized =
+        timed(PipelineStage.Synthesis)(
+          synthesis.synthesize(d, bundle, gaps.toVector)
         )
-      val bundle = builder.build(gaps.toVector)
-      stage("evidence", s"${bundle.items.size} item(s)")
-      val output = synthesis.synthesize(d, bundle, gaps.toVector) match
+      val output = synthesized match
         case SynthesisResult.Failed(reasons, attempts, u)
             if attempts == 0 && reasons.contains(StructuredCall.OverBudget) =>
           addUsage(u, Prompts.Synthesis)
@@ -306,7 +373,9 @@ final class CollaborationWorkflow(
           stage("synthesis", s"$attempts attempt(s)")
           out
       synthesisOutput = Some(output)
-      val fin = verifier.finalizeAnswer(bundle, output, gaps.toVector, prov)
+      val fin = timed(PipelineStage.Verification)(
+        verifier.finalizeAnswer(bundle, output, gaps.toVector, prov)
+      )
       verification = Some(fin.report)
       Done(
         fin.text,
@@ -342,10 +411,11 @@ final class CollaborationWorkflow(
                 if min == max then s"$min" else s"$min to $max"
               } researcher name(s); it names $people."
         )
+      val agent = if mode.runsGraph then resolver else graphFreeResolver
       val found =
-        d.explicitIds.map(resolver.resolveId(_, d.window)) ++
+        d.explicitIds.map(agent.resolveId(_, d.window)) ++
           d.names.map(n =>
-            resolver.resolveName(
+            agent.resolveName(
               n,
               d.window,
               session.disambiguation.get(ResearcherResolverAgent.key(n))
@@ -540,67 +610,75 @@ final class CollaborationWorkflow(
       val deterministic =
         bundle.items.filter(_.evidenceType != EvidenceType.TextChunk)
       val payload = ujson.Obj(
-        "schema" -> "scholarchain.rag.audit/1",
-        "sessionId" -> session.sessionId,
-        "ordinal" -> session.ordinal,
-        "queryId" -> queryId,
-        "question" -> question.take(RagRuntime.MaxQuestionChars),
-        "queryPlan" -> plan.fold[ujson.Value](ujson.Null)(
-          upickle.default.writeJs(_)
-        ),
-        "planDetails" -> draft.fold[ujson.Value](ujson.Null)(planDetails),
-        "resolutions" -> ujson.Arr.from(resolutions.toVector.map { r =>
-          ujson.Obj(
-            "name" -> r.name,
-            "status" -> r.status.toString,
-            "resolvedId" -> Facts.optStr(r.chosen.map(_.nodeId)),
-            "candidateIds" -> Facts.strs(r.candidates.map(_.nodeId)),
-            "selectedByUser" -> r.selectedByUser,
-            "note" -> r.note
-          ): ujson.Value
-        }),
-        "evidenceIds" -> Facts.strs(bundle.items.map(_.evidenceId)),
-        "bundleId" -> bundle.bundleId,
-        "metricVersions" -> Facts.strs(
-          deterministic.map(_.provenance.transformVersion).distinct.sorted
-        ),
-        "evidenceRunIds" -> Facts.strs(
-          deterministic.map(_.provenance.runId).distinct.sorted
-        ),
-        "graphRunId" -> config.graphRunId,
-        "queryRunId" -> config.queryRunId,
-        "prompts" -> ujson.Arr.from(prompts.values.toVector.map { p =>
-          ujson.Obj(
-            "id" -> p.id,
-            "version" -> p.version,
-            "hash" -> p.hash,
-            "schemaId" -> p.schemaId
-          ): ujson.Value
-        }),
-        "schemaHashes" -> ujson.Obj.from(
-          Schemas.hashes.toVector
-            .sortBy(_._1)
-            .map((k, v) => k -> (ujson.Str(v): ujson.Value))
-        ),
-        "models" -> Facts.strs(usage.modelVersion.toVector),
-        "modelCalls" -> usage.calls,
-        "tokens" -> ujson.Obj(
-          "promptTokens" -> usage.promptTokens,
-          "completionTokens" -> usage.completionTokens,
-          "estimated" -> usage.estimated,
-          "note" -> "estimates from a character count, not a tokenizer"
-        ),
-        "latencyMillis" -> (finished - started).toDouble,
-        "verification" -> verification.fold[ujson.Value](ujson.Null)(_.toJson),
-        "modelMissingEvidence" -> Facts.strs(
-          synthesisOutput.toVector.flatMap(_.missingEvidence)
-        ),
-        "abstained" -> abstained,
-        "abstentionReason" -> Facts.optStr(reason),
-        "answerHash" -> answerHash,
-        "flags" -> Facts.strs((flags ++ builder.flags).toVector.distinct),
-        "stages" -> ujson.Arr.from(stages)
+        "schema" -> "scholarchain.rag.audit/1"
       )
+      // Only a non-default mode is recorded, so a fused answer's audit stays
+      // byte-identical to what it was before modes existed.
+      if mode != RetrievalMode.Fused then payload("retrievalMode") = mode.wire
+      payload.value ++= ujson
+        .Obj(
+          "sessionId" -> session.sessionId,
+          "ordinal" -> session.ordinal,
+          "queryId" -> queryId,
+          "question" -> question.take(RagRuntime.MaxQuestionChars),
+          "queryPlan" -> plan.fold[ujson.Value](ujson.Null)(
+            upickle.default.writeJs(_)
+          ),
+          "planDetails" -> draft.fold[ujson.Value](ujson.Null)(planDetails),
+          "resolutions" -> ujson.Arr.from(resolutions.toVector.map { r =>
+            ujson.Obj(
+              "name" -> r.name,
+              "status" -> r.status.toString,
+              "resolvedId" -> Facts.optStr(r.chosen.map(_.nodeId)),
+              "candidateIds" -> Facts.strs(r.candidates.map(_.nodeId)),
+              "selectedByUser" -> r.selectedByUser,
+              "note" -> r.note
+            ): ujson.Value
+          }),
+          "evidenceIds" -> Facts.strs(bundle.items.map(_.evidenceId)),
+          "bundleId" -> bundle.bundleId,
+          "metricVersions" -> Facts.strs(
+            deterministic.map(_.provenance.transformVersion).distinct.sorted
+          ),
+          "evidenceRunIds" -> Facts.strs(
+            deterministic.map(_.provenance.runId).distinct.sorted
+          ),
+          "graphRunId" -> config.graphRunId,
+          "queryRunId" -> config.queryRunId,
+          "prompts" -> ujson.Arr.from(prompts.values.toVector.map { p =>
+            ujson.Obj(
+              "id" -> p.id,
+              "version" -> p.version,
+              "hash" -> p.hash,
+              "schemaId" -> p.schemaId
+            ): ujson.Value
+          }),
+          "schemaHashes" -> ujson.Obj.from(
+            Schemas.hashes.toVector
+              .sortBy(_._1)
+              .map((k, v) => k -> (ujson.Str(v): ujson.Value))
+          ),
+          "models" -> Facts.strs(usage.modelVersion.toVector),
+          "modelCalls" -> usage.calls,
+          "tokens" -> ujson.Obj(
+            "promptTokens" -> usage.promptTokens,
+            "completionTokens" -> usage.completionTokens,
+            "estimated" -> usage.estimated,
+            "note" -> "estimates from a character count, not a tokenizer"
+          ),
+          "latencyMillis" -> (finished - started).toDouble,
+          "verification" -> verification
+            .fold[ujson.Value](ujson.Null)(_.toJson),
+          "modelMissingEvidence" -> Facts.strs(
+            synthesisOutput.toVector.flatMap(_.missingEvidence)
+          ),
+          "abstained" -> abstained,
+          "abstentionReason" -> Facts.optStr(reason),
+          "answerHash" -> answerHash,
+          "flags" -> Facts.strs((flags ++ builder.flags).toVector.distinct),
+          "stages" -> ujson.Arr.from(stages)
+        )
+        .value
       val record = AuditRecord(
         session.sessionId,
         session.ordinal,

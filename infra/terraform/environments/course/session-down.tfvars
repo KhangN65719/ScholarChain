@@ -19,5 +19,22 @@ egress_mode           = "none"
 enable_neptune        = false
 service_desired_count = 0
 
+# Phase 15 (WO-10): the load balancer, the scaling targets and the worker service are session
+# resources too. Without them the ALB would bill (about 0.03 USD an hour, UNVERIFIED) and the
+# scaling targets would hold the service above zero. Turning them off destroys them; the ECR
+# repositories, the task definitions, the log groups, the queues and the dashboards stay.
+#
+# OD-1: this file does NOT set enable_services_stack or service_layout, so it leaves them at their
+# defaults (false, split). That is right after the Experiment A and B sessions, whose state holds
+# no Wave 2 resource and the split layout: the teardown plan creates and destroys none of them.
+# After SESSION 2 the state holds the stack and the combined layout, and this file alone would
+# destroy the worker role, the load-client ECR repository (refused while it holds images), the
+# log groups with their events and the security groups, and swap the query service for fast and
+# slow. The session 2 teardown (A4) therefore layers session-down-services.tfvars after this file.
+enable_load_balancer = false
+enable_autoscaling   = false
+enable_worker        = false
+answer_model         = "stub"
+
 emr_core_instance_count      = 0
 emr_task_spot_instance_count = 0

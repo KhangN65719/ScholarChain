@@ -17,12 +17,32 @@ import java.util.concurrent.{
 import org.slf4j.LoggerFactory
 import scala.util.control.NonFatal
 import scholarchain.core.{AnswerResponse, YearWindow}
-import scholarchain.rag.{RagRuntime, Session}
+import scholarchain.rag.{RagRuntime, RetrievalMode, Session, WorkflowResult}
 import scholarchain.storage.Hashing
 
 enum QueryMode(val wire: String):
   case Sync extends QueryMode("sync")
   case Async extends QueryMode("async")
+
+/** The wire names of the retrieval mode field. The mapping lives here, so the
+  * HTTP contract does not move if the rag enum changes its own spelling.
+  */
+object RetrievalModes:
+  val Default: RetrievalMode = RetrievalMode.Default
+
+  def wire(mode: RetrievalMode): String = mode.wire
+
+  def parse(text: String): Option[RetrievalMode] =
+    RetrievalMode.fromWire(text)
+
+/** The rag stage timings as the services log them: stage wire name to
+  * milliseconds, `None` for a stage that was skipped.
+  */
+object StageTimingsView:
+  def of(result: WorkflowResult): Vector[(String, Option[Long])] =
+    result.timings.all.toVector.map((stage, _) =>
+      stage.wire -> result.timings.millis(stage)
+    )
 
 final case class QueryFilters(
     topic: Option[String],
@@ -47,23 +67,26 @@ final case class QueryRequest(
     window: Option[YearWindow],
     filters: QueryFilters,
     mode: QueryMode,
-    maxResults: Option[Int]
+    maxResults: Option[Int],
+    retrievalMode: RetrievalMode = RetrievalModes.Default
 )
 
 /** The request as parsed, before the mode is resolved against the `Prefer`
-  * header and the configuration.
+  * header and the configuration. `retrievalMode` is the optional
+  * `retrievalMode` field; absent is `None` and means `fused`.
   */
 final case class ParsedQuery(
     question: String,
     window: Option[YearWindow],
     filters: QueryFilters,
     mode: Option[QueryMode],
-    maxResults: Option[Int]
+    maxResults: Option[Int],
+    retrievalMode: Option[RetrievalMode] = None
 )
 
 object QueryRequests:
   private val topLevel =
-    Set("question", "window", "filters", "mode", "limits")
+    Set("question", "window", "filters", "mode", "limits", "retrievalMode")
   private val filterKeys = Set("topic", "venue", "institution")
   private val maxFilterChars = 200
 
@@ -148,6 +171,21 @@ object QueryRequests:
         throw unsupported("mode must be sync or async")
       case _ => throw invalid("mode must be a string")
 
+  // The retrieval mode is a closed set. Anything else is 400 INVALID_REQUEST,
+  // a malformed request, and the message never echoes the value.
+  private def parseRetrievalMode(value: ujson.Value): Option[RetrievalMode] =
+    value match
+      case ujson.Null   => None
+      case ujson.Str(s) =>
+        Some(
+          RetrievalModes
+            .parse(s)
+            .getOrElse(
+              throw invalid("retrievalMode must be graph, vector or fused")
+            )
+        )
+      case _ => throw invalid("retrievalMode must be a string")
+
   private def parseLimits(
       value: ujson.Value,
       config: ServiceConfig
@@ -197,7 +235,8 @@ object QueryRequests:
       parseWindow(obj.value.getOrElse("window", ujson.Null)),
       parseFilters(obj.value.getOrElse("filters", ujson.Null)),
       parseMode(obj.value.getOrElse("mode", ujson.Null)),
-      parseLimits(obj.value.getOrElse("limits", ujson.Null), config)
+      parseLimits(obj.value.getOrElse("limits", ujson.Null), config),
+      parseRetrievalMode(obj.value.getOrElse("retrievalMode", ujson.Null))
     )
 
   /** The `Prefer: respond-async` preference of RFC 7240. */
@@ -370,7 +409,8 @@ object QueryRequests:
       parsed.window,
       parsed.filters,
       mode,
-      parsed.maxResults
+      parsed.maxResults,
+      parsed.retrievalMode.getOrElse(RetrievalModes.Default)
     )
 
   // The idempotency fingerprint is byte-exact: it hashes the raw request body
@@ -381,12 +421,17 @@ object QueryRequests:
   def fingerprint(body: Array[Byte], mode: QueryMode): String =
     Hashing.sha256(body) + "|" + mode.wire
 
-/** The result of one answered query, as the services keep and replay it. */
+/** The result of one answered query, as the services keep and replay it.
+  * `timings` are the rag stage timings in milliseconds (`None` is a stage that
+  * was skipped, not a stage that took 0 ms). They feed the latency log only:
+  * `toJson` does not carry them, so the response shape is unchanged.
+  */
 final case class QueryOutcome(
     response: AnswerResponse,
     abstained: Boolean,
     abstentionReason: Option[String],
-    request: QueryRequest
+    request: QueryRequest,
+    timings: Vector[(String, Option[Long])] = Vector.empty
 ):
   def queryId: String = response.queryId
 
@@ -438,7 +483,11 @@ final class QueryService(
     val session = Session("svc-" + UUID.randomUUID().toString, 0)
     val result =
       call.call(deadline, idempotent = false)(
-        workflow.answer(request.workflowQuestion, session)
+        workflow.answer(
+          request.workflowQuestion,
+          session,
+          request.retrievalMode
+        )
       )
     val bundle = result.response.evidence
     records.put(
@@ -455,7 +504,8 @@ final class QueryService(
       result.response,
       result.abstained,
       result.abstentionReason,
-      request
+      request,
+      StageTimingsView.of(result)
     )
 
   private def dispatch(

@@ -88,6 +88,7 @@ METRICS = [
     ("IsIdle", "Maximum"),
 ]
 PERIOD_SECONDS = 300
+NOT_RECORDED = "NOT RECORDED"
 
 _TS = re.compile(
     r"^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?\s*(Z|[+-]\d{2}:?\d{2})?$"
@@ -218,7 +219,6 @@ def read_inputs(collected):
 
     files = {
         "instances": need("emr-list-instances.json"),
-        "groups": need("emr-list-instance-groups.json"),
         "cluster": need("emr-describe-cluster.json"),
         "history": optional("sfn-history.json"),
         "metrics": optional("cloudwatch-metric-data.json"),
@@ -229,17 +229,21 @@ def read_inputs(collected):
 
 
 def build_instances(files):
+    # Instance groups come from `emr describe-cluster` (Cluster.InstanceGroups). The CLI has no
+    # `emr list-instance-groups`. An instance whose group id is not listed there (for example an
+    # instance-fleet cluster, which has InstanceFleets and no InstanceGroups) gets the role and
+    # group name NOT RECORDED, never a guess.
     groups = {}
-    for group in load_json(files["groups"]).get("InstanceGroups", []):
+    for group in (load_json(files["cluster"]).get("Cluster") or {}).get("InstanceGroups") or []:
         groups[group.get("Id")] = {
-            "role": group.get("InstanceGroupType", "UNKNOWN"),
-            "name": group.get("Name", ""),
+            "role": group.get("InstanceGroupType") or NOT_RECORDED,
+            "name": group.get("Name") or NOT_RECORDED,
         }
     rows = []
     for inst in load_json(files["instances"]).get("Instances", []):
         status = inst.get("Status", {})
         timeline = status.get("Timeline", {})
-        group = groups.get(inst.get("InstanceGroupId"), {"role": "UNKNOWN", "name": ""})
+        group = groups.get(inst.get("InstanceGroupId"), {"role": NOT_RECORDED, "name": NOT_RECORDED})
         reason = status.get("StateChangeReason", {}) or {}
         rows.append(
             {
@@ -680,6 +684,7 @@ def cmd_derive(args):
         "scale_out_instances": len(scale_out),
         "floor_restoring_instances": len(floor_restoring),
         "increase_without_demand_evidence": len(no_evidence),
+        "instances_role_not_recorded": sum(1 for r in rows if r["role"] == NOT_RECORDED),
         "ended_and_replaced_instances": len(replaced),
         "policy_available": "yes" if policy["available"] else "no",
         "policy_unit_type": policy["unit_type"],
@@ -735,7 +740,7 @@ def cmd_derive(args):
         "scale_out_observed", "scale_out_instances", "scale_out_first_requested_utc",
         "scale_out_first_provisioned_utc", "scale_out_request_to_ready_seconds",
         "scale_out_after_pipeline_step_start_seconds", "floor_restoring_instances",
-        "increase_without_demand_evidence", "ended_and_replaced_instances", "policy_available",
+        "increase_without_demand_evidence", "instances_role_not_recorded", "ended_and_replaced_instances", "policy_available",
         "policy_unit_type", "policy_minimum_units", "policy_maximum_units", "policy_maximum_core_units",
         "policy_maximum_on_demand_units", "peak_nonprimary_provisioned", "scale_in_observed", "scale_in_instances",
         "scale_in_first_released_utc", "scale_in_last_released_utc", "scale_in_before_terminate_seconds",

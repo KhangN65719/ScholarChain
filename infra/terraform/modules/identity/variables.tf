@@ -88,6 +88,12 @@ variable "bedrock_embedding_model_arns" {
   }
 }
 
+variable "enable_worker_role" {
+  description = "Create the embedding worker task role scholarchain-<env>-worker and its inline policy worker-embed. Off by default: the Experiment A and B applies must show IAM_CHANGES none (OD-1), so the new principal is created by session 2 (the services stack). The deployer's iam:PassRole gains the role ARN only while it exists."
+  type        = bool
+  default     = false
+}
+
 variable "deployer_require_mfa" {
   description = "Require aws:MultiFactorAuthPresent in the deployer role's trust policy. Off by default: the account's IAM users are programmatic-only and have no MFA device, so turning it on without one locks the role."
   type        = bool

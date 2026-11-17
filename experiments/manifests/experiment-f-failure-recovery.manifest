@@ -1,32 +1,49 @@
-# Experiment F: failure and recovery (one safe fault: worker termination or poison message).
-# DRAFT. Unapproved and unexecuted. Valid only for scripts/run-experiment.sh --dry-run.
-# Format: scripts/README.md, "Experiment manifest contract". No spaces in values.
+# Experiment F: failure and recovery on tier S data (one poison message, one duplicate, 50 normal
+# messages on the embedding queue). Phase 15 Wave 2.
+# UNAPPROVED and UNEXECUTED. Format: scripts/README.md, "Experiment manifest contract".
+# No spaces in values.
 # PLACEHOLDERS the human replaces before an approval record is written
 # (the record binds the sha256 of the final file, so any edit needs a new record):
 #   ACCOUNT_ID       123456789012 is the documented example, not a real account.
-#   DATASET_SNAPSHOT a draft name; the dataset-engineer has not defined snapshot ids.
+#   (DATASET_SNAPSHOT is filled: scholarchain-s-20261107-10dd7f34121b, reported by WO-4 and
+#                    verified by the human.)
 #   OUTPUT_ROOT      /abs/outside/repo/... is a placeholder path; pick a durable directory
 #                    outside the repository.
-# The entry point must inject exactly one fault, handle it and exit 0 when recovery is
-# shown. Under first-failure a nonzero exit ends the run as FAILED with no retry, and the
-# failed record is kept, never discarded.
-# MAX_TASKS 200 messages including the fault. Cost basis: HOURLY_BURN_USD 0.62 is the tier
-# M session burn (UNVERIFIED rates). 0.62 x 30 min / 60 = 0.31.
+# The entry point injects exactly one fault kind (a poison message, schemaVersion 2) plus one
+# duplicate delivery, handles it and exits 0 when recovery is shown (derive_f.py judges afterwards).
+# Under first-failure a nonzero exit ends the run as FAILED with no retry, and the failed record is
+# kept, never discarded.
+# Limits (tier S caps of decision P15-1: 90 min, 64 clients, 20000 tasks):
+#   MAX_TASKS 200    messages including the fault; the run sends 52 (50 normal, 1 poison, 1 duplicate)
+#                    and the entry point refuses less than 52.
+#   MAX_MINUTES 30   the poll runs MAX_MINUTES minus 5 = 25 min. The poison message needs 3
+#                    receives, each followed by a visibility timeout: about 6 min at the worker's
+#                    120 s, about 15 min at the queue default 300 s. Both fit in 25 min. If WO-10 sets
+#                    a longer visibility timeout, raise MAX_MINUTES (ceiling check: 40 min is 0.27 USD
+#                    at the burn below, over the 0.25 ceiling, so the ceiling must rise too) and
+#                    regenerate.
+# COST (HOURLY_BURN_USD and SPEND_CEILING_USD): session 2 values from WO-10, infra/terraform/COST_ESTIMATE.md,
+# section "Session 2 (services) hourly burn and HIGH", paragraph "Provisional experiment burns".
+# HOURLY_BURN_USD 0.40 = the steady burn 0.37 rounded up (no extra tasks). Was 0.62 (tier M draft).
+# SPEND_CEILING_USD 0.25: 0.40 x 30 min / 60 = 0.20, under the ceiling 0.25 (0.05 headroom). Was 0.50.
+# The burn covers the experiment hours only.
+# CAVEAT for the human: every rate behind the 0.37 steady burn is UNVERIFIED (memory; only the
+# Fargate per-second rates are read anchors), so the value is the WO-10 figure, not a verified rate.
 MANIFEST_VERSION=1
 EXPERIMENT_ID=F
-DESCRIPTION=failure-and-recovery-retry-dead-letter-idempotency-tier-m-draft
+DESCRIPTION=failure-and-recovery-retry-dead-letter-idempotency-tier-s
 ENVIRONMENT=course
 REGION=us-east-2
 ACCOUNT_ID=123456789012
-DATASET_SNAPSHOT=scholarchain-slice-m-25000-works-DRAFT
-SIZE_TIER=M
+DATASET_SNAPSHOT=scholarchain-s-20261107-10dd7f34121b
+SIZE_TIER=S
 MAX_MINUTES=30
 MAX_CONCURRENCY=2
 MAX_TASKS=200
-SPEND_CEILING_USD=0.50
-HOURLY_BURN_USD=0.62
+SPEND_CEILING_USD=0.25
+HOURLY_BURN_USD=0.40
 STOP_CONDITIONS=wall-clock,first-failure,spend-estimate
-METRIC_NAMES=ApproximateNumberOfMessagesVisible,ApproximateNumberOfMessagesNotVisible,NumberOfMessagesSent,NumberOfMessagesDeleted,DesiredTaskCount,RunningTaskCount
-METRIC_NAMESPACES=AWS/SQS,ECS/ContainerInsights
+METRIC_NAMES=ApproximateNumberOfMessagesVisible,ApproximateNumberOfMessagesNotVisible,ApproximateAgeOfOldestMessage,NumberOfMessagesSent,NumberOfMessagesReceived,NumberOfMessagesDeleted,DesiredTaskCount,RunningTaskCount,CPUUtilization,MemoryUtilization
+METRIC_NAMESPACES=AWS/SQS,ECS/ContainerInsights,AWS/ECS
 OUTPUT_ROOT=/abs/outside/repo/scholarchain-experiments
 ENTRY_POINT=script:experiments/f-failure-recovery/run.sh

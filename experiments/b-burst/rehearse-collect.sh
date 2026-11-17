@@ -29,6 +29,10 @@ if [[ "$2" == "${STUB_FAIL_VERB:-}" ]]; then
   exit 254
 fi
 case "$2" in
+  list-instance-groups)
+    echo "aws: [ERROR]: An error occurred (ParamValidation): argument operation: Found invalid choice 'list-instance-groups'" >&2
+    exit 252
+    ;;
   get-execution-history)
     printf '%s\n' '{"events":[{"type":"TaskSucceeded","id":1,"taskSucceededEventDetails":{"output":"{\"ClusterId\":\"j-STUB00000001\"}"}}]}'
     ;;
@@ -130,13 +134,51 @@ has "$TMP_ROOT/clean.out" 'already exists' "existing collected/: the refusal say
 bad_verbs=0
 for log in "$TMP_ROOT"/*.stub.log; do
   while read -r svc verb; do
-    case "$verb" in
-      describe-* | list-* | get-*) ;;
-      *) bad_verbs=$((bad_verbs + 1)); printf 'non-read verb: %s %s\n' "$svc" "$verb" ;;
+    case "$svc $verb" in
+      "stepfunctions describe-execution" | "stepfunctions get-execution-history" | \
+      "emr describe-cluster" | "emr list-instances" | "emr get-managed-scaling-policy" | "emr list-steps" | \
+      "cloudwatch list-metrics" | "cloudwatch get-metric-data") ;;
+      *) bad_verbs=$((bad_verbs + 1)); printf 'call outside the allowlist: %s %s\n' "$svc" "$verb" ;;
     esac
   done < "$log"
 done
-if [[ "$bad_verbs" -eq 0 ]]; then ok "every AWS call was a describe-, list- or get- verb"; else bad "$bad_verbs non-read verbs"; fi
+if [[ "$bad_verbs" -eq 0 ]]; then ok "every AWS call was one of the 8 allowlisted (service, verb) pairs"; else bad "$bad_verbs calls outside the allowlist"; fi
+
+# 6: R14, the collector must not call a subcommand the installed CLI lacks (the stub fails it
+# with exit 252 as the real CLI did on 2026-11-17), and a clean run makes exactly the 8 expected calls.
+if grep -q -F -- 'list-instance-groups' "$TMP_ROOT/clean.stub.log"; then bad "the collector called emr list-instance-groups"; else ok "clean: no emr list-instance-groups call"; fi
+calls=0
+while read -r _svc _verb; do calls=$((calls + 1)); done < "$TMP_ROOT/clean.stub.log"
+if [[ "$calls" -eq 8 ]]; then ok "clean: the stub saw exactly the 8 expected calls"; else bad "clean: unexpected call count $calls"; fi
+
+# 7: m5, the read-only guard is an exact (service, verb) allowlist. Extract aws_read() from the real
+# collector and call it with pairs it must refuse; the stub must never be reached for them.
+sed -n '/^aws_read() {$/,/^}$/p' "$HERE/collect.sh" > "$TMP_ROOT/aws_read.func.sh"
+if [[ -s "$TMP_ROOT/aws_read.func.sh" ]]; then ok "guard: aws_read() extracted from collect.sh"; else bad "guard: aws_read() not found in collect.sh"; fi
+guard() {
+  RC=0
+  (
+    set +e
+    die() { printf 'COLLECT_REFUSED: %s\n' "$*" >&2; exit 1; }
+    REGION=us-east-2
+    # shellcheck disable=SC1090
+    source "$TMP_ROOT/aws_read.func.sh"
+    STUB_LOG="$TMP_ROOT/guard.stub.log" PATH="$TMP_ROOT/bin:$PATH" aws_read "$@"
+  ) > "$TMP_ROOT/guard.out" 2>&1 || RC=$?
+}
+rm -f "$TMP_ROOT/guard.stub.log"
+guard secretsmanager get-secret-value --secret-id x
+if [[ "$RC" -ne 0 ]]; then ok "guard: secretsmanager get-secret-value is refused"; else bad "guard: secretsmanager get-secret-value was accepted"; fi
+has "$TMP_ROOT/guard.out" 'COLLECT_REFUSED: not an allowed read-only AWS call: secretsmanager get-secret-value' "guard: the refusal names the call"
+guard ssm get-parameter --name x
+if [[ "$RC" -ne 0 ]]; then ok "guard: ssm get-parameter is refused"; else bad "guard: ssm get-parameter was accepted"; fi
+guard emr list-instance-groups --cluster-id j-X
+if [[ "$RC" -ne 0 ]]; then ok "guard: emr list-instance-groups (not in the allowlist) is refused"; else bad "guard: emr list-instance-groups was accepted"; fi
+guard emr terminate-job-flows --cluster-ids j-X
+if [[ "$RC" -ne 0 ]]; then ok "guard: a write verb is refused"; else bad "guard: a write verb was accepted"; fi
+guard emr describe-cluster --cluster-id j-X
+if [[ "$RC" -eq 0 ]]; then ok "guard: an allowlisted pair (emr describe-cluster) passes"; else bad "guard: emr describe-cluster refused"; fi
+if [[ "$(wc -l < "$TMP_ROOT/guard.stub.log")" -eq 1 ]]; then ok "guard: the stub was reached only by the allowlisted call"; else bad "guard: stub saw refused calls"; fi
 
 printf 'OUTPUT_DIR=%s\n' "$TMP_ROOT"
 printf 'REHEARSAL pass=%s fail=%s\n' "$PASS" "$FAIL"

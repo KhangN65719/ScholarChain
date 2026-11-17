@@ -82,7 +82,93 @@ object ExportTables:
       Vector("researcherId", "window"),
       Vector("researcherId", "window", "communityId", provenance)
     )
-  ) ++ graphTables
+  ) ++ graphTables ++ analyticsTables
+
+  /** Six tables the pipeline already computes: connected components,
+    * communities and path evidence. Their `required` lists are the columns the
+    * storage readers use. `path-evidence` is ordered on `pairKey` alone because
+    * `hopIndex` is null on a status row (found-nothing, trivial and
+    * endpoint-not-in-window pairs) and an id column must not be null; the rows
+    * of one pair are then ordered by the whole serialized row.
+    */
+  private def analyticsTables: Vector[ExportTable] = Vector(
+    ExportTable(
+      "path-evidence",
+      Vector("pairKey"),
+      Vector(
+        "pairKey",
+        "window",
+        "sourceId",
+        "targetId",
+        "status",
+        "unreachableReason",
+        "hopLimit",
+        "pathLength",
+        "hopIndex",
+        "fromId",
+        "toId",
+        "edgeId",
+        "jointPublicationCount",
+        "firstCollaborationYear",
+        "lastCollaborationYear",
+        "supportingWorkIds",
+        provenance
+      )
+    ),
+    ExportTable(
+      "components",
+      Vector("window", "componentId"),
+      Vector("window", "componentId", "componentSize", "isLargest", provenance)
+    ),
+    ExportTable(
+      "component-membership",
+      Vector("window", "researcherId"),
+      Vector(
+        "window",
+        "researcherId",
+        "componentId",
+        "componentSize",
+        provenance
+      )
+    ),
+    ExportTable(
+      "communities",
+      Vector("window", "communityId"),
+      Vector(
+        "window",
+        "communityId",
+        "communitySize",
+        "internalEdges",
+        "crossEdges",
+        "internalWeight",
+        "crossWeight",
+        provenance
+      )
+    ),
+    ExportTable(
+      "community-membership",
+      Vector("window", "researcherId"),
+      Vector(
+        "window",
+        "researcherId",
+        "communityId",
+        "communitySize",
+        provenance
+      )
+    ),
+    ExportTable(
+      "community-cross-edges",
+      Vector("window", "communityA", "communityB"),
+      Vector(
+        "window",
+        "communityA",
+        "communityB",
+        "edgeCount",
+        "totalWeight",
+        provenance
+      )
+    )
+  )
 
   /** The nine-table input of the storage `SparkGraphProjector`, less
     * `nodes-work` (exported above). Each `required` list is the set of columns

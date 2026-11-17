@@ -1,0 +1,9 @@
+# Wave 2 repair batch 1, test-engineer items 1, 2, 3, 5, 6 (received 2026-11-17; summary as received; author: test-engineer subagent)
+
+Status: COMPLETE, not executed (guard). Files: `tests/scripts/run.sh`, `tests/scripts/w2/tfcheck.py`, fixture `tf-good/.../runtime/main.tf`, new fixture `tf-good/load-tests/query-load/load_client.py`, `tests/scripts/README.md`.
+1. `14.docs.loader-only...`: needle `toset(concat(keys(local.services), [... "loader" ...]))`; `"loader"` once in that block; a `services_combined` or `services_split` map exists; no `loader = { role` among the services; name pattern, loader `awslogs-group` and README needles unchanged.
+2. `b-collect.a-first-run...`: file list without `emr-list-instance-groups.json`, with `CALL_STATUS.txt`; fails if that file exists.
+3. Renamed `...-there-are-eight`: 8 calls, each verb exactly once, fails if `list-instance-groups` appears in the call log.
+5. `every-environment-variable...`: unchanged for every other task and the load-client plain environment; one exemption: a name in the `aws_ecs_task_definition.load_client` secrets block must be read by `load_client.py` (literal `os.environ.get`/`os.getenv`/`os.environ[...]`, or an `--X-env` default then read via `os.environ.get(args.X_env ...)`; comments ignored). 5 new self-tests (unread secret name; client default removed; client never reads env; name on a service task; unread plain-env name on the load client).
+6. Conf needles 8 / 262144 / 2048 (3072 reduce unchanged); `-D` options and `HADOOP_EXTRA_OPTIONS=` likewise; `OPT=` order kept; lines 5,500-6,900 and after 12,000 hold no other old pin.
+Expected harness: `RESULT pass=1752 fail=0` (1,747 + 5 self-tests). Risks: new `tfcheck.py` code unrun; pins of the old `graph_run_id` default or retention 3 not found by reading (not all of run.sh read).

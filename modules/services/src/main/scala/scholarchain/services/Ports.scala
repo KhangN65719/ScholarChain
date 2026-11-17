@@ -5,7 +5,12 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.locks.ReentrantLock
 import scala.collection.mutable
 import scholarchain.core.{EvidenceBundle, EvidenceItem}
-import scholarchain.rag.{CollaborationWorkflow, Session, WorkflowResult}
+import scholarchain.rag.{
+  CollaborationWorkflow,
+  RetrievalMode,
+  Session,
+  WorkflowResult
+}
 import scholarchain.storage.{
   AuditTrail,
   CoauthorContext,
@@ -50,6 +55,24 @@ trait GraphReadPort:
 /** The slow service reaches the Phase 9 workflow only through this port. */
 trait WorkflowPort:
   def answer(question: String, session: Session): WorkflowResult
+
+  /** The same call with an explicit retrieval mode. A port that only knows the
+    * two-argument form runs the default (`Fused`) and refuses any other mode:
+    * it must never answer a `graph` or `vector` request with fused evidence.
+    * The real ports override this.
+    */
+  def answer(
+      question: String,
+      session: Session,
+      mode: RetrievalMode
+  ): WorkflowResult =
+    mode match
+      case RetrievalMode.Fused => answer(question, session)
+      case _                   =>
+        throw new UnsupportedOperationException(
+          "This workflow port runs the fused retrieval mode only"
+        )
+
   def ready(): Unit
 
 // Query records ---------------------------------------------------------------
@@ -178,9 +201,35 @@ final class LocalWorkflowPort(
   private val lock = new ReentrantLock
 
   def answer(question: String, session: Session): WorkflowResult =
+    answer(question, session, RetrievalMode.Fused)
+
+  override def answer(
+      question: String,
+      session: Session,
+      mode: RetrievalMode
+  ): WorkflowResult =
     lock.lockInterruptibly()
-    try workflow.answer(question, session)
+    try workflow.answer(question, session, mode)
     finally lock.unlock()
+
+  def ready(): Unit = probe()
+
+/** The workflow port of the AWS runtime. The AWS clients are thread-safe, so
+  * there is no lock: concurrent queries run concurrently, bounded by the call
+  * pool of the slow service.
+  */
+final class AwsWorkflowPort(
+    workflow: CollaborationWorkflow,
+    probe: () => Unit
+) extends WorkflowPort:
+  def answer(question: String, session: Session): WorkflowResult =
+    answer(question, session, RetrievalMode.Fused)
+
+  override def answer(
+      question: String,
+      session: Session,
+      mode: RetrievalMode
+  ): WorkflowResult = workflow.answer(question, session, mode)
 
   def ready(): Unit = probe()
 
@@ -253,6 +302,14 @@ final class FaultyWorkflow(inner: WorkflowPort, gate: FaultGate)
   def answer(question: String, session: Session): WorkflowResult =
     gate()
     inner.answer(question, session)
+
+  override def answer(
+      question: String,
+      session: Session,
+      mode: RetrievalMode
+  ): WorkflowResult =
+    gate()
+    inner.answer(question, session, mode)
 
   def ready(): Unit =
     gate()

@@ -101,6 +101,45 @@ Two effects the table does not show. A later S session-up creates Neptune at thi
 
 Loader-only hourly burn (`--hourly-burn-usd`). The 0.37 in use is the loader task at 2 vCPU and 8 GiB (about 0.1165) plus 9 endpoints at the 0.015 HIGH rate (0.135) plus Neptune at the 0.10 HIGH rate, 0.3515, rounded up by about 0.02. With Neptune at 0.70 it is 0.1165 + 0.135 + 0.70 = 0.9515, so **use 0.97** (0.37 - 0.10 + 0.70). For a 45 minute cap that projects 0.97 x 45 / 60 = 0.7275 USD, so the spend ceiling must be at least 0.73: use `--spend-ceiling-usd 0.80`. A pipeline-mode run (EMR node up) would be about 0.62 - 0.10 + 0.70 = 1.22 an hour on the same basis. These are ceilings on the estimate, not bills.
 
+## Session 2 (services) hourly burn and HIGH (Phase 15, work order WO-10)
+
+Added without recomputing any total in sections 0 to 8. All rates UNVERIFIED (memory; V8 Fargate per-second rates are the only read anchor). Session 2 is: A1 graph load on `db.r6g.xlarge`, A2 smoke with the Bedrock answer model, A3 D, E, F and C with the stub, A4 session-down (`infra/terraform/SESSION2.md`, section 5).
+
+Steady hourly burn with the services up (A2 and A3), LOW / HIGH:
+
+| Item | LOW | HIGH | Arithmetic |
+|---|---|---|---|
+| Neptune `db.t4g.medium` | 0.060 | 0.100 | U3 |
+| 9 interface endpoints, 1 AZ | 0.090 | 0.135 | 9 x U6 |
+| Query task, 1 x (0.5 vCPU, 4 GiB) | 0.0380 | 0.0380 | 0.5 x 0.0404784 + 4 x 0.004446 |
+| Worker task, 1 x (0.5 vCPU, 1 GiB) | 0.0247 | 0.0247 | 0.5 x 0.0404784 + 1 x 0.004446 |
+| Internal ALB | 0.0305 | 0.040 | 0.0225 hourly + 1 to 2 LCU at 0.008 (rates from memory) |
+| Container Insights | 0.016 | 0.030 | about 40 to 75 custom metrics x 0.30 per month / 730 (metric count UNVERIFIED) |
+| **Steady burn** | **0.26** | **0.37** | sum 0.2592 and 0.3677 |
+
+Extras (HIGH): D scale-out, up to 3 extra query tasks for 0.67 h = 3 x 0.0380 x 0.67 = 0.076; C scale-out, 3 extra workers for 0.4 h = 3 x 0.0247 x 0.4 = 0.030; the load client (1 vCPU, 2 GiB, 0.0494 an hour) for 1.3 h = 0.064. Total extras 0.17 HIGH (about 0.06 LOW).
+
+Session 2 total:
+
+| Part | LOW | HIGH | Arithmetic |
+|---|---|---|---|
+| A1: Neptune `db.r6g.xlarge` creation and bulk load, with endpoints and the 2 vCPU loader | 0.76 | 1.67 | burn 0.97 an hour (the loader-only figure above): 0.75 h LOW, 1.5 h HIGH (the S loader cap 5400 s); plus about 0.2 h of creation at 0.72 to 0.84 |
+| A2 to A4 services time, 2.8 h LOW and 4.3 h HIGH (smoke 1.0, D 1.5 including 25 minutes of scale-in wait, E 0.4, F 0.5, C 0.8, rolls and teardown 0.1) | 0.73 | 1.58 | 2.8 x 0.2592 and 4.3 x 0.3677 |
+| Scale-out extras | 0.06 | 0.17 | above |
+| Haiku smoke, 10 queries | 0.09 | 0.72 | U9 line of section 2.2 |
+| Titan: C chunks (2,000 x 300 tokens) and query embeddings (about 12,500 x 30 tokens) | 0.02 | 0.06 | 0.96 M tokens x 0.02 and x 0.06 |
+| S3 Vectors: 2,000 PUTs at the 128 KB minimum (0.25 GB x 0.20 = 0.05, 0.067 HIGH) and 12,500 queries at 2.50 per million | 0.08 | 0.17 | V7 |
+| Logs (7-day retention), 5 new alarms, second dashboard | 0.05 | 0.10 | volumes under 0.1 GB; 5 x 0.10 per month prorated |
+| **Session 2** | **1.8** | **4.5** | 1.79 and 4.47 |
+
+Against the plan (2.0 LOW and 4.3 HIGH): HIGH is 0.2 above 4.3 when the graph load runs to its 90-minute cap (the A1 share 1.67). With a 60-minute load the HIGH is 4.0. Flag for P15-10: the stop rule (billed spend plus the session's HIGH at most 14 USD) uses 4.5, so billed spend must be at most 9.5 USD at the start of session 2. Cumulative HIGH after session 1 (about 7.35) plus 4.5 is 11.85.
+
+Provisional experiment burns for the C to F manifests (`HOURLY_BURN_USD`, steady 0.37 plus the experiment's own extra, rounded up): D 0.55 (0.37 + 3 extra query tasks 0.114 + load client 0.049), E 0.42 (0.37 + load client 0.049), F 0.40, C 0.45 (0.37 + 3 extra workers 0.074). With the proposed `MAX_MINUTES` the ceilings are 0.55 x 70 / 60 = 0.64 (use 0.65) for D, 0.42 x 60 / 60 = 0.42 (0.45) for E, 0.40 x 30 / 60 = 0.20 (0.25) for F, and 0.45 x 60 / 60 = 0.45 (0.50) for C if its limit is 60 minutes. They cover the experiment hours only, not A1 or the setup hours.
+
+Container Insights, the ALB, the second dashboard and 7-day log retention add nothing while the services are at zero and the ALB is off, except the retained log storage (cents).
+
+Gating (repair batch 4, OD-1, OD-2). The Wave 2 resources named above are created only with `enable_services_stack`, which the Experiment A and B applies leave off: the worker IAM role and policy, the load-client ECR repository, the worker, load-client and query log groups, the worker and load-client task definitions, the `alb` and `load_client` security groups with their 7 rules, the scaling dashboard, and Container Insights `enabled` (it stays `disabled`). The A and B session therefore adds **0.00 USD** over session 1's resource set: the plans create the 8 interface endpoints and replace 3 task definitions as session 1's did, and the four log-group retention updates (3 to 7 days) are in place and free. None of the A and B figures of sections 3 to 4 change. Everything in the stack is created by the A2 apply of session 2 and bills only through the rows of the table above (ALB, Container Insights metrics, the worker and load-client tasks, CloudWatch alarms and the second dashboard); it is free while idle, and the A4 teardown keeps it (`session-down-services.tfvars`), so after session 2 the stack's idle cost is the retained log storage and the ECR image storage (cents, `U13`). The load-client image tag is the Git SHA, so no extra repository image is stored beyond the five the lifecycle policy keeps.
+
 ## 0. Read this first
 
 1. Most rates here are UNVERIFIED. The pricing pages gave worked examples only. The biggest lines (EC2 and EMR hours, Neptune, DynamoDB writes), Bedrock tokens and the interface-endpoint rate rest on agent memory. "LOW" below is the remembered-rate case, not a verified floor. "HIGH" stacks every upper bound at once, which is unlikely but is the check the work order asks for.

@@ -1,0 +1,7 @@
+# WO-10b report, infra-engineer (received 2026-11-17; summary of the report as received; author: infra-engineer subagent)
+
+Status: COMPLETE for authoring; nothing formatted, validated or planned. Files: `infra/terraform/modules/identity/main.tf`, `modules/identity/outputs.tf`, `infra/terraform/SESSION2.md`.
+- Runtime role: `NeptuneReadOnly` split into `NeptuneReadOpenCypher` (`ReadDataViaQuery`, `GetQueryStatus`, `StringEquals neptune-db:QueryLanguage = OpenCypher`) and `NeptuneEngineStatus` (`GetEngineStatus`, no condition); same resource ARN and `neptune_enabled` guard; comment cites both documentation URLs. Gremlin and SPARQL reads no longer allowed for the runtime; loader statement unchanged. UNVERIFIED until live: the key is populated for the openCypher endpoint (if not, `AccessDeniedException`; fix is to drop the condition). Harness cases expecting the old statement id may need the test owner.
+- Formatting re-read by eye: fixed `role_arns` `sfn` key alignment in `identity/outputs.tf`; other WO-10 HCL files read as aligned; not a substitute for `terraform fmt -check`.
+- Human commands: `check.sh --skip-sbt`; local export size via `find ... -exec stat -f %z` over `/Users/winnguyen/scholarchain-data/rehearsal/s-export` (path from the rehearsal notes, unconfirmed), decision against `ExportLimits.Default` 134,217,728 bytes / 1,000 objects.
+- IAM change narrows privilege; still the human's approval at plan time.

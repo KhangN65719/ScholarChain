@@ -1,31 +1,43 @@
-# Experiment E: retrieval modes (graph-only, S3-Vectors-only, fused).
-# DRAFT. Unapproved and unexecuted. Valid only for scripts/run-experiment.sh --dry-run.
-# Format: scripts/README.md, "Experiment manifest contract". No spaces in values.
+# Experiment E: retrieval modes (graph-only, S3-Vectors-only, fused) on tier S data. Phase 15 Wave 2.
+# UNAPPROVED and UNEXECUTED. Format: scripts/README.md, "Experiment manifest contract".
+# No spaces in values.
 # PLACEHOLDERS the human replaces before an approval record is written
 # (the record binds the sha256 of the final file, so any edit needs a new record):
 #   ACCOUNT_ID       123456789012 is the documented example, not a real account.
-#   DATASET_SNAPSHOT a draft name; the dataset-engineer has not defined snapshot ids.
+#   (DATASET_SNAPSHOT is filled: scholarchain-s-20261107-10dd7f34121b, reported by WO-4 and
+#                    verified by the human.)
 #   OUTPUT_ROOT      /abs/outside/repo/... is a placeholder path; pick a durable directory
 #                    outside the repository.
-# MAX_TASKS 1500 = 3 modes x 500 queries. No OpenSearch exists in the Terraform, so there
-# is no fourth mode. Retrieval only, with the offline LLM stub: no Bedrock charge.
-# Cost basis: HOURLY_BURN_USD 0.62 is the tier M session burn (scripts/README.md,
-# "Pipeline sizes", UNVERIFIED rates). 0.62 x 60 min / 60 = 0.62.
+# Limits (tier S caps of decision P15-1: 90 min, 64 clients, 20000 tasks):
+#   MAX_TASKS 1500   351 year-window questions x 3 modes = 1,053 requests (run.sh REQUESTS 1053; the
+#                    entry point refuses a smaller MAX_TASKS). One client, interleaved per question
+#                    with a rotated mode order. No OpenSearch exists in the Terraform, so there is no
+#                    fourth mode.
+#   MAX_MINUTES 60   the client gets MAX_MINUTES minus 10 (at least 20 required).
+#   MAX_CONCURRENCY 2 bounds the client; the run uses 1.
+# Retrieval only, with the offline stub answer model (P15-4): no Bedrock charge.
+# COST (HOURLY_BURN_USD and SPEND_CEILING_USD): session 2 values from WO-10, infra/terraform/COST_ESTIMATE.md,
+# section "Session 2 (services) hourly burn and HIGH", paragraph "Provisional experiment burns".
+# HOURLY_BURN_USD 0.42 = steady 0.37 + load client 0.049, rounded up. Was 0.62 (tier M draft).
+# SPEND_CEILING_USD 0.45: 0.42 x 60 min / 60 = 0.42, under the ceiling 0.45 (0.03 headroom). Was 0.80.
+# The burn covers the experiment hours only; the S3 Vectors queries are cents.
+# CAVEAT for the human: every rate behind the 0.37 steady burn is UNVERIFIED (memory; only the
+# Fargate per-second rates are read anchors), so the value is the WO-10 figure, not a verified rate.
 MANIFEST_VERSION=1
 EXPERIMENT_ID=E
-DESCRIPTION=retrieval-modes-graph-only-vector-only-fused-tier-m-draft
+DESCRIPTION=retrieval-modes-graph-vector-fused-351-questions-x3-tier-s
 ENVIRONMENT=course
 REGION=us-east-2
 ACCOUNT_ID=123456789012
-DATASET_SNAPSHOT=scholarchain-slice-m-25000-works-DRAFT
-SIZE_TIER=M
+DATASET_SNAPSHOT=scholarchain-s-20261107-10dd7f34121b
+SIZE_TIER=S
 MAX_MINUTES=60
 MAX_CONCURRENCY=2
 MAX_TASKS=1500
-SPEND_CEILING_USD=0.80
-HOURLY_BURN_USD=0.62
+SPEND_CEILING_USD=0.45
+HOURLY_BURN_USD=0.42
 STOP_CONDITIONS=wall-clock,first-failure,spend-estimate
-METRIC_NAMES=CPUUtilization,MemoryUtilization,SuccessfulRequestLatency,ThrottledRequests,MainRequestQueuePendingRequests
-METRIC_NAMESPACES=AWS/ECS,AWS/DynamoDB,AWS/Neptune
+METRIC_NAMES=TargetResponseTime,RequestCount,HTTPCode_Target_5XX_Count,HTTPCode_ELB_5XX_Count,HealthyHostCount,DesiredTaskCount,RunningTaskCount,CPUUtilization,MemoryUtilization,MainRequestQueuePendingRequests,ReadThrottleEvents,WriteThrottleEvents,ConsumedReadCapacityUnits,ConsumedWriteCapacityUnits
+METRIC_NAMESPACES=AWS/ApplicationELB,ECS/ContainerInsights,AWS/ECS,AWS/DynamoDB,AWS/Neptune
 OUTPUT_ROOT=/abs/outside/repo/scholarchain-experiments
 ENTRY_POINT=script:experiments/e-retrieval-modes/run.sh

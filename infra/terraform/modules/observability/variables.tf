@@ -68,6 +68,54 @@ variable "neptune_max_ncu" {
   default     = 2
 }
 
+variable "enable_scaling_dashboard" {
+  description = "Create the scaling dashboard (<prefix>-scaling) beside the overview dashboard. Off by default so the Experiment A and B applies plan no new resource (OD-1); session 2 turns it on with the services stack. It still needs enable_dashboard."
+  type        = bool
+  default     = false
+}
+
+variable "alb_enabled" {
+  description = "Whether the internal ALB exists (a flag: its ARN suffix is unknown at plan time)."
+  type        = bool
+  default     = false
+}
+
+variable "alb_arn_suffix" {
+  description = "ALB ARN suffix (LoadBalancer dimension), or null."
+  type        = string
+  default     = null
+}
+
+variable "target_group_arn_suffix" {
+  description = "Query target group ARN suffix (TargetGroup dimension), or null."
+  type        = string
+  default     = null
+}
+
+variable "worker_enabled" {
+  description = "Whether the embedding worker service exists (a flag)."
+  type        = bool
+  default     = false
+}
+
+variable "worker_service_name" {
+  description = "Embedding worker ECS service name, or null."
+  type        = string
+  default     = null
+}
+
+variable "embedding_queue_name" {
+  description = "Name of the embedding-work queue, or null."
+  type        = string
+  default     = null
+}
+
+variable "dynamodb_table_names" {
+  description = "DynamoDB table names keyed by suffix, for the throttle widget."
+  type        = map(string)
+  default     = {}
+}
+
 variable "alarm_actions" {
   description = "SNS topic ARNs notified by alarms. Empty keeps alarms as dashboard signals only."
   type        = list(string)

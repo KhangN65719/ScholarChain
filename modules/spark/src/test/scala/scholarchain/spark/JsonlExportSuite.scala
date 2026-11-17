@@ -353,6 +353,152 @@ class JsonlExportSuite extends SparkSuite:
       Row("work:v1:1", "venue:v1:1", prov("w1|v1", uri("edges-published-in")))
     )
 
+  private def componentsFrame: DataFrame =
+    frame(
+      "window STRING, componentId STRING, componentSize BIGINT, " +
+        "isLargest BOOLEAN, " + provenanceDdl
+    )(
+      Seq(
+        ("all", "r1", 2L, true),
+        ("all", "r9", 1L, false),
+        ("2000-2004", "r1", 1L, true)
+      ).map((w, c, n, largest) =>
+        Row(w, c, n, largest, prov(s"$w|$c", uri("components")))
+      )*
+    )
+
+  private def componentMembershipFrame: DataFrame =
+    frame(
+      "window STRING, researcherId STRING, componentId STRING, " +
+        "componentSize BIGINT, " + provenanceDdl
+    )(
+      Seq(
+        ("all", "r1", "r1", 2L),
+        ("all", "r2", "r1", 2L),
+        ("all", "r9", "r9", 1L),
+        ("2000-2004", "r1", "r1", 1L)
+      ).map((w, r, c, n) =>
+        Row(w, r, c, n, prov(s"$w|$r", uri("component-membership")))
+      )*
+    )
+
+  private def communitiesFrame: DataFrame =
+    frame(
+      "window STRING, communityId STRING, communitySize BIGINT, " +
+        "internalEdges BIGINT, crossEdges BIGINT, internalWeight BIGINT, " +
+        "crossWeight BIGINT, " + provenanceDdl
+    )(
+      Seq(
+        ("all", "k1", 2L, 1L, 1L, 3L, 2L),
+        ("all", "k2", 1L, 0L, 1L, 0L, 2L),
+        ("2000-2004", "k1", 1L, 0L, 0L, 0L, 0L)
+      ).map((w, k, size, i, c, iw, cw) =>
+        Row(w, k, size, i, c, iw, cw, prov(s"$w|$k", uri("communities")))
+      )*
+    )
+
+  private def communityMembershipFrame: DataFrame =
+    frame(
+      "window STRING, researcherId STRING, communityId STRING, " +
+        "communitySize BIGINT, " + provenanceDdl
+    )(
+      Seq(
+        ("all", "r1", "k1", 2L),
+        ("all", "r2", "k1", 2L),
+        ("all", "r9", "k2", 1L),
+        ("2000-2004", "r1", "k1", 1L)
+      ).map((w, r, k, n) =>
+        Row(w, r, k, n, prov(s"$w|$r", uri("community-membership")))
+      )*
+    )
+
+  private def communityCrossFrame: DataFrame =
+    frame(
+      "window STRING, communityA STRING, communityB STRING, " +
+        "edgeCount BIGINT, totalWeight BIGINT, " + provenanceDdl
+    )(
+      Row(
+        "all",
+        "k1",
+        "k2",
+        1L,
+        2L,
+        prov("all|k1|k2", uri("community-cross-edges"))
+      )
+    )
+
+  /** Two hop rows of a found pair and one status row each of an unreachable and
+    * a trivial pair: a status row has a null `hopIndex` and `pathLength`.
+    */
+  private def pathEvidenceFrame: DataFrame =
+    def hop(index: Int, from: String, to: String, work: String): Row =
+      Row(
+        "all|r1|r3",
+        "all",
+        "r1",
+        "r3",
+        "found",
+        null,
+        4,
+        2,
+        index,
+        from,
+        to,
+        s"coauthor:v1:$from$to",
+        1L,
+        2001,
+        2003,
+        Seq(work),
+        prov(s"all|r1|r3|$index", uri("path-evidence"))
+      )
+    def status(
+        key: String,
+        window: String,
+        target: String,
+        state: String,
+        reason: String,
+        length: Integer
+    ): Row =
+      Row(
+        key,
+        window,
+        "r1",
+        target,
+        state,
+        reason,
+        4,
+        length,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        prov(key, uri("path-evidence"))
+      )
+    frame(
+      "pairKey STRING, window STRING, sourceId STRING, targetId STRING, " +
+        "status STRING, unreachableReason STRING, hopLimit INT, " +
+        "pathLength INT, hopIndex INT, fromId STRING, toId STRING, " +
+        "edgeId STRING, jointPublicationCount BIGINT, " +
+        "firstCollaborationYear INT, lastCollaborationYear INT, " +
+        "supportingWorkIds ARRAY<STRING>, " + provenanceDdl
+    )(
+      hop(1, "r2", "r3", "work-23"),
+      hop(0, "r1", "r2", "work-12"),
+      status(
+        "all|r1|r9",
+        "all",
+        "r9",
+        "unreachable-within-bound",
+        "no path within 4 hops",
+        null
+      ),
+      status("2000-2004|r1|r1", "2000-2004", "r1", "trivial", null, 0)
+    )
+
   private val plainEdges = Seq(
     ("mention-coauthor:v1:aa", "mention:v1:a", "researcher:v1:x"),
     ("mention-coauthor:v1:bb", "researcher:v1:x", "researcher:v1:y"),
@@ -390,7 +536,13 @@ class JsonlExportSuite extends SparkSuite:
       "nodes-institution" -> institutionNodes,
       "edges-authored" -> authoredEdges,
       "edges-published-in" -> publishedInEdges,
-      "edge-support" -> supportFrame(edges)
+      "edge-support" -> supportFrame(edges),
+      "path-evidence" -> pathEvidenceFrame,
+      "components" -> componentsFrame,
+      "component-membership" -> componentMembershipFrame,
+      "communities" -> communitiesFrame,
+      "community-membership" -> communityMembershipFrame,
+      "community-cross-edges" -> communityCrossFrame
     )
     tables.filterNot((name, _) => skip.contains(name)).foreach { (name, data) =>
       write(runDir, name, data)
@@ -583,8 +735,31 @@ class JsonlExportSuite extends SparkSuite:
       Digests.sha256Hex(unchanged.mkString("\n")),
       "e94b999f0e1c7ba0b8ae9da4903a11a1a562232b112f817ad26a35c1b88f6c71"
     )
+    // The eleven tables exported before the six analytics tables were added:
+    // same files, same order, same bytes. The digest below was pinned on the
+    // code before that change and is not recomputed here.
+    val eleven = files.filter { f =>
+      val table = f.takeWhile(_ != '/')
+      graphIds.contains(table) || original.contains(table)
+    }
     assertEquals(
-      files.map(_.takeWhile(_ != ' ')),
+      files.filterNot(eleven.contains).map(_.takeWhile(_ != ' ')),
+      Vector(
+        "communities/communities/part-00000.jsonl",
+        "communities/communities/part-00001.jsonl",
+        "community-cross-edges/community-cross-edges/part-00000.jsonl",
+        "community-membership/community-membership/part-00000.jsonl",
+        "community-membership/community-membership/part-00001.jsonl",
+        "component-membership/component-membership/part-00000.jsonl",
+        "component-membership/component-membership/part-00001.jsonl",
+        "components/components/part-00000.jsonl",
+        "components/components/part-00001.jsonl",
+        "path-evidence/path-evidence/part-00000.jsonl",
+        "path-evidence/path-evidence/part-00001.jsonl"
+      )
+    )
+    assertEquals(
+      eleven.map(_.takeWhile(_ != ' ')),
       Vector(
         "edge-support/edge-support/part-00000.jsonl",
         "edge-support/edge-support/part-00001.jsonl",
@@ -609,7 +784,7 @@ class JsonlExportSuite extends SparkSuite:
       )
     )
     assertEquals(
-      Digests.sha256Hex(files.mkString("\n")),
+      Digests.sha256Hex(eleven.mkString("\n")),
       "822da06dbe651e3eb4e1eb010e5d8a2a411f8075e4a2267c151063b7c050603e"
     )
     val text = Files.readString(out.resolve("export-manifest.json"), UTF_8)
@@ -631,6 +806,15 @@ class JsonlExportSuite extends SparkSuite:
     "edge-support" -> Vector("edgeId", "canonicalWorkId")
   )
 
+  private val analyticsIds = Map(
+    "path-evidence" -> Vector("pairKey"),
+    "components" -> Vector("window", "componentId"),
+    "component-membership" -> Vector("window", "researcherId"),
+    "communities" -> Vector("window", "communityId"),
+    "community-membership" -> Vector("window", "researcherId"),
+    "community-cross-edges" -> Vector("window", "communityA", "communityB")
+  )
+
   test("the export holds the eight graph tables the projector reads") {
     val out = outDir
     val (code, text) = runExport(makeRun(), out, Vector("--rows-per-file", "2"))
@@ -638,7 +822,7 @@ class JsonlExportSuite extends SparkSuite:
     val m = manifest(out)
     assertEquals(
       m("tables").obj.keySet.toSet,
-      graphIds.keySet ++ Set(
+      graphIds.keySet ++ analyticsIds.keySet ++ Set(
         "nodes-work",
         "researcher-metrics",
         "semantic-summaries"
@@ -728,6 +912,156 @@ class JsonlExportSuite extends SparkSuite:
       Files.readAllBytes(second.resolve("export-manifest.json")).toVector,
       Files.readAllBytes(first.resolve("export-manifest.json")).toVector
     )
+  }
+
+  test("the six analytics tables carry their required columns and provenance") {
+    val out = outDir
+    val (code, text) = runExport(makeRun(), out, Vector("--rows-per-file", "2"))
+    assertEquals(code, 0, text)
+    val m = manifest(out)
+    val rows = Map(
+      "path-evidence" -> 4,
+      "components" -> 3,
+      "component-membership" -> 4,
+      "communities" -> 3,
+      "community-membership" -> 4,
+      "community-cross-edges" -> 1
+    )
+    analyticsIds.foreach { (name, ids) =>
+      val table = m("tables")(name)
+      assertEquals(table("idColumns").arr.map(_.str).toVector, ids, name)
+      assertEquals(table("rows").num.toInt, rows(name), name)
+      val required = ExportTables.all.find(_.name == name).get.required
+      val columns = table("columns").arr.map(_("name").str).toSet
+      assertEquals(required.filterNot(columns.contains), Vector.empty[String])
+      val lines = tableLines(out, name)
+      assertEquals(lines.size, rows(name), name)
+      lines.foreach { row =>
+        assert(required.forall(row.obj.contains), s"$name row lacks a column")
+        val p = upickle.default.read[Provenance](row("provenance"))
+        assertEquals(p.runId, runId, name)
+        assertEquals(p.sourceUri, uri(name), name)
+      }
+      table("files").arr.foreach { file =>
+        val path = out.resolve(file("path").str)
+        assertEquals(file("sha256").str, Digests.sha256File(path), name)
+      }
+    }
+    assertEquals(
+      tableLines(out, "components").map(r =>
+        (r("window").str, r("componentId").str)
+      ),
+      Vector(("2000-2004", "r1"), ("all", "r1"), ("all", "r9"))
+    )
+    assertEquals(tableLines(out, "components")(1)("isLargest"), ujson.True)
+    assertEquals(
+      tableLines(out, "components")(1)("componentSize"),
+      ujson.Num(2)
+    )
+    val cross = tableLines(out, "community-cross-edges").head
+    assertEquals(cross("communityA").str, "k1")
+    assertEquals(cross("communityB").str, "k2")
+    assertEquals(cross("edgeCount"), ujson.Num(1))
+    assertEquals(cross("totalWeight"), ujson.Num(2))
+    assertEquals(
+      tableLines(out, "communities")(1)("internalWeight"),
+      ujson.Num(3)
+    )
+    assertEquals(
+      tableLines(out, "community-membership").map(_("researcherId").str),
+      Vector("r1", "r1", "r2", "r9")
+    )
+    assertEquals(
+      tableLines(out, "component-membership").map(_("componentId").str),
+      Vector("r1", "r1", "r1", "r9")
+    )
+    assert(text.contains("table path-evidence rows=4 files=2"), text)
+  }
+
+  test("a path-evidence status row with a null hopIndex exports") {
+    val out = outDir
+    val (code, text) = runExport(makeRun(), out, Vector("--rows-per-file", "2"))
+    assertEquals(code, 0, text)
+    assert(text.contains("SPARK-EXPORT RESULT: SUCCESS"), text)
+    val rows = tableLines(out, "path-evidence")
+    assertEquals(
+      rows.map(r => (r("pairKey").str, r("hopIndex"))),
+      Vector(
+        ("2000-2004|r1|r1", ujson.Null),
+        ("all|r1|r3", ujson.Num(0)),
+        ("all|r1|r3", ujson.Num(1)),
+        ("all|r1|r9", ujson.Null)
+      )
+    )
+    val unreachable = rows(3)
+    assertEquals(unreachable("status").str, "unreachable-within-bound")
+    assertEquals(unreachable("pathLength"), ujson.Null)
+    assertEquals(unreachable("fromId"), ujson.Null)
+    assertEquals(unreachable("supportingWorkIds"), ujson.Null)
+    assertEquals(unreachable("unreachableReason").str, "no path within 4 hops")
+    val trivial = rows(0)
+    assertEquals(trivial("status").str, "trivial")
+    assertEquals(trivial("pathLength"), ujson.Num(0))
+    assertEquals(trivial("window").str, "2000-2004")
+    assertEquals(rows(1)("fromId").str, "r1")
+    assertEquals(rows(2)("supportingWorkIds"), ujson.Arr("work-23"))
+    assertEquals(rows(2)("jointPublicationCount"), ujson.Num(1))
+    assertEquals(rows(2)("hopLimit"), ujson.Num(4))
+  }
+
+  test("the manifest lists all 17 tables and is deterministic across runs") {
+    val run = makeRun()
+    val first = outDir
+    val second = outDir
+    assertEquals(runExport(run, first, Vector("--rows-per-file", "2"))._1, 0)
+    assertEquals(runExport(run, second, Vector("--rows-per-file", "2"))._1, 0)
+    val expected = Set(
+      "semantic-summaries",
+      "nodes-work",
+      "researcher-metrics",
+      "nodes-researcher",
+      "nodes-venue",
+      "nodes-topic",
+      "nodes-institution",
+      "edges-authored",
+      "edges-published-in",
+      "edges-coauthored",
+      "edge-support",
+      "path-evidence",
+      "components",
+      "component-membership",
+      "communities",
+      "community-membership",
+      "community-cross-edges"
+    )
+    assertEquals(expected.size, 17)
+    assertEquals(ExportTables.all.map(_.name).toSet, expected)
+    assertEquals(ExportTables.all.size, 17)
+    assertEquals(manifest(first)("tables").obj.keySet.toSet, expected)
+    assertEquals(
+      Files.readAllBytes(second.resolve("export-manifest.json")).toVector,
+      Files.readAllBytes(first.resolve("export-manifest.json")).toVector
+    )
+    assertEquals(tree(second), tree(first))
+  }
+
+  test("a missing analytics table or a missing required column is refused") {
+    analyticsIds.keys.toVector.sorted.foreach { name =>
+      val out = outDir
+      val (code, text) = runExport(makeRun(skip = Set(name)), out)
+      assertEquals(code, 2, text)
+      assert(text.contains(s"Missing table $name"), text)
+      assert(!Files.exists(out), name)
+    }
+    val thin = frame("pairKey STRING, window STRING, " + provenanceDdl)(
+      Row("p", "all", prov("p", "u"))
+    )
+    val root = makeRun(skip = Set("path-evidence"))
+    write(root, "path-evidence", thin)
+    val (code, text) = runExport(root, outDir)
+    assertEquals(code, 2, text)
+    assert(text.contains("Table path-evidence lacks column(s)"), text)
+    assert(text.contains("hopIndex"), text)
   }
 
   test("a missing graph table or a missing projector column is refused") {

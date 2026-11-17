@@ -122,6 +122,19 @@ check unconfirmed.policy-absent "$U" '"policy_available": "no"'
 check unconfirmed.row "$UE" 'increase-without-demand-evidence-requested,ci-CORE0000002,CORE,created,demand-unknown,no data,no data'
 check_absent unconfirmed.not-scale-out "$UE" 'scale-out-requested'
 
+# ---- R14: roles come from Cluster.InstanceGroups of emr-describe-cluster.json (the CLI has no
+# `emr list-instance-groups`); with no InstanceGroups the role is reported NOT RECORDED, never guessed.
+check scaling.roles-all-recorded "$S" '"instances_role_not_recorded": 0'
+mkdir "$TMP_ROOT/no-groups-in"
+cp -R "$HERE/fixtures/synthetic-no-scaling/collected/." "$TMP_ROOT/no-groups-in/"
+printf '%s\n' '{"Cluster":{"Id":"j-SYNTH0000002","Status":{"State":"TERMINATED","Timeline":{"CreationDateTime":"2026-11-18T15:00:03+00:00","ReadyDateTime":"2026-11-18T15:06:10+00:00","EndDateTime":"2026-11-18T15:50:40+00:00"}}}}' > "$TMP_ROOT/no-groups-in/emr-describe-cluster.json"
+python3 -I "$HERE/derive-capacity.py" derive \
+  --collected-dir "$TMP_ROOT/no-groups-in" \
+  --out-dir "$TMP_ROOT/no-groups" \
+  --title "SYNTHETIC FIXTURE: no instance groups in describe-cluster"
+check no-groups.role-not-recorded-in-csv "$TMP_ROOT/no-groups/instances.csv" 'NOT RECORDED'
+check_absent no-groups.count-is-not-zero "$TMP_ROOT/no-groups/derived.json" '"instances_role_not_recorded": 0'
+
 if [[ -e "$HERE/fixtures/synthetic-scaling/collected/derived.json" ]]; then
   FAIL=$((FAIL + 1))
   printf 'FAIL the derive step wrote into the fixture directory\n'

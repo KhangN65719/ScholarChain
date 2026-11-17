@@ -6713,7 +6713,18 @@ static_wo92_cases() {
   f_min_lines "$rb" 5 "the runtime module call cut out of the course main.tf"
   f_has_re "$rb" '^[[:space:]]*name_prefix[[:space:]]*=[[:space:]]*local\.name_prefix$'
   f_min_lines "$rt_blk" 4 "the log group resource cut out of the runtime main.tf"
-  f_has_re "$rt_blk" '^[[:space:]]*for_each[[:space:]]*=[[:space:]]*toset\(\["fast", "slow", "loader"\]\)$'
+  # Wave 2 repair batch 1 (item 1): WO-10 added service_layout (split: fast and slow; combined: query), so the
+  # service names come from local.services. The property is unchanged: the loader group exists, once, beside the
+  # service groups, the worker and the load client. The set must still be one toset(concat(...)) line that spreads
+  # the service names and names "loader" literally, and "loader" must not also be a service key (a duplicate
+  # element would collapse in the set and hide a service that no longer has its own group).
+  # Wave 2 repair batch 4 (OD-1): the worker and load-client log groups exist only with the services stack, so the
+  # set is the service groups, the loader group (always) and `local.stack ? ["worker", "load-client"] : []`. The
+  # loader literal is still alone in the first list, and "loader" still appears once in the block.
+  f_has_re "$rt_blk" '^[[:space:]]*for_each[[:space:]]*=[[:space:]]*toset\(concat\(keys\(local\.services\), \["loader"\], local\.stack \? \["worker", "load-client"\] : \[\]\)\)$'
+  f_count_is "$rt_blk" '"loader"' 1
+  f_has_re "$rt_code" '^[[:space:]]*services_(combined|split)[[:space:]]*=[[:space:]]*tomap\(\{$'
+  f_has_not_re "$rt_code" '^[[:space:]]*loader[[:space:]]*=[[:space:]]*\{[[:space:]]*role'
   f_has_re "$rt_blk" '^[[:space:]]*name[[:space:]]*=[[:space:]]*"/\$\{var\.name_prefix\}/\$\{each\.value\}"$'
   f_has_re "$rt_code" '"awslogs-group"[[:space:]]*=[[:space:]]*aws_cloudwatch_log_group\.this\["loader"\]\.name'
   f_has_re "$rt_code" '"awslogs-stream-prefix"[[:space:]]*=[[:space:]]*"ecs"'
@@ -10427,8 +10438,8 @@ w15_hx b-burst "" b-burst real
 case_begin "15.emr.hadoop-options.profile-b-burst-adds-the-four-options-in-order-and-the-record-lists-them"
 mr_ok
 a_out 'N=4'
-a_order 'OPT=-Dscholarchain.run.partitionCount=16' 'OPT=-Dmapreduce.input.fileinputformat.split.maxsize=131072' 'OPT=-Dmapreduce.map.memory.mb=3072' 'OPT=-Dmapreduce.reduce.memory.mb=3072'
-a_out 'HADOOP_EXTRA_OPTIONS= -Dscholarchain.run.partitionCount=16 -Dmapreduce.input.fileinputformat.split.maxsize=131072 -Dmapreduce.map.memory.mb=3072 -Dmapreduce.reduce.memory.mb=3072'
+a_order 'OPT=-Dscholarchain.run.partitionCount=8' 'OPT=-Dmapreduce.input.fileinputformat.split.maxsize=262144' 'OPT=-Dmapreduce.map.memory.mb=2048' 'OPT=-Dmapreduce.reduce.memory.mb=3072'
+a_out 'HADOOP_EXTRA_OPTIONS= -Dscholarchain.run.partitionCount=8 -Dmapreduce.input.fileinputformat.split.maxsize=262144 -Dmapreduce.map.memory.mb=2048 -Dmapreduce.reduce.memory.mb=3072'
 case_end
 
 w15_hx zeros "PARTITION_COUNT=0
@@ -10900,7 +10911,7 @@ static_w15b_cases() {
   done
   # b-burst: the pins (M1), 8 shuffle partitions and no Spark event log (P15-16, M2); the old proposed values
   # b-burst.SHUFFLE_PARTITIONS=32 and b-burst.SPARK_EVENT_LOG=true are replaced.
-  for k in 'b-burst.DATA_PATH=hdfs' 'b-burst.SPARK_MASTER=local' 'b-burst.SPARK_EVENT_LOG=false' 'b-burst.MR_COUNTERS=true' 'b-burst.SHUFFLE_PARTITIONS=8' 'b-burst.PARTITION_COUNT=16' 'b-burst.SPLIT_MAX_BYTES=131072' 'b-burst.MAP_MEMORY_MB=3072' 'b-burst.REDUCE_MEMORY_MB=3072'; do
+  for k in 'b-burst.DATA_PATH=hdfs' 'b-burst.SPARK_MASTER=local' 'b-burst.SPARK_EVENT_LOG=false' 'b-burst.MR_COUNTERS=true' 'b-burst.SHUFFLE_PARTITIONS=8' 'b-burst.PARTITION_COUNT=8' 'b-burst.SPLIT_MAX_BYTES=262144' 'b-burst.MAP_MEMORY_MB=2048' 'b-burst.REDUCE_MEMORY_MB=3072'; do
     [ "$(grep -cxF -- "$k" "$conf")" = "1" ] || note_fail "$k is not present exactly once"
   done
   [ "$(grep -cE '^b-burst\.SHUFFLE_PARTITIONS=' "$conf")" = "1" ] || note_fail "b-burst.SHUFFLE_PARTITIONS is not set exactly once"
@@ -11158,16 +11169,19 @@ a_rc 0
 a_out_re '^CLUSTER_ID=j-SYNTH0000001$'
 a_out_re '^COLLECT_COMPLETE cluster=j-SYNTH0000001 window=2026-11-18T14:50:00Z\.\.2026-11-18T16:11:10Z$'
 a_out "COLLECTED_DIR=$W15_RUND/collected"
-for w15_f in sfn-execution.json sfn-history.json emr-describe-cluster.json emr-list-instance-groups.json emr-list-instances.json emr-managed-scaling-policy.json emr-list-steps.json cloudwatch-list-metrics.json metric-queries.json cloudwatch-metric-data.json COLLECTED.txt SHA256SUMS; do
+for w15_f in sfn-execution.json sfn-history.json emr-describe-cluster.json emr-list-instances.json emr-managed-scaling-policy.json emr-list-steps.json cloudwatch-list-metrics.json metric-queries.json cloudwatch-metric-data.json CALL_STATUS.txt COLLECTED.txt SHA256SUMS; do
   [ -s "$W15_RUND/collected/$w15_f" ] || note_fail "collected/$w15_f is missing or empty"
 done
+# R14 (2026-11-17): the installed AWS CLI has no `emr list-instance-groups`; the instance groups are read from
+# emr-describe-cluster.json (Cluster.InstanceGroups), so no file of that call may exist.
+[ ! -e "$W15_RUND/collected/emr-list-instance-groups.json" ] || note_fail "collected/emr-list-instance-groups.json exists: the removed call was made"
 cmp -s "$W15_RUND/collected/sfn-history.json" "$W15_HISTORY" || note_fail "sfn-history.json is not the raw output of the call"
 a_trip_empty
 case_end
 
-case_begin "15.experiment.b-collect.every-aws-call-is-a-get-list-or-describe-in-us-east-2-and-there-are-nine"
+case_begin "15.experiment.b-collect.every-aws-call-is-a-get-list-or-describe-in-us-east-2-and-there-are-eight"
 OUT="$LOGDIR/none.out"; ERR="$LOGDIR/none.err"; RC=0
-[ "$(wc -l < "$W15_ALOG" | tr -d ' ')" = "9" ] || note_fail "expected 9 aws calls, found $(wc -l < "$W15_ALOG" | tr -d ' ')"
+[ "$(wc -l < "$W15_ALOG" | tr -d ' ')" = "8" ] || note_fail "expected 8 aws calls, found $(wc -l < "$W15_ALOG" | tr -d ' ')"
 while read -r w15_a w15_svc w15_verb w15_rest; do
   case "$w15_verb" in
     get-* | list-* | describe-*) ;;
@@ -11178,9 +11192,11 @@ while read -r w15_a w15_svc w15_verb w15_rest; do
     *) note_fail "a call does not carry --region us-east-2: $w15_verb" ;;
   esac
 done < "$W15_ALOG"
-for w15_v in describe-execution get-execution-history describe-cluster list-instance-groups list-instances get-managed-scaling-policy list-steps list-metrics get-metric-data; do
-  grep -qE "^AWS [a-z]+ $w15_v " "$W15_ALOG" || note_fail "the call $w15_v was not made"
+for w15_v in describe-execution get-execution-history describe-cluster list-instances get-managed-scaling-policy list-steps list-metrics get-metric-data; do
+  [ "$(grep -cE "^AWS [a-z]+ $w15_v " "$W15_ALOG")" = "1" ] || note_fail "the call $w15_v was not made exactly once"
 done
+# R14: the installed CLI rejects it ("invalid choice"); it must not be called, whatever the service word.
+if grep -qF 'list-instance-groups' "$W15_ALOG"; then note_fail "the removed call list-instance-groups was made"; fi
 if grep -qE '^AWS [a-z]+ (create|delete|put|update|modify|start|stop|terminate|run|tag|untag|set|add|remove|cancel)-' "$W15_ALOG"; then note_fail "a mutating verb was called"; fi
 case_end
 
@@ -11253,25 +11269,28 @@ mkdir -p "$WORK/w15-awsread"
 extract_fn "$W15_COLLECT" aws_read "$WORK/w15-awsread/fn.sh"
 # SC2086: the verb pair is split into the two arguments of aws_read on purpose.
 # shellcheck disable=SC2086
-for w15_vb in 'emr terminate-job-flows' 'emr add-steps' 'stepfunctions stop-execution' 'cloudwatch put-metric-data' 'emr run-job-flow' 'servicequotas request-service-quota-increase'; do
+for w15_vb in 'emr terminate-job-flows' 'emr add-steps' 'stepfunctions stop-execution' 'cloudwatch put-metric-data' 'emr run-job-flow' 'servicequotas request-service-quota-increase' \
+  'secretsmanager get-secret-value' 'ssm get-parameter' 'emr list-instance-groups' 'emr get-cluster-session-credentials' \
+  'emr list-clusters' 'cloudwatch describe-alarms'; do
   : > "$W15_CBIN/calls.log"
   run env PATH="$W15_CBIN:$TOOLDIR" W15_AWS_LOG="$W15_CBIN/calls.log" W15_HISTORY="$W15_HISTORY" bash "$CODE_DIR/w15-aws-read-child.sh" "$WORK/w15-awsread/fn.sh" $w15_vb
   case_begin "15.experiment.b-collect.aws-read-refuses-${w15_vb// /-}-and-never-reaches-aws"
   [ -s "$WORK/w15-awsread/fn.sh" ] || note_fail "aws_read was not cut out of collect.sh"
   a_rc 1
-  a_err "COLLECT_REFUSED: not a read-only AWS verb: $w15_vb"
+  a_err "COLLECT_REFUSED: not an allowed read-only AWS call: $w15_vb"
   a_not_out 'RETURNED'
   [ ! -s "$W15_CBIN/calls.log" ] || note_fail "aws was called for a mutating verb"
   case_end
 done
 # shellcheck disable=SC2086
-for w15_vb in 'emr describe-cluster' 'emr list-steps' 'emr get-managed-scaling-policy'; do
+for w15_vb in 'stepfunctions describe-execution' 'stepfunctions get-execution-history' 'emr describe-cluster' 'emr list-instances' \
+  'emr get-managed-scaling-policy' 'emr list-steps' 'cloudwatch list-metrics' 'cloudwatch get-metric-data'; do
   : > "$W15_CBIN/calls.log"
   run env PATH="$W15_CBIN:$TOOLDIR" W15_AWS_LOG="$W15_CBIN/calls.log" W15_HISTORY="$W15_HISTORY" bash "$CODE_DIR/w15-aws-read-child.sh" "$WORK/w15-awsread/fn.sh" $w15_vb
   case_begin "15.experiment.b-collect.aws-read-passes-${w15_vb// /-}-with-the-region-and-timeouts"
   a_rc 0
   a_out 'RETURNED'
-  grep -qE '^AWS (emr) (describe-cluster|list-steps|get-managed-scaling-policy) --x y --region us-east-2 --cli-connect-timeout 10 --cli-read-timeout 60 --output json$' "$W15_CBIN/calls.log" || note_fail "the call is not as expected: $(head -n 1 "$W15_CBIN/calls.log")"
+  grep -qE '^AWS (stepfunctions (describe-execution|get-execution-history)|emr (describe-cluster|list-instances|get-managed-scaling-policy|list-steps)|cloudwatch (list-metrics|get-metric-data)) --x y --region us-east-2 --cli-connect-timeout 10 --cli-read-timeout 60 --output json$' "$W15_CBIN/calls.log" || note_fail "the call is not as expected: $(head -n 1 "$W15_CBIN/calls.log")"
   case_end
 done
 
@@ -11367,6 +11386,23 @@ for w15_nl in \
   w15_cs_neg "$w15_nl"
 done
 [ -z "$(w15_cs_audit "$w15_cc")" ] || note_fail "the real collect.sh already violates the allowlist"
+case_end
+
+# Repair batch 2, m5: aws_read allows exactly the eight (service, verb) pairs collect.sh calls, as quoted labels and
+# no wildcard (the old pattern allowed every get-, list- and describe- verb). The function is cut out of the
+# comment-free script (w15-awsread/fn.sh above), and the three arm lines are pinned as exact text.
+w15_begin "15.experiment.b-collect.static.aws-read-allows-exactly-the-eight-pairs-with-no-wildcard-and-no-secret-service"
+w15_arf="$(code_of "$WORK/w15-awsread/fn.sh")"
+f_min_lines "$w15_arf" 6 "aws_read cut out of collect.sh"
+f_has "$w15_arf" '"stepfunctions describe-execution" | "stepfunctions get-execution-history" | \'
+f_has "$w15_arf" '"emr describe-cluster" | "emr list-instances" | "emr get-managed-scaling-policy" | "emr list-steps" | \'
+f_has "$w15_arf" '"cloudwatch list-metrics" | "cloudwatch get-metric-data") ;;'
+f_has "$w15_arf" '*) die "not an allowed read-only AWS call: $1 $2" ;;'
+f_count_is "$w15_arf" '" | "' 3
+f_count_is "$w15_arf" ') ;;' 1
+f_has_not_re "$w15_arf" '"[a-z0-9-]+ [a-z0-9-]*[*?[]'
+f_has_not_re "$w15_arf" '(^|[[:space:]|(])(get|list|describe)-[*]'
+f_has_not_re "$w15_arf" 'secretsmanager|ssm|list-instance-groups'
 case_end
 
 ### 15.experiment.entry: experiments/a-baseline/run.sh and experiments/b-burst/run.sh with a fake run-bounded-pipeline.sh.
@@ -12233,6 +12269,557 @@ else
   note_fail "no check script or no manifest was found, so the check cannot be run"
   case_end
 fi
+
+### 15.wave2: WO-12b, Phase 15 Wave 2 (Terraform of WO-10, experiments C to F, the embedding message schema) ------------
+# Static checks written from the WO-10 specification (work-orders-2.md) and the landed Wave 2 reports, BEFORE the
+# implementation. The checkers are tests/scripts/w2/tfcheck.py and expcheck.py (stdlib Python, read-only, no AWS, no
+# terraform). The first block runs them on the REAL repository: those cases fail until WO-10 (infra/terraform/**) and M-1
+# (experiments/manifests/**) land, and each says what is missing. The second block runs the checkers on a good fixture
+# tree and on one mutation per rule (a copy in a temporary directory), so a checker that stops catching its rule fails
+# here whatever the repository holds. A mutation that no longer matches its fixture fails loudly (mutate.py exits 1).
+
+W2="$HERE/w2"
+W2_TF="$W2/tfcheck.py"
+W2_EX="$W2/expcheck.py"
+W2_MUT="$WORK/w2-mut"
+W2_EXT="$WORK/w2-ex"
+W2_MUT_OK=1
+
+# w2_ok: after a checker run on a tree that must pass.
+w2_ok() {
+  if [ "$RC" -ne 0 ]; then
+    note_fail "exit $RC: $(grep -E '^FAIL' "$OUT" | head -n 4 | cut -c1-300 | tr '\n' '|') $(tail -n 1 "$ERR" | cut -c1-160)"
+  elif ! grep -q '^OK ' "$OUT"; then
+    note_fail "exit 0 but no OK line"
+  fi
+  a_trip_empty
+}
+
+# w2_fails NAME: after a checker run on a tree that must be refused for the rule NAME (a crash has no FAIL line).
+w2_fails() {
+  [ "$RC" -ne 0 ] || note_fail "the checker passed a tree that breaks its rule"
+  grep -q "^FAIL $1" "$OUT" || note_fail "no 'FAIL $1' line: $(head -n 2 "$OUT" | tr '\n' '|' | cut -c1-200) $(tail -n 1 "$ERR" | cut -c1-120)"
+  a_trip_empty
+}
+
+### Block 1: the real repository (fails until WO-10 and M-1 land, except where noted) ----------------------------------
+
+for w2_pair in \
+  "alb-is-internal-has-no-public-ip-and-health-checks-healthz-on-a-service-port:alb" \
+  "alb-security-group-admits-only-the-load-client-security-group:alb-sg" \
+  "query-service-scaling-is-bounded-with-thresholds-and-a-scale-in-cooldown-within-the-zero-period:scaling-query" \
+  "embedding-worker-scaling-is-bounded-and-follows-the-sqs-backlog:scaling-worker" \
+  "scaling-maxima-stay-within-the-30-vcpu-fargate-quota:scaling-quota" \
+  "a-p95-latency-alarm-on-the-alb-target-response-time-exists:alarm-p95" \
+  "container-insights-is-enabled-exactly-when-the-services-stack-is-on:insights" \
+  "the-dashboard-exists-and-names-every-required-scaling-metric:dashboard" \
+  "runtime-log-retention-is-at-least-seven-days:retention" \
+  "every-task-definition-command-starts-with-an-existing-main-class:commands" \
+  "every-environment-variable-a-task-sets-is-read-by-the-code:env-read" \
+  "every-required-environment-variable-is-set-and-the-graph-run-id-comes-from-a-variable:env-required" \
+  "secrets-reach-a-task-only-through-the-ecs-secrets-block:secrets" \
+  "sqs-max-receive-count-stays-3:sqs" \
+  "bedrock-model-id-is-a-variable-never-hard-coded-and-the-answer-model-defaults-to-stub-with-10-calls:bedrock" \
+  "the-services-stack-and-the-split-layout-default-off-in-the-environment-and-in-every-module-that-gates-on-it:stack-defaults" \
+  "every-wave-2-resource-carries-a-count-or-for-each-branch-tied-to-the-services-stack-flag-and-the-modules-are-wired-to-it:stack-gating" \
+  "the-a-and-b-overlays-set-no-stack-layout-or-switch-and-the-session-2-overlays-set-exactly-the-stack-and-combined:stack-overlays" \
+  "the-load-client-image-tag-must-be-the-40-hex-head-sha-whenever-the-stack-is-on:stack-tag" \
+  "verify-revision-still-requires-the-head-tag-on-every-active-scholarchain-course-family:verify-revision"; do
+  w2_id="${w2_pair%%:*}"
+  w2_ck="${w2_pair#*:}"
+  run python3 -I "$W2_TF" "$w2_ck" --root "$REAL_ROOT"
+  case_begin "15.wave2.terraform.$w2_id"
+  w2_ok
+  case_end
+done
+
+for w2_l in C D E F; do
+  run python3 -I "$W2_EX" manifest "$w2_l" --root "$REAL_ROOT"
+  case_begin "15.wave2.experiments.manifest-$w2_l-is-within-the-p15-1-caps-and-agrees-with-its-entry-point"
+  w2_ok
+  case_end
+  run python3 -I "$W2_EX" json "$w2_l" --root "$REAL_ROOT"
+  case_begin "15.wave2.experiments.manifest-$w2_l-json-copy-says-exactly-what-the-key-value-file-says"
+  w2_ok
+  case_end
+done
+
+run python3 -I "$W2_EX" verbs --root "$REAL_ROOT"
+case_begin "15.wave2.experiments.c-f-entry-points-and-collectors-call-only-read-only-aws-verbs-except-the-documented-sends"
+w2_ok
+case_end
+
+run python3 -I "$W2_EX" guards --root "$REAL_ROOT"
+case_begin "15.wave2.experiments.the-allow-lists-in-enqueue-poll-collect-and-the-load-client-launcher-are-the-narrow-ones"
+w2_ok
+case_end
+
+run python3 -I "$W2_EX" readme --root "$REAL_ROOT"
+case_begin "15.wave2.experiments.load-tests-readme-is-superseded-by-query-load-readme"
+w2_ok
+case_end
+
+run python3 -I "$W2_EX" schema --root "$REAL_ROOT"
+case_begin "15.wave2.cross-module.message-schema-constants-agree-with-the-storage-source"
+w2_ok
+case_end
+
+run python3 -I "$W2/emit_messages.py" --check
+case_begin "15.wave2.cross-module.producer-validate-agrees-with-the-wo-7-schema-on-every-emitted-case"
+w2_ok
+case_end
+
+run python3 -I "$W2/emit_messages.py"
+case_begin "15.wave2.cross-module.emit-script-prints-one-three-field-line-per-case-for-the-scala-suite"
+a_rc 0
+[ "$(wc -l < "$OUT" | tr -d ' ')" -ge 25 ] || note_fail "fewer than 25 cases were emitted"
+if ! awk -F'\t' 'NF != 3 { bad = 1 } END { exit bad }' "$OUT"; then note_fail "a line does not have exactly three tab-separated fields"; fi
+a_trip_empty
+case_end
+
+### Block 2: the checkers on fixture trees ---------------------------------------------------------------------------
+
+# Terraform: the good fixture passes every check, then one mutation per rule.
+run python3 -I "$W2_TF" all --root "$W2/fixtures/tf-good"
+case_begin "15.wave2.selftest.terraform-checker-passes-all-20-checks-on-the-good-fixture"
+a_rc 0
+[ "$(grep -c '^OK ' "$OUT")" = "20" ] || note_fail "expected 20 OK lines, found $(grep -c '^OK ' "$OUT"): $(grep '^FAIL' "$OUT" | head -n 3 | tr '\n' '|' | cut -c1-300)"
+a_trip_empty
+case_end
+
+# w2_mutcase ID CHECK FILE OLD NEW: a fresh copy of the good fixture, one replacement, the check must refuse it.
+w2_mutcase() {
+  rm -rf "$W2_MUT"
+  cp -R "$W2/fixtures/tf-good" "$W2_MUT"
+  W2_MUT_OK=1
+  python3 -I "$W2/mutate.py" "$W2_MUT/$3" "$4" "$5" > "$LOGDIR/w2-mut.out" 2>&1 || W2_MUT_OK=0
+  run python3 -I "$W2_TF" "$2" --root "$W2_MUT"
+  case_begin "15.wave2.selftest.terraform.$1"
+  [ "$W2_MUT_OK" = "1" ] || note_fail "the mutation did not apply: $(head -n 1 "$LOGDIR/w2-mut.out" | cut -c1-160)"
+  w2_fails "$2"
+  case_end
+}
+
+W2_RT="infra/terraform/modules/runtime/main.tf"
+W2_RV="infra/terraform/modules/runtime/variables.tf"
+W2_DB="infra/terraform/modules/observability/dashboard.tf"
+W2_WF="infra/terraform/modules/workflow/main.tf"
+W2_SC="modules/services/src/main/scala/scholarchain/services/runtime/AwsRuntime.scala"
+
+w2_mutcase "alb-internal-false-is-refused" alb "$W2_RT" 'internal           = true' 'internal           = false'
+w2_mutcase "a-task-with-a-public-ip-is-refused" alb "$W2_RT" 'assign_public_ip = false' 'assign_public_ip = true'
+w2_mutcase "a-health-check-path-other-than-healthz-is-refused" alb "$W2_RT" 'path = "/healthz"' 'path = "/"'
+w2_mutcase "a-short-health-check-grace-period-is-refused" alb "$W2_RT" 'health_check_grace_period_seconds = 300' 'health_check_grace_period_seconds = 30'
+w2_mutcase "alb-security-group-open-to-a-cidr-is-refused" alb-sg "$W2_RT" 'security_groups = [aws_security_group.load_client[0].id]' 'cidr_blocks = ["0.0.0.0/0"]'
+w2_mutcase "alb-security-group-admitting-another-group-is-refused" alb-sg "$W2_RT" 'security_groups = [aws_security_group.load_client[0].id]' 'security_groups = [aws_security_group.alb[0].id]'
+# Container Insights (OD-1): on exactly when the stack is on. The good fixture holds
+# `value = local.stack ? "enabled" : "disabled"`; each mutation breaks one half of that sentence.
+W2_INS='value = local.stack ? "enabled" : "disabled"'
+w2_mutcase "container-insights-disabled-is-refused" insights "$W2_RT" "$W2_INS" 'value = "disabled"'
+w2_mutcase "container-insights-enabled-without-the-stack-is-refused" insights "$W2_RT" "$W2_INS" 'value = "enabled"'
+w2_mutcase "container-insights-on-another-condition-is-refused" insights "$W2_RT" "$W2_INS" 'value = var.enable_load_balancer ? "enabled" : "disabled"'
+w2_mutcase "container-insights-with-the-branches-swapped-is-refused" insights "$W2_RT" "$W2_INS" 'value = local.stack ? "disabled" : "enabled"'
+w2_mutcase "container-insights-on-a-stack-local-that-is-not-the-flag-is-refused" insights "$W2_RT" 'stack      = var.enable_services_stack' 'stack      = true'
+w2_mutcase "query-max-capacity-above-the-quota-is-refused" scaling-quota "$W2_RT" 'max_capacity       = 6' 'max_capacity       = 200'
+w2_mutcase "query-max-capacity-equal-to-min-is-refused" scaling-query "$W2_RT" 'max_capacity       = 6' 'max_capacity       = 1'
+w2_mutcase "worker-max-capacity-equal-to-min-is-refused" scaling-worker "$W2_RT" 'max_capacity       = 4' 'max_capacity       = 1'
+w2_mutcase "worker-scaling-without-the-sqs-backlog-metric-is-refused" scaling-worker "$W2_RT" 'metric_name         = "ApproximateNumberOfMessagesVisible"' 'metric_name         = "NumberOfMessagesSent"'
+w2_mutcase "query-scale-in-cooldown-above-the-zero-period-is-refused" scaling-query "$W2_RT" 'scale_in_cooldown  = 300' 'scale_in_cooldown  = 1800'
+w2_mutcase "p95-alarm-on-another-statistic-is-refused" alarm-p95 "$W2_RT" 'extended_statistic  = "p95"' 'extended_statistic  = "p50"'
+w2_mutcase "dashboard-without-the-desired-task-count-is-refused" dashboard "$W2_DB" '"DesiredTaskCount"' '"DesiredTasks"'
+w2_mutcase "dashboard-without-the-dead-letter-queue-is-refused" dashboard "$W2_DB" 'fx-embedding-work-dlq' 'fx-embedding-work-q2'
+w2_mutcase "log-retention-below-seven-days-is-refused" retention "$W2_RV" 'default = 7' 'default = 3'
+w2_mutcase "command-naming-a-missing-main-class-is-refused" commands "$W2_RT" '"scholarchain.services.runtime.AwsRuntime"' '"scholarchain.services.runtime.AwsRuntimeX"'
+w2_mutcase "command-starting-with-java-instead-of-the-class-is-refused" commands "$W2_RT" '["scholarchain.storage.EmbeddingWorkerMain"]' '["java", "scholarchain.storage.EmbeddingWorkerMain"]'
+w2_mutcase "task-definition-without-a-command-is-refused" commands "$W2_RT" 'command     = ["scholarchain.storage.EmbeddingWorkerMain"]' 'labels      = ["x"]'
+w2_mutcase "environment-name-the-code-does-not-read-is-refused" env-read "$W2_RT" 'SCHOLARCHAIN_NEPTUNE_HOST      = var.neptune_host' 'SCHOLARCHAIN_NEPTUNE_ENDPOINT = var.neptune_host'
+# Repair batch 1, item 5: the load-client task's secrets block may name a variable that load_client.py (Python)
+# reads; nothing else gets that exemption.
+W2_LC="load-tests/query-load/load_client.py"
+w2_mutcase "an-unread-name-on-the-load-client-task-secrets-is-refused" env-read "$W2_RT" 'name = "SCHOLARCHAIN_QUERY_TOKEN"' 'name = "SCHOLARCHAIN_LOAD_UNREAD"'
+w2_mutcase "a-load-client-secret-name-the-python-client-no-longer-defaults-to-is-refused" env-read "$W2_LC" 'default="SCHOLARCHAIN_QUERY_TOKEN"' 'default="SCHOLARCHAIN_OTHER_TOKEN"'
+w2_mutcase "a-load-client-secret-name-the-python-client-never-reads-from-the-environment-is-refused" env-read "$W2_LC" 'os.environ.get(args.token_env, "")' 'args.token_env'
+w2_mutcase "the-load-client-secret-name-on-a-service-task-is-refused" env-read "$W2_RT" 'SCHOLARCHAIN_BEDROCK           = "off"' $'SCHOLARCHAIN_BEDROCK           = "off"\n    SCHOLARCHAIN_QUERY_TOKEN       = "x"'
+w2_mutcase "an-unread-name-in-the-load-client-plain-environment-is-refused" env-read "$W2_RT" 'command = ["--help"]' $'command = ["--help"]\n      environment = {\n        SCHOLARCHAIN_LOAD_PLAIN = "x"\n      }'
+w2_mutcase "missing-required-environment-name-is-refused" env-required "$W2_RT" 'SCHOLARCHAIN_NEPTUNE_HOST      = var.neptune_host' 'SCHOLARCHAIN_NEPTUNE_ENDPOINT = var.neptune_host'
+w2_mutcase "graph-run-id-set-from-a-literal-is-refused" env-required "$W2_RT" 'SCHOLARCHAIN_GRAPH_RUN_ID      = var.graph_run_id' 'SCHOLARCHAIN_GRAPH_RUN_ID      = "run:v1:00000000-0000-4000-8000-000000000001"'
+w2_mutcase "a-token-in-the-plain-environment-is-refused" secrets "$W2_RT" 'SCHOLARCHAIN_RUNTIME_ROLE      = "both"' $'SCHOLARCHAIN_RUNTIME_ROLE      = "both"\n    SCHOLARCHAIN_SERVICES_AUTH_QUERY_TOKEN = "plain-text"'
+w2_mutcase "service-task-without-a-secrets-block-is-refused" secrets "$W2_RT" 'secrets      = local.secrets' 'secrets_x    = local.secrets'
+w2_mutcase "max-receive-count-default-5-is-refused" sqs "$W2_WF" 'default = 3' 'default = 5'
+w2_mutcase "max-receive-count-literal-10-is-refused" sqs "$W2_WF" 'maxReceiveCount     = var.max_receive_count' 'maxReceiveCount     = 10'
+w2_mutcase "model-id-hard-coded-in-scala-is-refused" bedrock "$W2_SC" 'val EnvRole =' 'val Model = "us.anthropic.claude-haiku-4-5-20251001-v1:0"; val EnvRole ='
+w2_mutcase "answer-model-default-other-than-stub-is-refused" bedrock "$W2_RV" 'default = "stub"' 'default = "bedrock"'
+w2_mutcase "bedrock-max-calls-default-100-is-refused" bedrock "$W2_RV" 'default = 10' 'default = 100'
+w2_mutcase "model-id-missing-from-the-terraform-is-refused" bedrock "$W2_RV" 'us.anthropic.claude-haiku-4-5-20251001-v1:0' 'some-other-model'
+
+# Repair batch 2, item B1d: SCHOLARCHAIN_GRAPH_RUN_ID and SCHOLARCHAIN_EXPORT_RUN_ID come from var.graph_run_id and
+# var.export_run_id, bare or as `var.X == null ? "" : var.X` (coalesce() rejects a null argument list). The good
+# fixture holds the bare form for the graph id and the conditional for the export id.
+# w2_mutok ID CHECK FILE OLD NEW: like w2_mutcase, but the mutated tree must pass.
+w2_mutok() {
+  rm -rf "$W2_MUT"
+  cp -R "$W2/fixtures/tf-good" "$W2_MUT"
+  W2_MUT_OK=1
+  python3 -I "$W2/mutate.py" "$W2_MUT/$3" "$4" "$5" > "$LOGDIR/w2-mut.out" 2>&1 || W2_MUT_OK=0
+  run python3 -I "$W2_TF" "$2" --root "$W2_MUT"
+  case_begin "15.wave2.selftest.terraform.$1"
+  [ "$W2_MUT_OK" = "1" ] || note_fail "the mutation did not apply: $(head -n 1 "$LOGDIR/w2-mut.out" | cut -c1-160)"
+  w2_ok
+  case_end
+}
+W2_GR_OLD='SCHOLARCHAIN_GRAPH_RUN_ID      = var.graph_run_id'
+W2_ER_OLD='SCHOLARCHAIN_EXPORT_RUN_ID     = var.export_run_id == null ? "" : var.export_run_id'
+w2_mutok "graph-run-id-from-the-null-safe-conditional-passes" env-required "$W2_RT" "$W2_GR_OLD" 'SCHOLARCHAIN_GRAPH_RUN_ID      = var.graph_run_id == null ? "" : var.graph_run_id'
+w2_mutcase "graph-run-id-conditional-with-a-literal-fallback-is-refused" env-required "$W2_RT" "$W2_GR_OLD" 'SCHOLARCHAIN_GRAPH_RUN_ID      = var.graph_run_id == null ? "run:v1:x" : var.graph_run_id'
+w2_mutcase "graph-run-id-conditional-with-a-literal-in-the-true-branch-is-refused" env-required "$W2_RT" "$W2_GR_OLD" 'SCHOLARCHAIN_GRAPH_RUN_ID      = var.graph_run_id != null ? "run:v1:00000000-0000-4000-8000-000000000001" : ""'
+w2_mutcase "graph-run-id-conditional-with-a-literal-in-the-false-branch-is-refused" env-required "$W2_RT" "$W2_GR_OLD" 'SCHOLARCHAIN_GRAPH_RUN_ID      = var.graph_run_id == null ? "" : "run:v1:00000000-0000-4000-8000-000000000001"'
+w2_mutcase "graph-run-id-conditional-on-another-variable-is-refused" env-required "$W2_RT" "$W2_GR_OLD" 'SCHOLARCHAIN_GRAPH_RUN_ID      = var.export_run_id == null ? "" : var.export_run_id'
+w2_mutcase "graph-run-id-through-coalesce-is-refused" env-required "$W2_RT" "$W2_GR_OLD" 'SCHOLARCHAIN_GRAPH_RUN_ID      = coalesce(var.graph_run_id, "")'
+w2_mutcase "graph-run-id-from-another-variable-is-refused" env-required "$W2_RT" "$W2_GR_OLD" 'SCHOLARCHAIN_GRAPH_RUN_ID      = var.table_prefix'
+w2_mutok "export-run-id-from-the-bare-variable-passes" env-required "$W2_RT" "$W2_ER_OLD" 'SCHOLARCHAIN_EXPORT_RUN_ID     = var.export_run_id'
+w2_mutcase "export-run-id-set-from-a-literal-is-refused" env-required "$W2_RT" "$W2_ER_OLD" 'SCHOLARCHAIN_EXPORT_RUN_ID     = "run-v1-00000000-0000-4000-8000-000000000001"'
+w2_mutcase "export-run-id-from-the-graph-run-id-variable-is-refused" env-required "$W2_RT" "$W2_ER_OLD" 'SCHOLARCHAIN_EXPORT_RUN_ID     = var.graph_run_id'
+w2_mutcase "export-run-id-conditional-with-a-literal-fallback-is-refused" env-required "$W2_RT" "$W2_ER_OLD" 'SCHOLARCHAIN_EXPORT_RUN_ID     = var.export_run_id == null ? "run-v1-x" : var.export_run_id'
+w2_mutcase "missing-export-run-id-environment-name-is-refused" env-required "$W2_RT" "$W2_ER_OLD" 'SCHOLARCHAIN_EXPORT_ID         = var.export_run_id == null ? "" : var.export_run_id'
+
+### Repair batch 4 (OD-1 and OD-2): the services stack gate ------------------------------------------------------------
+# Every Wave 2 resource exists only with enable_services_stack (default false), so the Experiment A and B plans are
+# session 1's shape. The good fixture now models the gate (counts tied to the flag, the three module wires, the
+# overlays, the 40-hex tag validation, a copy of verify_revision). Each case below is one mutation of that fixture that
+# the named check must refuse; the w2_mutok and w2_mut2 pair shows what the exemption of the smoke overlay allows.
+W2_ENV="infra/terraform/environments/course"
+W2_EV="$W2_ENV/variables.tf"
+W2_EM="$W2_ENV/main.tf"
+W2_RM="infra/terraform/modules/runtime/main.tf"
+W2_IDMAIN="infra/terraform/modules/identity/main.tf"
+W2_IDV="infra/terraform/modules/identity/variables.tf"
+W2_OBV="infra/terraform/modules/observability/variables.tf"
+W2_LIB="scripts/lib.sh"
+
+# w2_mut2 ID CHECK EXPECT(ok|fail) FILE1 OLD1 NEW1 FILE2 OLD2 NEW2: two mutations on one fresh copy.
+w2_mut2() {
+  rm -rf "$W2_MUT"
+  cp -R "$W2/fixtures/tf-good" "$W2_MUT"
+  W2_MUT_OK=1
+  python3 -I "$W2/mutate.py" "$W2_MUT/$4" "$5" "$6" > "$LOGDIR/w2-mut.out" 2>&1 || W2_MUT_OK=0
+  python3 -I "$W2/mutate.py" "$W2_MUT/$7" "$8" "$9" >> "$LOGDIR/w2-mut.out" 2>&1 || W2_MUT_OK=0
+  run python3 -I "$W2_TF" "$2" --root "$W2_MUT"
+  case_begin "15.wave2.selftest.terraform.$1"
+  [ "$W2_MUT_OK" = "1" ] || note_fail "a mutation did not apply: $(head -n 2 "$LOGDIR/w2-mut.out" | tr '\n' '|' | cut -c1-200)"
+  if [ "$3" = "ok" ]; then w2_ok; else w2_fails "$2"; fi
+  case_end
+}
+
+# w2_ungate ID FILE RTYPE RNAME COUNT: the resource loses its count line. w2_recount: the count is tied to something else.
+w2_ungate() {
+  local old new
+  old="$(printf 'resource "%s" "%s" {\n  count = %s' "$3" "$4" "$5")"
+  new="$(printf 'resource "%s" "%s" {' "$3" "$4")"
+  w2_mutcase "$1" stack-gating "$2" "$old" "$new"
+}
+w2_recount() {
+  local old new
+  old="$(printf 'resource "%s" "%s" {\n  count = %s' "$3" "$4" "$5")"
+  new="$(printf 'resource "%s" "%s" {\n  count = %s' "$3" "$4" "$6")"
+  w2_mutcase "$1" stack-gating "$2" "$old" "$new"
+}
+
+# SC2016: the single-quoted strings are literal Terraform and shell fragments that the mutations search for and
+# replace as text; the $ must not expand.
+# shellcheck disable=SC2016
+w2_stack_cases() {
+# stack-defaults: both defaults are false and split, in the environment and in each module that gates on the flag.
+W2_STACK_VAR=$'variable "enable_services_stack" {\n  type    = bool\n  default = false'
+w2_mutcase "the-environment-default-of-the-stack-set-true-is-refused" stack-defaults "$W2_EV" "$W2_STACK_VAR" $'variable "enable_services_stack" {\n  type    = bool\n  default = true'
+w2_mutcase "the-runtime-module-default-of-the-stack-set-true-is-refused" stack-defaults "$W2_RV" "$W2_STACK_VAR" $'variable "enable_services_stack" {\n  type    = bool\n  default = true'
+w2_mutcase "the-environment-default-layout-combined-is-refused" stack-defaults "$W2_EV" 'default = "split"' 'default = "combined"'
+w2_mutcase "the-runtime-module-default-layout-combined-is-refused" stack-defaults "$W2_RV" 'default = "split"' 'default = "combined"'
+w2_mutcase "the-worker-role-default-set-true-is-refused" stack-defaults "$W2_IDV" 'default = false' 'default = true'
+w2_mutcase "the-scaling-dashboard-default-set-true-is-refused" stack-defaults "$W2_OBV" $'variable "enable_scaling_dashboard" {\n  type    = bool\n  default = false' $'variable "enable_scaling_dashboard" {\n  type    = bool\n  default = true'
+
+# stack-gating: each gated resource, once without its count and once with a count tied to the wrong thing.
+w2_ungate "the-worker-task-definition-without-a-count-is-refused" "$W2_RM" aws_ecs_task_definition worker 'local.stack ? 1 : 0'
+w2_ungate "the-load-client-task-definition-without-a-count-is-refused" "$W2_RM" aws_ecs_task_definition load_client 'local.stack ? 1 : 0'
+w2_ungate "the-alb-security-group-without-a-count-is-refused" "$W2_RM" aws_security_group alb 'local.stack ? 1 : 0'
+w2_ungate "the-load-client-security-group-without-a-count-is-refused" "$W2_RM" aws_security_group load_client 'local.stack ? 1 : 0'
+w2_ungate "a-security-group-rule-without-a-count-is-refused" "$W2_RM" aws_vpc_security_group_egress_rule load_client_to_alb 'local.stack ? 1 : 0'
+w2_ungate "the-worker-role-without-a-count-is-refused" "$W2_IDMAIN" aws_iam_role worker 'var.enable_worker_role ? 1 : 0'
+w2_ungate "the-worker-role-policy-without-a-count-is-refused" "$W2_IDMAIN" aws_iam_role_policy worker 'var.enable_worker_role ? 1 : 0'
+w2_ungate "the-scaling-dashboard-without-a-count-is-refused" "$W2_DB" aws_cloudwatch_dashboard scaling 'var.enable_dashboard && var.enable_scaling_dashboard ? 1 : 0'
+w2_recount "the-load-client-task-definition-counted-on-another-flag-is-refused" "$W2_RM" aws_ecs_task_definition load_client 'local.stack ? 1 : 0' 'var.enable_load_balancer ? 1 : 0'
+w2_recount "the-worker-task-definition-with-an-inverted-count-is-refused" "$W2_RM" aws_ecs_task_definition worker 'local.stack ? 1 : 0' 'local.stack ? 0 : 1'
+w2_recount "the-load-client-security-group-counted-on-the-balancer-flag-is-refused" "$W2_RM" aws_security_group load_client 'local.stack ? 1 : 0' 'local.use_lb ? 1 : 0'
+w2_recount "a-security-group-rule-counted-on-the-worker-flag-is-refused" "$W2_RM" aws_vpc_security_group_egress_rule load_client_to_alb 'local.stack ? 1 : 0' 'var.enable_worker ? 1 : 0'
+w2_recount "the-worker-role-with-an-inverted-count-is-refused" "$W2_IDMAIN" aws_iam_role worker 'var.enable_worker_role ? 1 : 0' 'var.enable_worker_role ? 0 : 1'
+w2_recount "the-scaling-dashboard-on-either-flag-is-refused" "$W2_DB" aws_cloudwatch_dashboard scaling 'var.enable_dashboard && var.enable_scaling_dashboard ? 1 : 0' 'var.enable_dashboard || var.enable_scaling_dashboard ? 1 : 0'
+w2_mutcase "the-load-client-repository-listed-without-the-stack-branch-is-refused" stack-gating "$W2_RM" 'local.stack ? ["load-client"] : []' '["load-client"]'
+w2_mutcase "the-load-client-repository-also-in-the-plain-list-is-refused" stack-gating "$W2_RM" '["services", "loader"], local.stack ?' '["services", "loader", "load-client"], local.stack ?'
+w2_mutcase "the-load-client-repository-branch-on-the-balancer-flag-is-refused" stack-gating "$W2_RM" 'local.stack ? ["load-client"]' 'local.use_lb ? ["load-client"]'
+w2_mutcase "the-worker-log-group-in-the-plain-list-is-refused" stack-gating "$W2_RM" '["slow", "loader"], local.stack ?' '["slow", "loader", "worker"], local.stack ?'
+w2_mutcase "the-load-client-log-group-left-out-of-the-stack-branch-is-refused" stack-gating "$W2_RM" '? ["worker", "load-client"] : []' '? ["worker"] : []'
+w2_mutcase "the-log-group-branch-on-the-worker-flag-is-refused" stack-gating "$W2_RM" 'local.stack ? ["worker", "load-client"]' 'var.enable_worker ? ["worker", "load-client"]'
+w2_mutcase "the-stack-local-set-to-true-is-refused" stack-gating "$W2_RM" 'stack      = var.enable_services_stack' 'stack      = true'
+w2_mutcase "the-balancer-switch-without-the-stack-is-refused" stack-gating "$W2_RM" 'use_lb     = var.enable_load_balancer && local.stack' 'use_lb     = var.enable_load_balancer'
+w2_mutcase "the-worker-switch-without-the-stack-is-refused" stack-gating "$W2_RM" 'use_worker = var.enable_worker && local.stack' 'use_worker = var.enable_worker'
+w2_mutcase "the-worker-role-wired-to-true-instead-of-the-stack-is-refused" stack-gating "$W2_EM" 'enable_worker_role = var.enable_services_stack' 'enable_worker_role = true'
+w2_mutcase "the-runtime-module-wired-to-false-instead-of-the-stack-is-refused" stack-gating "$W2_EM" 'enable_services_stack = var.enable_services_stack' 'enable_services_stack = false'
+w2_mutcase "the-scaling-dashboard-wired-to-true-instead-of-the-stack-is-refused" stack-gating "$W2_EM" 'enable_scaling_dashboard = var.enable_services_stack' 'enable_scaling_dashboard = true'
+
+# stack-overlays: course, experiment-size-s, baseline-s, elasticity-s and session-down set neither the stack nor the
+# layout nor a switch to true; each gets five single insertions. The anchor is the first key of the file, so the
+# inserted line comes first and the file's own lines (session-down keeps its false switches) stay.
+for w2_o in "course:owner" "experiment-size-s:enable_bedrock" "baseline-s:pipeline_skip_loader" "elasticity-s:emr_core_instance_count" "session-down:egress_mode"; do
+  w2_of="${w2_o%%:*}"
+  w2_oa="${w2_o#*:}"
+  for w2_kv in 'enable_services_stack = true' 'service_layout = "combined"' 'enable_worker = true' 'enable_load_balancer = true' 'enable_autoscaling = true'; do
+    w2_k="${w2_kv%% *}"
+    w2_mutcase "overlay-$w2_of-setting-$w2_k-is-refused" stack-overlays "$W2_ENV/$w2_of.tfvars" "$w2_oa" "$w2_kv"$'\n'"$w2_oa"
+  done
+done
+w2_mutcase "overlay-session-down-an-explicit-false-stack-is-also-refused" stack-overlays "$W2_ENV/session-down.tfvars" 'egress_mode' $'enable_services_stack = false\negress_mode'
+w2_mutcase "overlay-session-down-an-explicit-split-layout-is-also-refused" stack-overlays "$W2_ENV/session-down.tfvars" 'egress_mode' $'service_layout = "split"\negress_mode'
+w2_mutcase "overlay-services-session-with-the-stack-false-is-refused" stack-overlays "$W2_ENV/services-session.tfvars" 'enable_services_stack = true' 'enable_services_stack = false'
+w2_mutcase "overlay-services-session-without-the-stack-is-refused" stack-overlays "$W2_ENV/services-session.tfvars" 'enable_services_stack = true' 'enable_services_stack_x = true'
+w2_mutcase "overlay-services-session-with-the-split-layout-is-refused" stack-overlays "$W2_ENV/services-session.tfvars" '"combined"' '"split"'
+w2_mutcase "overlay-services-session-with-the-p15-lc-1-tag-literal-is-refused" stack-overlays "$W2_ENV/services-session.tfvars" 'enable_services_stack' $'load_client_image_tag = "p15-lc-1"\nenable_services_stack'
+w2_mutcase "overlay-services-session-with-a-40-hex-tag-literal-is-refused" stack-overlays "$W2_ENV/services-session.tfvars" 'enable_services_stack' $'load_client_image_tag = "0123456789abcdef0123456789abcdef01234567"\nenable_services_stack'
+w2_mutcase "overlay-session-down-services-with-the-stack-false-is-refused" stack-overlays "$W2_ENV/session-down-services.tfvars" 'enable_services_stack = true' 'enable_services_stack = false'
+w2_mutcase "overlay-session-down-services-with-the-split-layout-is-refused" stack-overlays "$W2_ENV/session-down-services.tfvars" '"combined"' '"split"'
+w2_mutcase "overlay-session-down-services-with-a-third-setting-is-refused" stack-overlays "$W2_ENV/session-down-services.tfvars" 'enable_services_stack' $'egress_mode = "none"\nenable_services_stack'
+w2_mutcase "overlay-session-down-services-without-the-layout-is-refused" stack-overlays "$W2_ENV/session-down-services.tfvars" 'service_layout' 'service_layout_x'
+w2_mutcase "overlay-services-smoke-with-two-tasks-is-refused" stack-overlays "$W2_ENV/services-smoke.tfvars" '= 1' '= 2'
+w2_mutcase "overlay-services-smoke-without-the-stack-is-refused" stack-overlays "$W2_ENV/services-smoke.tfvars" 'enable_services_stack = true' 'enable_services_stack = false'
+# Repair batch 6 (review 4 low note): the exact-path exemption hides every assignment of the smoke overlay from the
+# scale-out rule, worker targets included, so the file may assign only its five real keys.
+W2_SMOKE_Q='query_max_tasks       = 1'
+w2_mutcase "overlay-services-smoke-pinning-the-worker-to-one-task-is-refused" stack-overlays "$W2_ENV/services-smoke.tfvars" "$W2_SMOKE_Q" $'query_max_tasks       = 1\nworker_max_tasks = 1'
+w2_mutcase "overlay-services-smoke-with-another-key-is-refused" stack-overlays "$W2_ENV/services-smoke.tfvars" "$W2_SMOKE_Q" $'query_max_tasks       = 1\nenable_worker = true'
+w2_mutok "overlay-services-smoke-with-the-real-answer-model-and-deadline-keys-passes" stack-overlays "$W2_ENV/services-smoke.tfvars" "$W2_SMOKE_Q" $'query_max_tasks       = 1\nanswer_model = "bedrock"\nbedrock_max_calls = 10\nslow_deadline_millis = 60000'
+
+# scaling-query and the smoke overlay: the one overlay that pins a single task is exempt from the can-scale-out rule,
+# every other overlay is not.
+w2_mutok "query-max-capacity-from-a-variable-that-only-the-smoke-overlay-pins-to-1-passes" scaling-query "$W2_RT" 'max_capacity       = 6' 'max_capacity       = var.query_max_tasks'
+w2_mut2 "query-max-capacity-pinned-to-1-by-the-session-overlay-is-refused" scaling-query fail "$W2_RT" 'max_capacity       = 6' 'max_capacity       = var.query_max_tasks' "$W2_ENV/services-session.tfvars" 'enable_services_stack' $'query_max_tasks = 1\nenable_services_stack'
+
+# The exemption names exactly services-smoke.tfvars (review 3 low note): a copy under another *smoke* name that pins
+# one task is refused; the exact file, with such a copy next to it that scales out, passes.
+# w2_smoke_copy ID EXPECT(ok|fail) COPY_NAME TASKS: the fixture with max_capacity from the variable and a second overlay.
+w2_smoke_copy() {
+  rm -rf "$W2_MUT"
+  cp -R "$W2/fixtures/tf-good" "$W2_MUT"
+  W2_MUT_OK=1
+  python3 -I "$W2/mutate.py" "$W2_MUT/$W2_RT" 'max_capacity       = 6' 'max_capacity       = var.query_max_tasks' > "$LOGDIR/w2-mut.out" 2>&1 || W2_MUT_OK=0
+  printf 'enable_services_stack = true\nquery_max_tasks       = %s\n' "$4" > "$W2_MUT/$W2_ENV/$3" || W2_MUT_OK=0
+  run python3 -I "$W2_TF" scaling-query --root "$W2_MUT"
+  case_begin "15.wave2.selftest.terraform.$1"
+  [ "$W2_MUT_OK" = "1" ] || note_fail "the mutation did not apply: $(head -n 1 "$LOGDIR/w2-mut.out" | cut -c1-160)"
+  if [ "$2" = "ok" ]; then w2_ok; else w2_fails scaling-query; fi
+  case_end
+}
+w2_smoke_copy "query-max-capacity-pinned-to-1-by-another-smoke-named-overlay-is-refused" fail other-smoke.tfvars 1
+w2_smoke_copy "the-exact-smoke-overlay-passes-beside-another-smoke-named-overlay-that-scales-out" ok other-smoke.tfvars 4
+
+# stack-tag (OD-2): the 40-hex validation of load_client_image_tag.
+w2_mutcase "the-tag-validation-accepting-seven-characters-is-refused" stack-tag "$W2_EV" '{40}' '{7}'
+w2_mutcase "the-tag-validation-without-the-stack-clause-is-refused" stack-tag "$W2_EV" '!var.enable_services_stack || ' ''
+w2_mutcase "the-tag-validation-without-its-anchors-is-refused" stack-tag "$W2_EV" '"^[0-9a-f]{40}$"' '"[0-9a-f]{40}"'
+w2_mutcase "a-missing-load-client-tag-variable-is-refused" stack-tag "$W2_EV" 'variable "load_client_image_tag"' 'variable "load_client_image_tag_x"'
+w2_mutcase "a-commit-sha-as-the-tag-default-is-refused" stack-tag "$W2_EV" 'default = "unset"' 'default = "0123456789abcdef0123456789abcdef01234567"'
+
+# verify-revision (OD-2): every weakening of verify_revision in a copy of scripts/lib.sh must be refused.
+w2_mutcase "verify-revision-skipping-the-load-client-family-is-refused" verify-revision "$W2_LIB" $'  for fam in $fams; do' $'  for fam in $fams; do\n    [[ "$fam" == *load-client* ]] && continue'
+w2_mutcase "verify-revision-skipping-a-family-with-a-case-is-refused" verify-revision "$W2_LIB" $'  for fam in $fams; do' $'  for fam in $fams; do\n    case "$fam" in *-load-client) continue ;; esac'
+w2_mutcase "verify-revision-filtering-the-family-list-in-the-loop-header-is-refused" verify-revision "$W2_LIB" 'for fam in $fams; do' 'for fam in ${fams//scholarchain-course-load-client/}; do'
+w2_mutcase "verify-revision-accepting-the-unset-tag-is-refused" verify-revision "$W2_LIB" 'if [[ "$img" == *":${tag}" ]]; then' 'if [[ "$img" == *":${tag}" || "$img" == *":unset" ]]; then'
+w2_mutcase "verify-revision-weakening-the-service-image-test-is-refused" verify-revision "$W2_LIB" $'        if [[ "$img" == *":${tag}" ]]; then' $'        if [[ "$img" == *":${tag}" || -n "$svc" ]]; then'
+w2_mutcase "verify-revision-with-a-family-mismatch-that-no-longer-counts-is-refused" verify-revision "$W2_LIB" 'bad=1' 'bad=0'
+w2_mutcase "verify-revision-listing-only-the-services-families-is-refused" verify-revision "$W2_LIB" '--family-prefix "$SC_NAME_PREFIX"' '--family-prefix "${SC_NAME_PREFIX}-services"'
+w2_mutcase "verify-revision-listing-only-inactive-families-is-refused" verify-revision "$W2_LIB" '--status ACTIVE' '--status INACTIVE'
+w2_mutcase "verify-revision-filtering-the-images-with-a-pipe-is-refused" verify-revision "$W2_LIB" $'--query \'taskDefinition.containerDefinitions[].image\' --output text)"' $'--query \'taskDefinition.containerDefinitions[].image\' --output text | grep -v load-client)"'
+w2_mutcase "verify-revision-that-only-warns-on-a-mismatch-is-refused" verify-revision "$W2_LIB" '[[ "$bad" -eq 0 ]] || die "deployed revision does not match $tag"' '[[ "$bad" -eq 0 ]] || echo warning >&2'
+w2_mutcase "a-missing-verify-revision-function-is-refused" verify-revision "$W2_LIB" 'verify_revision() {' 'verify_revisionx() {'
+}
+w2_stack_cases
+
+# Experiments: AWS verb scan on a fixture tree.
+w2_ex_reset() {
+  rm -rf "$W2_EXT"
+  mkdir -p "$W2_EXT/experiments/c-embedding-backlog" "$W2_EXT/experiments/d-query-load" "$W2_EXT/load-tests/lib" "$W2_EXT/experiments/manifests/json"
+}
+w2_ex_put() {
+  mkdir -p "$(dirname "$W2_EXT/$1")"
+  cat > "$W2_EXT/$1"
+}
+w2_verbs_base() {
+  w2_ex_reset
+  w2_ex_put experiments/c-embedding-backlog/enqueue.py <<'EOF'
+def run_aws(args):
+    if args[:2] != ["sqs", "send-message-batch"]:
+        raise PermissionError("only sqs send-message-batch is allowed")
+    return args
+
+
+x = run_aws(["sqs", "send-message-batch", "--queue-url", "u"])
+EOF
+  w2_ex_put load-tests/lib/aws_poll.py <<'EOF'
+ALLOWED = (("sqs", "get-queue-attributes"), ("ecs", "describe-services"))
+EOF
+  w2_ex_put experiments/d-query-load/collect.sh <<'EOF'
+cc_save a.json ecs describe-services --cluster c
+cc_save_optional b.json cloudwatch list-metrics --namespace N
+aws logs filter-log-events --log-group-name g
+EOF
+}
+w2_verbs_run() {
+  run env W2_MIN_FILES=1 W2_MIN_PAIRS=1 python3 -I "$W2_EX" verbs --root "$W2_EXT"
+}
+
+w2_verbs_base
+w2_verbs_run
+case_begin "15.wave2.selftest.verbs.read-only-calls-and-the-documented-send-pass"
+w2_ok
+case_end
+
+w2_verbs_base
+printf '%s\n' 'aws s3 rm s3://bucket/key' | w2_ex_put experiments/d-query-load/run.sh
+w2_verbs_run
+case_begin "15.wave2.selftest.verbs.s3-rm-is-refused"
+w2_fails verbs
+case_end
+
+w2_verbs_base
+printf '%s\n' 'aws sqs send-message-batch --queue-url u --entries e' | w2_ex_put experiments/d-query-load/run.sh
+w2_verbs_run
+case_begin "15.wave2.selftest.verbs.a-send-outside-c-and-f-is-refused"
+w2_fails verbs
+case_end
+
+w2_verbs_base
+printf '%s\n' 'cc_save p.json sqs purge-queue --queue-url u' | w2_ex_put experiments/d-query-load/collect2.sh
+w2_verbs_run
+case_begin "15.wave2.selftest.verbs.a-collector-purge-through-cc-save-is-refused"
+w2_fails verbs
+case_end
+
+w2_verbs_base
+printf '%s\n' 'subprocess.run(["aws", "sns", "publish", "--topic-arn", "t"])' | w2_ex_put load-tests/lib/notify.py
+w2_verbs_run
+case_begin "15.wave2.selftest.verbs.a-python-list-form-publish-is-refused"
+w2_fails verbs
+case_end
+
+w2_verbs_base
+printf '%s\n' 'aws ecs run-task --cluster c --task-definition t' | w2_ex_put experiments/c-embedding-backlog/run.sh
+w2_verbs_run
+case_begin "15.wave2.selftest.verbs.run-task-outside-the-load-client-launcher-is-refused"
+w2_fails verbs
+case_end
+
+w2_verbs_base
+printf '%s\n' 'aws --region us-east-2 ecs delete-service --service s' | w2_ex_put experiments/d-query-load/run.sh
+w2_verbs_run
+case_begin "15.wave2.selftest.verbs.delete-service-after-a-global-flag-is-refused"
+w2_fails verbs
+case_end
+
+w2_verbs_base
+printf '%s\n' 'aws ecs run-task --cluster c' 'aws ecs stop-task --cluster c --task t' | w2_ex_put load-tests/lib/ecs-load-client.sh
+w2_verbs_run
+case_begin "15.wave2.selftest.verbs.run-task-and-stop-task-in-the-load-client-launcher-pass"
+w2_ok
+case_end
+
+w2_verbs_base
+printf '%s\n' '# aws s3 rm s3://bucket/key is only a comment' | w2_ex_put experiments/d-query-load/run.sh
+w2_verbs_run
+case_begin "15.wave2.selftest.verbs.a-comment-naming-a-write-verb-is-ignored"
+w2_ok
+case_end
+
+# Experiments: manifests and JSON copies on a fixture tree.
+w2_mf_text() {
+  printf '%s\n' \
+    "MANIFEST_VERSION=1" "EXPERIMENT_ID=$1" "DESCRIPTION=fixture-tier-s" "ENVIRONMENT=course" "REGION=us-east-2" \
+    "ACCOUNT_ID=123456789012" "DATASET_SNAPSHOT=scholarchain-s-20261107-10dd7f34121b" "SIZE_TIER=S" \
+    "MAX_MINUTES=60" "MAX_CONCURRENCY=8" "MAX_TASKS=2000" "SPEND_CEILING_USD=1.50" "HOURLY_BURN_USD=0.90" \
+    "STOP_CONDITIONS=wall-clock,first-failure" "METRIC_NAMES=NumberOfMessagesReceived,CPUUtilization,MemoryUtilization" \
+    "METRIC_NAMESPACES=AWS/SQS,AWS/ECS" "OUTPUT_ROOT=/abs/x" "ENTRY_POINT=script:$2"
+}
+W2_MFC="experiments/manifests/experiment-c-embedding-backlog.manifest"
+W2_MFJ="experiments/manifests/json/experiment-c-embedding-backlog.json"
+w2_mf_base() {
+  w2_ex_reset
+  w2_mf_text B experiments/b-burst/run.sh > "$W2_EXT/experiments/manifests/experiment-b-burst.manifest"
+  w2_mf_text C experiments/c-embedding-backlog/run.sh > "$W2_EXT/$W2_MFC"
+  printf 'CHUNK_COUNT=2000\n' > "$W2_EXT/experiments/c-embedding-backlog/run.sh"
+  python3 -I "$W2/mkjson.py" "$W2_EXT/$W2_MFC" "$W2_EXT/$W2_MFJ"
+}
+# w2_mf_case ID KIND(manifest|json) EXPECT(ok|fail) FILE OLD NEW: FILE empty means no mutation.
+w2_mf_case() {
+  w2_mf_base
+  W2_MUT_OK=1
+  if [ -n "$4" ]; then
+    python3 -I "$W2/mutate.py" "$W2_EXT/$4" "$5" "$6" > "$LOGDIR/w2-mut.out" 2>&1 || W2_MUT_OK=0
+  fi
+  run python3 -I "$W2_EX" "$2" C --root "$W2_EXT"
+  case_begin "15.wave2.selftest.$2.$1"
+  [ "$W2_MUT_OK" = "1" ] || note_fail "the mutation did not apply: $(head -n 1 "$LOGDIR/w2-mut.out" | cut -c1-160)"
+  if [ "$3" = "ok" ]; then w2_ok; else w2_fails "$2 C"; fi
+  case_end
+}
+w2_mf_case "the-good-fixture-manifest-passes" manifest ok "" "" ""
+w2_mf_case "max-tasks-5000-is-refused" manifest fail "$W2_MFC" 'MAX_TASKS=2000' 'MAX_TASKS=5000'
+w2_mf_case "tier-m-is-refused" manifest fail "$W2_MFC" 'SIZE_TIER=S' 'SIZE_TIER=M'
+w2_mf_case "120-minutes-is-refused" manifest fail "$W2_MFC" 'MAX_MINUTES=60' 'MAX_MINUTES=120'
+w2_mf_case "a-snapshot-other-than-experiment-bs-is-refused" manifest fail "$W2_MFC" 'DATASET_SNAPSHOT=scholarchain-s-20261107-10dd7f34121b' 'DATASET_SNAPSHOT=scholarchain-s-other'
+w2_mf_case "burn-times-time-above-the-ceiling-is-refused" manifest fail "$W2_MFC" 'HOURLY_BURN_USD=0.90' 'HOURLY_BURN_USD=2.50'
+w2_mf_case "an-entry-point-of-another-experiment-is-refused" manifest fail "$W2_MFC" 'ENTRY_POINT=script:experiments/c-embedding-backlog/run.sh' 'ENTRY_POINT=script:load-tests/other/run.sh'
+w2_mf_case "the-good-fixture-json-copy-passes" json ok "" "" ""
+w2_mf_case "a-json-value-that-differs-is-refused" json fail "$W2_MFJ" '"MAX_TASKS": "2000"' '"MAX_TASKS": "2001"'
+w2_mf_case "a-json-array-element-that-differs-is-refused" json fail "$W2_MFJ" '"CPUUtilization"' '"CpuUtilization"'
+w2_mf_case "a-manifest-changed-after-its-json-was-generated-is-refused" json fail "$W2_MFC" 'MAX_MINUTES=60' 'MAX_MINUTES=61'
+
+w2_mf_base
+rm -f "$W2_EXT/$W2_MFJ"
+run python3 -I "$W2_EX" json C --root "$W2_EXT"
+case_begin "15.wave2.selftest.json.a-missing-json-copy-is-refused"
+w2_fails "json C"
+case_end
+
+# Experiments: the guards, on copies of the four real files with one weakening each.
+w2_guard_base() {
+  w2_ex_reset
+  cp "$REAL_ROOT/experiments/c-embedding-backlog/enqueue.py" "$W2_EXT/experiments/c-embedding-backlog/enqueue.py"
+  cp "$REAL_ROOT/load-tests/lib/aws_poll.py" "$W2_EXT/load-tests/lib/aws_poll.py"
+  cp "$REAL_ROOT/load-tests/lib/collect-common.sh" "$W2_EXT/load-tests/lib/collect-common.sh"
+  cp "$REAL_ROOT/load-tests/lib/ecs-load-client.sh" "$W2_EXT/load-tests/lib/ecs-load-client.sh"
+}
+# w2_guard_case ID EXPECT FILE OLD NEW
+w2_guard_case() {
+  w2_guard_base
+  W2_MUT_OK=1
+  if [ -n "$3" ]; then
+    python3 -I "$W2/mutate.py" "$W2_EXT/$3" "$4" "$5" > "$LOGDIR/w2-mut.out" 2>&1 || W2_MUT_OK=0
+  fi
+  run python3 -I "$W2_EX" guards --root "$W2_EXT"
+  case_begin "15.wave2.selftest.guards.$1"
+  [ "$W2_MUT_OK" = "1" ] || note_fail "the mutation did not apply: $(head -n 1 "$LOGDIR/w2-mut.out" | cut -c1-160)"
+  if [ "$2" = "ok" ]; then w2_ok; else w2_fails guards; fi
+  case_end
+}
+w2_guard_case "the-unmodified-copies-pass" ok "" "" ""
+w2_guard_case "enqueue-that-no-longer-raises-on-another-verb-is-refused" fail experiments/c-embedding-backlog/enqueue.py 'raise PermissionError' 'pass  #'
+w2_guard_case "a-poller-allow-list-with-update-service-is-refused" fail load-tests/lib/aws_poll.py '("ecs", "describe-services"))' '("ecs", "describe-services"), ("ecs", "update-service"))'
+# Repair batch 2, m5: cc_aws allows exactly the eleven (service, verb) pairs of the review verdict, as quoted
+# labels, with no wildcard label and no secretsmanager or ssm. Each weakening below is applied to a copy of the
+# real collect-common.sh and must be refused; the unmodified copy passes (first case above).
+W2_CC_TAIL='"dynamodb get-item" | "s3vectors get-vectors") ;;'
+w2_guard_case "a-collector-verb-list-with-put-is-refused" fail load-tests/lib/collect-common.sh "$W2_CC_TAIL" '"dynamodb get-item" | "dynamodb put-item" | "s3vectors get-vectors") ;;'
+w2_guard_case "a-collector-get-wildcard-label-is-refused" fail load-tests/lib/collect-common.sh '"sqs get-queue-attributes"' '"sqs get-*"'
+w2_guard_case "a-collector-added-secretsmanager-get-secret-value-is-refused" fail load-tests/lib/collect-common.sh "$W2_CC_TAIL" '"dynamodb get-item" | "s3vectors get-vectors" | "secretsmanager get-secret-value") ;;'
+w2_guard_case "a-collector-added-ssm-get-parameter-is-refused" fail load-tests/lib/collect-common.sh "$W2_CC_TAIL" '"dynamodb get-item" | "s3vectors get-vectors" | "ssm get-parameter") ;;'
+w2_guard_case "a-collector-allowed-pair-dropped-is-refused" fail load-tests/lib/collect-common.sh '"dynamodb get-item" | ' ''
+w2_guard_case "a-load-client-launcher-starting-five-tasks-is-refused" fail load-tests/lib/ecs-load-client.sh '--count 1' '--count 5'
 
 ### Case 12: secrets, the tripwire and the real repository ---------------------------------
 

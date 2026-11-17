@@ -27,6 +27,11 @@ output "security_group_ids" {
   }
 }
 
+output "s3_prefix_list_id" {
+  description = "Prefix list of the S3 gateway endpoint."
+  value       = aws_vpc_endpoint.s3.prefix_list_id
+}
+
 output "egress_mode" {
   description = "The egress mode in effect."
   value       = var.egress_mode

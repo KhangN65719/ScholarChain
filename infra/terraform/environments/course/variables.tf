@@ -382,9 +382,241 @@ variable "loader_memory" {
 }
 
 variable "log_retention_days" {
-  description = "CloudWatch log retention."
+  description = "CloudWatch log retention in days. Phase 15: 7, so the raw lines of an experiment can be collected after the session. At least 7 (validated): the value reaches the runtime and workflow modules."
   type        = number
-  default     = 3
+  default     = 7
+
+  validation {
+    condition     = var.log_retention_days >= 7
+    error_message = "log_retention_days must be at least 7 (Phase 15: raw experiment lines are collected after the session)."
+  }
+}
+
+### Phase 15 (WO-10): services session
+
+variable "enable_services_stack" {
+  description = "Create the session 2 resources beside the Phase 14 shape (OD-1): the embedding worker IAM role and policy, the load-client ECR repository, the worker and load-client log groups and task definitions, the alb and load_client security groups with their seven rules, the scaling dashboard, and Container Insights enabled. Off (default): the Experiment A and B applies plan the resources session 1 applied and nothing else, and IAM_CHANGES is none. services-session.tfvars and services-smoke.tfvars turn it on, and session-down-services.tfvars keeps it on for the session 2 teardown so the log groups, the ECR repository and the roles are not destroyed. Everything in it is free while idle."
+  type        = bool
+  default     = false
+}
+
+variable "service_layout" {
+  description = "split (default, the layout session 1 applied: fast and slow services, so the Experiment A and B plans destroy no service, task definition or log group): the Phase 14 shape. combined: one query service running AwsRuntime both; services-session.tfvars and session-down-services.tfvars set it. Switching layout destroys the other layout's services, task definitions and log groups (log events with them). See modules/runtime."
+  type        = string
+  default     = "split"
+
+  validation {
+    condition     = contains(["split", "combined"], var.service_layout)
+    error_message = "service_layout must be split or combined."
+  }
+}
+
+variable "service_cpu" {
+  description = "Fargate CPU units of the query service task. 512 (0.5 vCPU): small enough that Experiment D's peak crosses the scaling targets (SESSION2.md)."
+  type        = number
+  default     = 256
+}
+
+variable "service_memory" {
+  description = "Fargate memory in MiB of the query service task. The task holds the whole S3 export in the heap. PROVISIONAL 4096 (about 3 GiB heap at MaxRAMPercentage 75) until the local measurement of SESSION2.md sets the final value."
+  type        = number
+  default     = 512
+}
+
+variable "service_jvm_options" {
+  description = "JAVA_TOOL_OPTIONS of the service containers. Empty keeps the image's MaxRAMPercentage=75."
+  type        = string
+  default     = ""
+}
+
+variable "graph_run_id" {
+  description = "Graph run ID the services read (SCHOLARCHAIN_GRAPH_RUN_ID): the Spark run ID, the sourceRunId of the export manifest, form run:v1:<uuid>. P15-26: it comes from session 2's Experiment A run, so no file carries a value; pass it with -var or a session-2 tfvars written outside the repository (SESSION2.md, section 6a). REQUIRED whenever service_desired_count is above 0; null (unset) is accepted only while no service runs, so plans of the other overlays (course, S, graph-load, session-down) need no value. Not a secret."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.graph_run_id == null ? true : can(regex("^run:v1:[0-9a-f-]{36}$", var.graph_run_id))
+    error_message = "graph_run_id must match ^run:v1:[0-9a-f-]{36}$ (run:v1:<uuid>)."
+  }
+
+  validation {
+    condition     = var.graph_run_id != null || var.service_desired_count == 0
+    error_message = "graph_run_id is required when service_desired_count is above 0 (P15-26): pass the sourceRunId of the A run's export manifest with -var graph_run_id=... (SESSION2.md, section 6a)."
+  }
+}
+
+variable "export_run_id" {
+  description = "Pipeline run slug the services read the export under (SCHOLARCHAIN_EXPORT_RUN_ID): the directory name run-v1-<uuid> in semantic-context/runs/<slug>/export/, i.e. the A pipeline run_id. It is NOT graph_run_id: graph_run_id (run:v1:<uuid>) stays the sourceRunId of the export manifest and the metric pin. Same source and handling as graph_run_id (P15-26): written to a session-2 tfvars outside the repository (SESSION2.md, section 6a). REQUIRED whenever service_desired_count is above 0; null (unset) is accepted only while no service runs. Not a secret."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.export_run_id == null ? true : can(regex("^run-v1-[0-9a-f-]{36}$", var.export_run_id))
+    error_message = "export_run_id must match ^run-v1-[0-9a-f-]{36}$ (run-v1-<uuid>, the pipeline slug of the export directory)."
+  }
+
+  validation {
+    condition     = var.export_run_id != null || var.service_desired_count == 0
+    error_message = "export_run_id is required when service_desired_count is above 0: pass the A pipeline run_id slug (run-v1-<uuid>) in the session-2 tfvars (SESSION2.md, section 6a)."
+  }
+}
+
+variable "answer_model" {
+  description = "stub (default: the offline deterministic model) or bedrock (Haiku through bedrock_haiku_profile_id). P15-4: bedrock only for the smoke test, stub for D, E, F and C."
+  type        = string
+  default     = "stub"
+
+  validation {
+    condition     = contains(["stub", "bedrock"], var.answer_model)
+    error_message = "answer_model must be stub or bedrock."
+  }
+
+  validation {
+    condition     = var.answer_model == "stub" || var.enable_bedrock
+    error_message = "answer_model bedrock needs enable_bedrock = true (AwsRuntime refuses SCHOLARCHAIN_BEDROCK=off with the bedrock answer model, and the role has no Bedrock grant)."
+  }
+}
+
+variable "bedrock_max_calls" {
+  description = "SCHOLARCHAIN_BEDROCK_MAX_CALLS: hard cap on Bedrock answer calls per process (P15-4: at most 10 queries)."
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.bedrock_max_calls >= 1 && var.bedrock_max_calls <= 10
+    error_message = "bedrock_max_calls must be 1 to 10 (P15-4)."
+  }
+}
+
+variable "slow_deadline_millis" {
+  description = "SCHOLARCHAIN_SERVICES_SLOW_DEADLINE_MILLIS. 0 (default) leaves the code default of 10 s. The Bedrock smoke raises it (the Bedrock call deadline is 40 s); the code allows up to 300000."
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.slow_deadline_millis == 0 || (var.slow_deadline_millis >= 10000 && var.slow_deadline_millis <= 120000)
+    error_message = "slow_deadline_millis must be 0 (unset) or 10000 to 120000."
+  }
+}
+
+variable "enable_load_balancer" {
+  description = "Create the internal ALB (P15-3), its target group and listener, and the p95 latency alarm. Needs enable_services_stack (the alb and load_client security groups) and service_layout combined."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.enable_load_balancer || var.enable_services_stack
+    error_message = "enable_load_balancer needs enable_services_stack = true (the alb and load_client security groups exist only with it)."
+  }
+
+  validation {
+    condition     = !var.enable_load_balancer || var.service_layout == "combined"
+    error_message = "enable_load_balancer needs service_layout = combined (one query service behind the ALB)."
+  }
+}
+
+variable "health_check_grace_seconds" {
+  description = "ECS health-check grace period of the query service behind the ALB. 300: image pull plus the export download, verification and parse before any port listens. PROVISIONAL until the local measurement."
+  type        = number
+  default     = 300
+}
+
+variable "enable_autoscaling" {
+  description = "Create the scaling targets, policies and scaling alarms of the query service and the worker."
+  type        = bool
+  default     = false
+}
+
+variable "query_min_tasks" {
+  description = "Minimum query tasks."
+  type        = number
+  default     = 1
+}
+
+variable "query_max_tasks" {
+  description = "Maximum query tasks (4 x 0.5 vCPU = 2 vCPU of the 30 vCPU Fargate quota)."
+  type        = number
+  default     = 4
+}
+
+variable "request_count_target" {
+  description = "ALBRequestCountPerTarget target, requests per task per minute (300 = 5 per second)."
+  type        = number
+  default     = 300
+}
+
+variable "cpu_target_percent" {
+  description = "ECSServiceAverageCPUUtilization target, percent."
+  type        = number
+  default     = 60
+}
+
+variable "p95_latency_alarm_seconds" {
+  description = "p95 TargetResponseTime alarm threshold, seconds."
+  type        = number
+  default     = 2
+}
+
+variable "enable_worker" {
+  description = "Create the embedding worker service. Needs enable_services_stack (the worker role, task definition and log group)."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.enable_worker || var.enable_services_stack
+    error_message = "enable_worker needs enable_services_stack = true (the worker IAM role, task definition and log group exist only with it)."
+  }
+}
+
+variable "worker_desired_count" {
+  description = "Starting worker task count."
+  type        = number
+  default     = 1
+}
+
+variable "worker_min_tasks" {
+  description = "Minimum worker tasks."
+  type        = number
+  default     = 1
+}
+
+variable "worker_max_tasks" {
+  description = "Maximum worker tasks (4 x 0.5 vCPU = 2 vCPU)."
+  type        = number
+  default     = 4
+}
+
+variable "worker_visibility_seconds" {
+  description = "SCHOLARCHAIN_WORKER_VISIBILITY_SECONDS (code range 30 to 900, code default 120). 60: a poison message is received three times (the queue's maxReceiveCount 3, unchanged) in about three to four minutes instead of six to seven."
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = var.worker_visibility_seconds >= 30 && var.worker_visibility_seconds <= 900
+    error_message = "worker_visibility_seconds must be 30 to 900."
+  }
+}
+
+variable "worker_lease_seconds" {
+  description = "SCHOLARCHAIN_WORKER_LEASE_SECONDS (code range 10 to visibility minus 5, code default 100)."
+  type        = number
+  default     = 50
+
+  validation {
+    condition     = var.worker_lease_seconds >= 10 && var.worker_lease_seconds <= var.worker_visibility_seconds - 5
+    error_message = "worker_lease_seconds must be 10 to worker_visibility_seconds minus 5."
+  }
+}
+
+variable "load_client_image_tag" {
+  description = "Tag of the load-client image in the scholarchain-load-client repository (immutable tags; the placeholder never exists). With enable_services_stack it must be the 40-hex Git commit SHA that deploy.sh verifies (OD-2): verify_revision requires every ACTIVE scholarchain-course* task definition family, the load-client family included, to use an image ending :<HEAD>, and that check is not weakened. No file carries the value (the SHA is a commit's own hash): session2.tfvars, outside the repository, sets it to the SHA of the commit the session runs from, and the load-client image is pushed under that tag (SESSION2.md, 6a)."
+  type        = string
+  default     = "unset"
+
+  validation {
+    condition     = !var.enable_services_stack || can(regex("^[0-9a-f]{40}$", var.load_client_image_tag))
+    error_message = "With enable_services_stack the load_client_image_tag must be the 40-hex Git SHA of HEAD (OD-2): deploy.sh verify_revision requires every ACTIVE task definition family, the load-client one included, to use an image tagged with HEAD. Set it in session2.tfvars (SESSION2.md, 6a)."
+  }
 }
 
 variable "deployer_trusted_principal_arns" {

@@ -1,0 +1,13 @@
+[
+  {"id": "q_visible", "label": "queue:visible messages", "namespace": "AWS/SQS", "metric": "ApproximateNumberOfMessagesVisible", "dimensions": {"QueueName": "{QUEUE_NAME}"}, "stat": "Maximum", "period": 60},
+  {"id": "q_in_flight", "label": "queue:in-flight messages", "namespace": "AWS/SQS", "metric": "ApproximateNumberOfMessagesNotVisible", "dimensions": {"QueueName": "{QUEUE_NAME}"}, "stat": "Maximum", "period": 60},
+  {"id": "q_age", "label": "oldest message age s:oldest message age", "namespace": "AWS/SQS", "metric": "ApproximateAgeOfOldestMessage", "dimensions": {"QueueName": "{QUEUE_NAME}"}, "stat": "Maximum", "period": 60},
+  {"id": "q_sent", "label": "flow per minute:sent", "namespace": "AWS/SQS", "metric": "NumberOfMessagesSent", "dimensions": {"QueueName": "{QUEUE_NAME}"}, "stat": "Sum", "period": 60},
+  {"id": "q_received", "label": "flow per minute:received", "namespace": "AWS/SQS", "metric": "NumberOfMessagesReceived", "dimensions": {"QueueName": "{QUEUE_NAME}"}, "stat": "Sum", "period": 60},
+  {"id": "q_deleted", "label": "flow per minute:deleted", "namespace": "AWS/SQS", "metric": "NumberOfMessagesDeleted", "dimensions": {"QueueName": "{QUEUE_NAME}"}, "stat": "Sum", "period": 60},
+  {"id": "dlq_visible", "label": "dead-letter queue:visible messages", "namespace": "AWS/SQS", "metric": "ApproximateNumberOfMessagesVisible", "dimensions": {"QueueName": "{DLQ_NAME}"}, "stat": "Maximum", "period": 60},
+  {"id": "ecs_desired", "label": "worker tasks:desired", "namespace": "ECS/ContainerInsights", "metric": "DesiredTaskCount", "dimensions": {"ClusterName": "{CLUSTER}", "ServiceName": "{SERVICE}"}, "stat": "Maximum", "period": 60},
+  {"id": "ecs_running", "label": "worker tasks:running", "namespace": "ECS/ContainerInsights", "metric": "RunningTaskCount", "dimensions": {"ClusterName": "{CLUSTER}", "ServiceName": "{SERVICE}"}, "stat": "Maximum", "period": 60},
+  {"id": "ecs_cpu", "label": "worker CPU and memory percent:CPUUtilization", "namespace": "AWS/ECS", "metric": "CPUUtilization", "dimensions": {"ClusterName": "{CLUSTER}", "ServiceName": "{SERVICE}"}, "stat": "Average", "period": 60},
+  {"id": "ecs_memory", "label": "worker CPU and memory percent:MemoryUtilization", "namespace": "AWS/ECS", "metric": "MemoryUtilization", "dimensions": {"ClusterName": "{CLUSTER}", "ServiceName": "{SERVICE}"}, "stat": "Average", "period": 60}
+]

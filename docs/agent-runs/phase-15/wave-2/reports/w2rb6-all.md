@@ -1,0 +1,5 @@
+# Wave 2 repair batch 6 (received 2026-11-17; summary as received; authors named per item)
+
+- infra-engineer: `SESSION2.md:70-71` A2 row course, experiment-size-s, services-session, session2, services-smoke; A3 row course, experiment-size-s, services-session, session2; `services-session.tfvars:39-40` IDs from the A run of the combined A + B session (runbook 2.9); `services-smoke.tfvars:3-4` layering example adds `session2.tfvars`. Comment/prose only; nothing run.
+- deploy-engineer: runbook `:1007` six-table-name item removed from UNVERIFIED; `:999` closed list cites `JsonlExportSource.scala:29-36`, `AwsReadModels.scala:135-140`.
+- test-engineer: option (b): `tfcheck.py` `SMOKE_KEYS` = {answer_model, bedrock_max_calls, enable_services_stack, query_max_tasks, slow_deadline_millis}; `check_stack_overlays` fails on any other key in the smoke file. Three self-tests in `run.sh` (worker_max_tasks = 1 refused; enable_worker refused; real keys pass). Expected `RESULT pass=1883 fail=0`. Not executed (guard).

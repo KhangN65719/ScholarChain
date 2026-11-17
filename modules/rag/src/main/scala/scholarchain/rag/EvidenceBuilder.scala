@@ -576,6 +576,9 @@ final class EvidenceBuilderAgent(
   def hasIdentity: Boolean =
     items.values.exists(_.evidenceType == EvidenceType.IdentityLink)
 
+  def hasSemantic: Boolean =
+    items.values.exists(_.evidenceType == EvidenceType.TextChunk)
+
   def hasDeterministic: Boolean =
     items.values.exists(i =>
       i.evidenceType != EvidenceType.TextChunk &&

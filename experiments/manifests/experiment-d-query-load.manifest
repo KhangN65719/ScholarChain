@@ -1,34 +1,49 @@
-# Experiment D: query load at four concurrency levels (1, 4, 8, 16; see load-tests/README.md).
-# DRAFT. Unapproved and unexecuted. Valid only for scripts/run-experiment.sh --dry-run.
-# Format: scripts/README.md, "Experiment manifest contract". No spaces in values.
+# Experiment D: query load at four concurrency levels (1, 8, 24, 48 clients, 480 s each, then 900 s
+# with no client so the services can scale in) on tier S data, decision P15-1. Phase 15 Wave 2.
+# UNAPPROVED and UNEXECUTED. Format: scripts/README.md, "Experiment manifest contract".
+# No spaces in values. The design is in load-tests/query-load/README.md (it supersedes the old
+# levels 1, 4, 8, 16 of load-tests/README.md).
 # PLACEHOLDERS the human replaces before an approval record is written
 # (the record binds the sha256 of the final file, so any edit needs a new record):
 #   ACCOUNT_ID       123456789012 is the documented example, not a real account.
-#   DATASET_SNAPSHOT a draft name; the dataset-engineer has not defined snapshot ids.
+#   (DATASET_SNAPSHOT is filled: scholarchain-s-20261107-10dd7f34121b, reported by WO-4 and
+#                    verified by the human.)
 #   OUTPUT_ROOT      /abs/outside/repo/... is a placeholder path; pick a durable directory
 #                    outside the repository.
-# OPEN ITEM FOR THE HUMAN: the course text names 1, 10, 50 and 100 concurrent clients.
-# The provisional tier caps (16 on M, 32 on L) make 50 and 100 unreachable, so the top
-# level here is 16 (the tier M cap). No cap was raised.
-# MAX_TASKS 3500 = 100 warm-up + 200 + 600 + 1000 + 1600 requests over the four levels.
-# Cost basis: HOURLY_BURN_USD 0.85 = tier M session 0.62 + 2 extra runtime tasks 0.025
-# + 4 load-test client tasks at 0.0494 (0.1975) = 0.8425, rounded up (UNVERIFIED rates).
-# 0.85 x 90 min / 60 = 1.275. Uses the offline LLM stub, so no Bedrock charge.
+# Limits (tier S caps of decision P15-1: 90 min, 64 clients, 20000 tasks):
+#   MAX_CONCURRENCY 48  the top level (was 16). Within the 64 cap.
+#   MAX_TASKS 20000     the request bound of the committed schedule is 19,521 =
+#                       (1 + 8 + 24 + 48) x (floor(480 / 2.0) + 1) with think time 2.0 to 4.0 s; the
+#                       client enforces the bound at run time (exit 3 at a cap). Expected about
+#                       11,100 requests at 0.5 s latency. At the cap.
+#   MAX_MINUTES 70      the schedule takes 47 min (4 x 8 + 15); run.sh gives the client MAX_MINUTES
+#                       minus 15 and requires at least 50, so 65 is the least; 70 leaves 5 min of
+#                       slack. Within the 90 cap.
+# Uses the offline stub answer model (P15-4): no Bedrock charge.
+# COST (HOURLY_BURN_USD and SPEND_CEILING_USD): session 2 values from WO-10, infra/terraform/COST_ESTIMATE.md,
+# section "Session 2 (services) hourly burn and HIGH", paragraph "Provisional experiment burns".
+# HOURLY_BURN_USD 0.55 = steady 0.37 + 3 extra query tasks 0.114 + load client 0.049, rounded up.
+# Was 0.85 (tier M draft).
+# SPEND_CEILING_USD 0.65: 0.55 x 70 min / 60 = 0.6417, under the ceiling 0.65 (0.0083 headroom,
+# the document's own rounding). Was 1.50. The burn covers the experiment hours only; the offline stub
+# answer model has no Bedrock charge, and the S3 Vectors queries (2.50 USD per million) are cents.
+# CAVEAT for the human: every rate behind the 0.37 steady burn is UNVERIFIED (memory; only the
+# Fargate per-second rates are read anchors), so the value is the WO-10 figure, not a verified rate.
 MANIFEST_VERSION=1
 EXPERIMENT_ID=D
-DESCRIPTION=query-load-four-concurrency-levels-1-4-8-16-tier-m-draft
+DESCRIPTION=query-load-four-levels-1-8-24-48-clients-480s-each-then-900s-idle-tier-s
 ENVIRONMENT=course
 REGION=us-east-2
 ACCOUNT_ID=123456789012
-DATASET_SNAPSHOT=scholarchain-slice-m-25000-works-DRAFT
-SIZE_TIER=M
-MAX_MINUTES=90
-MAX_CONCURRENCY=16
-MAX_TASKS=3500
-SPEND_CEILING_USD=1.50
-HOURLY_BURN_USD=0.85
+DATASET_SNAPSHOT=scholarchain-s-20261107-10dd7f34121b
+SIZE_TIER=S
+MAX_MINUTES=70
+MAX_CONCURRENCY=48
+MAX_TASKS=20000
+SPEND_CEILING_USD=0.65
+HOURLY_BURN_USD=0.55
 STOP_CONDITIONS=wall-clock,first-failure,spend-estimate
-METRIC_NAMES=CPUUtilization,MemoryUtilization,DesiredTaskCount,RunningTaskCount,ThrottledRequests,SuccessfulRequestLatency,ReadThrottleEvents,MainRequestQueuePendingRequests
-METRIC_NAMESPACES=AWS/ECS,ECS/ContainerInsights,AWS/DynamoDB,AWS/Neptune
+METRIC_NAMES=TargetResponseTime,RequestCount,HTTPCode_Target_5XX_Count,HTTPCode_ELB_5XX_Count,HealthyHostCount,DesiredTaskCount,RunningTaskCount,CPUUtilization,MemoryUtilization,MainRequestQueuePendingRequests,ReadThrottleEvents,WriteThrottleEvents,ConsumedReadCapacityUnits,ConsumedWriteCapacityUnits
+METRIC_NAMESPACES=AWS/ApplicationELB,ECS/ContainerInsights,AWS/ECS,AWS/DynamoDB,AWS/Neptune
 OUTPUT_ROOT=/abs/outside/repo/scholarchain-experiments
-ENTRY_POINT=script:load-tests/d-query-load/run.sh
+ENTRY_POINT=script:experiments/d-query-load/run.sh

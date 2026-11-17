@@ -1,0 +1,3 @@
+# Wave 2 repair batch 5, test-engineer (review 3 low note; received 2026-11-17; author: test-engineer subagent; summary as received)
+
+Status: COMPLETE for edits, not executed (guard). `tests/scripts/w2/tfcheck.py`: `SMOKE_OVERLAY = "infra/terraform/environments/course/services-smoke.tfvars"`; exemption only for that exact path (was any basename containing "smoke"). `tests/scripts/run.sh` ~12597: helper `w2_smoke_copy`; cases `...query-max-capacity-pinned-to-1-by-another-smoke-named-overlay-is-refused` and `...the-exact-smoke-overlay-passes-beside-another-smoke-named-overlay-that-scales-out`. Expected `RESULT pass=1880 fail=0` (1878 + 2). Not run: `bash -n`, shellcheck.

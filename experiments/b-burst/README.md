@@ -3,7 +3,7 @@
 Status: authored, NOT executed. No AWS call, no run, no approval record. Rehearsals on synthetic fixtures (`rehearse.sh`, `rehearse-collect.sh`, `../rehearse-manifest-json.sh`, see "Rehearsal") are the only checks; their results are in the Wave 1 reports, not here.
 
 ## Design
-- Data: the tier S subset (3,472 works), same inputs as S run 6. The load increase is a higher reducer count, a small split size and large containers (decision P15-7): the `b-burst` profile in `scripts/emr/spark-yarn.conf` (`PARTITION_COUNT=16`, `SPLIT_MAX_BYTES=131072`, `MAP_MEMORY_MB=3072`, `REDUCE_MEMORY_MB=3072`). The default pipeline is unchanged. A larger manifest is not used.
+- Data: the tier S subset (3,472 works), same inputs as S run 6. The load increase is a higher reducer count, a small split size and large containers (decision P15-7): the `b-burst` profile in `scripts/emr/spark-yarn.conf` (`PARTITION_COUNT=8`, `SPLIT_MAX_BYTES=262144`, `MAP_MEMORY_MB=2048`, `REDUCE_MEMORY_MB=3072`; values replaced by decision P15-23, see `docs/agent-runs/phase-15/session-1/b-diagnosis-hadoop-engineer.md`). The default pipeline is unchanged. A larger manifest is not used.
 - Cluster: `elasticity-s.tfvars` (infra-engineer): primary 1, core 1, managed scaling Min 1, Max 3, core-only (EMR limits count core and task nodes only, `docs/agent-runs/phase-15/wave-1/doc-verification.md` K2), so at most 4 instances in all; Neptune off, Bedrock off; a bounded Wait before `TerminateCluster` so a scale-in can happen while the cluster is still up.
 - Entry point: `run.sh` starts ONE pipeline execution through `scripts/run-bounded-pipeline.sh` (mode `pipeline`, size `medium` for the 90 minute tier cap, `--max-minutes 88`, burn 1.55 USD/h, spend ceiling 2.30 USD) and waits. The manifest limit is `MAX_MINUTES=90` and `SPEND_CEILING_USD=2.40` (decision P15-16: the full tier S cap; the earlier 74 minute stop left about 140 s of slack in the realistic case and a stop cuts the scale-in window). The entry limit stays strictly above the pipeline limit. It tunes nothing, retries nothing and calls no other AWS verb.
 - Loader: skipped by the Terraform variable `pipeline_skip_loader` in `elasticity-s.tfvars` (the state machine goes from `TerminateCluster` to done and the execution ends SUCCEEDED). The `"loader_command":["-version"]` in the execution input template is required by the pipeline input contract and is never used.
@@ -17,6 +17,8 @@ Status: authored, NOT executed. No AWS call, no run, no approval record. Rehears
 
 - Decision P15-20 (accepted 2026-11-17): if the 88-minute pipeline stop fires, the cluster is still terminated and cost stays bounded, but the teardown check after the stop can take up to 300 s (`scripts/run-bounded-pipeline.sh`). Only about 2 minutes remain before the 90-minute entry limit, so the entry kill may cut the end of the run record (`window.json`, the last `events.jsonl` lines). Read a run that hit the stop with that in mind; the pipeline record and the collected Step Functions and EMR files still show the end state.
 
+- Session 1 run `exp-B-20261117T053516Z-8a6beaae` failed at the 1,500 s Hadoop limit with the old profile values (16 reducers, 131072 split, 3072 MB map) but recorded the scale-out (core 1 to 3 at 05:43:58Z). Decision P15-23 replaced the values; the rerun targets scale-in.
+
 ## Before a results commit (redaction, review 1 a3)
 The raw files hold the AWS account ID inside ARNs: `<run dir>/raw/window.json`, `raw/pipeline/*.record.env`, `raw/pipeline-run.log`, and in `collected/` the files `sfn-execution.json`, `sfn-history.json`, `emr-describe-cluster.json` and any `*.error.txt`. The raw files in the run directory stay exactly as written (immutable). A copy for a commit is made from them with the 12-digit account ID replaced by `000000000000`, for example:
 ```
@@ -29,8 +31,8 @@ This covers `window.json`, `pipeline-run.log`, `pipeline/*.record.env` and every
 
 ## Open prerequisites
 Items resolved by infra-engineer since the first draft (HDFS path with `DATA_PATH=hdfs`, the reducer and container settings in the `b-burst` profile, S caps of 90 minutes, `skip_loader_after_pipeline`) are not repeated here. Still open and UNVERIFIED until a run:
-1. Whether the 16 reducers on 3 GiB containers produce pending YARN containers on one core node (the NodeManager memory of an m5.xlarge is not read). If nothing is pending, nothing scales out; decision P15-11 applies.
-2. Whether the Hadoop stage fits its fixed `timeout -k 30 1500` with HDFS put and get and 16 reducers per stage.
+1. Whether the 8 reducers on 2 GiB map and 3 GiB reduce containers produce pending YARN containers on one core node (the NodeManager memory of an m5.xlarge is not read; P15-23, `docs/agent-runs/phase-15/session-1/b-diagnosis-hadoop-engineer.md`). If nothing is pending, nothing scales out; decision P15-11 applies.
+2. Whether the Hadoop stage fits its fixed `timeout -k 30 1500` with HDFS put and get and 8 reducers per stage.
 3. `scripts/run-experiment.sh --print-digest` on the B manifest and a new approval record: the manifest changed (limits, metric names), so every earlier record is void.
 
 ## Files
@@ -77,7 +79,7 @@ AWS_PROFILE=scholarchain bash /Users/winnguyen/ScholarChain/scripts/run-experime
 set -o pipefail
 AWS_PROFILE=scholarchain aws emr list-clusters --active --region us-east-2 --query 'Clusters[].[Id,Name,Status.State]' --output text 2>&1 | tee "/Users/winnguyen/scholarchain-data/logs/phase15-b-live-1.log" | tail -n 60; echo "exit: $?"
 CLUSTER_ID="REPLACE_WITH_CLUSTER_ID"
-AWS_PROFILE=scholarchain aws emr list-instance-groups --cluster-id "${CLUSTER_ID}" --region us-east-2 --query 'InstanceGroups[].[InstanceGroupType,RequestedInstanceCount,RunningInstanceCount,Status.State]' --output text 2>&1 | tee "/Users/winnguyen/scholarchain-data/logs/phase15-b-live-2.log" | tail -n 60; echo "exit: $?"
+AWS_PROFILE=scholarchain aws emr describe-cluster --cluster-id "${CLUSTER_ID}" --region us-east-2 --query 'Cluster.InstanceGroups[].[InstanceGroupType,RequestedInstanceCount,RunningInstanceCount,Status.State]' --output text 2>&1 | tee "/Users/winnguyen/scholarchain-data/logs/phase15-b-live-2.log" | tail -n 60; echo "exit: $?"
 ```
 
 4. After the run ends (the cluster may already be gone; EMR keeps it describable for about two months, CloudWatch keeps 5-minute data 63 days). Writes `<run dir>/collected/` once, read-only calls only, refuses an existing `collected/`:
@@ -102,8 +104,7 @@ A failed or timed-out run is collected and derived the same way and reported; it
 | Call | Gives |
 |---|---|
 | `stepfunctions describe-execution`, `get-execution-history` | state timestamps (CreateCluster, PipelineStep, Wait, TerminateCluster), the cluster id |
-| `emr describe-cluster` | cluster creation, ready and end time |
-| `emr list-instance-groups` | requested and running instance counts per group (final values) |
+| `emr describe-cluster` | cluster creation, ready and end time; `Cluster.InstanceGroups` (id, name, type, requested and running counts, final values), the source of each instance's role. The installed AWS CLI has no `emr list-instance-groups` (run of 2026-11-17: "invalid choice"). An instance whose group is not listed gets the role `NOT RECORDED` |
 | `emr list-instances` | CreationDateTime, ReadyDateTime and EndDateTime of every instance: the requested, provisioned and released timeline with exact times |
 | `emr get-managed-scaling-policy` (optional) | the minimum and maximum in force, used to label floor-restoring instances |
 | `emr list-steps` (optional) | step states |

@@ -98,12 +98,35 @@ class SparkRoundTripSuite extends SparkBase:
       case Failure(e) =>
         fail(s"NeptuneExporter.exportTo failed: ${describe(e)}")
 
-  test("JsonlExport writes the eleven tables the storage projector reads") {
+  private val expectedExportTables: Vector[String] = Vector(
+    "semantic-summaries",
+    "nodes-work",
+    "researcher-metrics",
+    "nodes-researcher",
+    "nodes-venue",
+    "nodes-topic",
+    "nodes-institution",
+    "edges-authored",
+    "edges-published-in",
+    "edges-coauthored",
+    "edge-support",
+    "path-evidence",
+    "components",
+    "component-membership",
+    "communities",
+    "community-membership",
+    "community-cross-edges"
+  ).sorted
+
+  test(
+    "JsonlExport writes the seventeen tables the storage projector and analytics readers use"
+  ) {
     val dir = exported()
     val manifest = ujson.read(os(dir.resolve("export-manifest.json")))
     val names = manifest("tables").obj.keys.toVector.sorted
     assertEquals(names, ExportTables.all.map(_.name).sorted)
-    assertEquals(names.size, 11)
+    assertEquals(names, expectedExportTables)
+    assertEquals(names.size, 17)
     assert(java.nio.file.Files.isRegularFile(dir.resolve("_SUCCESS")))
     info("export tables: " + names.mkString(", "))
     info(
