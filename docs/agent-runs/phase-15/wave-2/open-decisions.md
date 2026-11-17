@@ -12,3 +12,5 @@
 | OD-9 | session 2 load-client image tag (OD-2 detail). | Tag = commit SHA in `session2.tfvars`; `p15-lc-1` retired; `verify_revision` unchanged. Docs outside infra that name `p15-lc-1` (human-commands §4, runbook, load-test docs) to be updated by their owners. | no |
 | OD-10 | Harness `scaling-query` fires on `services-smoke.tfvars` `query_max_tasks = 1` (P15-27). | The scale-out check ignores the smoke overlay when resolving capacities; a separate case pins the smoke value to exactly 1. Session overlay still must allow scale-out. Not a weakening (smoke is a 1-task bound by decision). | yes |
 | OD-7 | Session 1 billing lag in the A + B gate (runbook review minor 4). | Fixed allowance of 1.15 USD added to the billed figure whenever Billing has not caught up with session 1. | yes |
+
+Human answers (2026-11-17 morning, recorded as P15-30): OD-1, OD-7, OD-8, OD-10 accepted. OD-3 ratified: retained <= 400 MiB and peak <= 800 MiB on A's export -> 2048 MiB; otherwise or on `OutOfMemoryError` -> 4096 MiB.

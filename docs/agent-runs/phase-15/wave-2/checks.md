@@ -34,4 +34,15 @@
 | service-engineer `sbt quick` (w2rb2) | `[success] Total time: 313 s`, 03:20:08; services XML 167/0/0; spark 77, root 1041 | w2rb2 service report |
 | Orchestrator `sbt check` after repair batch 2 (all Scala changes of batches 2-4; later batches 3-4 changed no compiled Scala) | `Passed: Total 99, Failed 0` and `Passed: Total 1162, Failed 0`; `[success] Total time: 1993 s (0:33:13.0), completed Nov 17, 2026, 3:53:45 AM`; `SparkRoundTripSuite` 11/11 incl. seventeen tables | task b436lic3b log, lines 900572-900598 |
 
+| Human morning batch: `rm scratch-unused.tmp` | done (2026-11-17) | human `!` run |
+| Human morning batch: `check.sh --skip-sbt` | `GATE terraform=PASS`, `CHECK_RESULT=PASS_WITH_SKIPS` (sbt skipped), exit 0; first terraform fmt/validate of the Wave 2 infra edits | `phase15-w2-mb-check.log` |
+| Human morning batch: manifest JSON | `MANIFEST_JSON_CHECK OK manifests=6`, exit 0 | `phase15-w2-mb-check-json.log` |
+| Human morning batch: harness | `RESULT pass=1883 fail=0`, `SKIPPED_CASES 0`, `real-repository-untouched` PASS, exit 0 (expected 1883/0) | `phase15-w2-mb-harness.log` |
+| Human morning batch: rehearsals | `rehearse_shell.py` 27/0; b-burst `rehearse-collect.sh` 35/0; b-burst `rehearse.sh` 62/0; load-client 45/0; C 35/0; F 8/0; all exit 0 | `phase15-w2-mb-rehearse-*.log` |
+| Human morning batch: `sbt dockerLocal` | `[success] Total time: 2 s`, 9:31:13 AM, image `scholarchain-local:phase-2`; `-version` Temurin 21.0.13; `AwsRuntime --help` lists `SCHOLARCHAIN_EXPORT_RUN_ID` required; `EmbeddingWorkerMain --help` prints settings (`AWS_REGION must be us-east-2`); all exit 0 | `phase15-w2-mb-dockerlocal.log`, `phase15-w2-mb-image-*.log` |
+| Human morning batch: load-client image | base `python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df`; build exit 0 (one expected `InvalidDefaultArgInFrom` warning: `PYTHON_BASE` has no default by design); `--help` exit 0; `id` uid=10001 gid=10001; optional no-digest negative build not run | `phase15-w2-mb-load-client-*.log` |
+| Wave 2 commit | `6cd7341` on `main`, pushed (`8a6beaa..6cd7341`); tree clean after commit | human `!` run, `git log --oneline` |
+
+Not yet validated (unchanged): shellcheck on `tests/scripts/run.sh`; runbook shell (runs only in the session); first real A-up plan (expected 11/7/3); heap measure on A's export.
+
 Consequence: the single `sbt quick` covered rag and services as well; no separate rag or services sbt slot is needed for this state of the sources. `AwsSqsWorkQueue.scala.pending` still exists (human removes it). Formatting of rag and services is verified by that run's scalafmt step.
