@@ -53,3 +53,6 @@ Runs 6 to 11: 0.90 (run 6, EMR plus loader), 0.29, 0.21, 0.02, 0.02, 0.08 USD, 1
 
 ## Not demonstrated
 A second data size; node elasticity; an independent Neptune query or count; the tolerated-errors (`LOADED_WITH_ERRORS`) path on real Neptune; the AWS-hosted query service; a single end-to-end run in which every stage ran in one execution (the stages were proven across runs 6 to 11 on the same export).
+
+## Actual AWS billing (added at ratification, 2026-11-16)
+Month-to-date for November 1 to 16 (all of Phase 14), read by the human from the AWS Billing page at 18:28 CST: 3.94 USD, amount due 0.00 USD (180.00 USD credits available). The month-end forecast of 38.92 USD extrapolates session hours that were torn down and is not spend. The billing view lags by several hours; re-check before quoting.
