@@ -1,0 +1,5 @@
+instance_id,ec2_instance_id,role,group,instance_type,market,state,created_utc,ready_utc,ended_utc,state_change_reason_code,state_change_reason_message
+ci-06835842PBI6AKWV9ZOK,i-086abcbc1ff51d606,CORE,core,m5.xlarge,ON_DEMAND,TERMINATED,2026-11-17T18:59:40Z,2026-11-17T19:03:21Z,2026-11-17T19:34:14Z,,Instance group was resized.
+ci-063959819WLYQ28WT4ED,i-03bda7158e4140483,MASTER,primary,m5.xlarge,ON_DEMAND,TERMINATED,2026-11-17T18:59:40Z,2026-11-17T19:02:41Z,2026-11-17T20:04:34Z,INSTANCE_FAILURE,Instance was terminated.
+ci-001062711A75EA3R8P21,i-06a1e0b162bb06e85,CORE,core,m5.xlarge,ON_DEMAND,TERMINATED,2026-11-17T19:08:13Z,2026-11-17T19:10:51Z,2026-11-17T19:34:14Z,,Instance group was resized.
+ci-07035699C76S3LKELIT,i-0f0756226879e6a71,CORE,core,m5.xlarge,ON_DEMAND,TERMINATED,2026-11-17T19:12:14Z,2026-11-17T19:14:52Z,2026-11-17T20:04:34Z,INSTANCE_FAILURE,Instance was terminated.

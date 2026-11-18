@@ -6,6 +6,10 @@ ScholarChain uses Scala 3, Hadoop MapReduce, Spark and AWS to build a temporal c
 
 Phase 17. This section is owned by the Phase 17 reproduction work and is not written yet. Nothing in "Reproducible automation (Phase 13)" below replaces it.
 
+## Phase 15 AWS experiments
+
+Six experiments (A to F) measured EMR scaling, embedding backlog, query load, retrieval modes and failure recovery on AWS. Start with [docs/experiments.md](docs/experiments.md) for what was measured, headline results, reproduction, costs and limitations. Details: [experiments/RESULTS.md](experiments/RESULTS.md) and [experiments/LIMITATIONS.md](experiments/LIMITATIONS.md). Billed cost is still pending.
+
 ## Reproducible automation (Phase 13)
 
 Ten source-controlled scripts under `scripts/` are the reproducibility interface. Run each as `bash scripts/<name>.sh ...` (no execute bit is set). Every script has `--help` and `--dry-run`, uses `set -euo pipefail`, never prompts, and prints greppable markers (`grep 'STEP\[' log`). The full per-script reference is `scripts/README.md`; this section does not repeat it.

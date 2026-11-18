@@ -647,3 +647,38 @@ H.6 After H.4 the orchestrator may write the repository (S1 ends): `docs/agent-r
 
 PENDING (owner): human decisions D1, D2, D3 (LAG), D4, D6, D8 and the D5 lines; a fresh review of revision 4 (code-reviewer); `session-ab/evening-list.md` update (orchestrator); the B-session release record decision (orchestrator). `session-b-only-runbook.md` is superseded for B by P15-42 (B ran from adapted A + B commands).
 UNVERIFIED: the local offset (E.1 prints it); the plan counts of every apply (predicted from code, first plans are the test); the `ARGS_CANONICAL` context form (DC); the A1 counts `19 to add, 6 to change, 3 to destroy` (relayed from infra-engineer, the plan is the test); that the B collector still works after the cluster terminated and the endpoints were destroyed (P.2); the B run directory path `/Users/winnguyen/scholarchain-data/experiments/runs/exp-B-20261117T185928Z-5c69ba90` (taken from the run output, not confirmed by a listing; P.2 and P.3 fail closed if it is absent); the new DLQ `--query` form in P.1; the 0.12 USD/h endpoint rate behind LAG; the allowlist and comment-only regexes (the fallback's); `plan.sh --out-dir` creation; `module.identity` address; the stand-alone `run-bounded-pipeline.sh` output location; log field names for `NEPTUNE_LOAD`, `FAILED` and the smoke `status`; `load_client` output key names; the run-ledger table name; the ECR repository URL; `--platform linux/amd64` with the Dockerfile; whether Haiku is called in graph mode and retries add calls (P15-27); the `evidence.uncertainty` wire key; every Region rate in `COST_ESTIMATE.md` (HIGH figures are estimates, not bills); a Neptune downsize restart (`graph-load.tfvars:23-31`); `db.r6g.xlarge` orderability in the writer's AZ; the openCypher `QueryLanguage` condition key (`SESSION2.md:113`); the `terminate-clusters` verb.
+
+---
+
+## Template amendment (P15-45, finding 1): "secret values present" gate and fill step (amended 2026-11-18)
+
+Amendment only. Nothing above is rewritten; revision 4 stays as it ran. Author: deploy-engineer. No command below was run to write it: no AWS, terraform or docker. No secret value is shown, read or logged by any command here. No generic runbook template exists under `docs/releases/` (only `phase-14` and `phase-15` directories), so the template is this runbook; `docs/releases/phase-15/README.md` states that future session runbooks must carry this amendment.
+
+Why: in session 2 the A2 apply created the query service while `scholarchain-course/auth-query-token`, `auth-read-token` and `auth-cursor-secret` had no `AWSCURRENT` version (`modules/identity/main.tf:55` names them and `:60-69` creates them with no version by design). The query tasks failed to start with `ResourceInitializationError ... AWSCURRENT` (`deploy-tn-s2-a2.md`, deviation 1). The human fixed it by hand, outside the reviewed scripts. This amendment makes the check and the fill a documented step.
+
+Canonical source: `infra/terraform/SESSION2.md`, section 8, "Secret values present" (the check) and "Secret fill" (the fill). It is the single source of the commands and of the value rules (see `ServiceConfig.scala`). This runbook carries no copy of them, so there is one command per gate and nothing to drift. The human runs the commands from that section, not from here.
+
+Where it runs (both are mandatory placements):
+
+- G-S1. Before the services-stack apply (A2, `tn-s2`): after the A1 apply verifies and before the A2 DW approval command. Filling before the apply means no service redeploy is needed.
+- G-S2. Before any `run-task` (smoke, D, E, F, C) of the session, and again after any session-down and re-up. It costs nothing and reads no value.
+
+### SV.1 Gate: are the three secrets present (read-only)
+
+Run the check command of `infra/terraform/SESSION2.md` section 8 ("Secret values present"). It reads only the secret's version-to-stage map and prints no value. It prints one line per secret (`AWSCURRENT=present`, `AWSCURRENT=ABSENT` or `DESCRIBE-FAILED`), then a final verdict, `SECRETS_PRESENT=yes` (pass) or `SECRETS_PRESENT=NO` (stop), and exits non-zero on `NO`; either `ABSENT` or `DESCRIBE-FAILED` sets `NO`. A missing verdict line is a stop, not a pass.
+
+STOP rule: `SECRETS_PRESENT=NO` stops the A2 apply and every `run-task`. For a secret reported `ABSENT`, run SV.2, then re-run SV.1; proceed only on `SECRETS_PRESENT=yes`. A `DESCRIBE-FAILED` secret (missing container, or a profile without `secretsmanager:DescribeSecret`) is not a missing version and is not filled: report to the orchestrator for infra-engineer.
+
+### SV.2 Fill step (human; one name at a time)
+
+Run the fill command of `infra/terraform/SESSION2.md` section 8 ("Secret fill") once per secret the check reports `ABSENT`; a present secret is left alone (a second put would add a new `AWSCURRENT` version and change a token a client may hold). The value rules (token and cursor-secret length and character rules, distinct tokens, no trailing newline) are stated once, in that section and in `ServiceConfig.scala`, and are not repeated here. No value is echoed, logged, pasted into chat or put in a record.
+
+Then re-run SV.1; `SECRETS_PRESENT=yes` is the only pass.
+
+Redeploy: PENDING human ruling. If the query service already exists and failed on the missing secret (as in session 2), the fill alone does not restart it. Restarting a failed query service (a forced new deployment) is a service mutation outside the Phase 13 scripts. It is not a routine step of this runbook: it needs the human's decision in the chat first and a deviation record (session 2 did it by hand, deviation 1). SESSION2.md section 8 keeps the command as "reference only"; it is not to be pasted without that decision. P15-45 approved only the check and the fill. The filling-before-A2 placement (G-S1) exists so that no redeploy is needed.
+
+Risks and notes:
+
+- Argv exposure: the value is on the `aws` command line for a moment, so a local process listing on the human's machine could show it. It is never printed, tee'd or written to a file (SESSION2.md states the same). UNVERIFIED: `--secret-string file:///dev/stdin` as a way to avoid argv exposure (not run); a change to it belongs with infra-engineer.
+- Persistence: the secrets are idle items that persist across session-down (the teardown does not touch the secret versions). Rotation, or deletion with its recovery window, is a human decision: PENDING, raised in `docs/releases/phase-15/README.md`. Until decided, a later session finds `AWSCURRENT` present, the check prints `SECRETS_PRESENT=yes` and no fill is needed.
+- A fill is a direct Secrets Manager write by the human. Record each in the release record of the action it precedes (UTC time, which secret names were filled and the version IDs the fill command prints, never a value; the fill prints only the name and version ID).

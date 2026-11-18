@@ -1,0 +1,12 @@
+{
+  "start_utc": "2026-11-18T01:23:47Z",
+  "end_utc": "2026-11-18T01:35:00Z",
+  "final_status": "completed",
+  "entry_exit": 0,
+  "run_tag": "E38421c6f",
+  "order": "interleaved-rotated",
+  "run_scope": "full",
+  "modes": "graph,vector,fused",
+  "limit_queries": "351",
+  "planned_requests": "1053"
+}

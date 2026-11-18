@@ -1,0 +1,7 @@
+ENQUEUE_PROGRESS batch=0 sent=10
+ENQUEUE_PROGRESS batch=1 sent=20
+ENQUEUE_PROGRESS batch=2 sent=30
+ENQUEUE_PROGRESS batch=3 sent=40
+ENQUEUE_PROGRESS batch=4 sent=50
+ENQUEUE_PROGRESS batch=5 sent=52
+ENQUEUE_DONE status=ok planned=52 sent=52

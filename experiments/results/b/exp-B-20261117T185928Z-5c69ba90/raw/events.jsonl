@@ -1,0 +1,4 @@
+{"ts_utc":"2026-11-17T18:59:28Z","event":"ENTRY_START","detail":"experiment=B run_id=exp-B-20261117T185928Z-5c69ba90"}
+{"ts_utc":"2026-11-17T18:59:28Z","event":"PIPELINE_START","detail":"size=medium max_minutes=88 spend_ceiling_usd=2.30 hourly_burn_usd=1.55"}
+{"ts_utc":"2026-11-17T20:20:26Z","event":"PIPELINE_END","detail":"exit=0"}
+{"ts_utc":"2026-11-17T20:20:26Z","event":"ENTRY_END","detail":"exit=0"}

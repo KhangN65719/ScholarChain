@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="560" viewBox="0 0 1100 560" font-family="Helvetica, Arial, sans-serif" font-size="11">
+<rect width="1100" height="560" fill="white"/>
+<text x="70" y="24" font-size="15" font-weight="bold">Experiment B: EMR capacity over time</text>
+<text x="70" y="42">EMR capacity over time, UTC. Solid: EC2 instances from list-instances. Dashed with dots: CloudWatch (5-minute points).</text>
+<line x1="70" y1="410.0" x2="1070" y2="410.0" stroke="#e5e5e5"/>
+<text x="64" y="414.0" text-anchor="end">0</text>
+<line x1="70" y1="340.0" x2="1070" y2="340.0" stroke="#e5e5e5"/>
+<text x="64" y="344.0" text-anchor="end">1</text>
+<line x1="70" y1="270.0" x2="1070" y2="270.0" stroke="#e5e5e5"/>
+<text x="64" y="274.0" text-anchor="end">2</text>
+<line x1="70" y1="200.0" x2="1070" y2="200.0" stroke="#e5e5e5"/>
+<text x="64" y="204.0" text-anchor="end">3</text>
+<line x1="70" y1="130.0" x2="1070" y2="130.0" stroke="#e5e5e5"/>
+<text x="64" y="134.0" text-anchor="end">4</text>
+<line x1="70" y1="60.0" x2="1070" y2="60.0" stroke="#e5e5e5"/>
+<text x="64" y="64.0" text-anchor="end">5</text>
+<text x="14" y="235" transform="rotate(-90 14 235)" text-anchor="middle">instances</text>
+<line x1="70.0" y1="410" x2="70.0" y2="415" stroke="#999"/>
+<text x="70.0" y="428" text-anchor="middle">18:59</text>
+<line x1="236.7" y1="410" x2="236.7" y2="415" stroke="#999"/>
+<text x="236.7" y="428" text-anchor="middle">19:12</text>
+<line x1="403.3" y1="410" x2="403.3" y2="415" stroke="#999"/>
+<text x="403.3" y="428" text-anchor="middle">19:26</text>
+<line x1="570.0" y1="410" x2="570.0" y2="415" stroke="#999"/>
+<text x="570.0" y="428" text-anchor="middle">19:39</text>
+<line x1="736.7" y1="410" x2="736.7" y2="415" stroke="#999"/>
+<text x="736.7" y="428" text-anchor="middle">19:53</text>
+<line x1="903.3" y1="410" x2="903.3" y2="415" stroke="#999"/>
+<text x="903.3" y="428" text-anchor="middle">20:06</text>
+<line x1="1070.0" y1="410" x2="1070.0" y2="415" stroke="#999"/>
+<text x="1070.0" y="428" text-anchor="middle">20:20</text>
+<text x="570" y="444" text-anchor="middle">2026-11-17 UTC</text>
+<rect x="70" y="60" width="1000" height="350" fill="none" stroke="#333"/>
+<line x1="70.0" y1="60" x2="70.0" y2="410" stroke="#555555" stroke-dasharray="4 3"/>
+<text x="67.0" y="64" fill="#555555" transform="rotate(-90 67.0 64)" text-anchor="end">ExecutionStarted</text>
+<line x1="70.0" y1="60" x2="70.0" y2="410" stroke="#555555" stroke-dasharray="4 3"/>
+<text x="67.0" y="64" fill="#555555" transform="rotate(-90 67.0 64)" text-anchor="end">CreateCluster in</text>
+<line x1="129.5" y1="60" x2="129.5" y2="410" stroke="#555555" stroke-dasharray="4 3"/>
+<text x="126.5" y="64" fill="#555555" transform="rotate(-90 126.5 64)" text-anchor="end">CreateCluster out</text>
+<line x1="129.5" y1="60" x2="129.5" y2="410" stroke="#555555" stroke-dasharray="4 3"/>
+<text x="126.5" y="64" fill="#555555" transform="rotate(-90 126.5 64)" text-anchor="end">FetchScripts in</text>
+<line x1="143.0" y1="60" x2="143.0" y2="410" stroke="#555555" stroke-dasharray="4 3"/>
+<text x="140.0" y="64" fill="#555555" transform="rotate(-90 140.0 64)" text-anchor="end">FetchScripts out</text>
+<line x1="143.0" y1="60" x2="143.0" y2="410" stroke="#555555" stroke-dasharray="4 3"/>
+<text x="140.0" y="64" fill="#555555" transform="rotate(-90 140.0 64)" text-anchor="end">PipelineStep in</text>
+<line x1="872.3" y1="60" x2="872.3" y2="410" stroke="#555555" stroke-dasharray="4 3"/>
+<text x="869.3" y="64" fill="#555555" transform="rotate(-90 869.3 64)" text-anchor="end">PipelineStep out</text>
+<line x1="872.3" y1="60" x2="872.3" y2="410" stroke="#555555" stroke-dasharray="4 3"/>
+<text x="869.3" y="64" fill="#555555" transform="rotate(-90 869.3 64)" text-anchor="end">Wait in</text>
+<line x1="1058.4" y1="60" x2="1058.4" y2="410" stroke="#555555" stroke-dasharray="4 3"/>
+<text x="1055.4" y="64" fill="#555555" transform="rotate(-90 1055.4 64)" text-anchor="end">Wait out</text>
+<line x1="1058.4" y1="60" x2="1058.4" y2="410" stroke="#555555" stroke-dasharray="4 3"/>
+<text x="1055.4" y="64" fill="#555555" transform="rotate(-90 1055.4 64)" text-anchor="end">TerminateCluster in</text>
+<line x1="1070.0" y1="60" x2="1070.0" y2="410" stroke="#555555" stroke-dasharray="4 3"/>
+<text x="1067.0" y="64" fill="#555555" transform="rotate(-90 1067.0 64)" text-anchor="end">TerminateCluster out</text>
+<line x1="1070.0" y1="60" x2="1070.0" y2="410" stroke="#555555" stroke-dasharray="4 3"/>
+<text x="1067.0" y="64" fill="#555555" transform="rotate(-90 1067.0 64)" text-anchor="end">ExecutionSucceeded</text>
+<path d="M71.6,340.0 L71.6,340.0 L71.6,270.0 L108.9,270.0 L108.9,270.0 L117.2,270.0 L117.2,270.0 L177.6,270.0 L177.6,200.0 L210.2,200.0 L210.2,200.0 L227.4,200.0 L227.4,130.0 L260.1,130.0 L260.1,130.0 L500.4,130.0 L500.4,270.0 L876.7,270.0 L876.7,410.0" fill="none" stroke="#d95f02" stroke-width="2"/>
+<path d="M71.6,410.0 L71.6,410.0 L71.6,410.0 L108.9,410.0 L108.9,340.0 L117.2,340.0 L117.2,270.0 L177.6,270.0 L177.6,270.0 L210.2,270.0 L210.2,200.0 L227.4,200.0 L227.4,200.0 L260.1,200.0 L260.1,130.0 L500.4,130.0 L500.4,270.0 L876.7,270.0 L876.7,410.0" fill="none" stroke="#1b9e77" stroke-width="2"/>
+<polyline points="125.2,270.0 187.2,200.0 249.2,200.0 311.3,200.0 373.3,200.0 435.3,200.0 497.4,340.0 559.4,340.0 621.4,340.0 683.5,340.0 745.5,340.0 807.5,340.0" fill="none" stroke="#7570b3" stroke-width="1.5" stroke-dasharray="6 3"/>
+<circle cx="125.2" cy="270.0" r="2.5" fill="#7570b3"/>
+<circle cx="187.2" cy="200.0" r="2.5" fill="#7570b3"/>
+<circle cx="249.2" cy="200.0" r="2.5" fill="#7570b3"/>
+<circle cx="311.3" cy="200.0" r="2.5" fill="#7570b3"/>
+<circle cx="373.3" cy="200.0" r="2.5" fill="#7570b3"/>
+<circle cx="435.3" cy="200.0" r="2.5" fill="#7570b3"/>
+<circle cx="497.4" cy="340.0" r="2.5" fill="#7570b3"/>
+<circle cx="559.4" cy="340.0" r="2.5" fill="#7570b3"/>
+<circle cx="621.4" cy="340.0" r="2.5" fill="#7570b3"/>
+<circle cx="683.5" cy="340.0" r="2.5" fill="#7570b3"/>
+<circle cx="745.5" cy="340.0" r="2.5" fill="#7570b3"/>
+<circle cx="807.5" cy="340.0" r="2.5" fill="#7570b3"/>
+<polyline points="125.2,340.0 187.2,270.0 249.2,200.0 311.3,200.0 373.3,200.0 435.3,200.0 497.4,200.0 559.4,340.0 621.4,340.0 683.5,340.0 745.5,340.0 807.5,340.0" fill="none" stroke="#e7298a" stroke-width="1.5" stroke-dasharray="6 3"/>
+<circle cx="125.2" cy="340.0" r="2.5" fill="#e7298a"/>
+<circle cx="187.2" cy="270.0" r="2.5" fill="#e7298a"/>
+<circle cx="249.2" cy="200.0" r="2.5" fill="#e7298a"/>
+<circle cx="311.3" cy="200.0" r="2.5" fill="#e7298a"/>
+<circle cx="373.3" cy="200.0" r="2.5" fill="#e7298a"/>
+<circle cx="435.3" cy="200.0" r="2.5" fill="#e7298a"/>
+<circle cx="497.4" cy="200.0" r="2.5" fill="#e7298a"/>
+<circle cx="559.4" cy="340.0" r="2.5" fill="#e7298a"/>
+<circle cx="621.4" cy="340.0" r="2.5" fill="#e7298a"/>
+<circle cx="683.5" cy="340.0" r="2.5" fill="#e7298a"/>
+<circle cx="745.5" cy="340.0" r="2.5" fill="#e7298a"/>
+<circle cx="807.5" cy="340.0" r="2.5" fill="#e7298a"/>
+<polygon points="172.6,410 182.6,410 177.6,401" fill="#1b7837"/>
+<polygon points="222.4,410 232.4,410 227.4,401" fill="#1b7837"/>
+<polygon points="495.4,401 505.4,401 500.4,410" fill="#b2182b"/>
+<polygon points="495.4,401 505.4,401 500.4,410" fill="#b2182b"/>
+<polygon points="871.7,401 881.7,401 876.7,410" fill="#b2182b"/>
+<rect x="70" y="462" width="14" height="4" fill="#d95f02"/>
+<text x="90" y="466">requested instances (EC2 created, not yet ended)</text>
+<rect x="490" y="462" width="14" height="4" fill="#1b9e77"/>
+<text x="510" y="466">provisioned instances (ready, not yet ended)</text>
+<rect x="70" y="480" width="14" height="4" fill="#7570b3"/>
+<text x="90" y="484">CloudWatch TotalNodesRequested</text>
+<rect x="490" y="480" width="14" height="4" fill="#e7298a"/>
+<text x="510" y="484">CloudWatch TotalNodesRunning</text>
+<rect x="70" y="498" width="14" height="4" fill="#1b7837"/>
+<text x="90" y="502">triangle up: scale-out instance requested</text>
+<rect x="490" y="498" width="14" height="4" fill="#b2182b"/>
+<text x="510" y="502">triangle down: scale-in instance released</text>
+</svg>

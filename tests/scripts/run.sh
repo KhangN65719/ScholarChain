@@ -13153,6 +13153,199 @@ fi
 a_trip_empty
 case_end
 
+### 15.stage-alias: load-tests/lib/service_log.py STAGE_ALIASES through the derive path of derive_latency.py -------
+# P15-47. The query service logs hyphenated stage names ("graph-retrieval", "vector-retrieval"); the table must map
+# exactly those two to the canonical graph and vector stages, keep every alias that existed at HEAD, and leave any
+# other key uncounted. Fixtures are written by the script below (small request and service-log files); derive runs as
+# `python3 -I load-tests/query-load/derive_latency.py derive --service-logs ... --group-by mode`. Read-only against the
+# real load-tests tree; every output goes to a new directory under $W3.
+SA="$W3/stage-alias"
+mkdir -p "$SA"
+cat > "$SA/stage_alias_check.py" <<'PYEOF'
+import csv, json, os, subprocess, sys
+
+sys.dont_write_bytecode = True
+root, work = sys.argv[1:3]
+LIB = os.path.join(root, "load-tests", "lib")
+DERIVE = os.path.join(root, "load-tests", "query-load", "derive_latency.py")
+sys.path.insert(0, LIB)
+import service_log  # noqa: E402
+
+CANON = ["planning", "graph", "vector", "fusion", "synthesis", "verification"]
+LEGACY = {
+    "planning": ["planning", "plan"],
+    "graph": ["graphRetrieval", "graph_retrieval", "graph"],
+    "vector": ["vectorRetrieval", "vector_retrieval", "vector"],
+    "fusion": ["fusion", "fuse"],
+    "synthesis": ["synthesis", "llm", "answer"],
+    "verification": ["verification", "verify"],
+}
+LIVE = ('{"event":"query_request","requestId":"STUB1-L0-c0-n0","mode":"graph","status":200,"totalMs":1988,'
+        '"stagesMs":{"planning":208,"graph-retrieval":289,"vector-retrieval":"skipped","fusion":2,'
+        '"synthesis":504,"verification":198}}')
+UNKNOWN = {
+    "graph-retrieval-x": 777, "graph_retrieval_ms": 888, "graphretrieval": 999, "Graph-Retrieval": 555,
+    "vector-retrieval-extra": 666, "retrieval": 444, "graph-retrieval-ms": "skipped", "vector-retrieval ": "skipped",
+}
+
+
+def ok(name, cond):
+    print("ASSERT %s %s" % (name, "PASS" if cond else "FAIL"), flush=True)
+
+
+def stage_line(rid, mode, stages):
+    return json.dumps({"event": "query_request", "requestId": rid, "mode": mode, "status": 200,
+                       "totalMs": 100, "stagesMs": stages})
+
+
+def derive(tag, reqs, logs):
+    """reqs: [(request_id, mode)], logs: [message]. Returns (rc, {(group, stage): row}, all output text)."""
+    d = os.path.join(work, tag)
+    os.mkdir(d)
+    rq, lg, out = (os.path.join(d, n) for n in ("requests.jsonl", "logs.json", "out"))
+    with open(rq, "w") as h:
+        for i, (rid, mode) in enumerate(reqs):
+            h.write(json.dumps({"request_id": rid, "send_utc": "2026-11-17T00:00:%02dZ" % i, "status": 200,
+                                "latency_ms": 100.0 + i, "mode": mode, "level": 0, "clients": 1}) + "\n")
+    with open(lg, "w") as h:
+        json.dump({"events": [{"timestamp": 1, "message": "2026-11-17T00:00:00Z " + m} for m in logs]}, h)
+    p = subprocess.run([sys.executable, "-I", "-B", DERIVE, "derive", "--requests", rq, "--service-logs", lg,
+                        "--group-by", "mode", "--out-dir", out], capture_output=True, text=True)
+    rows, text = {}, p.stdout + p.stderr
+    csv_path = os.path.join(out, "stage-latency-by-mode.csv")
+    if p.returncode == 0 and os.path.exists(csv_path):
+        with open(csv_path, newline="") as h:
+            raw = h.read()
+        text += raw
+        for r in csv.DictReader(raw.splitlines()):
+            rows[(r["group"], r["stage"])] = r
+    return p.returncode, rows, text
+
+
+def cell(rows, g, s, col):
+    r = rows.get((g, s))
+    return None if r is None else r[col]
+
+
+# Run A: the live example line plus further hyphenated lines.
+reqs = [("STUB1-L0-c0-n0", "graph"), ("A-g2", "graph"), ("A-v1", "vector"), ("A-v2", "vector")]
+logs = [LIVE,
+        stage_line("A-g2", "graph", {"planning": 200, "graph-retrieval": 301, "vector-retrieval": "skipped",
+                                     "fusion": 3, "synthesis": 500, "verification": 190}),
+        stage_line("A-v1", "vector", {"planning": 210, "graph-retrieval": "skipped", "vector-retrieval": 411,
+                                      "fusion": 2, "synthesis": 510, "verification": 199}),
+        stage_line("A-v2", "vector", {"planning": 211, "graph-retrieval": "skipped", "vector-retrieval": 433,
+                                      "fusion": 2, "synthesis": 511, "verification": 197})]
+rc, A, atext = derive("run-a", reqs, logs)
+ok("derive-with-hyphenated-stage-names-completes", rc == 0 and len(A) == 12)
+ok("hyphenated-graph-retrieval-289-appears-in-the-graph-stage-row",
+   cell(A, "graph", "graph", "p50_ms") == "289.000" and cell(A, "graph", "graph", "measured") == "2")
+ok("two-hyphenated-graph-requests-give-measured-2-and-max-301",
+   cell(A, "graph", "graph", "max_ms") == "301.000" and cell(A, "graph", "graph", "skipped") == "0")
+ok("hyphenated-vector-retrieval-skipped-counts-as-skipped-not-measured",
+   cell(A, "graph", "vector", "skipped") == "2" and cell(A, "graph", "vector", "measured") == "0"
+   and cell(A, "graph", "vector", "p50_ms") == "")
+ok("hyphenated-graph-retrieval-skipped-counts-as-skipped-not-measured",
+   cell(A, "vector", "graph", "skipped") == "2" and cell(A, "vector", "graph", "measured") == "0"
+   and cell(A, "vector", "graph", "p50_ms") == "")
+ok("hyphenated-vector-retrieval-numbers-are-measured-in-the-vector-row",
+   cell(A, "vector", "vector", "measured") == "2" and cell(A, "vector", "vector", "p50_ms") == "411.000"
+   and cell(A, "vector", "vector", "max_ms") == "433.000")
+ok("the-other-four-stages-of-the-live-lines-are-measured-in-the-graph-group",
+   all(cell(A, "graph", s, "measured") == "2" for s in ("planning", "fusion", "synthesis", "verification"))
+   and cell(A, "graph", "synthesis", "p50_ms") == "500.000")
+live = service_log.parse_line(LIVE)
+ok("parse-line-of-the-live-example-gives-graph-289-and-vector-skipped",
+   live is not None and live["stages"].get("graph") == 289.0 and live["stages"].get("vector") == "skipped"
+   and live["stages"].get("planning") == 208.0 and live["stages"].get("verification") == 198.0)
+ok("the-hyphenated-names-are-exactly-two-new-entries-and-no-stage-lost-one",
+   set(service_log.STAGE_ALIASES["graph"]) == set(LEGACY["graph"]) | {"graph-retrieval"}
+   and set(service_log.STAGE_ALIASES["vector"]) == set(LEGACY["vector"]) | {"vector-retrieval"}
+   and all(set(service_log.STAGE_ALIASES[s]) == set(LEGACY[s]) for s in ("planning", "fusion", "synthesis", "verification")))
+ok("the-canonical-stage-names-are-unchanged", list(service_log.STAGE_ALIASES.keys()) == CANON)
+
+# Pre-existing aliases (pinned from STAGE_ALIASES at HEAD).
+ok("every-pre-existing-alias-is-still-in-the-table",
+   all(n in service_log.STAGE_ALIASES.get(s, []) for s, names in LEGACY.items() for n in names))
+bad = []
+for s, names in LEGACY.items():
+    for n in names:
+        got = service_log.parse_line(json.dumps({"requestId": "x", "stagesMs": {n: 42}}))
+        if got is None or got["stages"] != {s: 42.0}:
+            bad.append((n, got))
+ok("every-pre-existing-alias-still-maps-to-its-stage-as-a-number", not bad)
+bad = []
+for s, names in LEGACY.items():
+    for n in names:
+        for v in ("skipped", "SKIPPED", None):
+            got = service_log.parse_line(json.dumps({"requestId": "x", "stagesMs": {n: v}}))
+            if got is None or got["stages"] != {s: "skipped"}:
+                bad.append((n, v, got))
+ok("every-pre-existing-alias-still-counts-skipped-and-null-as-skipped", not bad)
+bad = []
+for holder in ("stagesMs", "stages_ms", "stages", "timings"):
+    got = service_log.parse_line(json.dumps({"requestId": "x", holder: {"graph-retrieval": 5, "vector_retrieval": 6}}))
+    if got is None or got["stages"] != {"graph": 5.0, "vector": 6.0}:
+        bad.append((holder, got))
+ok("the-four-stage-container-keys-still-work-with-old-and-new-names", not bad)
+
+# Pre-existing aliases through the derive path: one request per alias, one group per alias.
+reqs, logs, expect = [], [], []
+for s, names in LEGACY.items():
+    for n in names:
+        rid = "L-%s" % n
+        reqs.append((rid, "legacy-" + n))
+        logs.append(stage_line(rid, "legacy-" + n, {n: 10}))
+        expect.append(("legacy-" + n, s))
+rc, L, ltext = derive("run-legacy", reqs, logs)
+ok("every-pre-existing-alias-is-measured-in-its-stage-row-through-derive",
+   rc == 0 and all(cell(L, g, s, "measured") == "1" and cell(L, g, s, "p50_ms") == "10.000" for g, s in expect)
+   and all(cell(L, g, o, "measured") == "0" and cell(L, g, o, "skipped") == "0"
+           for g, s in expect for o in CANON if o != s))
+
+# Keys outside the table.
+unk_reqs = [("U-1", "fused"), ("U-2", "fused")]
+unk_logs = [stage_line("U-1", "fused", dict({"planning": 50}, **UNKNOWN)),
+            stage_line("U-2", "fused", dict({"planning": 51}, **{k: v for k, v in UNKNOWN.items() if k != "retrieval"}))]
+rc, U, utext = derive("run-unknown", unk_reqs, unk_logs)
+ok("a-key-not-in-the-alias-table-is-not-counted-as-graph-or-vector-through-derive",
+   rc == 0 and cell(U, "fused", "planning", "measured") == "2"
+   and all(cell(U, "fused", s, c) == "0" for s in ("graph", "vector") for c in ("measured", "skipped"))
+   and all(cell(U, "fused", s, "p50_ms") == "" for s in ("graph", "vector")))
+ok("no-unknown-key-value-reaches-any-stage-row",
+   rc == 0 and not any(v in utext for v in ("777.000", "888.000", "999.000", "555.000", "666.000", "444.000")))
+got = service_log.parse_line(stage_line("U-3", "fused", dict({"planning": 50}, **UNKNOWN)))
+ok("parse-line-keeps-only-the-planning-stage-when-every-other-key-is-unknown",
+   got is not None and got["stages"] == {"planning": 50.0})
+PYEOF
+python3 -I "$SA/stage_alias_check.py" "$REAL_ROOT" "$SA" > "$SA/stage_alias_check.out" 2> "$SA/stage_alias_check.err"
+SA_RC=$?
+cat "$SA/stage_alias_check.out" "$SA/stage_alias_check.err" >> "$ALL_OUT"
+for sa_a in \
+  derive-with-hyphenated-stage-names-completes \
+  hyphenated-graph-retrieval-289-appears-in-the-graph-stage-row \
+  two-hyphenated-graph-requests-give-measured-2-and-max-301 \
+  hyphenated-vector-retrieval-skipped-counts-as-skipped-not-measured \
+  hyphenated-graph-retrieval-skipped-counts-as-skipped-not-measured \
+  hyphenated-vector-retrieval-numbers-are-measured-in-the-vector-row \
+  the-other-four-stages-of-the-live-lines-are-measured-in-the-graph-group \
+  parse-line-of-the-live-example-gives-graph-289-and-vector-skipped \
+  the-hyphenated-names-are-exactly-two-new-entries-and-no-stage-lost-one \
+  the-canonical-stage-names-are-unchanged \
+  every-pre-existing-alias-is-still-in-the-table \
+  every-pre-existing-alias-still-maps-to-its-stage-as-a-number \
+  every-pre-existing-alias-still-counts-skipped-and-null-as-skipped \
+  the-four-stage-container-keys-still-work-with-old-and-new-names \
+  every-pre-existing-alias-is-measured-in-its-stage-row-through-derive \
+  a-key-not-in-the-alias-table-is-not-counted-as-graph-or-vector-through-derive \
+  no-unknown-key-value-reaches-any-stage-row \
+  parse-line-keeps-only-the-planning-stage-when-every-other-key-is-unknown; do
+  case_begin "15.stage-alias.$sa_a"
+  OUT="$SA/stage_alias_check.out"; ERR="$SA/stage_alias_check.err"; RC=$SA_RC
+  a_out "ASSERT $sa_a PASS"
+  case_end
+done
+
 ### Case 12: secrets, the tripwire and the real repository ---------------------------------
 
 SECRET_RE='AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIV''ATE KEY-----|aws_secret_''access_key'

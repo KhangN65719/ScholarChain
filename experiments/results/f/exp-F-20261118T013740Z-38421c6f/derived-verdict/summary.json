@@ -1,0 +1,13 @@
+{
+  "messages": {
+    "duplicate": 1,
+    "normal": 50,
+    "poison": 1
+  },
+  "tally": {
+    "FAIL": 0,
+    "INFO": 3,
+    "PASS": 9,
+    "UNKNOWN": 0
+  }
+}

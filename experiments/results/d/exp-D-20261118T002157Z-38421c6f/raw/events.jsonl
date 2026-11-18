@@ -1,0 +1,9 @@
+{"ts_utc":"2026-11-18T00:21:57Z","event":"ENTRY_START","detail":"experiment=D run_id=exp-D-20261118T002157Z-38421c6f"}
+{"ts_utc":"2026-11-18T00:21:57Z","event":"TASK_START_REQUEST","detail":"cluster=scholarchain-course-cluster task_definition=scholarchain-course-load-client"}
+{"ts_utc":"2026-11-18T00:21:58Z","event":"TASK_STARTED","detail":"task_id=587e5df5c3e94a08891cdf947d9ff19c"}
+{"ts_utc":"2026-11-18T00:21:59Z","event":"TASK_STATUS","detail":"status=PROVISIONING"}
+{"ts_utc":"2026-11-18T00:22:29Z","event":"TASK_STATUS","detail":"status=RUNNING"}
+{"ts_utc":"2026-11-18T01:09:43Z","event":"TASK_STATUS","detail":"status=DEPROVISIONING"}
+{"ts_utc":"2026-11-18T01:10:13Z","event":"TASK_STATUS","detail":"status=STOPPED"}
+{"ts_utc":"2026-11-18T01:10:13Z","event":"TASK_END","detail":"exit_code=0 stopped_reason=Essential-container-in-task-exited"}
+{"ts_utc":"2026-11-18T01:10:13Z","event":"ENTRY_END","detail":"exit=0 status=completed"}

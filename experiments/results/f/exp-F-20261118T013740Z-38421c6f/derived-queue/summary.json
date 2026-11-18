@@ -1,0 +1,37 @@
+{
+  "backlog_at_last_tick": 0,
+  "dlq_at_last_tick": 1,
+  "dlq_first_nonzero_utc": "2026-11-18T01:41:13Z",
+  "dlq_max": 1,
+  "drain_time_s": 226.0,
+  "drained_utc": "2026-11-18T01:41:29Z",
+  "ecs_desired_first": 1,
+  "ecs_desired_max": 1,
+  "ecs_running_max": 1,
+  "first_poll_utc": "2026-11-18T01:37:43Z",
+  "last_poll_utc": "2026-11-18T01:41:45Z",
+  "messages_sent": 52,
+  "peak_backlog": 50,
+  "peak_backlog_utc": "2026-11-18T01:37:43Z",
+  "processed_estimate": 51,
+  "scale_in_first_utc": null,
+  "scale_in_observed": false,
+  "scale_out_first_utc": null,
+  "scale_out_observed": false,
+  "throughput_estimate_msgs_per_s": 0.226,
+  "ticks": 16,
+  "ticks_with_error": 0,
+  "worker": {
+    "by_outcome_class": {
+      "embedded": 50,
+      "poison": 3,
+      "skipped-done": 1
+    },
+    "distinct_messages": 52,
+    "embedded_latency_ms_p50": 502,
+    "embedded_latency_ms_p95": 1596,
+    "log_lines": 54,
+    "max_receive_count": 3,
+    "messages_with_retries": 1
+  }
+}

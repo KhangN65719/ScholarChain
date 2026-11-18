@@ -1,0 +1,8 @@
+t_utc,kind,instance_id,role,detail,classification,pending_containers_max_near,pending_ratio_max_near
+2026-11-17T19:08:13Z,scale-out-requested,ci-001062711A75EA3R8P21,CORE,created,demand-linked,61,6.1
+2026-11-17T19:10:51Z,scale-out-provisioned,ci-001062711A75EA3R8P21,CORE,ready,demand-linked,61,6.1
+2026-11-17T19:12:14Z,scale-out-requested,ci-07035699C76S3LKELIT,CORE,created,demand-linked,348,21.75
+2026-11-17T19:14:52Z,scale-out-provisioned,ci-07035699C76S3LKELIT,CORE,ready,demand-linked,348,21.75
+2026-11-17T19:34:14Z,scale-in-released,ci-001062711A75EA3R8P21,CORE,TERMINATED,scale-in,94,6.13333
+2026-11-17T19:34:14Z,scale-in-released,ci-06835842PBI6AKWV9ZOK,CORE,TERMINATED,scale-in,94,6.13333
+2026-11-17T20:04:34Z,scale-in-released,ci-07035699C76S3LKELIT,CORE,INSTANCE_FAILURE,scale-in,0,0

@@ -1,0 +1,12 @@
+RUN_DIR=/Users/winnguyen/scholarchain-data/experiments/runs/exp-B-20261117T185928Z-5c69ba90
+REGION=us-east-2
+EXECUTION_ARN=arn:aws:states:us-east-2:000000000000:execution:scholarchain-course-pipeline:run-20261117T185932Z-medium
+CLUSTER_ID=j-0091484IPP1V1PIP0UK
+RUN_WINDOW_START_UTC=2026-11-17T18:59:32Z
+RUN_WINDOW_END_UTC=2026-11-17T20:20:26Z
+METRIC_WINDOW_FROM_UTC=2026-11-17T18:49:32Z
+METRIC_WINDOW_TO_UTC=2026-11-17T20:30:26Z
+METRIC_PERIOD_SECONDS=300
+COLLECTED_AT_UTC=2026-11-17T21:58:48Z
+AWS_CALLS=describe-execution get-execution-history describe-cluster list-instances get-managed-scaling-policy list-steps list-metrics get-metric-data
+CALL_STATUS=see CALL_STATUS.txt (a FAILED optional call leaves its file absent)

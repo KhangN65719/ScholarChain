@@ -1,0 +1,6 @@
+{"ts_utc":"2026-11-18T01:37:40Z","event":"ENTRY_START","detail":"experiment=F run_id=exp-F-20261118T013740Z-38421c6f"}
+{"ts_utc":"2026-11-18T01:37:40Z","event":"INJECT_START","detail":"normal=50 poison=1 kind=version duplicate_of=24"}
+{"ts_utc":"2026-11-18T01:37:43Z","event":"INJECT_END","detail":"exit=0"}
+{"ts_utc":"2026-11-18T01:37:43Z","event":"POLL_START","detail":"duration_seconds=1497"}
+{"ts_utc":"2026-11-18T01:41:46Z","event":"POLL_END","detail":"exit=0"}
+{"ts_utc":"2026-11-18T01:41:46Z","event":"ENTRY_END","detail":"exit=0 status=drained-and-dead-lettered"}

@@ -1,0 +1,149 @@
+{
+    "services": [
+        {
+            "serviceArn": "arn:aws:ecs:us-east-2:000000000000:service/scholarchain-course-cluster/scholarchain-course-worker",
+            "serviceName": "scholarchain-course-worker",
+            "clusterArn": "arn:aws:ecs:us-east-2:000000000000:cluster/scholarchain-course-cluster",
+            "loadBalancers": [],
+            "serviceRegistries": [],
+            "status": "ACTIVE",
+            "desiredCount": 1,
+            "runningCount": 1,
+            "pendingCount": 0,
+            "capacityProviderStrategy": [
+                {
+                    "capacityProvider": "FARGATE",
+                    "weight": 1,
+                    "base": 0
+                }
+            ],
+            "platformVersion": "LATEST",
+            "platformFamily": "Linux",
+            "taskDefinition": "arn:aws:ecs:us-east-2:000000000000:task-definition/scholarchain-course-worker:2",
+            "deploymentConfiguration": {
+                "deploymentCircuitBreaker": {
+                    "enable": true,
+                    "rollback": true,
+                    "resetOnHealthyTask": true,
+                    "thresholdConfiguration": {
+                        "type": "BOUNDED_PERCENT",
+                        "value": 50
+                    }
+                },
+                "maximumPercent": 200,
+                "minimumHealthyPercent": 100,
+                "strategy": "ROLLING",
+                "bakeTimeInMinutes": 0
+            },
+            "deployments": [
+                {
+                    "id": "ecs-svc/8082997387147987318",
+                    "status": "PRIMARY",
+                    "taskDefinition": "arn:aws:ecs:us-east-2:000000000000:task-definition/scholarchain-course-worker:2",
+                    "desiredCount": 1,
+                    "pendingCount": 0,
+                    "runningCount": 1,
+                    "failedTasks": 0,
+                    "createdAt": "2026-11-17T17:53:00.619000-06:00",
+                    "updatedAt": "2026-11-17T17:57:03.406000-06:00",
+                    "capacityProviderStrategy": [
+                        {
+                            "capacityProvider": "FARGATE",
+                            "weight": 1,
+                            "base": 0
+                        }
+                    ],
+                    "platformVersion": "1.4.0",
+                    "platformFamily": "Linux",
+                    "networkConfiguration": {
+                        "awsvpcConfiguration": {
+                            "subnets": [
+                                "subnet-08c0769f73b22855b",
+                                "subnet-0ceb03bf5d1bfb866"
+                            ],
+                            "securityGroups": [
+                                "sg-082df7adb2ea0b162"
+                            ],
+                            "assignPublicIp": "DISABLED"
+                        }
+                    },
+                    "rolloutState": "COMPLETED",
+                    "rolloutStateReason": "ECS deployment ecs-svc/8082997387147987318 completed."
+                }
+            ],
+            "roleArn": "arn:aws:iam::000000000000:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+            "events": [
+                {
+                    "id": "74a15257-9ed4-4481-b39b-55be4e342cfb",
+                    "createdAt": "2026-11-17T17:57:03.469000-06:00",
+                    "message": "(service scholarchain-course-worker) has reached a steady state."
+                },
+                {
+                    "id": "6f43f4aa-3114-4c9d-b3f5-a5834a975cd8",
+                    "createdAt": "2026-11-17T17:57:03.468000-06:00",
+                    "message": "(service scholarchain-course-worker) (deployment ecs-svc/8082997387147987318) deployment completed."
+                },
+                {
+                    "id": "1220a5e8-94ab-4a41-867b-b5478ac1aec5",
+                    "createdAt": "2026-11-17T17:54:18.136000-06:00",
+                    "message": "(service scholarchain-course-worker) has stopped 1 running tasks: (task 62c1866a9c0a4f0d83f8c5791b0c285c)."
+                },
+                {
+                    "id": "aae3af52-99d8-466d-8795-33761048bf61",
+                    "createdAt": "2026-11-17T17:53:17.546000-06:00",
+                    "message": "(service scholarchain-course-worker) has started 1 tasks: (task bdd801e0278f44a38116107a1a2bf6c4)."
+                },
+                {
+                    "id": "f2feb1a1-7c95-4bf6-b3a4-af9f1cadbb0b",
+                    "createdAt": "2026-11-17T17:03:51.528000-06:00",
+                    "message": "(service scholarchain-course-worker) has reached a steady state."
+                },
+                {
+                    "id": "a32e765b-fb3e-4b3d-97d7-f4dd89f755f6",
+                    "createdAt": "2026-11-17T17:03:51.527000-06:00",
+                    "message": "(service scholarchain-course-worker) (deployment ecs-svc/9658443325410548159) deployment completed."
+                },
+                {
+                    "id": "42c9f0c0-800a-411f-88bc-a85933cc1e77",
+                    "createdAt": "2026-11-17T17:01:30.099000-06:00",
+                    "message": "(service scholarchain-course-worker) has started 1 tasks: (task 62c1866a9c0a4f0d83f8c5791b0c285c)."
+                }
+            ],
+            "createdAt": "2026-11-17T17:01:13.329000-06:00",
+            "currentServiceRevisions": [
+                {
+                    "arn": "arn:aws:ecs:us-east-2:000000000000:service-revision/scholarchain-course-cluster/scholarchain-course-worker/8082997387147987318",
+                    "requestedTaskCount": 1,
+                    "runningTaskCount": 1,
+                    "pendingTaskCount": 0
+                }
+            ],
+            "placementConstraints": [],
+            "placementStrategy": [],
+            "networkConfiguration": {
+                "awsvpcConfiguration": {
+                    "subnets": [
+                        "subnet-08c0769f73b22855b",
+                        "subnet-0ceb03bf5d1bfb866"
+                    ],
+                    "securityGroups": [
+                        "sg-082df7adb2ea0b162"
+                    ],
+                    "assignPublicIp": "DISABLED"
+                }
+            },
+            "healthCheckGracePeriodSeconds": 0,
+            "schedulingStrategy": "REPLICA",
+            "deploymentController": {
+                "type": "ECS"
+            },
+            "createdBy": "arn:aws:iam::000000000000:user/scholarchain-cli",
+            "enableECSManagedTags": false,
+            "propagateTags": "NONE",
+            "enableExecuteCommand": false,
+            "availabilityZoneRebalancing": "ENABLED",
+            "resourceManagementType": "CUSTOMER"
+        }
+    ],
+    "failures": []
+}

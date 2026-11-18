@@ -1,0 +1,52 @@
+{
+    "ScalingActivities": [
+        {
+            "ActivityId": "c51f0809-cb05-4cd3-9e66-7af4d29a7437",
+            "ServiceNamespace": "ecs",
+            "ResourceId": "service/scholarchain-course-cluster/scholarchain-course-query",
+            "ScalableDimension": "ecs:service:DesiredCount",
+            "Description": "Setting desired count to 1.",
+            "Cause": "monitor alarm TargetTracking-service/scholarchain-course-cluster/scholarchain-course-query-AlarmLow-63798ee8-956e-4b80-b1c3-b1014d959c32 in state ALARM triggered policy scholarchain-course-query-requests-per-target",
+            "StartTime": "2026-11-17T19:09:45.417000-06:00",
+            "EndTime": "2026-11-17T19:10:18.282000-06:00",
+            "StatusCode": "Successful",
+            "StatusMessage": "Successfully set desired count to 1. Change successfully fulfilled by ecs."
+        },
+        {
+            "ActivityId": "5853966c-eeef-47ad-86bf-c30c6ac5e019",
+            "ServiceNamespace": "ecs",
+            "ResourceId": "service/scholarchain-course-cluster/scholarchain-course-query",
+            "ScalableDimension": "ecs:service:DesiredCount",
+            "Description": "Setting desired count to 2.",
+            "Cause": "monitor alarm TargetTracking-service/scholarchain-course-cluster/scholarchain-course-query-AlarmLow-bbd91393-f91b-4134-9f95-e952f62e81c4 in state ALARM triggered policy scholarchain-course-query-cpu",
+            "StartTime": "2026-11-17T19:03:42.442000-06:00",
+            "EndTime": "2026-11-17T19:04:15.367000-06:00",
+            "StatusCode": "Successful",
+            "StatusMessage": "Successfully set desired count to 2. Change successfully fulfilled by ecs."
+        },
+        {
+            "ActivityId": "b1412afd-c5f7-493d-838c-326106c603e1",
+            "ServiceNamespace": "ecs",
+            "ResourceId": "service/scholarchain-course-cluster/scholarchain-course-query",
+            "ScalableDimension": "ecs:service:DesiredCount",
+            "Description": "Setting desired count to 3.",
+            "Cause": "monitor alarm TargetTracking-service/scholarchain-course-cluster/scholarchain-course-query-AlarmHigh-b0af4f7d-5e37-4ba5-a620-ba248d30447a in state ALARM triggered policy scholarchain-course-query-requests-per-target",
+            "StartTime": "2026-11-17T18:46:03.398000-06:00",
+            "EndTime": "2026-11-17T18:47:13.431000-06:00",
+            "StatusCode": "Successful",
+            "StatusMessage": "Successfully set desired count to 3. Change successfully fulfilled by ecs."
+        },
+        {
+            "ActivityId": "43de3168-301d-4c08-882d-7fbc0c26a3b1",
+            "ServiceNamespace": "ecs",
+            "ResourceId": "service/scholarchain-course-cluster/scholarchain-course-query",
+            "ScalableDimension": "ecs:service:DesiredCount",
+            "Description": "Setting desired count to 2.",
+            "Cause": "monitor alarm TargetTracking-service/scholarchain-course-cluster/scholarchain-course-query-AlarmHigh-b0af4f7d-5e37-4ba5-a620-ba248d30447a in state ALARM triggered policy scholarchain-course-query-requests-per-target",
+            "StartTime": "2026-11-17T18:43:03.401000-06:00",
+            "EndTime": "2026-11-17T18:44:07.486000-06:00",
+            "StatusCode": "Successful",
+            "StatusMessage": "Successfully set desired count to 2. Change successfully fulfilled by ecs."
+        }
+    ]
+}

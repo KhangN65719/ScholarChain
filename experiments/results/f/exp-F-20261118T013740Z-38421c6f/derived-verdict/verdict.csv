@@ -1,0 +1,13 @@
+check,expected,observed,result
+"poison c902996b-ec84-4236-9329-8fa8e1939799: received 3 times, every time refused as poison","1,2,3","1,2,3",PASS
+poison c902996b-ec84-4236-9329-8fa8e1939799: reasons logged,a fixed reason token,unsupported_version,INFO
+poison c902996b-ec84-4236-9329-8fa8e1939799: never written,no embedded outcome,0 embedded lines,PASS
+dead-letter queue holds the poison message at the end,>= 1,1,PASS
+dead-letter arrival time,after the last receive,2026-11-18T01:41:13Z,INFO
+dead-letter arrival is after the third receive,arrival >= third receive,2026-11-18T01:41:13Z vs 76 s,PASS
+duplicate summary:v1:e3be42ecbfb8b21acd042ff08a77b626dfba75906f60ecdd03e75d1c18674822: exactly one embed and write across both deliveries,1,1,PASS
+duplicate summary:v1:e3be42ecbfb8b21acd042ff08a77b626dfba75906f60ecdd03e75d1c18674822: the other delivery is skipped as already done,>= 1,1,PASS
+duplicate summary:v1:e3be42ecbfb8b21acd042ff08a77b626dfba75906f60ecdd03e75d1c18674822: one ledger entry exists,an Item,"present, DONE",PASS
+normal messages completed,50 of 50,50 of 50,PASS
+normal messages finished after the first poison receipt (SQS order is not guaranteed),"shown, not judged",31,INFO
+main queue is drained at the last poll,0,0,PASS

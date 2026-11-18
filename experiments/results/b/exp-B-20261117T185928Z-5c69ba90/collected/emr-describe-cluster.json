@@ -1,0 +1,153 @@
+{
+    "Cluster": {
+        "Id": "j-0091484IPP1V1PIP0UK",
+        "Name": "scholarchain-course-pipeline",
+        "Status": {
+            "State": "TERMINATED",
+            "StateChangeReason": {
+                "Code": "USER_REQUEST",
+                "Message": "Terminated according to the attached auto-termination policy after 1800 idle seconds"
+            },
+            "Timeline": {
+                "CreationDateTime": "2026-11-17T12:59:33.412000-06:00",
+                "ReadyDateTime": "2026-11-17T13:03:45.897000-06:00",
+                "EndDateTime": "2026-11-17T14:05:37.239000-06:00"
+            }
+        },
+        "Ec2InstanceAttributes": {
+            "Ec2SubnetId": "subnet-08c0769f73b22855b",
+            "RequestedEc2SubnetIds": [
+                "subnet-08c0769f73b22855b"
+            ],
+            "Ec2AvailabilityZone": "us-east-2a",
+            "RequestedEc2AvailabilityZones": [],
+            "IamInstanceProfile": "scholarchain-course-emr-ec2",
+            "EmrManagedMasterSecurityGroup": "sg-08537bce9827b0ef9",
+            "EmrManagedSlaveSecurityGroup": "sg-0b1aa242ab22386b1",
+            "ServiceAccessSecurityGroup": "sg-0c2aee537fb398b20"
+        },
+        "InstanceCollectionType": "INSTANCE_GROUP",
+        "LogUri": "s3n://scholarchain-course-000000000000-artifacts/emr-logs/",
+        "ReleaseLabel": "emr-7.10.0",
+        "AutoTerminate": false,
+        "TerminationProtected": false,
+        "UnhealthyNodeReplacement": true,
+        "VisibleToAllUsers": true,
+        "Applications": [
+            {
+                "Name": "Hadoop",
+                "Version": "3.4.1"
+            }
+        ],
+        "Tags": [
+            {
+                "Key": "for-use-with-amazon-emr-managed-policies",
+                "Value": "true"
+            }
+        ],
+        "ServiceRole": "arn:aws:iam::000000000000:role/scholarchain-course-emr-service",
+        "NormalizedInstanceHours": 40,
+        "MasterPublicDnsName": "ip-10-20-7-19.us-east-2.compute.internal",
+        "Configurations": [],
+        "SecurityConfiguration": "scholarchain-course-emr",
+        "ScaleDownBehavior": "TERMINATE_AT_TASK_COMPLETION",
+        "KerberosAttributes": {},
+        "ClusterArn": "arn:aws:elasticmapreduce:us-east-2:000000000000:cluster/j-0091484IPP1V1PIP0UK",
+        "StepConcurrencyLevel": 1,
+        "PlacementGroups": [],
+        "OSReleaseLabel": "2023.12.20261102.0",
+        "SessionEnabled": false,
+        "BootstrapActions": [],
+        "InstanceGroups": [
+            {
+                "Id": "ig-0228986SX2A67WNF6TT",
+                "Name": "core",
+                "Market": "ON_DEMAND",
+                "InstanceGroupType": "CORE",
+                "InstanceType": "m5.xlarge",
+                "RequestedInstanceCount": 1,
+                "RunningInstanceCount": 0,
+                "Status": {
+                    "State": "TERMINATED",
+                    "StateChangeReason": {
+                        "Code": "CLUSTER_TERMINATED",
+                        "Message": "Job flow terminated"
+                    },
+                    "Timeline": {
+                        "CreationDateTime": "2026-11-17T12:59:33.429000-06:00",
+                        "ReadyDateTime": "2026-11-17T13:03:45.897000-06:00",
+                        "EndDateTime": "2026-11-17T14:04:34.308000-06:00"
+                    }
+                },
+                "Configurations": [],
+                "ConfigurationsVersion": 0,
+                "LastSuccessfullyAppliedConfigurations": [],
+                "LastSuccessfullyAppliedConfigurationsVersion": 0,
+                "EbsBlockDevices": [
+                    {
+                        "VolumeSpecification": {
+                            "VolumeType": "gp2",
+                            "SizeInGB": 32
+                        },
+                        "Device": "/dev/sdb"
+                    },
+                    {
+                        "VolumeSpecification": {
+                            "VolumeType": "gp2",
+                            "SizeInGB": 32
+                        },
+                        "Device": "/dev/sdc"
+                    }
+                ],
+                "ShrinkPolicy": {
+                    "InstanceResizePolicy": {
+                        "InstancesToTerminate": [],
+                        "InstancesToProtect": []
+                    }
+                }
+            },
+            {
+                "Id": "ig-044766331BK67M25PZBF",
+                "Name": "primary",
+                "Market": "ON_DEMAND",
+                "InstanceGroupType": "MASTER",
+                "InstanceType": "m5.xlarge",
+                "RequestedInstanceCount": 1,
+                "RunningInstanceCount": 0,
+                "Status": {
+                    "State": "TERMINATED",
+                    "StateChangeReason": {
+                        "Code": "CLUSTER_TERMINATED",
+                        "Message": "Job flow terminated"
+                    },
+                    "Timeline": {
+                        "CreationDateTime": "2026-11-17T12:59:33.429000-06:00",
+                        "ReadyDateTime": "2026-11-17T13:02:41.208000-06:00",
+                        "EndDateTime": "2026-11-17T14:04:34.308000-06:00"
+                    }
+                },
+                "Configurations": [],
+                "ConfigurationsVersion": 0,
+                "LastSuccessfullyAppliedConfigurations": [],
+                "LastSuccessfullyAppliedConfigurationsVersion": 0,
+                "EbsBlockDevices": [
+                    {
+                        "VolumeSpecification": {
+                            "VolumeType": "gp2",
+                            "SizeInGB": 32
+                        },
+                        "Device": "/dev/sdb"
+                    },
+                    {
+                        "VolumeSpecification": {
+                            "VolumeType": "gp2",
+                            "SizeInGB": 32
+                        },
+                        "Device": "/dev/sdc"
+                    }
+                ],
+                "ShrinkPolicy": {}
+            }
+        ]
+    }
+}

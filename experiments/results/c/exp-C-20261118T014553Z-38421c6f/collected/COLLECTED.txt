@@ -1,0 +1,11 @@
+RUN_DIR=/Users/winnguyen/scholarchain-data/experiments/runs/exp-C-20261118T014553Z-38421c6f
+REGION=us-east-2
+RUN_WINDOW_START_UTC=2026-11-18T01:45:53Z
+RUN_WINDOW_END_UTC=2026-11-18T01:54:22Z
+METRIC_WINDOW_FROM_UTC=2026-11-18T01:35:53Z
+METRIC_WINDOW_TO_UTC=2026-11-18T02:04:22Z
+COLLECTED_AT_UTC=2026-11-18T02:04:54Z
+CALL_STATUS=see CALL_STATUS.txt (a FAILED optional call leaves its file absent)
+QUEUE_NAME=scholarchain-course-embedding-work
+DLQ_NAME=scholarchain-course-embedding-work-dlq
+ECS_SERVICE=service/scholarchain-course-cluster/scholarchain-course-worker

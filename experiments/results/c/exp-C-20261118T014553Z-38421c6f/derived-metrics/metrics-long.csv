@@ -1,0 +1,320 @@
+id,label,timestamp_utc,value
+q_visible,queue:visible messages,2026-11-18T01:35:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:36:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:37:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:38:00Z,12.0
+q_visible,queue:visible messages,2026-11-18T01:39:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:40:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:41:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:42:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:43:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:44:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:45:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:46:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:47:00Z,305.0
+q_visible,queue:visible messages,2026-11-18T01:48:00Z,1745.0
+q_visible,queue:visible messages,2026-11-18T01:49:00Z,1495.0
+q_visible,queue:visible messages,2026-11-18T01:50:00Z,1420.0
+q_visible,queue:visible messages,2026-11-18T01:51:00Z,1080.0
+q_visible,queue:visible messages,2026-11-18T01:52:00Z,705.0
+q_visible,queue:visible messages,2026-11-18T01:53:00Z,615.0
+q_visible,queue:visible messages,2026-11-18T01:54:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:55:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:56:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:57:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:58:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T01:59:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T02:00:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T02:01:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T02:02:00Z,0.0
+q_visible,queue:visible messages,2026-11-18T02:03:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:35:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:36:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:37:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:38:00Z,6.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:39:00Z,1.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:40:00Z,1.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:41:00Z,1.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:42:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:43:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:44:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:45:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:46:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:47:00Z,4.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:48:00Z,4.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:49:00Z,4.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:50:00Z,3.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:51:00Z,11.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:52:00Z,7.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:53:00Z,13.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:54:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:55:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:56:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:57:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:58:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T01:59:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T02:00:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T02:01:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T02:02:00Z,0.0
+q_in_flight,queue:in-flight messages,2026-11-18T02:03:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:35:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:36:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:37:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:38:00Z,27.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:39:00Z,86.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:40:00Z,114.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:41:00Z,150.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:42:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:43:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:44:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:45:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:46:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:47:00Z,11.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:48:00Z,90.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:49:00Z,180.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:50:00Z,210.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:51:00Z,286.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:52:00Z,332.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:53:00Z,341.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:54:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:55:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:56:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:57:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:58:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T01:59:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T02:00:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T02:01:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T02:02:00Z,0.0
+q_age,oldest message age s:oldest message age,2026-11-18T02:03:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:35:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:36:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:37:00Z,52.0
+q_sent,flow per minute:sent,2026-11-18T01:38:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:39:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:40:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:41:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:42:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:43:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:44:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:45:00Z,180.0
+q_sent,flow per minute:sent,2026-11-18T01:46:00Z,1690.0
+q_sent,flow per minute:sent,2026-11-18T01:47:00Z,130.0
+q_sent,flow per minute:sent,2026-11-18T01:48:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:49:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:50:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:51:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:52:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:53:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:54:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:55:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:56:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:57:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:58:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T01:59:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T02:00:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T02:01:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T02:02:00Z,0.0
+q_sent,flow per minute:sent,2026-11-18T02:03:00Z,0.0
+q_received,flow per minute:received,2026-11-18T01:35:00Z,0.0
+q_received,flow per minute:received,2026-11-18T01:36:00Z,0.0
+q_received,flow per minute:received,2026-11-18T01:37:00Z,24.0
+q_received,flow per minute:received,2026-11-18T01:38:00Z,29.0
+q_received,flow per minute:received,2026-11-18T01:39:00Z,1.0
+q_received,flow per minute:received,2026-11-18T01:40:00Z,0.0
+q_received,flow per minute:received,2026-11-18T01:41:00Z,0.0
+q_received,flow per minute:received,2026-11-18T01:42:00Z,0.0
+q_received,flow per minute:received,2026-11-18T01:43:00Z,0.0
+q_received,flow per minute:received,2026-11-18T01:44:00Z,0.0
+q_received,flow per minute:received,2026-11-18T01:45:00Z,60.0
+q_received,flow per minute:received,2026-11-18T01:46:00Z,125.0
+q_received,flow per minute:received,2026-11-18T01:47:00Z,150.0
+q_received,flow per minute:received,2026-11-18T01:48:00Z,145.0
+q_received,flow per minute:received,2026-11-18T01:49:00Z,140.0
+q_received,flow per minute:received,2026-11-18T01:50:00Z,260.0
+q_received,flow per minute:received,2026-11-18T01:51:00Z,385.0
+q_received,flow per minute:received,2026-11-18T01:52:00Z,414.0
+q_received,flow per minute:received,2026-11-18T01:53:00Z,321.0
+q_received,flow per minute:received,2026-11-18T01:54:00Z,0.0
+q_received,flow per minute:received,2026-11-18T01:55:00Z,0.0
+q_received,flow per minute:received,2026-11-18T01:56:00Z,0.0
+q_received,flow per minute:received,2026-11-18T01:57:00Z,0.0
+q_received,flow per minute:received,2026-11-18T01:58:00Z,0.0
+q_received,flow per minute:received,2026-11-18T01:59:00Z,0.0
+q_received,flow per minute:received,2026-11-18T02:00:00Z,0.0
+q_received,flow per minute:received,2026-11-18T02:01:00Z,0.0
+q_received,flow per minute:received,2026-11-18T02:02:00Z,0.0
+q_received,flow per minute:received,2026-11-18T02:03:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T01:35:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T01:36:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T01:37:00Z,20.0
+q_deleted,flow per minute:deleted,2026-11-18T01:38:00Z,31.0
+q_deleted,flow per minute:deleted,2026-11-18T01:39:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T01:40:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T01:41:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T01:42:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T01:43:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T01:44:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T01:45:00Z,57.0
+q_deleted,flow per minute:deleted,2026-11-18T01:46:00Z,127.0
+q_deleted,flow per minute:deleted,2026-11-18T01:47:00Z,146.0
+q_deleted,flow per minute:deleted,2026-11-18T01:48:00Z,147.0
+q_deleted,flow per minute:deleted,2026-11-18T01:49:00Z,139.0
+q_deleted,flow per minute:deleted,2026-11-18T01:50:00Z,254.0
+q_deleted,flow per minute:deleted,2026-11-18T01:51:00Z,387.0
+q_deleted,flow per minute:deleted,2026-11-18T01:52:00Z,411.0
+q_deleted,flow per minute:deleted,2026-11-18T01:53:00Z,332.0
+q_deleted,flow per minute:deleted,2026-11-18T01:54:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T01:55:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T01:56:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T01:57:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T01:58:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T01:59:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T02:00:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T02:01:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T02:02:00Z,0.0
+q_deleted,flow per minute:deleted,2026-11-18T02:03:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:35:00Z,52.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:36:00Z,52.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:37:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:38:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:39:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:40:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:41:00Z,1.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:42:00Z,1.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:43:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:44:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:45:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:46:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:47:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:48:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:49:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:50:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:51:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:52:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:53:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:54:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:55:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:56:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:57:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:58:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T01:59:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T02:00:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T02:01:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T02:02:00Z,0.0
+dlq_visible,dead-letter queue:visible messages,2026-11-18T02:03:00Z,0.0
+ecs_desired,worker tasks:desired,2026-11-18T01:35:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:36:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:37:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:38:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:39:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:40:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:41:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:42:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:43:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:44:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:45:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:46:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:47:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:48:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:49:00Z,1.0
+ecs_desired,worker tasks:desired,2026-11-18T01:50:00Z,2.0
+ecs_desired,worker tasks:desired,2026-11-18T01:51:00Z,3.0
+ecs_desired,worker tasks:desired,2026-11-18T01:52:00Z,3.0
+ecs_desired,worker tasks:desired,2026-11-18T01:53:00Z,4.0
+ecs_desired,worker tasks:desired,2026-11-18T01:54:00Z,4.0
+ecs_desired,worker tasks:desired,2026-11-18T01:55:00Z,4.0
+ecs_desired,worker tasks:desired,2026-11-18T01:56:00Z,4.0
+ecs_desired,worker tasks:desired,2026-11-18T01:57:00Z,4.0
+ecs_desired,worker tasks:desired,2026-11-18T01:58:00Z,4.0
+ecs_desired,worker tasks:desired,2026-11-18T01:59:00Z,4.0
+ecs_desired,worker tasks:desired,2026-11-18T02:00:00Z,4.0
+ecs_desired,worker tasks:desired,2026-11-18T02:01:00Z,2.0
+ecs_desired,worker tasks:desired,2026-11-18T02:02:00Z,2.0
+ecs_desired,worker tasks:desired,2026-11-18T02:03:00Z,2.0
+ecs_running,worker tasks:running,2026-11-18T01:35:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:36:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:37:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:38:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:39:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:40:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:41:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:42:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:43:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:44:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:45:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:46:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:47:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:48:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:49:00Z,1.0
+ecs_running,worker tasks:running,2026-11-18T01:50:00Z,2.0
+ecs_running,worker tasks:running,2026-11-18T01:51:00Z,3.0
+ecs_running,worker tasks:running,2026-11-18T01:52:00Z,3.0
+ecs_running,worker tasks:running,2026-11-18T01:53:00Z,4.0
+ecs_running,worker tasks:running,2026-11-18T01:54:00Z,4.0
+ecs_running,worker tasks:running,2026-11-18T01:55:00Z,4.0
+ecs_running,worker tasks:running,2026-11-18T01:56:00Z,4.0
+ecs_running,worker tasks:running,2026-11-18T01:57:00Z,4.0
+ecs_running,worker tasks:running,2026-11-18T01:58:00Z,4.0
+ecs_running,worker tasks:running,2026-11-18T01:59:00Z,4.0
+ecs_running,worker tasks:running,2026-11-18T02:00:00Z,4.0
+ecs_running,worker tasks:running,2026-11-18T02:01:00Z,2.0
+ecs_running,worker tasks:running,2026-11-18T02:02:00Z,2.0
+ecs_running,worker tasks:running,2026-11-18T02:03:00Z,2.0
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:35:00Z,0.40983831385771435
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:36:00Z,0.2657993088165919
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:37:00Z,0.2270026057958603
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:38:00Z,7.593566874663035
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:39:00Z,0.3728913615147273
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:40:00Z,0.3111848284800847
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:41:00Z,0.32731005549430847
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:42:00Z,0.3042586048444112
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:43:00Z,0.2327314962943395
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:44:00Z,0.23288067181905112
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:45:00Z,0.22929814954598746
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:46:00Z,7.065656140446663
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:47:00Z,11.232120513916016
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:48:00Z,11.894713719685873
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:49:00Z,4.496729453404744
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:50:00Z,19.3406343460083
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:51:00Z,23.78460619184706
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:52:00Z,8.936651945114136
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:53:00Z,16.49997068444888
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:54:00Z,0.992728350063165
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:55:00Z,0.5540285706520081
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:56:00Z,0.29195163398981094
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:57:00Z,0.3039153503874938
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:58:00Z,0.2621951401233673
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T01:59:00Z,0.45600849141677224
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T02:00:00Z,0.2677751313894987
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T02:01:00Z,0.38215333968400955
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T02:02:00Z,0.2606632933020592
+ecs_cpu,worker CPU and memory percent:CPUUtilization,2026-11-18T02:03:00Z,0.27343323330084485
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:35:00Z,19.3359375
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:36:00Z,19.3359375
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:37:00Z,19.3359375
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:38:00Z,20.01953125
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:39:00Z,20.1171875
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:40:00Z,20.1171875
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:41:00Z,20.1171875
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:42:00Z,20.1171875
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:43:00Z,20.1171875
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:44:00Z,20.1171875
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:45:00Z,20.1171875
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:46:00Z,20.442708333333332
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:47:00Z,20.735677083333332
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:48:00Z,20.833333333333332
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:49:00Z,10.514322916666666
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:50:00Z,11.903211805555555
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:51:00Z,18.51490162037037
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:52:00Z,14.717610677083334
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:53:00Z,19.074164496527775
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:54:00Z,19.921875
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:55:00Z,19.921875
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:56:00Z,19.921875
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:57:00Z,19.921875
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:58:00Z,19.921875
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T01:59:00Z,19.921875
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T02:00:00Z,19.925944010416668
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T02:01:00Z,19.287109375
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T02:02:00Z,19.287109375
+ecs_memory,worker CPU and memory percent:MemoryUtilization,2026-11-18T02:03:00Z,19.287109375

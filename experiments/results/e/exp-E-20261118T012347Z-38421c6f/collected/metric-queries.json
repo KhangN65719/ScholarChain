@@ -1,0 +1,725 @@
+[
+  {
+    "Id": "alb_p50",
+    "Label": "ALB target response time s:p50",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "TargetResponseTime",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "app/scholarchain-course-alb/eade7a55ad247523"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "p50"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "alb_p95",
+    "Label": "ALB target response time s:p95",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "TargetResponseTime",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "app/scholarchain-course-alb/eade7a55ad247523"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "p95"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "alb_p99",
+    "Label": "ALB target response time s:p99",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "TargetResponseTime",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "app/scholarchain-course-alb/eade7a55ad247523"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "p99"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "alb_requests",
+    "Label": "ALB requests per minute:RequestCount",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "RequestCount",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "app/scholarchain-course-alb/eade7a55ad247523"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "alb_target_5xx",
+    "Label": "ALB errors per minute:target 5xx",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "HTTPCode_Target_5XX_Count",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "app/scholarchain-course-alb/eade7a55ad247523"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "alb_elb_5xx",
+    "Label": "ALB errors per minute:ELB 5xx",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "HTTPCode_ELB_5XX_Count",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "app/scholarchain-course-alb/eade7a55ad247523"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "alb_healthy",
+    "Label": "ALB healthy targets:HealthyHostCount",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ApplicationELB",
+        "MetricName": "HealthyHostCount",
+        "Dimensions": [
+          {
+            "Name": "LoadBalancer",
+            "Value": "app/scholarchain-course-alb/eade7a55ad247523"
+          },
+          {
+            "Name": "TargetGroup",
+            "Value": "targetgroup/scholarchain-course-query/2fdf2ceea3a55a7b"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Minimum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ecs_desired",
+    "Label": "service tasks:desired",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "ECS/ContainerInsights",
+        "MetricName": "DesiredTaskCount",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "scholarchain-course-cluster"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "scholarchain-course-query"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ecs_running",
+    "Label": "service tasks:running",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "ECS/ContainerInsights",
+        "MetricName": "RunningTaskCount",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "scholarchain-course-cluster"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "scholarchain-course-query"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ecs_cpu",
+    "Label": "service CPU and memory percent:CPUUtilization",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ECS",
+        "MetricName": "CPUUtilization",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "scholarchain-course-cluster"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "scholarchain-course-query"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ecs_memory",
+    "Label": "service CPU and memory percent:MemoryUtilization",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ECS",
+        "MetricName": "MemoryUtilization",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "scholarchain-course-cluster"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "scholarchain-course-query"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "neptune_cpu",
+    "Label": "Neptune:CPUUtilization",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/Neptune",
+        "MetricName": "CPUUtilization",
+        "Dimensions": [
+          {
+            "Name": "DBClusterIdentifier",
+            "Value": "scholarchain-course-graph"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "neptune_pending",
+    "Label": "Neptune pending requests:MainRequestQueuePendingRequests",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/Neptune",
+        "MetricName": "MainRequestQueuePendingRequests",
+        "Dimensions": [
+          {
+            "Name": "DBClusterIdentifier",
+            "Value": "scholarchain-course-graph"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_read_throttle_0",
+    "Label": "DynamoDB throttle events:read [scholarchain-course-artifact-registry]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ReadThrottleEvents",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-artifact-registry"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_read_throttle_1",
+    "Label": "DynamoDB throttle events:read [scholarchain-course-entity-link-cache]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ReadThrottleEvents",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-entity-link-cache"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_read_throttle_2",
+    "Label": "DynamoDB throttle events:read [scholarchain-course-evidence-bundle]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ReadThrottleEvents",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-evidence-bundle"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_read_throttle_3",
+    "Label": "DynamoDB throttle events:read [scholarchain-course-query-session]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ReadThrottleEvents",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-query-session"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_read_throttle_4",
+    "Label": "DynamoDB throttle events:read [scholarchain-course-researcher-metric-cache]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ReadThrottleEvents",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-researcher-metric-cache"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_read_throttle_5",
+    "Label": "DynamoDB throttle events:read [scholarchain-course-run-ledger]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ReadThrottleEvents",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-run-ledger"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_write_throttle_0",
+    "Label": "DynamoDB throttle events:write [scholarchain-course-artifact-registry]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "WriteThrottleEvents",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-artifact-registry"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_write_throttle_1",
+    "Label": "DynamoDB throttle events:write [scholarchain-course-entity-link-cache]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "WriteThrottleEvents",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-entity-link-cache"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_write_throttle_2",
+    "Label": "DynamoDB throttle events:write [scholarchain-course-evidence-bundle]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "WriteThrottleEvents",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-evidence-bundle"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_write_throttle_3",
+    "Label": "DynamoDB throttle events:write [scholarchain-course-query-session]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "WriteThrottleEvents",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-query-session"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_write_throttle_4",
+    "Label": "DynamoDB throttle events:write [scholarchain-course-researcher-metric-cache]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "WriteThrottleEvents",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-researcher-metric-cache"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_write_throttle_5",
+    "Label": "DynamoDB throttle events:write [scholarchain-course-run-ledger]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "WriteThrottleEvents",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-run-ledger"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_read_units_0",
+    "Label": "DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedReadCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-artifact-registry"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_read_units_1",
+    "Label": "DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedReadCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-entity-link-cache"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_read_units_2",
+    "Label": "DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedReadCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-evidence-bundle"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_read_units_3",
+    "Label": "DynamoDB consumed units per minute:read [scholarchain-course-query-session]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedReadCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-query-session"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_read_units_4",
+    "Label": "DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedReadCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-researcher-metric-cache"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_read_units_5",
+    "Label": "DynamoDB consumed units per minute:read [scholarchain-course-run-ledger]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedReadCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-run-ledger"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_write_units_0",
+    "Label": "DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedWriteCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-artifact-registry"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_write_units_1",
+    "Label": "DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedWriteCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-entity-link-cache"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_write_units_2",
+    "Label": "DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedWriteCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-evidence-bundle"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_write_units_3",
+    "Label": "DynamoDB consumed units per minute:write [scholarchain-course-query-session]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedWriteCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-query-session"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_write_units_4",
+    "Label": "DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedWriteCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-researcher-metric-cache"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ddb_write_units_5",
+    "Label": "DynamoDB consumed units per minute:write [scholarchain-course-run-ledger]",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/DynamoDB",
+        "MetricName": "ConsumedWriteCapacityUnits",
+        "Dimensions": [
+          {
+            "Name": "TableName",
+            "Value": "scholarchain-course-run-ledger"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  }
+]

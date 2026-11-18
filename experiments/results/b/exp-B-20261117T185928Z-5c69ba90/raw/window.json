@@ -1,0 +1,8 @@
+{
+  "pipeline_record": "/Users/winnguyen/scholarchain-data/experiments/runs/exp-B-20261117T185928Z-5c69ba90/raw/pipeline/pipeline-20261117T185932Z-medium.record.env",
+  "execution_arn": "arn:aws:states:us-east-2:000000000000:execution:scholarchain-course-pipeline:run-20261117T185932Z-medium",
+  "start_utc": "2026-11-17T18:59:32Z",
+  "end_utc": "2026-11-17T20:20:26Z",
+  "final_status": "SUCCEEDED",
+  "pipeline_exit": 0
+}

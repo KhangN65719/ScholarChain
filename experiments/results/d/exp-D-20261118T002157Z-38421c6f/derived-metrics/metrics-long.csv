@@ -1,0 +1,1328 @@
+id,label,timestamp_utc,value
+alb_p50,ALB target response time s:p50,2026-11-18T00:14:00Z,0.1798587899092136
+alb_p50,ALB target response time s:p50,2026-11-18T00:22:00Z,0.9090909090909091
+alb_p50,ALB target response time s:p50,2026-11-18T00:23:00Z,0.7095554390096881
+alb_p50,ALB target response time s:p50,2026-11-18T00:24:00Z,0.6283630801053077
+alb_p50,ALB target response time s:p50,2026-11-18T00:25:00Z,0.4993726149343814
+alb_p50,ALB target response time s:p50,2026-11-18T00:26:00Z,0.5255322535448806
+alb_p50,ALB target response time s:p50,2026-11-18T00:27:00Z,0.45552303926997545
+alb_p50,ALB target response time s:p50,2026-11-18T00:28:00Z,0.43088821336087335
+alb_p50,ALB target response time s:p50,2026-11-18T00:29:00Z,0.4240976183724846
+alb_p50,ALB target response time s:p50,2026-11-18T00:30:00Z,0.39578208935359127
+alb_p50,ALB target response time s:p50,2026-11-18T00:31:00Z,0.34646803111091634
+alb_p50,ALB target response time s:p50,2026-11-18T00:32:00Z,0.3258571339811216
+alb_p50,ALB target response time s:p50,2026-11-18T00:33:00Z,0.3286891685661498
+alb_p50,ALB target response time s:p50,2026-11-18T00:34:00Z,0.31553124749745526
+alb_p50,ALB target response time s:p50,2026-11-18T00:35:00Z,0.3229988818016553
+alb_p50,ALB target response time s:p50,2026-11-18T00:36:00Z,0.3363615531855758
+alb_p50,ALB target response time s:p50,2026-11-18T00:37:00Z,0.3332092105664085
+alb_p50,ALB target response time s:p50,2026-11-18T00:38:00Z,0.32857269707055825
+alb_p50,ALB target response time s:p50,2026-11-18T00:39:00Z,0.3329600241198749
+alb_p50,ALB target response time s:p50,2026-11-18T00:40:00Z,0.3256800834966451
+alb_p50,ALB target response time s:p50,2026-11-18T00:41:00Z,0.7485656909154854
+alb_p50,ALB target response time s:p50,2026-11-18T00:42:00Z,1.1738563955958132
+alb_p50,ALB target response time s:p50,2026-11-18T00:43:00Z,1.0363877163706359
+alb_p50,ALB target response time s:p50,2026-11-18T00:44:00Z,1.0816533350140807
+alb_p50,ALB target response time s:p50,2026-11-18T00:45:00Z,0.9675463141350669
+alb_p50,ALB target response time s:p50,2026-11-18T00:46:00Z,3.2632142821846077
+alb_p50,ALB target response time s:p50,2026-11-18T00:47:00Z,4.627288124859728
+alb_p50,ALB target response time s:p50,2026-11-18T00:48:00Z,3.8370441570194087
+alb_p50,ALB target response time s:p50,2026-11-18T00:49:00Z,3.7080827805625436
+alb_p50,ALB target response time s:p50,2026-11-18T00:50:00Z,3.6651829942488217
+alb_p50,ALB target response time s:p50,2026-11-18T00:51:00Z,3.6742555177687026
+alb_p50,ALB target response time s:p50,2026-11-18T00:52:00Z,3.7308722566938157
+alb_p50,ALB target response time s:p50,2026-11-18T00:53:00Z,3.4863093348600143
+alb_p50,ALB target response time s:p50,2026-11-18T00:54:00Z,3.546064246563826
+alb_p95,ALB target response time s:p95,2026-11-18T00:14:00Z,1.9812406499231359
+alb_p95,ALB target response time s:p95,2026-11-18T00:22:00Z,2.391665765397709
+alb_p95,ALB target response time s:p95,2026-11-18T00:23:00Z,4.21510724200306
+alb_p95,ALB target response time s:p95,2026-11-18T00:24:00Z,1.006580880304918
+alb_p95,ALB target response time s:p95,2026-11-18T00:25:00Z,0.6228406711938012
+alb_p95,ALB target response time s:p95,2026-11-18T00:26:00Z,0.7520406369231547
+alb_p95,ALB target response time s:p95,2026-11-18T00:27:00Z,0.5793828510747966
+alb_p95,ALB target response time s:p95,2026-11-18T00:28:00Z,0.6216061309997096
+alb_p95,ALB target response time s:p95,2026-11-18T00:29:00Z,0.5684919585325359
+alb_p95,ALB target response time s:p95,2026-11-18T00:30:00Z,0.6928483102730796
+alb_p95,ALB target response time s:p95,2026-11-18T00:31:00Z,0.499882824973873
+alb_p95,ALB target response time s:p95,2026-11-18T00:32:00Z,0.6068793074695304
+alb_p95,ALB target response time s:p95,2026-11-18T00:33:00Z,0.6358940267893057
+alb_p95,ALB target response time s:p95,2026-11-18T00:34:00Z,0.5330995033881949
+alb_p95,ALB target response time s:p95,2026-11-18T00:35:00Z,0.46473225002780033
+alb_p95,ALB target response time s:p95,2026-11-18T00:36:00Z,0.7301366333695323
+alb_p95,ALB target response time s:p95,2026-11-18T00:37:00Z,0.5263677265044874
+alb_p95,ALB target response time s:p95,2026-11-18T00:38:00Z,0.9118026209886925
+alb_p95,ALB target response time s:p95,2026-11-18T00:39:00Z,0.8092975747863654
+alb_p95,ALB target response time s:p95,2026-11-18T00:40:00Z,0.9123459332435437
+alb_p95,ALB target response time s:p95,2026-11-18T00:41:00Z,3.8613690575933233
+alb_p95,ALB target response time s:p95,2026-11-18T00:42:00Z,4.4073106486774964
+alb_p95,ALB target response time s:p95,2026-11-18T00:43:00Z,4.529748186127521
+alb_p95,ALB target response time s:p95,2026-11-18T00:44:00Z,4.51537998500708
+alb_p95,ALB target response time s:p95,2026-11-18T00:45:00Z,4.722623887767536
+alb_p95,ALB target response time s:p95,2026-11-18T00:46:00Z,8.664655142457065
+alb_p95,ALB target response time s:p95,2026-11-18T00:47:00Z,8.388373687800408
+alb_p95,ALB target response time s:p95,2026-11-18T00:48:00Z,10.720313578093302
+alb_p95,ALB target response time s:p95,2026-11-18T00:49:00Z,7.4863933650854735
+alb_p95,ALB target response time s:p95,2026-11-18T00:50:00Z,7.471119050419012
+alb_p95,ALB target response time s:p95,2026-11-18T00:51:00Z,7.306802414872384
+alb_p95,ALB target response time s:p95,2026-11-18T00:52:00Z,7.3316410485691215
+alb_p95,ALB target response time s:p95,2026-11-18T00:53:00Z,7.5731429453663495
+alb_p95,ALB target response time s:p95,2026-11-18T00:54:00Z,7.706164571892379
+alb_p99,ALB target response time s:p99,2026-11-18T00:14:00Z,1.9878102092535552
+alb_p99,ALB target response time s:p99,2026-11-18T00:22:00Z,2.418987050724962
+alb_p99,ALB target response time s:p99,2026-11-18T00:23:00Z,4.338577426631575
+alb_p99,ALB target response time s:p99,2026-11-18T00:24:00Z,1.0369616103905857
+alb_p99,ALB target response time s:p99,2026-11-18T00:25:00Z,0.6368362419126288
+alb_p99,ALB target response time s:p99,2026-11-18T00:26:00Z,0.7543680277386356
+alb_p99,ALB target response time s:p99,2026-11-18T00:27:00Z,0.5883831609349714
+alb_p99,ALB target response time s:p99,2026-11-18T00:28:00Z,0.6247200787141237
+alb_p99,ALB target response time s:p99,2026-11-18T00:29:00Z,0.5982786029714663
+alb_p99,ALB target response time s:p99,2026-11-18T00:30:00Z,1.7530847650482941
+alb_p99,ALB target response time s:p99,2026-11-18T00:31:00Z,1.4066492301844098
+alb_p99,ALB target response time s:p99,2026-11-18T00:32:00Z,0.8717551734228296
+alb_p99,ALB target response time s:p99,2026-11-18T00:33:00Z,6.869272566899585
+alb_p99,ALB target response time s:p99,2026-11-18T00:34:00Z,1.2763367494083653
+alb_p99,ALB target response time s:p99,2026-11-18T00:35:00Z,0.8092975747863659
+alb_p99,ALB target response time s:p99,2026-11-18T00:36:00Z,8.017080490006908
+alb_p99,ALB target response time s:p99,2026-11-18T00:37:00Z,0.7408853672029838
+alb_p99,ALB target response time s:p99,2026-11-18T00:38:00Z,3.237165062542092
+alb_p99,ALB target response time s:p99,2026-11-18T00:39:00Z,1.5770920229747165
+alb_p99,ALB target response time s:p99,2026-11-18T00:40:00Z,4.288863788995691
+alb_p99,ALB target response time s:p99,2026-11-18T00:41:00Z,7.171116900120549
+alb_p99,ALB target response time s:p99,2026-11-18T00:42:00Z,5.896493471453626
+alb_p99,ALB target response time s:p99,2026-11-18T00:43:00Z,5.536122125901685
+alb_p99,ALB target response time s:p99,2026-11-18T00:44:00Z,6.083932966832275
+alb_p99,ALB target response time s:p99,2026-11-18T00:45:00Z,6.998930283293458
+alb_p99,ALB target response time s:p99,2026-11-18T00:46:00Z,11.502468136829131
+alb_p99,ALB target response time s:p99,2026-11-18T00:47:00Z,10.242251710313077
+alb_p99,ALB target response time s:p99,2026-11-18T00:48:00Z,13.17889800737906
+alb_p99,ALB target response time s:p99,2026-11-18T00:49:00Z,8.910033543245492
+alb_p99,ALB target response time s:p99,2026-11-18T00:50:00Z,8.602938749804105
+alb_p99,ALB target response time s:p99,2026-11-18T00:51:00Z,8.77407453015753
+alb_p99,ALB target response time s:p99,2026-11-18T00:52:00Z,8.921647069620512
+alb_p99,ALB target response time s:p99,2026-11-18T00:53:00Z,8.825328342967875
+alb_p99,ALB target response time s:p99,2026-11-18T00:54:00Z,9.53112065670277
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:11:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:12:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:13:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:14:00Z,4.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:15:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:16:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:17:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:18:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:19:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:20:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:21:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:22:00Z,10.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:23:00Z,16.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:24:00Z,17.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:25:00Z,18.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:26:00Z,16.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:27:00Z,17.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:28:00Z,17.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:29:00Z,18.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:30:00Z,111.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:31:00Z,142.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:32:00Z,144.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:33:00Z,135.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:34:00Z,144.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:35:00Z,144.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:36:00Z,132.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:37:00Z,144.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:38:00Z,335.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:39:00Z,422.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:40:00Z,417.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:41:00Z,333.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:42:00Z,315.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:43:00Z,318.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:44:00Z,322.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:45:00Z,317.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:46:00Z,349.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:47:00Z,377.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:48:00Z,389.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:49:00Z,426.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:50:00Z,426.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:51:00Z,428.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:52:00Z,423.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:53:00Z,437.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:54:00Z,169.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:55:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:56:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:57:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:58:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T00:59:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T01:00:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T01:01:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T01:02:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T01:03:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T01:04:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T01:05:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T01:06:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T01:07:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T01:08:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T01:09:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T01:10:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T01:11:00Z,0.0
+alb_requests,ALB requests per minute:RequestCount,2026-11-18T01:12:00Z,0.0
+alb_target_5xx,ALB errors per minute:target 5xx,2026-11-18T00:41:00Z,2.0
+alb_target_5xx,ALB errors per minute:target 5xx,2026-11-18T00:46:00Z,1.0
+alb_target_5xx,ALB errors per minute:target 5xx,2026-11-18T00:48:00Z,9.0
+alb_target_5xx,ALB errors per minute:target 5xx,2026-11-18T00:50:00Z,1.0
+alb_target_5xx,ALB errors per minute:target 5xx,2026-11-18T00:51:00Z,1.0
+alb_target_5xx,ALB errors per minute:target 5xx,2026-11-18T00:52:00Z,1.0
+alb_target_5xx,ALB errors per minute:target 5xx,2026-11-18T00:53:00Z,1.0
+alb_target_5xx,ALB errors per minute:target 5xx,2026-11-18T00:54:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:11:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:12:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:13:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:14:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:15:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:16:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:17:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:18:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:19:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:20:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:21:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:22:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:23:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:24:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:25:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:26:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:27:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:28:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:29:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:30:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:31:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:32:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:33:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:34:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:35:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:36:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:37:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:38:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:39:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:40:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:41:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:42:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:43:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:44:00Z,2.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:45:00Z,2.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:46:00Z,2.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:47:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:48:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:49:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:50:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:51:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:52:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:53:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:54:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:55:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:56:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:57:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:58:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T00:59:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T01:00:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T01:01:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T01:02:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T01:03:00Z,3.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T01:04:00Z,2.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T01:05:00Z,2.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T01:06:00Z,2.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T01:07:00Z,2.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T01:08:00Z,2.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T01:09:00Z,2.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T01:10:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T01:11:00Z,1.0
+alb_healthy,ALB healthy targets:HealthyHostCount,2026-11-18T01:12:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:11:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:12:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:13:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:14:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:15:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:16:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:17:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:18:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:19:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:20:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:21:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:22:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:23:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:24:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:25:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:26:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:27:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:28:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:29:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:30:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:31:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:32:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:33:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:34:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:35:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:36:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:37:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:38:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:39:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:40:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:41:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:42:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T00:43:00Z,2.0
+ecs_desired,service tasks:desired,2026-11-18T00:44:00Z,2.0
+ecs_desired,service tasks:desired,2026-11-18T00:45:00Z,2.0
+ecs_desired,service tasks:desired,2026-11-18T00:46:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T00:47:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T00:48:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T00:49:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T00:50:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T00:51:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T00:52:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T00:53:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T00:54:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T00:55:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T00:56:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T00:57:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T00:58:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T00:59:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T01:00:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T01:01:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T01:02:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T01:03:00Z,3.0
+ecs_desired,service tasks:desired,2026-11-18T01:04:00Z,2.0
+ecs_desired,service tasks:desired,2026-11-18T01:05:00Z,2.0
+ecs_desired,service tasks:desired,2026-11-18T01:06:00Z,2.0
+ecs_desired,service tasks:desired,2026-11-18T01:07:00Z,2.0
+ecs_desired,service tasks:desired,2026-11-18T01:08:00Z,2.0
+ecs_desired,service tasks:desired,2026-11-18T01:09:00Z,2.0
+ecs_desired,service tasks:desired,2026-11-18T01:10:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T01:11:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T01:12:00Z,1.0
+ecs_desired,service tasks:desired,2026-11-18T01:13:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:11:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:12:00Z,2.0
+ecs_running,service tasks:running,2026-11-18T00:13:00Z,2.0
+ecs_running,service tasks:running,2026-11-18T00:14:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:15:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:16:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:17:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:18:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:19:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:20:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:21:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:22:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:23:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:24:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:25:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:26:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:27:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:28:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:29:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:30:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:31:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:32:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:33:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:34:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:35:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:36:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:37:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:38:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:39:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:40:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:41:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:42:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:43:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T00:44:00Z,2.0
+ecs_running,service tasks:running,2026-11-18T00:45:00Z,2.0
+ecs_running,service tasks:running,2026-11-18T00:46:00Z,2.0
+ecs_running,service tasks:running,2026-11-18T00:47:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T00:48:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T00:49:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T00:50:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T00:51:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T00:52:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T00:53:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T00:54:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T00:55:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T00:56:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T00:57:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T00:58:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T00:59:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T01:00:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T01:01:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T01:02:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T01:03:00Z,3.0
+ecs_running,service tasks:running,2026-11-18T01:04:00Z,2.0
+ecs_running,service tasks:running,2026-11-18T01:05:00Z,2.0
+ecs_running,service tasks:running,2026-11-18T01:06:00Z,2.0
+ecs_running,service tasks:running,2026-11-18T01:07:00Z,2.0
+ecs_running,service tasks:running,2026-11-18T01:08:00Z,2.0
+ecs_running,service tasks:running,2026-11-18T01:09:00Z,2.0
+ecs_running,service tasks:running,2026-11-18T01:10:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T01:11:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T01:12:00Z,1.0
+ecs_running,service tasks:running,2026-11-18T01:13:00Z,1.0
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:11:00Z,0.231437216202418
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:12:00Z,49.960138792792954
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:13:00Z,0.9917711267868677
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:14:00Z,5.938683758179347
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:15:00Z,0.4274865488211314
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:16:00Z,0.4412091871102651
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:17:00Z,0.4744257728258769
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:18:00Z,0.47952283422152203
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:19:00Z,0.4789506793022156
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:20:00Z,0.488724817832311
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:21:00Z,0.42592955629030865
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:22:00Z,15.118483950694403
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:23:00Z,16.9166259765625
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:24:00Z,8.835983912150065
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:25:00Z,5.511333465576172
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:26:00Z,4.592732508977254
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:27:00Z,7.015422979990642
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:28:00Z,3.504345655441284
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:29:00Z,3.54109779993693
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:30:00Z,20.57870070139567
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:31:00Z,22.378564834594727
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:32:00Z,24.35012435913086
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:33:00Z,20.118138949076336
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:34:00Z,26.962416013081867
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:35:00Z,21.353185017903645
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:36:00Z,15.804957707722982
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:37:00Z,15.594122250874838
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:38:00Z,29.04399045308431
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:39:00Z,39.281747817993164
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:40:00Z,41.216546376546226
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:41:00Z,35.96717198689779
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:42:00Z,42.287549336751304
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:43:00Z,39.08032544453939
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:44:00Z,46.67870149513086
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:45:00Z,50.94540325800578
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:46:00Z,37.60110017988416
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:47:00Z,37.93056612544589
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:48:00Z,32.2513157526652
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:49:00Z,24.091717508104114
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:50:00Z,21.394409391615127
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:51:00Z,19.027625295850967
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:52:00Z,19.947053697374134
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:53:00Z,16.600933180914982
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:54:00Z,11.226856052875519
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:55:00Z,0.9212401045693291
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:56:00Z,0.6003079546822442
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:57:00Z,0.4317128741078906
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:58:00Z,0.3006460666656494
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T00:59:00Z,0.2679128977987501
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T01:00:00Z,0.2617034597529306
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T01:01:00Z,0.31203292972511715
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T01:02:00Z,0.25314245455794865
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T01:03:00Z,0.25162671340836423
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T01:04:00Z,0.2448146790266037
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T01:05:00Z,0.23317308475573856
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T01:06:00Z,0.31772927939891815
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T01:07:00Z,0.24062319844961166
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T01:08:00Z,0.233675775428613
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T01:09:00Z,0.24419411768515903
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T01:10:00Z,0.22301672399044037
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T01:11:00Z,0.2506745904684067
+ecs_cpu,service CPU and memory percent:CPUUtilization,2026-11-18T01:12:00Z,0.24322705964247385
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:11:00Z,27.294921875
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:12:00Z,40.671115451388886
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:13:00Z,54.03645833333333
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:14:00Z,54.14225260416667
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:15:00Z,54.052734375
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:16:00Z,54.052734375
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:17:00Z,54.052734375
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:18:00Z,54.052734375
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:19:00Z,54.052734375
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:20:00Z,54.052734375
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:21:00Z,54.052734375
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:22:00Z,54.158528645833336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:23:00Z,54.484049479166664
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:24:00Z,54.874674479166664
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:25:00Z,55.623372395833336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:26:00Z,56.355794270833336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:27:00Z,56.526692708333336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:28:00Z,56.608072916666664
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:29:00Z,56.648763020833336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:30:00Z,59.8388671875
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:31:00Z,70.96354166666667
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:32:00Z,71.18326822916667
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:33:00Z,71.2890625
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:34:00Z,54.9560546875
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:35:00Z,51.163736979166664
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:36:00Z,48.4375
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:37:00Z,45.3125
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:38:00Z,44.034830729166664
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:39:00Z,42.106119791666664
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:40:00Z,41.031901041666664
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:41:00Z,40.6494140625
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:42:00Z,40.4541015625
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:43:00Z,22.42431640625
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:44:00Z,40.39306640625
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:45:00Z,50.08951822916667
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:46:00Z,37.76719835069444
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:47:00Z,48.85796440972223
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:48:00Z,48.82269965277777
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:49:00Z,53.11957465277777
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:50:00Z,53.33930121527777
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:51:00Z,52.454969618055564
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:52:00Z,45.578342013888886
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:53:00Z,44.5556640625
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:54:00Z,42.82497829861111
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:55:00Z,42.561848958333336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:56:00Z,42.561848958333336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:57:00Z,42.561848958333336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:58:00Z,42.561848958333336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T00:59:00Z,42.561848958333336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T01:00:00Z,42.561848958333336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T01:01:00Z,42.561848958333336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T01:02:00Z,42.561848958333336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T01:03:00Z,42.561848958333336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T01:04:00Z,42.561848958333336
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T01:05:00Z,42.431640625
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T01:06:00Z,42.431640625
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T01:07:00Z,42.431640625
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T01:08:00Z,42.431640625
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T01:09:00Z,42.431640625
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T01:10:00Z,42.431640625
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T01:11:00Z,44.970703125
+ecs_memory,service CPU and memory percent:MemoryUtilization,2026-11-18T01:12:00Z,44.970703125
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:11:00Z,11.629263091251396
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:12:00Z,11.87262547490502
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:13:00Z,11.652136224974578
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:14:00Z,11.197760447910417
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:15:00Z,12.109283784234579
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:16:00Z,11.691231576317762
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:17:00Z,11.477295459091819
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:18:00Z,11.54147430876152
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:19:00Z,11.489844245072208
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:20:00Z,11.69337375487224
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:21:00Z,11.454199873286871
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:22:00Z,11.179420536145681
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:23:00Z,11.655225273260463
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:24:00Z,11.025735049003266
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:25:00Z,11.766862781046353
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:26:00Z,11.22481291978467
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:27:00Z,11.791666666666666
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:28:00Z,10.908696956565217
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:29:00Z,11.085365650369235
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:30:00Z,12.016466392226796
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:31:00Z,10.98965189715219
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:32:00Z,11.489461045891142
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:33:00Z,10.712917145665683
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:34:00Z,11.150185836430607
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:35:00Z,11.871834177552653
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:36:00Z,10.659043936262417
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:37:00Z,11.383347788378144
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:38:00Z,11.541536206781695
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:39:00Z,10.927003283935388
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:40:00Z,11.525192086534776
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:41:00Z,10.641489308511524
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:42:00Z,11.447710457908418
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:43:00Z,10.885510435420418
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:44:00Z,10.997715410142245
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:45:00Z,11.69337375487224
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:46:00Z,10.747757062335323
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:47:00Z,11.09408315565032
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:48:00Z,10.966666666666665
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:49:00Z,11.241666666666667
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:50:00Z,11.414573994767625
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:51:00Z,10.757709691945895
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:52:00Z,11.085754264392323
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:53:00Z,11.214797533744376
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:54:00Z,11.016044564528503
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:55:00Z,11.552364611617332
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:56:00Z,10.488752522136437
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:57:00Z,11.458333333333332
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:58:00Z,11.116666666666665
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T00:59:00Z,11.818696695095948
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T01:00:00Z,13.265408217716114
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T01:01:00Z,11.033333333333335
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T01:02:00Z,11.725125745311615
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T01:03:00Z,10.882617832482737
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T01:04:00Z,11.219203411570687
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T01:05:00Z,11.791470142164295
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T01:06:00Z,11.300188336472274
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T01:07:00Z,11.923012831194802
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T01:08:00Z,11.608333333333333
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T01:09:00Z,11.552117888279517
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T01:10:00Z,11.745386038912322
+neptune_cpu,Neptune:CPUUtilization,2026-11-18T01:11:00Z,11.652118869936034
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:11:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:12:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:13:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:14:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:15:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:16:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:17:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:18:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:19:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:20:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:21:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:22:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:23:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:24:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:25:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:26:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:27:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:28:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:29:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:30:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:31:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:32:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:33:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:34:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:35:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:36:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:37:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:38:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:39:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:40:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:41:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:42:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:43:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:44:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:45:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:46:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:47:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:48:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:49:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:50:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:51:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:52:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:53:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:54:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:55:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:56:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:57:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:58:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T00:59:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T01:00:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T01:01:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T01:02:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T01:03:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T01:04:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T01:05:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T01:06:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T01:07:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T01:08:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T01:09:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T01:10:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T01:11:00Z,0.0
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,2026-11-18T01:12:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:11:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:12:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:13:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:14:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:15:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:16:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:17:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:18:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:19:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:20:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:21:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:22:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:23:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:24:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:25:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:26:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:27:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:28:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:29:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:30:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:31:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:32:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:33:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:34:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:35:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:36:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:37:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:38:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:39:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:40:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:41:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:42:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:43:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:44:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:45:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:46:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:47:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:48:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:49:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:50:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:51:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:52:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:53:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:54:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:55:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:56:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:57:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:58:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T00:59:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T01:00:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T01:01:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T01:02:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T01:03:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T01:04:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T01:05:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T01:06:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T01:07:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T01:08:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T01:09:00Z,0.0
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],2026-11-18T01:10:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:11:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:12:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:13:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:14:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:15:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:16:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:17:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:18:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:19:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:20:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:21:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:22:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:23:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:24:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:25:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:26:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:27:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:28:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:29:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:30:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:31:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:32:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:33:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:34:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:35:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:36:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:37:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:38:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:39:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:40:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:41:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:42:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:43:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:44:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:45:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:46:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:47:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:48:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:49:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:50:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:51:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:52:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:53:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:54:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:55:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:56:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:57:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:58:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T00:59:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T01:00:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T01:01:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T01:02:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T01:03:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T01:04:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T01:05:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T01:06:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T01:07:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T01:08:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T01:09:00Z,0.0
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],2026-11-18T01:10:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:11:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:12:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:13:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:14:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:15:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:16:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:17:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:18:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:19:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:20:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:21:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:22:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:23:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:24:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:25:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:26:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:27:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:28:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:29:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:30:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:31:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:32:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:33:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:34:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:35:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:36:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:37:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:38:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:39:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:40:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:41:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:42:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:43:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:44:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:45:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:46:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:47:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:48:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:49:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:50:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:51:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:52:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:53:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:54:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:55:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:56:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:57:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:58:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T00:59:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T01:00:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T01:01:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T01:02:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T01:03:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T01:04:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T01:05:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T01:06:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T01:07:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T01:08:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T01:09:00Z,0.0
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],2026-11-18T01:10:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:11:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:12:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:13:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:14:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:15:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:16:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:17:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:18:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:19:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:20:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:21:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:22:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:23:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:24:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:25:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:26:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:27:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:28:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:29:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:30:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:31:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:32:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:33:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:34:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:35:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:36:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:37:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:38:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:39:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:40:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:41:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:42:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:43:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:44:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:45:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:46:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:47:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:48:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:49:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:50:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:51:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:52:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:53:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:54:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:55:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:56:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:57:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:58:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T00:59:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T01:00:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T01:01:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T01:02:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T01:03:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T01:04:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T01:05:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T01:06:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T01:07:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T01:08:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T01:09:00Z,0.0
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],2026-11-18T01:10:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:11:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:12:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:13:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:14:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:15:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:16:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:17:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:18:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:19:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:20:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:21:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:22:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:23:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:24:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:25:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:26:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:27:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:28:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:29:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:30:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:31:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:32:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:33:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:34:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:35:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:36:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:37:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:38:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:39:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:40:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:41:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:42:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:43:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:44:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:45:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:46:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:47:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:48:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:49:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:50:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:51:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:52:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:53:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:54:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:55:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:56:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:57:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:58:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T00:59:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T01:00:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T01:01:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T01:02:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T01:03:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T01:04:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T01:05:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T01:06:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T01:07:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T01:08:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T01:09:00Z,0.0
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],2026-11-18T01:10:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:11:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:12:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:13:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:14:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:15:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:16:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:17:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:18:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:19:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:20:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:21:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:22:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:23:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:24:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:25:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:26:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:27:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:28:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:29:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:30:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:31:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:32:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:33:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:34:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:35:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:36:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:37:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:38:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:39:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:40:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:41:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:42:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:43:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:44:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:45:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:46:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:47:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:48:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:49:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:50:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:51:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:52:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:53:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:54:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:55:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:56:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:57:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:58:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T00:59:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T01:00:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T01:01:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T01:02:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T01:03:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T01:04:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T01:05:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T01:06:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T01:07:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T01:08:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T01:09:00Z,0.0
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],2026-11-18T01:10:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:11:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:12:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:13:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:14:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:15:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:16:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:17:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:18:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:19:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:20:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:21:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:22:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:23:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:24:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:25:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:26:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:27:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:28:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:29:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:30:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:31:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:32:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:33:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:34:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:35:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:36:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:37:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:38:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:39:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:40:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:41:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:42:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:43:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:44:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:45:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:46:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:47:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:48:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:49:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:50:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:51:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:52:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:53:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:54:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:55:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:56:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:57:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:58:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T00:59:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T01:00:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T01:01:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T01:02:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T01:03:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T01:04:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T01:05:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T01:06:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T01:07:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T01:08:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T01:09:00Z,0.0
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],2026-11-18T01:10:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:11:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:12:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:13:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:14:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:15:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:16:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:17:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:18:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:19:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:20:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:21:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:22:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:23:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:24:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:25:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:26:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:27:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:28:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:29:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:30:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:31:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:32:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:33:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:34:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:35:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:36:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:37:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:38:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:39:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:40:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:41:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:42:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:43:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:44:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:45:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:46:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:47:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:48:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:49:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:50:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:51:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:52:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:53:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:54:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:55:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:56:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:57:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:58:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T00:59:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T01:00:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T01:01:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T01:02:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T01:03:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T01:04:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T01:05:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T01:06:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T01:07:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T01:08:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T01:09:00Z,0.0
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],2026-11-18T01:10:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:11:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:12:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:13:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:14:00Z,33.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:15:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:16:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:17:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:18:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:19:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:20:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:21:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:22:00Z,194.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:23:00Z,340.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:24:00Z,435.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:25:00Z,464.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:26:00Z,359.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:27:00Z,393.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:28:00Z,420.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:29:00Z,413.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:30:00Z,2668.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:31:00Z,3513.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:32:00Z,3430.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:33:00Z,3200.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:34:00Z,3426.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:35:00Z,3447.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:36:00Z,3250.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:37:00Z,3541.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:38:00Z,8181.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:39:00Z,10243.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:40:00Z,10122.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:41:00Z,8009.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:42:00Z,7809.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:43:00Z,7727.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:44:00Z,7947.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:45:00Z,7896.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:46:00Z,8370.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:47:00Z,8847.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:48:00Z,8833.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:49:00Z,9892.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:50:00Z,9729.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:51:00Z,10062.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:52:00Z,9606.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:53:00Z,10151.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:54:00Z,3791.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:55:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:56:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:57:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:58:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T00:59:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T01:00:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T01:01:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T01:02:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T01:03:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T01:04:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T01:05:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T01:06:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T01:07:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T01:08:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T01:09:00Z,0.0
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],2026-11-18T01:10:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:11:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:12:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:13:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:14:00Z,18.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:15:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:16:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:17:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:18:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:19:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:20:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:21:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:22:00Z,57.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:23:00Z,95.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:24:00Z,111.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:25:00Z,113.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:26:00Z,99.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:27:00Z,104.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:28:00Z,111.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:29:00Z,107.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:30:00Z,688.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:31:00Z,893.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:32:00Z,903.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:33:00Z,838.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:34:00Z,874.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:35:00Z,890.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:36:00Z,801.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:37:00Z,881.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:38:00Z,2065.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:39:00Z,2573.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:40:00Z,2542.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:41:00Z,1992.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:42:00Z,1929.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:43:00Z,1918.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:44:00Z,1941.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:45:00Z,1916.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:46:00Z,2136.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:47:00Z,2306.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:48:00Z,2324.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:49:00Z,2654.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:50:00Z,2614.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:51:00Z,2666.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:52:00Z,2597.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:53:00Z,2713.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:54:00Z,1035.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:55:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:56:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:57:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:58:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T00:59:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T01:00:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T01:01:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T01:02:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T01:03:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T01:04:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T01:05:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T01:06:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T01:07:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T01:08:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T01:09:00Z,0.0
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],2026-11-18T01:10:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:11:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:12:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:13:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:14:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:15:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:16:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:17:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:18:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:19:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:20:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:21:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:22:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:23:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:24:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:25:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:26:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:27:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:28:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:29:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:30:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:31:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:32:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:33:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:34:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:35:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:36:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:37:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:38:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:39:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:40:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:41:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:42:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:43:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:44:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:45:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:46:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:47:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:48:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:49:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:50:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:51:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:52:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:53:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:54:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:55:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:56:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:57:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:58:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T00:59:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T01:00:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T01:01:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T01:02:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T01:03:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T01:04:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T01:05:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T01:06:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T01:07:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T01:08:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T01:09:00Z,0.0
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],2026-11-18T01:10:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:11:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:12:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:13:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:14:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:15:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:16:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:17:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:18:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:19:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:20:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:21:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:22:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:23:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:24:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:25:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:26:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:27:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:28:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:29:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:30:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:31:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:32:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:33:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:34:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:35:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:36:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:37:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:38:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:39:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:40:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:41:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:42:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:43:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:44:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:45:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:46:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:47:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:48:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:49:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:50:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:51:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:52:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:53:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:54:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:55:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:56:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:57:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:58:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T00:59:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T01:00:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T01:01:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T01:02:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T01:03:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T01:04:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T01:05:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T01:06:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T01:07:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T01:08:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T01:09:00Z,0.0
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],2026-11-18T01:10:00Z,0.0

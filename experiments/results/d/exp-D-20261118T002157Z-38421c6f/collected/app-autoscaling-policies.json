@@ -1,0 +1,61 @@
+{
+    "ScalingPolicies": [
+        {
+            "PolicyARN": "arn:aws:autoscaling:us-east-2:000000000000:scalingPolicy:3e12bb26-ae81-494a-98b9-c7fc68ddbf89:resource/ecs/service/scholarchain-course-cluster/scholarchain-course-query:policyName/scholarchain-course-query-cpu",
+            "PolicyName": "scholarchain-course-query-cpu",
+            "ServiceNamespace": "ecs",
+            "ResourceId": "service/scholarchain-course-cluster/scholarchain-course-query",
+            "ScalableDimension": "ecs:service:DesiredCount",
+            "PolicyType": "TargetTrackingScaling",
+            "TargetTrackingScalingPolicyConfiguration": {
+                "TargetValue": 60.0,
+                "PredefinedMetricSpecification": {
+                    "PredefinedMetricType": "ECSServiceAverageCPUUtilization"
+                },
+                "ScaleOutCooldown": 60,
+                "ScaleInCooldown": 300,
+                "DisableScaleIn": false
+            },
+            "Alarms": [
+                {
+                    "AlarmName": "TargetTracking-service/scholarchain-course-cluster/scholarchain-course-query-AlarmHigh-20bded2f-4468-45b9-8ba3-2efc763e53d1",
+                    "AlarmARN": "arn:aws:cloudwatch:us-east-2:000000000000:alarm:TargetTracking-service/scholarchain-course-cluster/scholarchain-course-query-AlarmHigh-20bded2f-4468-45b9-8ba3-2efc763e53d1"
+                },
+                {
+                    "AlarmName": "TargetTracking-service/scholarchain-course-cluster/scholarchain-course-query-AlarmLow-bbd91393-f91b-4134-9f95-e952f62e81c4",
+                    "AlarmARN": "arn:aws:cloudwatch:us-east-2:000000000000:alarm:TargetTracking-service/scholarchain-course-cluster/scholarchain-course-query-AlarmLow-bbd91393-f91b-4134-9f95-e952f62e81c4"
+                }
+            ],
+            "CreationTime": "2026-11-17T17:03:58.941000-06:00"
+        },
+        {
+            "PolicyARN": "arn:aws:autoscaling:us-east-2:000000000000:scalingPolicy:3e12bb26-ae81-494a-98b9-c7fc68ddbf89:resource/ecs/service/scholarchain-course-cluster/scholarchain-course-query:policyName/scholarchain-course-query-requests-per-target",
+            "PolicyName": "scholarchain-course-query-requests-per-target",
+            "ServiceNamespace": "ecs",
+            "ResourceId": "service/scholarchain-course-cluster/scholarchain-course-query",
+            "ScalableDimension": "ecs:service:DesiredCount",
+            "PolicyType": "TargetTrackingScaling",
+            "TargetTrackingScalingPolicyConfiguration": {
+                "TargetValue": 300.0,
+                "PredefinedMetricSpecification": {
+                    "PredefinedMetricType": "ALBRequestCountPerTarget",
+                    "ResourceLabel": "app/scholarchain-course-alb/eade7a55ad247523/targetgroup/scholarchain-course-query/2fdf2ceea3a55a7b"
+                },
+                "ScaleOutCooldown": 60,
+                "ScaleInCooldown": 300,
+                "DisableScaleIn": false
+            },
+            "Alarms": [
+                {
+                    "AlarmName": "TargetTracking-service/scholarchain-course-cluster/scholarchain-course-query-AlarmHigh-b0af4f7d-5e37-4ba5-a620-ba248d30447a",
+                    "AlarmARN": "arn:aws:cloudwatch:us-east-2:000000000000:alarm:TargetTracking-service/scholarchain-course-cluster/scholarchain-course-query-AlarmHigh-b0af4f7d-5e37-4ba5-a620-ba248d30447a"
+                },
+                {
+                    "AlarmName": "TargetTracking-service/scholarchain-course-cluster/scholarchain-course-query-AlarmLow-63798ee8-956e-4b80-b1c3-b1014d959c32",
+                    "AlarmARN": "arn:aws:cloudwatch:us-east-2:000000000000:alarm:TargetTracking-service/scholarchain-course-cluster/scholarchain-course-query-AlarmLow-63798ee8-956e-4b80-b1c3-b1014d959c32"
+                }
+            ],
+            "CreationTime": "2026-11-17T17:03:59.161000-06:00"
+        }
+    ]
+}

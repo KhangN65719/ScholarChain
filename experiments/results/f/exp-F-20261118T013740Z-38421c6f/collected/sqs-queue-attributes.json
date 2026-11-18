@@ -1,0 +1,17 @@
+{
+    "Attributes": {
+        "QueueArn": "arn:aws:sqs:us-east-2:000000000000:scholarchain-course-embedding-work",
+        "ApproximateNumberOfMessages": "0",
+        "ApproximateNumberOfMessagesNotVisible": "0",
+        "ApproximateNumberOfMessagesDelayed": "0",
+        "CreatedTimestamp": "1794628506",
+        "LastModifiedTimestamp": "1794628506",
+        "VisibilityTimeout": "300",
+        "MaximumMessageSize": "262144",
+        "MessageRetentionPeriod": "86400",
+        "DelaySeconds": "0",
+        "RedrivePolicy": "{\"deadLetterTargetArn\":\"arn:aws:sqs:us-east-2:000000000000:scholarchain-course-embedding-work-dlq\",\"maxReceiveCount\":3}",
+        "ReceiveMessageWaitTimeSeconds": "0",
+        "SqsManagedSseEnabled": "true"
+    }
+}

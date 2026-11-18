@@ -1,0 +1,10 @@
+RUN_DIR=/Users/winnguyen/scholarchain-data/experiments/runs/exp-E-20261118T012347Z-38421c6f
+REGION=us-east-2
+RUN_WINDOW_START_UTC=2026-11-18T01:23:47Z
+RUN_WINDOW_END_UTC=2026-11-18T01:35:00Z
+METRIC_WINDOW_FROM_UTC=2026-11-18T01:13:47Z
+METRIC_WINDOW_TO_UTC=2026-11-18T01:45:00Z
+COLLECTED_AT_UTC=2026-11-18T01:36:17Z
+CALL_STATUS=see CALL_STATUS.txt (a FAILED optional call leaves its file absent)
+ECS_SERVICE=service/scholarchain-course-cluster/scholarchain-course-query
+LOADCLIENT_TASK_ID=d78b547049aa44d8a4fa0fc6eea57f74

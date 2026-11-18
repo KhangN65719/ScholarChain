@@ -1,0 +1,268 @@
+[
+  {
+    "Id": "m0",
+    "Label": "TotalNodesRequested",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "TotalNodesRequested",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-0091484IPP1V1PIP0UK"
+          }
+        ]
+      },
+      "Period": 300,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m1",
+    "Label": "TotalNodesRunning",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "TotalNodesRunning",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-0091484IPP1V1PIP0UK"
+          }
+        ]
+      },
+      "Period": 300,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m2",
+    "Label": "TotalUnitsRequested",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "TotalUnitsRequested",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-0091484IPP1V1PIP0UK"
+          }
+        ]
+      },
+      "Period": 300,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m3",
+    "Label": "TotalUnitsRunning",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "TotalUnitsRunning",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-0091484IPP1V1PIP0UK"
+          }
+        ]
+      },
+      "Period": 300,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m4",
+    "Label": "CoreNodesRunning",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "CoreNodesRunning",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-0091484IPP1V1PIP0UK"
+          }
+        ]
+      },
+      "Period": 300,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m5",
+    "Label": "CoreNodesRequested",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "CoreNodesRequested",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-0091484IPP1V1PIP0UK"
+          }
+        ]
+      },
+      "Period": 300,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m6",
+    "Label": "TaskNodesRunning",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "TaskNodesRunning",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-0091484IPP1V1PIP0UK"
+          }
+        ]
+      },
+      "Period": 300,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m7",
+    "Label": "ContainerPending",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "ContainerPending",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-0091484IPP1V1PIP0UK"
+          }
+        ]
+      },
+      "Period": 300,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m8",
+    "Label": "ContainerPendingRatio",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "ContainerPendingRatio",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-0091484IPP1V1PIP0UK"
+          }
+        ]
+      },
+      "Period": 300,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m9",
+    "Label": "ContainerAllocated",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "ContainerAllocated",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-0091484IPP1V1PIP0UK"
+          }
+        ]
+      },
+      "Period": 300,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m10",
+    "Label": "AppsPending",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "AppsPending",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-0091484IPP1V1PIP0UK"
+          }
+        ]
+      },
+      "Period": 300,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m11",
+    "Label": "AppsRunning",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "AppsRunning",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-0091484IPP1V1PIP0UK"
+          }
+        ]
+      },
+      "Period": 300,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m12",
+    "Label": "YARNMemoryAvailablePercentage",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "YARNMemoryAvailablePercentage",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-0091484IPP1V1PIP0UK"
+          }
+        ]
+      },
+      "Period": 300,
+      "Stat": "Minimum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "m13",
+    "Label": "IsIdle",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ElasticMapReduce",
+        "MetricName": "IsIdle",
+        "Dimensions": [
+          {
+            "Name": "JobFlowId",
+            "Value": "j-0091484IPP1V1PIP0UK"
+          }
+        ]
+      },
+      "Period": 300,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  }
+]

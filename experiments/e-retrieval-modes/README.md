@@ -28,12 +28,12 @@ AWS_PROFILE=scholarchain bash /Users/winnguyen/ScholarChain/scripts/run-experime
 ```
 Expected: about 10 to 30 minutes; `exit: 0` when all 1,053 requests were sent.
 2. Collection: the same variables and command as D step 2, with `experiments/e-retrieval-modes/collect.sh` (a wrapper for D's collector) and a new run directory.
-3. Derive (no AWS): as D step 3 with `--group-by mode` and the out-dir names `derived-latency-modes`:
+3. Derive (no AWS): as D step 3 with `--group-by mode` and the out-dir name `derived-latency-modes-v2` (the committed E run used it: the P15-47 re-derive after the stage-alias fix, run by the human; the first derive's `derived-latency-modes` is history in `results-copy/` only):
 ```
 set -o pipefail
 RUN_DIR="/abs/outside/repo/scholarchain-experiments/REPLACE_WITH_RUN_ID"
 python3 -I /Users/winnguyen/ScholarChain/load-tests/query-load/derive_latency.py extract --logs-json "${RUN_DIR}/collected/loadclient-logs.json" --out-dir "${RUN_DIR}/derived-requests" 2>&1 | tee "/Users/winnguyen/scholarchain-data/logs/phase15-w2-e-derive-1.log" | tail -n 8; echo "exit: $?"
-python3 -I /Users/winnguyen/ScholarChain/load-tests/query-load/derive_latency.py derive --requests "${RUN_DIR}/derived-requests/requests.jsonl" --events "${RUN_DIR}/derived-requests/events.jsonl" --service-logs "${RUN_DIR}/collected/service-logs.json" --group-by mode --out-dir "${RUN_DIR}/derived-latency-modes" --title "Experiment E: latency by retrieval mode" 2>&1 | tee "/Users/winnguyen/scholarchain-data/logs/phase15-w2-e-derive-2.log" | tail -n 8; echo "exit: $?"
+python3 -I /Users/winnguyen/ScholarChain/load-tests/query-load/derive_latency.py derive --requests "${RUN_DIR}/derived-requests/requests.jsonl" --events "${RUN_DIR}/derived-requests/events.jsonl" --service-logs "${RUN_DIR}/collected/service-logs.json" --group-by mode --out-dir "${RUN_DIR}/derived-latency-modes-v2" --title "Experiment E: latency by retrieval mode" 2>&1 | tee "/Users/winnguyen/scholarchain-data/logs/phase15-w2-e-derive-2.log" | tail -n 8; echo "exit: $?"
 ```
 Expected: `EXTRACT_COMPLETE requests=1053 events=<m>`; `latency-by-mode.csv` has three rows (`fused`, `graph`, `vector`) of 351 requests each.
 

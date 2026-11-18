@@ -21,8 +21,8 @@ STAGES_KEYS = ["stagesMs", "stages_ms", "stages", "timings"]
 # normalized stage name -> accepted raw names
 STAGE_ALIASES = {
     "planning": ["planning", "plan"],
-    "graph": ["graphRetrieval", "graph_retrieval", "graph"],
-    "vector": ["vectorRetrieval", "vector_retrieval", "vector"],
+    "graph": ["graphRetrieval", "graph_retrieval", "graph", "graph-retrieval"],
+    "vector": ["vectorRetrieval", "vector_retrieval", "vector", "vector-retrieval"],
     "fusion": ["fusion", "fuse"],
     "synthesis": ["synthesis", "llm", "answer"],
     "verification": ["verification", "verify"],

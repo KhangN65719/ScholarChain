@@ -1,0 +1,16 @@
+{
+    "Attributes": {
+        "QueueArn": "arn:aws:sqs:us-east-2:000000000000:scholarchain-course-embedding-work-dlq",
+        "ApproximateNumberOfMessages": "0",
+        "ApproximateNumberOfMessagesNotVisible": "0",
+        "ApproximateNumberOfMessagesDelayed": "0",
+        "CreatedTimestamp": "1794628447",
+        "LastModifiedTimestamp": "1794966158",
+        "VisibilityTimeout": "30",
+        "MaximumMessageSize": "262144",
+        "MessageRetentionPeriod": "345600",
+        "DelaySeconds": "0",
+        "ReceiveMessageWaitTimeSeconds": "0",
+        "SqsManagedSseEnabled": "true"
+    }
+}

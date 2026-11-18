@@ -1,0 +1,13 @@
+t_utc,source,type,name
+2026-11-17T18:59:33Z,stepfunctions,ExecutionStarted,
+2026-11-17T18:59:33Z,stepfunctions,TaskStateEntered,CreateCluster
+2026-11-17T19:04:21Z,stepfunctions,TaskStateEntered,FetchScripts
+2026-11-17T19:04:21Z,stepfunctions,TaskStateExited,CreateCluster
+2026-11-17T19:05:26Z,stepfunctions,TaskStateEntered,PipelineStep
+2026-11-17T19:05:26Z,stepfunctions,TaskStateExited,FetchScripts
+2026-11-17T20:04:12Z,stepfunctions,TaskStateExited,PipelineStep
+2026-11-17T20:04:12Z,stepfunctions,WaitStateEntered,WaitBeforeTerminate
+2026-11-17T20:19:12Z,stepfunctions,TaskStateEntered,TerminateCluster
+2026-11-17T20:19:12Z,stepfunctions,WaitStateExited,WaitBeforeTerminate
+2026-11-17T20:20:09Z,stepfunctions,ExecutionSucceeded,
+2026-11-17T20:20:09Z,stepfunctions,TaskStateExited,TerminateCluster

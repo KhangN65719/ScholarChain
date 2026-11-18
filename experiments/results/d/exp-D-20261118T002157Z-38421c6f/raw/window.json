@@ -1,0 +1,8 @@
+{
+  "start_utc": "2026-11-18T00:21:57Z",
+  "end_utc": "2026-11-18T01:10:13Z",
+  "final_status": "completed",
+  "entry_exit": 0,
+  "run_tag": "D38421c6f",
+  "task_definition": "scholarchain-course-load-client"
+}

@@ -1,0 +1,63 @@
+{
+    "ScalingActivities": [
+        {
+            "ActivityId": "13d2d150-cf6f-4d91-96cd-2ed2a537668c",
+            "ServiceNamespace": "ecs",
+            "ResourceId": "service/scholarchain-course-cluster/scholarchain-course-worker",
+            "ScalableDimension": "ecs:service:DesiredCount",
+            "Description": "Setting desired count to 1.",
+            "Cause": "monitor alarm scholarchain-course-worker-backlog-low in state ALARM triggered policy scholarchain-course-worker-backlog-in",
+            "StartTime": "2026-11-17T20:04:25.331000-06:00",
+            "StatusCode": "InProgress",
+            "StatusMessage": "Successfully set desired count to 1. Waiting for change to be fulfilled by ecs."
+        },
+        {
+            "ActivityId": "2fea911c-16cd-44eb-9230-4bcf0e7a0d28",
+            "ServiceNamespace": "ecs",
+            "ResourceId": "service/scholarchain-course-cluster/scholarchain-course-worker",
+            "ScalableDimension": "ecs:service:DesiredCount",
+            "Description": "Setting desired count to 2.",
+            "Cause": "monitor alarm scholarchain-course-worker-backlog-low in state ALARM triggered policy scholarchain-course-worker-backlog-in",
+            "StartTime": "2026-11-17T20:00:25.373000-06:00",
+            "EndTime": "2026-11-17T20:01:00.132000-06:00",
+            "StatusCode": "Successful",
+            "StatusMessage": "Successfully set desired count to 2. Change successfully fulfilled by ecs."
+        },
+        {
+            "ActivityId": "a24503b2-db63-4a82-90c3-aa925d98b3df",
+            "ServiceNamespace": "ecs",
+            "ResourceId": "service/scholarchain-course-cluster/scholarchain-course-worker",
+            "ScalableDimension": "ecs:service:DesiredCount",
+            "Description": "Setting desired count to 4.",
+            "Cause": "monitor alarm scholarchain-course-worker-backlog-high in state ALARM triggered policy scholarchain-course-worker-backlog-out",
+            "StartTime": "2026-11-17T19:52:31.007000-06:00",
+            "EndTime": "2026-11-17T19:53:05.756000-06:00",
+            "StatusCode": "Successful",
+            "StatusMessage": "Successfully set desired count to 4. Change successfully fulfilled by ecs."
+        },
+        {
+            "ActivityId": "dfeb778e-e931-4928-b8f3-2ace814ffe32",
+            "ServiceNamespace": "ecs",
+            "ResourceId": "service/scholarchain-course-cluster/scholarchain-course-worker",
+            "ScalableDimension": "ecs:service:DesiredCount",
+            "Description": "Setting desired count to 3.",
+            "Cause": "monitor alarm scholarchain-course-worker-backlog-high in state ALARM triggered policy scholarchain-course-worker-backlog-out",
+            "StartTime": "2026-11-17T19:50:31.028000-06:00",
+            "EndTime": "2026-11-17T19:51:04.810000-06:00",
+            "StatusCode": "Successful",
+            "StatusMessage": "Successfully set desired count to 3. Change successfully fulfilled by ecs."
+        },
+        {
+            "ActivityId": "f031a2c2-b5db-4014-b8d2-bbf2deca9068",
+            "ServiceNamespace": "ecs",
+            "ResourceId": "service/scholarchain-course-cluster/scholarchain-course-worker",
+            "ScalableDimension": "ecs:service:DesiredCount",
+            "Description": "Setting desired count to 2.",
+            "Cause": "monitor alarm scholarchain-course-worker-backlog-high in state ALARM triggered policy scholarchain-course-worker-backlog-out",
+            "StartTime": "2026-11-17T19:49:31.035000-06:00",
+            "EndTime": "2026-11-17T19:50:03.844000-06:00",
+            "StatusCode": "Successful",
+            "StatusMessage": "Successfully set desired count to 2. Change successfully fulfilled by ecs."
+        }
+    ]
+}

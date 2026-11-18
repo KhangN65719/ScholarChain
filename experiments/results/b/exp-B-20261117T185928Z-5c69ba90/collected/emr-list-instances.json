@@ -1,0 +1,130 @@
+{
+    "Instances": [
+        {
+            "Id": "ci-06835842PBI6AKWV9ZOK",
+            "Ec2InstanceId": "i-086abcbc1ff51d606",
+            "PublicDnsName": "",
+            "PrivateDnsName": "ip-10-20-14-103.us-east-2.compute.internal",
+            "PrivateIpAddress": "10.20.14.103",
+            "Status": {
+                "State": "TERMINATED",
+                "StateChangeReason": {
+                    "Message": "Instance group was resized."
+                },
+                "Timeline": {
+                    "CreationDateTime": "2026-11-17T12:59:40.906000-06:00",
+                    "ReadyDateTime": "2026-11-17T13:03:21.557000-06:00",
+                    "EndDateTime": "2026-11-17T13:34:14.490000-06:00"
+                }
+            },
+            "InstanceGroupId": "ig-0228986SX2A67WNF6TT",
+            "Market": "ON_DEMAND",
+            "InstanceType": "m5.xlarge",
+            "EbsVolumes": [
+                {
+                    "Device": "/dev/sdc",
+                    "VolumeId": "vol-098bb2a706ded2b2d"
+                },
+                {
+                    "Device": "/dev/sdb",
+                    "VolumeId": "vol-0f3dbe554d3999cd1"
+                }
+            ]
+        },
+        {
+            "Id": "ci-063959819WLYQ28WT4ED",
+            "Ec2InstanceId": "i-03bda7158e4140483",
+            "PublicDnsName": "",
+            "PrivateDnsName": "ip-10-20-7-19.us-east-2.compute.internal",
+            "PrivateIpAddress": "10.20.7.19",
+            "Status": {
+                "State": "TERMINATED",
+                "StateChangeReason": {
+                    "Code": "INSTANCE_FAILURE",
+                    "Message": "Instance was terminated."
+                },
+                "Timeline": {
+                    "CreationDateTime": "2026-11-17T12:59:40.910000-06:00",
+                    "ReadyDateTime": "2026-11-17T13:02:41.208000-06:00",
+                    "EndDateTime": "2026-11-17T14:04:34.248000-06:00"
+                }
+            },
+            "InstanceGroupId": "ig-044766331BK67M25PZBF",
+            "Market": "ON_DEMAND",
+            "InstanceType": "m5.xlarge",
+            "EbsVolumes": [
+                {
+                    "Device": "/dev/sdc",
+                    "VolumeId": "vol-000472e68004fb507"
+                },
+                {
+                    "Device": "/dev/sdb",
+                    "VolumeId": "vol-04452fd9b70cc0b12"
+                }
+            ]
+        },
+        {
+            "Id": "ci-001062711A75EA3R8P21",
+            "Ec2InstanceId": "i-06a1e0b162bb06e85",
+            "PublicDnsName": "",
+            "PrivateDnsName": "ip-10-20-3-154.us-east-2.compute.internal",
+            "PrivateIpAddress": "10.20.3.154",
+            "Status": {
+                "State": "TERMINATED",
+                "StateChangeReason": {
+                    "Message": "Instance group was resized."
+                },
+                "Timeline": {
+                    "CreationDateTime": "2026-11-17T13:08:13.420000-06:00",
+                    "ReadyDateTime": "2026-11-17T13:10:51.305000-06:00",
+                    "EndDateTime": "2026-11-17T13:34:14.490000-06:00"
+                }
+            },
+            "InstanceGroupId": "ig-0228986SX2A67WNF6TT",
+            "Market": "ON_DEMAND",
+            "InstanceType": "m5.xlarge",
+            "EbsVolumes": [
+                {
+                    "Device": "/dev/sdc",
+                    "VolumeId": "vol-0e1a9a6a1312b34ad"
+                },
+                {
+                    "Device": "/dev/sdb",
+                    "VolumeId": "vol-0996544ad815a8dba"
+                }
+            ]
+        },
+        {
+            "Id": "ci-07035699C76S3LKELIT",
+            "Ec2InstanceId": "i-0f0756226879e6a71",
+            "PublicDnsName": "",
+            "PrivateDnsName": "ip-10-20-6-134.us-east-2.compute.internal",
+            "PrivateIpAddress": "10.20.6.134",
+            "Status": {
+                "State": "TERMINATED",
+                "StateChangeReason": {
+                    "Code": "INSTANCE_FAILURE",
+                    "Message": "Instance was terminated."
+                },
+                "Timeline": {
+                    "CreationDateTime": "2026-11-17T13:12:14.484000-06:00",
+                    "ReadyDateTime": "2026-11-17T13:14:52.795000-06:00",
+                    "EndDateTime": "2026-11-17T14:04:34.248000-06:00"
+                }
+            },
+            "InstanceGroupId": "ig-0228986SX2A67WNF6TT",
+            "Market": "ON_DEMAND",
+            "InstanceType": "m5.xlarge",
+            "EbsVolumes": [
+                {
+                    "Device": "/dev/sdc",
+                    "VolumeId": "vol-0907f57b8e7141086"
+                },
+                {
+                    "Device": "/dev/sdb",
+                    "VolumeId": "vol-079a48faef1e50608"
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,3 @@
+input /Users/winnguyen/scholarchain-data/results-copy/p15-tn-c/collected/cloudwatch-metric-data.json sha256 d182d92b837c167b9cecaefeeb5ed957b9d0d5bdb31d62aa74b2dd272028ccfc
+metric_streams 11
+streams_with_no_data 0

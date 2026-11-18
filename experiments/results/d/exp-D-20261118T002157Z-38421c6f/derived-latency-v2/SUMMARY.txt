@@ -1,0 +1,8 @@
+percentile_method nearest-rank, rank=ceil(p*n/100), no interpolation
+input /Users/winnguyen/scholarchain-data/results-copy/p15-tn-d/derived-requests/requests.jsonl sha256 8527ccdc01eb39e26653df94ced56e5279d5defb27027b5be66a11c65f490bfe
+input /Users/winnguyen/scholarchain-data/results-copy/p15-tn-d/derived-requests/events.jsonl sha256 e0fbee192f72bb1ab9baac313051b2ed062746b70260ecafe4efb098bd0f4d0b
+input /Users/winnguyen/scholarchain-data/results-copy/p15-tn-d/collected/service-logs.json sha256 9b4dd3bb111931dae83148edf93f0fc02288fbdd5661e3b4f060e5dae0a020ec
+requests 7428
+groups 4
+group_by level
+stage_rows 24

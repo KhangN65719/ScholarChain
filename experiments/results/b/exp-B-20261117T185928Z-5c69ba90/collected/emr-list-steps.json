@@ -1,0 +1,55 @@
+{
+    "Steps": [
+        {
+            "Id": "s-070321268KXNAOCJL4T",
+            "Name": "pipeline",
+            "Config": {
+                "Jar": "command-runner.jar",
+                "Properties": {},
+                "Args": [
+                    "bash",
+                    "/home/hadoop/sc/run-s-pipeline.sh",
+                    "scholarchain-course-000000000000-data",
+                    "scholarchain-course-000000000000-artifacts",
+                    "phase5-dblp-subset",
+                    "dblp=2026-11-05,openalex=2026-11-07,crossref=2026-11-07,orcid=2026-11-07",
+                    "run-v1-730f95f0-ff71-4763-bba6-a0ddbc39e87f",
+                    "b-burst"
+                ]
+            },
+            "ActionOnFailure": "CONTINUE",
+            "Status": {
+                "State": "COMPLETED",
+                "StateChangeReason": {},
+                "Timeline": {
+                    "CreationDateTime": "2026-11-17T13:05:26.553000-06:00",
+                    "StartDateTime": "2026-11-17T13:05:38.963000-06:00",
+                    "EndDateTime": "2026-11-17T14:02:07.338000-06:00"
+                }
+            }
+        },
+        {
+            "Id": "s-080049030P87LTSU9F21",
+            "Name": "fetch-scripts",
+            "Config": {
+                "Jar": "command-runner.jar",
+                "Properties": {},
+                "Args": [
+                    "bash",
+                    "-c",
+                    "mkdir -p /home/hadoop/sc && aws s3 cp s3://scholarchain-course-000000000000-artifacts/bootstrap/ /home/hadoop/sc/ --recursive --only-show-errors"
+                ]
+            },
+            "ActionOnFailure": "CONTINUE",
+            "Status": {
+                "State": "COMPLETED",
+                "StateChangeReason": {},
+                "Timeline": {
+                    "CreationDateTime": "2026-11-17T13:04:21.288000-06:00",
+                    "StartDateTime": "2026-11-17T13:04:52.724000-06:00",
+                    "EndDateTime": "2026-11-17T13:04:58.943000-06:00"
+                }
+            }
+        }
+    ]
+}

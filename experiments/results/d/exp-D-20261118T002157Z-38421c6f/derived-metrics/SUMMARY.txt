@@ -1,0 +1,16 @@
+input /Users/winnguyen/scholarchain-data/results-copy/p15-tn-d/collected/cloudwatch-metric-data.json sha256 84c94fdd38f3af9c6a88d93081f1dabe4ea1fbfc14ad252af71ddb9e62663db9
+metric_streams 37
+streams_with_no_data 13
+NO_DATA ALB errors per minute:ELB 5xx
+NO_DATA DynamoDB throttle events:read [scholarchain-course-artifact-registry]
+NO_DATA DynamoDB throttle events:read [scholarchain-course-entity-link-cache]
+NO_DATA DynamoDB throttle events:read [scholarchain-course-evidence-bundle]
+NO_DATA DynamoDB throttle events:read [scholarchain-course-query-session]
+NO_DATA DynamoDB throttle events:read [scholarchain-course-researcher-metric-cache]
+NO_DATA DynamoDB throttle events:read [scholarchain-course-run-ledger]
+NO_DATA DynamoDB throttle events:write [scholarchain-course-artifact-registry]
+NO_DATA DynamoDB throttle events:write [scholarchain-course-entity-link-cache]
+NO_DATA DynamoDB throttle events:write [scholarchain-course-evidence-bundle]
+NO_DATA DynamoDB throttle events:write [scholarchain-course-query-session]
+NO_DATA DynamoDB throttle events:write [scholarchain-course-researcher-metric-cache]
+NO_DATA DynamoDB throttle events:write [scholarchain-course-run-ledger]

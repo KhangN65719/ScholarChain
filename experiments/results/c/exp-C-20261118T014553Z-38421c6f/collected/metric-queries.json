@@ -1,0 +1,227 @@
+[
+  {
+    "Id": "q_visible",
+    "Label": "queue:visible messages",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/SQS",
+        "MetricName": "ApproximateNumberOfMessagesVisible",
+        "Dimensions": [
+          {
+            "Name": "QueueName",
+            "Value": "scholarchain-course-embedding-work"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "q_in_flight",
+    "Label": "queue:in-flight messages",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/SQS",
+        "MetricName": "ApproximateNumberOfMessagesNotVisible",
+        "Dimensions": [
+          {
+            "Name": "QueueName",
+            "Value": "scholarchain-course-embedding-work"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "q_age",
+    "Label": "oldest message age s:oldest message age",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/SQS",
+        "MetricName": "ApproximateAgeOfOldestMessage",
+        "Dimensions": [
+          {
+            "Name": "QueueName",
+            "Value": "scholarchain-course-embedding-work"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "q_sent",
+    "Label": "flow per minute:sent",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/SQS",
+        "MetricName": "NumberOfMessagesSent",
+        "Dimensions": [
+          {
+            "Name": "QueueName",
+            "Value": "scholarchain-course-embedding-work"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "q_received",
+    "Label": "flow per minute:received",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/SQS",
+        "MetricName": "NumberOfMessagesReceived",
+        "Dimensions": [
+          {
+            "Name": "QueueName",
+            "Value": "scholarchain-course-embedding-work"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "q_deleted",
+    "Label": "flow per minute:deleted",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/SQS",
+        "MetricName": "NumberOfMessagesDeleted",
+        "Dimensions": [
+          {
+            "Name": "QueueName",
+            "Value": "scholarchain-course-embedding-work"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Sum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "dlq_visible",
+    "Label": "dead-letter queue:visible messages",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/SQS",
+        "MetricName": "ApproximateNumberOfMessagesVisible",
+        "Dimensions": [
+          {
+            "Name": "QueueName",
+            "Value": "scholarchain-course-embedding-work-dlq"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ecs_desired",
+    "Label": "worker tasks:desired",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "ECS/ContainerInsights",
+        "MetricName": "DesiredTaskCount",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "scholarchain-course-cluster"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "scholarchain-course-worker"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ecs_running",
+    "Label": "worker tasks:running",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "ECS/ContainerInsights",
+        "MetricName": "RunningTaskCount",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "scholarchain-course-cluster"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "scholarchain-course-worker"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Maximum"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ecs_cpu",
+    "Label": "worker CPU and memory percent:CPUUtilization",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ECS",
+        "MetricName": "CPUUtilization",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "scholarchain-course-cluster"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "scholarchain-course-worker"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  },
+  {
+    "Id": "ecs_memory",
+    "Label": "worker CPU and memory percent:MemoryUtilization",
+    "MetricStat": {
+      "Metric": {
+        "Namespace": "AWS/ECS",
+        "MetricName": "MemoryUtilization",
+        "Dimensions": [
+          {
+            "Name": "ClusterName",
+            "Value": "scholarchain-course-cluster"
+          },
+          {
+            "Name": "ServiceName",
+            "Value": "scholarchain-course-worker"
+          }
+        ]
+      },
+      "Period": 60,
+      "Stat": "Average"
+    },
+    "ReturnData": true
+  }
+]

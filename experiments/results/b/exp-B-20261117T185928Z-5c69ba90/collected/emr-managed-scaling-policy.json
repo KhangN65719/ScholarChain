@@ -1,0 +1,11 @@
+{
+    "ManagedScalingPolicy": {
+        "ComputeLimits": {
+            "UnitType": "Instances",
+            "MinimumCapacityUnits": 1,
+            "MaximumCapacityUnits": 3,
+            "MaximumOnDemandCapacityUnits": 3,
+            "MaximumCoreCapacityUnits": 3
+        }
+    }
+}

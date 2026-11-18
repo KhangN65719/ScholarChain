@@ -1,0 +1,6 @@
+{"ts_utc":"2026-11-18T01:45:53Z","event":"ENTRY_START","detail":"experiment=C run_id=exp-C-20261118T014553Z-38421c6f"}
+{"ts_utc":"2026-11-18T01:45:53Z","event":"ENQUEUE_START","detail":"count=2000"}
+{"ts_utc":"2026-11-18T01:47:04Z","event":"ENQUEUE_END","detail":"exit=0"}
+{"ts_utc":"2026-11-18T01:47:04Z","event":"POLL_START","detail":"duration_seconds=3229"}
+{"ts_utc":"2026-11-18T01:54:22Z","event":"POLL_END","detail":"exit=0"}
+{"ts_utc":"2026-11-18T01:54:22Z","event":"ENTRY_END","detail":"exit=0 status=drained"}

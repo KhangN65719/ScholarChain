@@ -1,0 +1,38 @@
+id,label,points,min,max,mean,first_utc,last_utc,time_of_max_utc,first_nonzero_utc
+alb_p50,ALB target response time s:p50,34,0.1798587899092136,4.627288124859728,1.3823739772100063,2026-11-18T00:14:00Z,2026-11-18T00:54:00Z,2026-11-18T00:47:00Z,2026-11-18T00:14:00Z
+alb_p95,ALB target response time s:p95,34,0.46473225002780033,10.720313578093302,3.374920031408696,2026-11-18T00:14:00Z,2026-11-18T00:54:00Z,2026-11-18T00:48:00Z,2026-11-18T00:14:00Z
+alb_p99,ALB target response time s:p99,34,0.5883831609349714,13.17889800737906,4.823757696922526,2026-11-18T00:14:00Z,2026-11-18T00:54:00Z,2026-11-18T00:48:00Z,2026-11-18T00:14:00Z
+alb_requests,ALB requests per minute:RequestCount,62,0.0,437.0,119.87096774193549,2026-11-18T00:11:00Z,2026-11-18T01:12:00Z,2026-11-18T00:53:00Z,2026-11-18T00:14:00Z
+alb_target_5xx,ALB errors per minute:target 5xx,8,1.0,9.0,2.125,2026-11-18T00:41:00Z,2026-11-18T00:54:00Z,2026-11-18T00:48:00Z,2026-11-18T00:41:00Z
+alb_elb_5xx,ALB errors per minute:ELB 5xx,0,,,,,,,
+alb_healthy,ALB healthy targets:HealthyHostCount,62,1.0,3.0,1.6935483870967742,2026-11-18T00:11:00Z,2026-11-18T01:12:00Z,2026-11-18T00:47:00Z,2026-11-18T00:11:00Z
+ecs_desired,service tasks:desired,63,1.0,3.0,1.7142857142857142,2026-11-18T00:11:00Z,2026-11-18T01:13:00Z,2026-11-18T00:46:00Z,2026-11-18T00:11:00Z
+ecs_running,service tasks:running,63,1.0,3.0,1.7142857142857142,2026-11-18T00:11:00Z,2026-11-18T01:13:00Z,2026-11-18T00:47:00Z,2026-11-18T00:11:00Z
+ecs_cpu,service CPU and memory percent:CPUUtilization,62,0.22301672399044037,50.94540325800578,13.595467478891424,2026-11-18T00:11:00Z,2026-11-18T01:12:00Z,2026-11-18T00:45:00Z,2026-11-18T00:11:00Z
+ecs_memory,service CPU and memory percent:MemoryUtilization,62,22.42431640625,71.2890625,48.25148497003811,2026-11-18T00:11:00Z,2026-11-18T01:12:00Z,2026-11-18T00:33:00Z,2026-11-18T00:11:00Z
+neptune_cpu,Neptune:CPUUtilization,61,10.488752522136437,13.265408217716114,11.37788355159739,2026-11-18T00:11:00Z,2026-11-18T01:11:00Z,2026-11-18T01:00:00Z,2026-11-18T00:11:00Z
+neptune_pending,Neptune pending requests:MainRequestQueuePendingRequests,62,0.0,0.0,0.0,2026-11-18T00:11:00Z,2026-11-18T01:12:00Z,2026-11-18T00:11:00Z,
+ddb_read_throttle_0,DynamoDB throttle events:read [scholarchain-course-artifact-registry],0,,,,,,,
+ddb_read_throttle_1,DynamoDB throttle events:read [scholarchain-course-entity-link-cache],0,,,,,,,
+ddb_read_throttle_2,DynamoDB throttle events:read [scholarchain-course-evidence-bundle],0,,,,,,,
+ddb_read_throttle_3,DynamoDB throttle events:read [scholarchain-course-query-session],0,,,,,,,
+ddb_read_throttle_4,DynamoDB throttle events:read [scholarchain-course-researcher-metric-cache],0,,,,,,,
+ddb_read_throttle_5,DynamoDB throttle events:read [scholarchain-course-run-ledger],0,,,,,,,
+ddb_write_throttle_0,DynamoDB throttle events:write [scholarchain-course-artifact-registry],0,,,,,,,
+ddb_write_throttle_1,DynamoDB throttle events:write [scholarchain-course-entity-link-cache],0,,,,,,,
+ddb_write_throttle_2,DynamoDB throttle events:write [scholarchain-course-evidence-bundle],0,,,,,,,
+ddb_write_throttle_3,DynamoDB throttle events:write [scholarchain-course-query-session],0,,,,,,,
+ddb_write_throttle_4,DynamoDB throttle events:write [scholarchain-course-researcher-metric-cache],0,,,,,,,
+ddb_write_throttle_5,DynamoDB throttle events:write [scholarchain-course-run-ledger],0,,,,,,,
+ddb_read_units_0,DynamoDB consumed units per minute:read [scholarchain-course-artifact-registry],60,0.0,0.0,0.0,2026-11-18T00:11:00Z,2026-11-18T01:10:00Z,2026-11-18T00:11:00Z,
+ddb_read_units_1,DynamoDB consumed units per minute:read [scholarchain-course-entity-link-cache],60,0.0,0.0,0.0,2026-11-18T00:11:00Z,2026-11-18T01:10:00Z,2026-11-18T00:11:00Z,
+ddb_read_units_2,DynamoDB consumed units per minute:read [scholarchain-course-evidence-bundle],60,0.0,0.0,0.0,2026-11-18T00:11:00Z,2026-11-18T01:10:00Z,2026-11-18T00:11:00Z,
+ddb_read_units_3,DynamoDB consumed units per minute:read [scholarchain-course-query-session],60,0.0,0.0,0.0,2026-11-18T00:11:00Z,2026-11-18T01:10:00Z,2026-11-18T00:11:00Z,
+ddb_read_units_4,DynamoDB consumed units per minute:read [scholarchain-course-researcher-metric-cache],60,0.0,0.0,0.0,2026-11-18T00:11:00Z,2026-11-18T01:10:00Z,2026-11-18T00:11:00Z,
+ddb_read_units_5,DynamoDB consumed units per minute:read [scholarchain-course-run-ledger],60,0.0,0.0,0.0,2026-11-18T00:11:00Z,2026-11-18T01:10:00Z,2026-11-18T00:11:00Z,
+ddb_write_units_0,DynamoDB consumed units per minute:write [scholarchain-course-artifact-registry],60,0.0,0.0,0.0,2026-11-18T00:11:00Z,2026-11-18T01:10:00Z,2026-11-18T00:11:00Z,
+ddb_write_units_1,DynamoDB consumed units per minute:write [scholarchain-course-entity-link-cache],60,0.0,0.0,0.0,2026-11-18T00:11:00Z,2026-11-18T01:10:00Z,2026-11-18T00:11:00Z,
+ddb_write_units_2,DynamoDB consumed units per minute:write [scholarchain-course-evidence-bundle],60,0.0,10243.0,2945.6833333333334,2026-11-18T00:11:00Z,2026-11-18T01:10:00Z,2026-11-18T00:39:00Z,2026-11-18T00:14:00Z
+ddb_write_units_3,DynamoDB consumed units per minute:write [scholarchain-course-query-session],60,0.0,2713.0,758.4,2026-11-18T00:11:00Z,2026-11-18T01:10:00Z,2026-11-18T00:53:00Z,2026-11-18T00:14:00Z
+ddb_write_units_4,DynamoDB consumed units per minute:write [scholarchain-course-researcher-metric-cache],60,0.0,0.0,0.0,2026-11-18T00:11:00Z,2026-11-18T01:10:00Z,2026-11-18T00:11:00Z,
+ddb_write_units_5,DynamoDB consumed units per minute:write [scholarchain-course-run-ledger],60,0.0,0.0,0.0,2026-11-18T00:11:00Z,2026-11-18T01:10:00Z,2026-11-18T00:11:00Z,

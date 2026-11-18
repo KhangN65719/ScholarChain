@@ -1,0 +1,52 @@
+{
+    "Item": {
+        "version": {
+            "N": "14"
+        },
+        "entityType": {
+            "S": "EMBEDWORK"
+        },
+        "index": {
+            "S": "researcher-profile-v1"
+        },
+        "summaryId": {
+            "S": "summary:v1:e3be42ecbfb8b21acd042ff08a77b626dfba75906f60ecdd03e75d1c18674822"
+        },
+        "status": {
+            "S": "DONE"
+        },
+        "claimedBy": {
+            "S": "worker-daa5ce62"
+        },
+        "textHash": {
+            "S": "61461aa87ca9861cd5ed45655ee13a3e30172f16442c38489eb8cf3c5ac41bff"
+        },
+        "updatedAt": {
+            "S": "2026-11-18T01:37:59.311Z"
+        },
+        "runId": {
+            "S": "run:v1:9f6e6fb0-2ec3-4148-85fc-f5ba7c56ad05"
+        },
+        "storageTransformVersion": {
+            "S": "storage/1.0.0"
+        },
+        "embeddingModel": {
+            "S": "amazon.titan-embed-text-v2:0-d256-norm"
+        },
+        "attempts": {
+            "N": "7"
+        },
+        "sourceRef": {
+            "S": "spark-run:run:v1:9f6e6fb0-2ec3-4148-85fc-f5ba7c56ad05/semantic-summaries#summary:v1:e3be42ecbfb8b21acd042ff08a77b626dfba75906f60ecdd03e75d1c18674822"
+        },
+        "leaseUntil": {
+            "N": "0"
+        },
+        "pk": {
+            "S": "EMBEDWORK#summary:v1:e3be42ecbfb8b21acd042ff08a77b626dfba75906f60ecdd03e75d1c18674822"
+        },
+        "sk": {
+            "S": "WORK#researcher-profile-v1#61461aa87ca9861cd5ed45655ee13a3e30172f16442c38489eb8cf3c5ac41bff"
+        }
+    }
+}

@@ -1,0 +1,66 @@
+{
+    "ScalingPolicies": [
+        {
+            "PolicyARN": "arn:aws:autoscaling:us-east-2:000000000000:scalingPolicy:376a27d9-312f-40f2-9835-4a188c2356e7:resource/ecs/service/scholarchain-course-cluster/scholarchain-course-worker:policyName/scholarchain-course-worker-backlog-out",
+            "PolicyName": "scholarchain-course-worker-backlog-out",
+            "ServiceNamespace": "ecs",
+            "ResourceId": "service/scholarchain-course-cluster/scholarchain-course-worker",
+            "ScalableDimension": "ecs:service:DesiredCount",
+            "PolicyType": "StepScaling",
+            "StepScalingPolicyConfiguration": {
+                "AdjustmentType": "ChangeInCapacity",
+                "StepAdjustments": [
+                    {
+                        "MetricIntervalLowerBound": 0.0,
+                        "MetricIntervalUpperBound": 300.0,
+                        "ScalingAdjustment": 1
+                    },
+                    {
+                        "MetricIntervalLowerBound": 300.0,
+                        "ScalingAdjustment": 2
+                    }
+                ],
+                "Cooldown": 60,
+                "MetricAggregationType": "Maximum"
+            },
+            "Alarms": [
+                {
+                    "AlarmName": "scholarchain-course-worker-backlog-high",
+                    "AlarmARN": "arn:aws:cloudwatch:us-east-2:000000000000:alarm:scholarchain-course-worker-backlog-high"
+                }
+            ],
+            "CreationTime": "2026-11-17T17:01:14.453000-06:00"
+        },
+        {
+            "PolicyARN": "arn:aws:autoscaling:us-east-2:000000000000:scalingPolicy:376a27d9-312f-40f2-9835-4a188c2356e7:resource/ecs/service/scholarchain-course-cluster/scholarchain-course-worker:policyName/scholarchain-course-worker-backlog-in",
+            "PolicyName": "scholarchain-course-worker-backlog-in",
+            "ServiceNamespace": "ecs",
+            "ResourceId": "service/scholarchain-course-cluster/scholarchain-course-worker",
+            "ScalableDimension": "ecs:service:DesiredCount",
+            "PolicyType": "StepScaling",
+            "StepScalingPolicyConfiguration": {
+                "AdjustmentType": "ChangeInCapacity",
+                "StepAdjustments": [
+                    {
+                        "MetricIntervalLowerBound": -15.0,
+                        "MetricIntervalUpperBound": 0.0,
+                        "ScalingAdjustment": -1
+                    },
+                    {
+                        "MetricIntervalUpperBound": -15.0,
+                        "ScalingAdjustment": -2
+                    }
+                ],
+                "Cooldown": 180,
+                "MetricAggregationType": "Maximum"
+            },
+            "Alarms": [
+                {
+                    "AlarmName": "scholarchain-course-worker-backlog-low",
+                    "AlarmARN": "arn:aws:cloudwatch:us-east-2:000000000000:alarm:scholarchain-course-worker-backlog-low"
+                }
+            ],
+            "CreationTime": "2026-11-17T17:01:14.519000-06:00"
+        }
+    ]
+}

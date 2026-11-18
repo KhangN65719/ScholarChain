@@ -1,0 +1,19 @@
+{
+    "ScalableTargets": [
+        {
+            "ServiceNamespace": "ecs",
+            "ResourceId": "service/scholarchain-course-cluster/scholarchain-course-worker",
+            "ScalableDimension": "ecs:service:DesiredCount",
+            "MinCapacity": 1,
+            "MaxCapacity": 4,
+            "RoleARN": "arn:aws:iam::000000000000:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService",
+            "CreationTime": "2026-11-17T17:01:14.247000-06:00",
+            "SuspendedState": {
+                "DynamicScalingInSuspended": false,
+                "DynamicScalingOutSuspended": false,
+                "ScheduledScalingSuspended": false
+            },
+            "ScalableTargetARN": "arn:aws:application-autoscaling:us-east-2:000000000000:scalable-target/0ec5376a27d9312f40f298354a188c2356e7"
+        }
+    ]
+}

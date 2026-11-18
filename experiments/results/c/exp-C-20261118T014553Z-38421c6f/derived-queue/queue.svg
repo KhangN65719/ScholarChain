@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="678" font-family="monospace" font-size="11">
+<rect width="100%" height="100%" fill="white"/>
+<text x="70" y="20" font-size="14">Experiment C: embedding backlog</text>
+<text x="70" y="34" fill="#555">shared time axis, UTC; no smoothing</text>
+<rect x="70" y="44" width="910" height="170" fill="none" stroke="#999"/>
+<text x="66" y="54" text-anchor="end">1800</text>
+<text x="66" y="214" text-anchor="end">0</text>
+<text x="74" y="38" fill="#333">main queue messages</text>
+<polyline fill="none" stroke="#1f77b4" stroke-width="1.5" points="70.0,44.0 134.6,51.1 201.2,51.1 265.7,59.1 330.3,65.2 394.9,72.8 459.4,87.4 524.0,100.7 590.6,118.1 655.1,135.1 719.7,155.9 786.3,147.4 850.9,198.6 915.4,214.0 980.0,214.0"/>
+<circle cx="70.0" cy="44.0" r="1.8" fill="#1f77b4"/>
+<circle cx="134.6" cy="51.1" r="1.8" fill="#1f77b4"/>
+<circle cx="201.2" cy="51.1" r="1.8" fill="#1f77b4"/>
+<circle cx="265.7" cy="59.1" r="1.8" fill="#1f77b4"/>
+<circle cx="330.3" cy="65.2" r="1.8" fill="#1f77b4"/>
+<circle cx="394.9" cy="72.8" r="1.8" fill="#1f77b4"/>
+<circle cx="459.4" cy="87.4" r="1.8" fill="#1f77b4"/>
+<circle cx="524.0" cy="100.7" r="1.8" fill="#1f77b4"/>
+<circle cx="590.6" cy="118.1" r="1.8" fill="#1f77b4"/>
+<circle cx="655.1" cy="135.1" r="1.8" fill="#1f77b4"/>
+<circle cx="719.7" cy="155.9" r="1.8" fill="#1f77b4"/>
+<circle cx="786.3" cy="147.4" r="1.8" fill="#1f77b4"/>
+<circle cx="850.9" cy="198.6" r="1.8" fill="#1f77b4"/>
+<circle cx="915.4" cy="214.0" r="1.8" fill="#1f77b4"/>
+<circle cx="980.0" cy="214.0" r="1.8" fill="#1f77b4"/>
+<text x="750" y="56" fill="#1f77b4">visible</text>
+<polyline fill="none" stroke="#d62728" stroke-width="1.5" points="70.0,213.6 134.6,213.5 201.2,213.5 265.7,213.8 330.3,213.9 394.9,213.6 459.4,213.5 524.0,213.3 590.6,212.9 655.1,213.1 719.7,212.8 786.3,213.3 850.9,212.2 915.4,214.0 980.0,214.0"/>
+<circle cx="70.0" cy="213.6" r="1.8" fill="#d62728"/>
+<circle cx="134.6" cy="213.5" r="1.8" fill="#d62728"/>
+<circle cx="201.2" cy="213.5" r="1.8" fill="#d62728"/>
+<circle cx="265.7" cy="213.8" r="1.8" fill="#d62728"/>
+<circle cx="330.3" cy="213.9" r="1.8" fill="#d62728"/>
+<circle cx="394.9" cy="213.6" r="1.8" fill="#d62728"/>
+<circle cx="459.4" cy="213.5" r="1.8" fill="#d62728"/>
+<circle cx="524.0" cy="213.3" r="1.8" fill="#d62728"/>
+<circle cx="590.6" cy="212.9" r="1.8" fill="#d62728"/>
+<circle cx="655.1" cy="213.1" r="1.8" fill="#d62728"/>
+<circle cx="719.7" cy="212.8" r="1.8" fill="#d62728"/>
+<circle cx="786.3" cy="213.3" r="1.8" fill="#d62728"/>
+<circle cx="850.9" cy="212.2" r="1.8" fill="#d62728"/>
+<circle cx="915.4" cy="214.0" r="1.8" fill="#d62728"/>
+<circle cx="980.0" cy="214.0" r="1.8" fill="#d62728"/>
+<text x="750" y="68" fill="#d62728">in flight</text>
+<line x1="70.0" y1="44" x2="70.0" y2="214" stroke="#444" stroke-dasharray="4 3"/>
+<text x="72.0" y="210" fill="#444">ENQUEUE_END</text>
+<line x1="70.0" y1="44" x2="70.0" y2="214" stroke="#444" stroke-dasharray="4 3"/>
+<text x="72.0" y="210" fill="#444">POLL_START</text>
+<rect x="70" y="252" width="910" height="170" fill="none" stroke="#999"/>
+<text x="66" y="262" text-anchor="end">1</text>
+<text x="66" y="422" text-anchor="end">0</text>
+<text x="74" y="246" fill="#333">dead-letter queue messages</text>
+<polyline fill="none" stroke="#1f77b4" stroke-width="1.5" points="70.0,422.0 134.6,422.0 201.2,422.0 265.7,422.0 330.3,422.0 394.9,422.0 459.4,422.0 524.0,422.0 590.6,422.0 655.1,422.0 719.7,422.0 786.3,422.0 850.9,422.0 915.4,422.0 980.0,422.0"/>
+<circle cx="70.0" cy="422.0" r="1.8" fill="#1f77b4"/>
+<circle cx="134.6" cy="422.0" r="1.8" fill="#1f77b4"/>
+<circle cx="201.2" cy="422.0" r="1.8" fill="#1f77b4"/>
+<circle cx="265.7" cy="422.0" r="1.8" fill="#1f77b4"/>
+<circle cx="330.3" cy="422.0" r="1.8" fill="#1f77b4"/>
+<circle cx="394.9" cy="422.0" r="1.8" fill="#1f77b4"/>
+<circle cx="459.4" cy="422.0" r="1.8" fill="#1f77b4"/>
+<circle cx="524.0" cy="422.0" r="1.8" fill="#1f77b4"/>
+<circle cx="590.6" cy="422.0" r="1.8" fill="#1f77b4"/>
+<circle cx="655.1" cy="422.0" r="1.8" fill="#1f77b4"/>
+<circle cx="719.7" cy="422.0" r="1.8" fill="#1f77b4"/>
+<circle cx="786.3" cy="422.0" r="1.8" fill="#1f77b4"/>
+<circle cx="850.9" cy="422.0" r="1.8" fill="#1f77b4"/>
+<circle cx="915.4" cy="422.0" r="1.8" fill="#1f77b4"/>
+<circle cx="980.0" cy="422.0" r="1.8" fill="#1f77b4"/>
+<text x="750" y="264" fill="#1f77b4">dlq visible</text>
+<line x1="70.0" y1="252" x2="70.0" y2="422" stroke="#444" stroke-dasharray="4 3"/>
+<line x1="70.0" y1="252" x2="70.0" y2="422" stroke="#444" stroke-dasharray="4 3"/>
+<rect x="70" y="460" width="910" height="170" fill="none" stroke="#999"/>
+<text x="66" y="470" text-anchor="end">4</text>
+<text x="66" y="630" text-anchor="end">0</text>
+<text x="74" y="454" fill="#333">ECS tasks</text>
+<polyline fill="none" stroke="#1f77b4" stroke-width="1.5" points="70.0,587.5 134.6,587.5 201.2,587.5 265.7,587.5 330.3,587.5 394.9,545.0 459.4,545.0 524.0,502.5 590.6,502.5 655.1,502.5 719.7,502.5 786.3,460.0 850.9,460.0 915.4,460.0 980.0,460.0"/>
+<circle cx="70.0" cy="587.5" r="1.8" fill="#1f77b4"/>
+<circle cx="134.6" cy="587.5" r="1.8" fill="#1f77b4"/>
+<circle cx="201.2" cy="587.5" r="1.8" fill="#1f77b4"/>
+<circle cx="265.7" cy="587.5" r="1.8" fill="#1f77b4"/>
+<circle cx="330.3" cy="587.5" r="1.8" fill="#1f77b4"/>
+<circle cx="394.9" cy="545.0" r="1.8" fill="#1f77b4"/>
+<circle cx="459.4" cy="545.0" r="1.8" fill="#1f77b4"/>
+<circle cx="524.0" cy="502.5" r="1.8" fill="#1f77b4"/>
+<circle cx="590.6" cy="502.5" r="1.8" fill="#1f77b4"/>
+<circle cx="655.1" cy="502.5" r="1.8" fill="#1f77b4"/>
+<circle cx="719.7" cy="502.5" r="1.8" fill="#1f77b4"/>
+<circle cx="786.3" cy="460.0" r="1.8" fill="#1f77b4"/>
+<circle cx="850.9" cy="460.0" r="1.8" fill="#1f77b4"/>
+<circle cx="915.4" cy="460.0" r="1.8" fill="#1f77b4"/>
+<circle cx="980.0" cy="460.0" r="1.8" fill="#1f77b4"/>
+<text x="750" y="472" fill="#1f77b4">desired</text>
+<polyline fill="none" stroke="#d62728" stroke-width="1.5" points="70.0,587.5 134.6,587.5 201.2,587.5 265.7,587.5 330.3,587.5 394.9,587.5 459.4,545.0 524.0,545.0 590.6,502.5 655.1,502.5 719.7,502.5 786.3,502.5 850.9,460.0 915.4,460.0 980.0,460.0"/>
+<circle cx="70.0" cy="587.5" r="1.8" fill="#d62728"/>
+<circle cx="134.6" cy="587.5" r="1.8" fill="#d62728"/>
+<circle cx="201.2" cy="587.5" r="1.8" fill="#d62728"/>
+<circle cx="265.7" cy="587.5" r="1.8" fill="#d62728"/>
+<circle cx="330.3" cy="587.5" r="1.8" fill="#d62728"/>
+<circle cx="394.9" cy="587.5" r="1.8" fill="#d62728"/>
+<circle cx="459.4" cy="545.0" r="1.8" fill="#d62728"/>
+<circle cx="524.0" cy="545.0" r="1.8" fill="#d62728"/>
+<circle cx="590.6" cy="502.5" r="1.8" fill="#d62728"/>
+<circle cx="655.1" cy="502.5" r="1.8" fill="#d62728"/>
+<circle cx="719.7" cy="502.5" r="1.8" fill="#d62728"/>
+<circle cx="786.3" cy="502.5" r="1.8" fill="#d62728"/>
+<circle cx="850.9" cy="460.0" r="1.8" fill="#d62728"/>
+<circle cx="915.4" cy="460.0" r="1.8" fill="#d62728"/>
+<circle cx="980.0" cy="460.0" r="1.8" fill="#d62728"/>
+<text x="750" y="484" fill="#d62728">running</text>
+<line x1="70.0" y1="460" x2="70.0" y2="630" stroke="#444" stroke-dasharray="4 3"/>
+<line x1="70.0" y1="460" x2="70.0" y2="630" stroke="#444" stroke-dasharray="4 3"/>
+<text x="70.0" y="644" text-anchor="middle">01:47:04</text>
+<text x="252.0" y="644" text-anchor="middle">01:48:31</text>
+<text x="434.0" y="644" text-anchor="middle">01:49:58</text>
+<text x="616.0" y="644" text-anchor="middle">01:51:26</text>
+<text x="798.0" y="644" text-anchor="middle">01:52:53</text>
+<text x="980.0" y="644" text-anchor="middle">01:54:21</text>
+</svg>

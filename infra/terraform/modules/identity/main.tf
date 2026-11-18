@@ -57,8 +57,9 @@ locals {
   bedrock_all_arns = distinct(concat(var.bedrock_model_arns, var.bedrock_embedding_model_arns))
 }
 
-# Secrets Manager entries are created with no value. A human puts the value with
-# the console-free path in the Phase 14 runbook. Terraform never sees it.
+# Secrets Manager entries are created with no value. A human puts each value with
+# `aws secretsmanager put-secret-value` (steps: infra/terraform/SESSION2.md,
+# section 8, "Secret values present"). Terraform never sees it.
 resource "aws_secretsmanager_secret" "this" {
   for_each = local.secret_names
 

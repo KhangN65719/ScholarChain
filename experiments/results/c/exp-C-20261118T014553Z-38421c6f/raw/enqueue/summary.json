@@ -1,0 +1,13 @@
+{
+  "bodies_sha256": "9ee66cc8cc3e37f7d00bf8c544e6fe6faada6f72055510d49fdc622874828b92",
+  "counts": {
+    "duplicate": 0,
+    "normal": 2000,
+    "poison": 0
+  },
+  "first_send_utc": "2026-11-18T01:45:54Z",
+  "last_send_utc": "2026-11-18T01:47:04Z",
+  "planned": 2000,
+  "sent": 2000,
+  "status": "ok"
+}
