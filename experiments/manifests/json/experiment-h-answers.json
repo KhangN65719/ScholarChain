@@ -13,7 +13,7 @@
     "MAX_MINUTES": "90",
     "MAX_CONCURRENCY": "1",
     "MAX_TASKS": "460",
-    "SPEND_CEILING_USD": "2.00",
+    "SPEND_CEILING_USD": "3.00",
     "HOURLY_BURN_USD": "0.80",
     "STOP_CONDITIONS": ["wall-clock", "first-failure", "spend-estimate"],
     "METRIC_NAMES": ["Invocations", "InvocationLatency", "InputTokenCount", "OutputTokenCount", "InvocationClientErrors", "InvocationServerErrors", "InvocationThrottles"],

@@ -9,9 +9,9 @@
 #                    /Users/winnguyen/scholarchain-data/experiments/runs/phase16).
 # scripts/run-experiment.sh accepts EXPERIMENT_ID G and H (it validates this file as it stands:
 # tier S caps 90 min, 64 clients, 20000 tasks; projected spend burn x minutes / 60 within the
-# ceiling). Run H also needs the Haiku diagnostic (decision P16-2, H-4; run directly under decision
-# P16-28, no manifest) and the synthesis limit decision (WO-3 part 2) before it is approved: it must
-# not start on a blind maxOutputTokens.
+# ceiling). The Haiku diagnostic (decision P16-2, H-4; run directly under decision P16-28, no
+# manifest; run h4-diagnostic-1) and the synthesis limit change (WO-3 part 2, decision P16-32:
+# maxOutputTokens 2000 to 4096) are DONE, so H no longer starts on a blind maxOutputTokens.
 # What runs: the Scala entry point scholarchain.evaluation.answer.AnswerEval on the laptop
 # (experiments/h-answers/run.sh). Graph port InMemoryNeptune over A's local export; Titan, S3
 # Vectors and S3 GetObject for the vector side; Haiku 4.5 through Bedrock Converse for synthesis.
@@ -34,20 +34,32 @@
 #                        kill at MAX_MINUTES keeps the answers made so far.
 #   MAX_CONCURRENCY 1    the run is sequential.
 # COST (plan.md, "Projected AWS cost", rates UNVERIFIED, read from the pricing pages by the human):
-#   expected about 1.00 USD (Haiku 4.5 at 1 USD per million input tokens and 5 USD per million
-#   output tokens), HIGH ceiling 2.00 USD. Every USD figure is an ESTIMATE at those rates, not a bound.
-#   SPEND_CEILING_USD 2.00   the HIGH figure, and the BINDING limit (decision P16-3): the call cap
-#                            above is the worst case, the USD stop usually ends the run first. The
+#   expected about 1.3 to 2.1 USD (Haiku 4.5 at 1 USD per million input tokens and 5 USD per
+#   million output tokens), HIGH ceiling 3.00 USD (decision P16-33; was 2.00 before the synthesis
+#   maxOutputTokens rose from 2000 to 4096, decision P16-32). Arithmetic from the H-4 diagnostic
+#   (h4-diagnostic-1: input 4931 to 7080 tokens, output 1990 to 2000 at the old 2000 limit, 3 of 4
+#   replies cut off): 76 answers, one synthesis call each. Input 7k tokens x 1.00 per million =
+#   0.007 USD per call. Output at 2000 tokens x 5.00 per million = 0.010 USD, so 76 x 0.017 = 1.29
+#   USD; output at 4096 tokens = 0.0205 USD, so 76 x 0.0275 = 2.09 USD. That is the 1.3 to 2.1 range.
+#   At temperature 0 a cut-off reply repeats on retry, and each retry costs up to about 0.027 USD
+#   more, so the retries and the planner calls are not in the range; they are inside the 3.00
+#   ceiling's headroom. If Billing headroom is short, the 20-question repeat is the first thing
+#   dropped (20 x 0.017 to 20 x 0.0275 = about 0.35 to 0.55 USD). Every USD figure is an ESTIMATE at those rates, not a bound.
+#   SPEND_CEILING_USD 3.00   the HIGH figure, and the BINDING limit (decisions P16-3 and P16-33): the
+#                            call cap (460, unchanged) above is the worst case, the USD stop
+#                            usually ends the run first. The
 #                            stop is metered from the Converse usage tokens of each call and is
 #                            checked BEFORE each call: spend so far plus the worst case of the next
 #                            call (input = request and system characters over four, output =
 #                            maxOutputTokens) must stay within the ceiling. A failed call is
 #                            charged at that worst case. Titan is an estimate (input characters
 #                            over four), so spend can pass the ceiling by the error of one call.
-#   HOURLY_BURN_USD 0.80     a nominal figure (about 1.2 USD expected over the 90 minute window)
+#   HOURLY_BURN_USD 0.80     a nominal figure (0.80 x 90 / 60 = 1.20 USD over the 90 minute window,
+#                            below the 1.3 to 2.1 expected spend; it is not a forecast)
 #                            that only lets the script's projected-spend check pass (0.80 x 90 / 60
-#                            = 1.20 under 2.00). It is not a rate; the USD stop is.
-# If Billing headroom is under 2.40 USD for G plus H plus the diagnostic (plan.md gate), edit
+#                            = 1.20 under 3.00). It is not a rate; the USD stop is.
+# If Billing headroom is under 3.40 USD for G plus H plus the diagnostic (G 0.25 + H 3.00 + H-4
+# 0.15; plan.md gate, was 2.40 at the H ceiling of 2.00), edit
 # SPEND_CEILING_USD and the ceiling in run.sh together (a new digest, a new approval record); the
 # 20-question repeat is dropped first (--repeat-count 0), then the run is trimmed to 30 questions.
 # CAVEAT for the human: the rates in run.sh are UNVERIFIED (Haiku 1.00 and 5.00, Titan 0.02 USD per
@@ -64,7 +76,7 @@ SIZE_TIER=S
 MAX_MINUTES=90
 MAX_CONCURRENCY=1
 MAX_TASKS=460
-SPEND_CEILING_USD=2.00
+SPEND_CEILING_USD=3.00
 HOURLY_BURN_USD=0.80
 STOP_CONDITIONS=wall-clock,first-failure,spend-estimate
 METRIC_NAMES=Invocations,InvocationLatency,InputTokenCount,OutputTokenCount,InvocationClientErrors,InvocationServerErrors,InvocationThrottles

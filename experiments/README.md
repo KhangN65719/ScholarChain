@@ -23,7 +23,7 @@ Nothing was executed: no AWS, no sbt, no experiment entry point. No approval rec
 | E | `experiment-e-retrieval-modes.manifest` | Graph-only, S3-Vectors-only and fused retrieval (no OpenSearch exists, so no fourth mode) | M | `experiments/e-retrieval-modes/run.sh` |
 | F | `experiment-f-failure-recovery.manifest` | One safe fault; retry, dead-letter, idempotency and recovery | M | `experiments/f-failure-recovery/run.sh` |
 | G | `experiment-g-retrieval.manifest` | Retrieval quality of graph, vector and fused mode over benchmark v1 (Recall@K, Precision@K, nDCG@K, MRR, abstention outcomes); laptop runtime, Titan and S3 Vectors, stub answer model (Phase 16) | S | `experiments/g-retrieval/run.sh` |
-| H | `experiment-h-answers.manifest` | Answer quality in fused mode with Haiku 4.5: answer records, stop reasons, independent audit, a 20-answer human rating sample; laptop runtime, call cap 460, USD stop 2.00 (Phase 16) | S | `experiments/h-answers/run.sh` |
+| H | `experiment-h-answers.manifest` | Answer quality in fused mode with Haiku 4.5: answer records, stop reasons, independent audit, a 20-answer human rating sample; laptop runtime, call cap 460, USD stop 3.00 (Phase 16, P16-33) | S | `experiments/h-answers/run.sh` |
 
 No manifest uses tier L, so the human's tier L spend gate (G-L) is not triggered by these drafts.
 
@@ -75,10 +75,10 @@ Source: `infra/terraform/COST_ESTIMATE.md` (rates mostly UNVERIFIED; "LOW" is th
 | E | 60 | 0.42 | 0.42 | 0.45 | 15.1 and 15.2 query sessions, 0.62 / 2.79 and 0.73 / 3.04 (Phase 13 mapping) |
 | F | 30 | 0.40 | 0.20 | 0.25 | none |
 | G | 60 | 0.10 (nominal) | 0.10 | 0.25 | none; Titan and S3 only, no Haiku: expected under 0.05, HIGH 0.25 (plan.md, rates UNVERIFIED) |
-| H | 90 | 0.80 (nominal) | 1.20 | 2.00 | none; Haiku 4.5 through Bedrock: expected about 1.00, HIGH 2.00 (plan.md, rates UNVERIFIED) |
-| Sum A to H | | | 6.087 | 7.35 | |
+| H | 90 | 0.80 (nominal) | 1.20 | 3.00 | none; Haiku 4.5 through Bedrock: expected about 1.3 to 2.1 (76 answers x 0.017 at the old 2000 output tokens to 76 x 0.0275 at 4096, from the H-4 diagnostic h4-diagnostic-1: input 4931 to 7080, output 1990 to 2000; retries not included), HIGH 3.00 (rates UNVERIFIED; raised from 2.00 by decision P16-33 because synthesis `maxOutputTokens` is 4096, P16-32; about 0.027 USD per full synthesis call) |
+| Sum A to H | | | 6.087 | 8.35 | |
 
-Every row is read from the committed manifest in `experiments/manifests/` (`MAX_MINUTES`, `HOURLY_BURN_USD`, `SPEND_CEILING_USD`); projected spend is burn x max minutes / 60. The Sum covers all eight manifests A to H. Arithmetic: projected 0.75 + 2.325 + 0.45 + 0.642 (0.55 x 70 / 60 = 0.6417) + 0.42 + 0.20 + 0.10 + 1.20 = 6.087 (A to F alone 4.787, G and H 1.30); ceilings 0.75 + 2.40 + 0.60 + 0.65 + 0.45 + 0.25 + 0.25 + 2.00 = 7.35 (A to F alone 5.10, G and H 2.25). The "Nearest estimate row" column keeps the Phase 13 mapping and was not re-derived.
+Every row is read from the committed manifest in `experiments/manifests/` (`MAX_MINUTES`, `HOURLY_BURN_USD`, `SPEND_CEILING_USD`); projected spend is burn x max minutes / 60. The Sum covers all eight manifests A to H. Arithmetic: projected 0.75 + 2.325 + 0.45 + 0.642 (0.55 x 70 / 60 = 0.6417) + 0.42 + 0.20 + 0.10 + 1.20 = 6.087 (A to F alone 4.787, G and H 1.30); ceilings 0.75 + 2.40 + 0.60 + 0.65 + 0.45 + 0.25 + 0.25 + 3.00 = 8.35 (A to F alone 5.10, G and H 3.25; was 7.35 and 2.25 with H at 2.00). The projected figures are unchanged because H's nominal burn (0.80) is unchanged. The "Nearest estimate row" column keeps the Phase 13 mapping and was not re-derived.
 
 The ceilings bound the entry-point window only. The estimate rows are whole-session costs over 1 to 8 hours, so for B and D the ceiling is below the estimate's LOW or HIGH figure because the manifest caps the window (90 and 70 minutes); the setup and teardown hours around it are not in the manifest. The cumulative ceiling is now 20 USD (decision D6; it replaced the 25 USD of `docs/agent-runs/phase-12/ratification.md`) and the script checks only that each `SPEND_CEILING_USD` is at most `--cost-ceiling-usd`, not the cumulative figure. The estimate itself puts S plus M at $25.42 at the HIGH bound, over the 20 USD ceiling (decision D8), and does not claim a fit, so the human reads Billing before each run (gates G-S, G-M) and records actual spend, and a ceiling here is not a forecast or a bill.
 

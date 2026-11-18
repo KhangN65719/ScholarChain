@@ -27,8 +27,10 @@
 #   SCHOLARCHAIN_H_MODEL_ID        the Bedrock model or inference profile id of Haiku 4.5
 # AWS credentials come from the profile in AWS_PROFILE (the SDK default chain), never from here.
 # Committed limits (must stay within the manifest; a change is a new script digest):
-#   Haiku call cap 460 (decisions P16-3 and P16-29), Titan call cap 1000, USD stop 2.00
-#   (= SPEND_CEILING_USD, the binding limit, decision P16-3), repeat questions 20, rating sample 20,
+#   Haiku call cap 460 (decisions P16-3 and P16-29), Titan call cap 1000, USD stop 3.00
+#   (= SPEND_CEILING_USD, the binding limit, decisions P16-3 and P16-33; was 2.00 before the
+#   synthesis maxOutputTokens rose to 4096, decision P16-32; a full synthesis call is about
+#   0.027 USD at that limit), repeat questions 20, rating sample 20,
 #   rates Haiku 1.00 input and 5.00 output, Titan 0.02 USD per million tokens (all UNVERIFIED, the
 #   human reads the pricing pages). USD figures are estimates, not bounds.
 # The call cap 460 covers the worst case: 76 answers (56 primary plus 20 repeat), each with a
@@ -54,7 +56,7 @@ trap 'exp_event ENTRY_SIGNAL "TERM or INT received"; exit 143' TERM INT
 # 76 answers x (3 planner + 3 synthesis attempts) = 456, plus 4 slack.
 HAIKU_MAX_CALLS=460
 TITAN_MAX_CALLS=1000
-USD_CEILING=2.00
+USD_CEILING=3.00
 HAIKU_INPUT_USD_PER_MTOK=1.00
 HAIKU_OUTPUT_USD_PER_MTOK=5.00
 TITAN_USD_PER_MTOK=0.02

@@ -5,7 +5,9 @@ import scholarchain.rag.{
   ModelCallException,
   ModelPort,
   ModelRequest,
-  ModelResponse
+  ModelResponse,
+  Prompts,
+  Schemas
 }
 import scholarchain.storage.{Embedder, StorageException}
 
@@ -109,6 +111,69 @@ class CostGuardSuite extends FunSuite:
     val (in, out) = guard.worstCase(request)
     assertEqualsDouble(guard.usd, in * 1.0 / 1e6 + out * 5.0 / 1e6, 1e-12)
     assertEquals(guard.snapshot("haikuCallsChargedAtWorstCase").num.toInt, 1)
+  }
+
+  test(
+    "four worst-case synthesis calls at 4096 output tokens fit the 0.15 diagnostic ceiling"
+  ) {
+    // The estimate follows the request's maxOutputTokens, not a fixed 2000:
+    // 4096 x 5.00 / 1e6 = 0.02048 USD of output per call.
+    def synthesis(inputChars: Int) =
+      ModelRequest(
+        "test-prompt",
+        "1",
+        "test-schema",
+        ujson.Str("x" * inputChars),
+        4096
+      )
+    // About 7k input tokens (a full synthesis call, about 0.027 USD) and the
+    // 12000-token input budget (about 0.033 USD): four calls, each charged at
+    // the worst case because the model fails, stay under 0.15.
+    Vector(28000 -> 0.12, 48000 -> 0.14).foreach { (chars, bound) =>
+      val req = synthesis(chars)
+      val guard = new CostGuard(CostLimits(10, 4, 0.15), rates)
+      val inner = new Counting(throw new ModelCallException("timeout", "x"))
+      val model = new GuardedModel(inner, guard, billable = true)
+      val (in, out) = guard.worstCase(req)
+      assertEquals(out, 4096L)
+      (1 to 4).foreach(_ => intercept[ModelCallException](model.complete(req)))
+      assertEquals(inner.calls, 4, "no call was refused")
+      assertEquals(guard.refusedCount, 0)
+      assertEqualsDouble(
+        guard.usd,
+        4 * (in * 1.0 / 1e6 + out * 5.0 / 1e6),
+        1e-12
+      )
+      assert(guard.usd < bound && guard.usd <= 0.15, guard.usd.toString)
+    }
+  }
+
+  test(
+    "four worst-case calls with the real synthesis prompt and schema and a full 12000-token input fit 0.15"
+  ) {
+    val promptChars = Prompts.Synthesis.text.length
+    val schemaChars =
+      ujson.write(Schemas.byId(Schemas.SynthesisOutputId)).length
+    val req = ModelRequest(
+      Prompts.Synthesis.id,
+      Prompts.Synthesis.version,
+      Schemas.SynthesisOutputId,
+      ujson.Str("x" * 48000),
+      4096
+    )
+    val guard = new CostGuard(CostLimits(10, 4, 0.15), rates)
+    val inner = new Counting(throw new ModelCallException("timeout", "x"))
+    val model = new GuardedModel(inner, guard, billable = true)
+    val (in, out) = guard.worstCase(req)
+    val inputChars = ujson.write(req.input).length
+    val totalChars: Long =
+      inputChars.toLong + promptChars + schemaChars +
+        CostGuard.SystemFramingChars
+    assertEquals(in, (totalChars + 3L) / 4L)
+    (1 to 4).foreach(_ => intercept[ModelCallException](model.complete(req)))
+    assertEquals(inner.calls, 4, "no call was refused")
+    assertEquals(guard.refusedCount, 0)
+    assert(guard.usd <= 0.15, guard.usd.toString)
   }
 
   test("a metered reply is charged from its usage tokens") {

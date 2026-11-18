@@ -14,6 +14,15 @@ enum SynthesisResult:
   case Done(output: SynthesisOutput, attempts: Int, usage: ModelUsage)
   case Failed(reasons: Vector[String], attempts: Int, usage: ModelUsage)
 
+object AnswerSynthesisAgent:
+  /** The synthesis reply limit. 2000 cut three of four Haiku replies at
+    * `max_tokens` in the Phase 16 H-4 diagnostic (the one that fit used 1990),
+    * so it is 4096 (decision P16-32). It bounds the reply only; the input
+    * budget is `ModelRetryPolicy.maxInputTokens`, and the planner's own limit
+    * is separate.
+    */
+  val MaxOutputTokens = 4096
+
 /** Writes the analysis and typed claims from the evidence bundle through the
   * model port. The prompt and the output schema are versioned
   * (`Prompts.Synthesis`, `Schemas.SynthesisOutput`). The question and every
@@ -94,7 +103,7 @@ final class AnswerSynthesisAgent(
       Prompts.Synthesis.version,
       Prompts.Synthesis.schemaId,
       input(draft, bundle, gaps),
-      2000
+      AnswerSynthesisAgent.MaxOutputTokens
     )
     StructuredCall.run(model, request, retry, checks) match
       case StructuredOutcome.Valid(json, attempts, usage) =>

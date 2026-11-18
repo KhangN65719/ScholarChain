@@ -211,9 +211,9 @@ class AnswerEvalSuite extends FunSuite:
   ) {
     val dir = tempDir()
     // Every attempt is metered at 1000 in and 1000 out: 0.006 USD. The worst
-    // case of one synthesis call (2000 output tokens plus the prompt and the
-    // schema) is a few thousandths, so the ceiling stops the run after some
-    // calls, and the call that could pass it is refused unmade.
+    // case of one synthesis call (4096 output tokens, 0.02 USD, plus the prompt
+    // and the schema) is a little over 0.02, so the ceiling stops the run after
+    // some calls, and the call that could pass it is refused unmade.
     val g = guard(usd = 0.05)
     val fake = new Broken(Some("end_turn"))
     val wiring = LaptopPorts.offline(g, Some(fake), modelBillable = true)
@@ -626,7 +626,7 @@ class AnswerEvalSuite extends FunSuite:
     val dir = tempDir()
     // 200000 tokens in and out is 1.2 USD at 1.0 and 5.0 per million: over the
     // 1.0 ceiling after the first call. The call was admitted (its worst case
-    // is a few thousandths) and finished, so the answer stands.
+    // is about 0.025) and finished, so the answer stands.
     val g = guard(usd = 1.0)
     val wiring =
       LaptopPorts.offline(g, Some(new Inflated(200000)), modelBillable = true)

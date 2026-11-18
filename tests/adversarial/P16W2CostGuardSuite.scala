@@ -20,8 +20,8 @@ import P16W2Support.*
   * P16-29): no call to the answer model or to the embedder after the call cap
   * or the USD stop, the stop is checked before each call and stays set, a
   * refused call is not retried, H's cap is 460 and the USD stops are G 0.25 and
-  * H 2.00, and the diagnostic makes at most four Haiku calls with a ceiling of
-  * at most 0.15.
+  * H 3.00 (P16-33), and the diagnostic makes at most four Haiku calls with a
+  * ceiling of at most 0.15.
   *
   * Every count below is taken at the service behind the guard (a spy), never
   * from the guard's own counters alone.
@@ -299,25 +299,29 @@ class P16W2CostGuardSuite extends FunSuite:
     line.drop(key.length + 1).trim
 
   test(
-    "H: the call cap is 460 and the USD stop is 2.00, everywhere it is set"
+    "H: the call cap is 460 and the USD stop is 3.00, everywhere it is set"
   ) {
     assertEquals(manifestValue("experiment-h-answers", "MAX_TASKS"), "460")
     assertEquals(jsonValue("experiment-h-answers", "MAX_TASKS"), "460")
     assertEquals(
       manifestValue("experiment-h-answers", "SPEND_CEILING_USD").toDouble,
-      2.0
+      3.0
     )
     assertEquals(
       jsonValue("experiment-h-answers", "SPEND_CEILING_USD").toDouble,
-      2.0
+      3.0
     )
     val run = "experiments/h-answers/run.sh"
     assertEquals(scriptValue(run, "HAIKU_MAX_CALLS"), "460")
-    assertEquals(scriptValue(run, "USD_CEILING").toDouble, 2.0)
+    assertEquals(scriptValue(run, "USD_CEILING").toDouble, 3.0)
     assert(
       readAll(repoRoot.resolve(run))
         .contains("--haiku-max-calls $HAIKU_MAX_CALLS"),
       "run.sh must pass the committed cap to the entry point"
+    )
+    assert(
+      readAll(repoRoot.resolve(run)).contains("--usd-ceiling $USD_CEILING"),
+      "run.sh must pass the committed USD stop to the entry point"
     )
     assert(
       manifestValue("experiment-h-answers", "MAX_TASKS").toInt >=
