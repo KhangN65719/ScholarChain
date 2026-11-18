@@ -48,46 +48,6 @@ class ExportHeapMeasureSuite extends munit.FunSuite:
 
   private def emptyPart(table: String): String = s"$table/part-00000.jsonl"
 
-  /** The listing and the downloads of a local export directory. The overlay
-    * tables the real export lacks are listed as zero-byte objects, so the
-    * production listing check runs unchanged.
-    */
-  private final class DirStore(
-      dir: Path,
-      prefix: String,
-      manifest: Array[Byte],
-      overlay: Vector[String]
-  ) extends ObjectStore:
-    protected def write(key: String, bytes: Array[Byte], sourceRef: String) =
-      throw new UnsupportedOperationException("read-only")
-    def head(key: String): Option[ObjectMeta] = None
-    def list(prefix: String): Vector[ObjectMeta] = Vector.empty
-    private def relative(key: String): String = key.stripPrefix(prefix)
-    override def listSizes(p: String): Vector[(String, Long)] =
-      val stream = Files.walk(dir)
-      try
-        val onDisk = stream.iterator.asScala.toVector
-          .filter(Files.isRegularFile(_))
-          .map { file =>
-            val rel = dir.relativize(file).toString
-            val size =
-              if rel == manifestName then manifest.length.toLong
-              else Files.size(file)
-            (prefix + rel, size)
-          }
-        (onDisk ++ overlay.map(name => (prefix + emptyPart(name), 0L)))
-          .sortBy(_._1)
-      finally stream.close()
-    def get(key: String): Option[Array[Byte]] =
-      val rel = relative(key)
-      if rel == manifestName then Some(manifest)
-      else if overlay.exists(name => emptyPart(name) == rel) then
-        Some(Array.emptyByteArray)
-      else
-        val file = dir.resolve(rel)
-        if Files.isRegularFile(file) then Some(Files.readAllBytes(file))
-        else None
-
   private def collect(): Unit =
     (1 to 3).foreach { _ =>
       System.gc()
@@ -106,8 +66,12 @@ class ExportHeapMeasureSuite extends munit.FunSuite:
     // A local directory has no pipeline slug; the slug the real run ID maps to
     // stands in, and only names the key prefix of this in-memory store.
     val slug = AwsReadModels.slugOf(runId)
-    val store =
-      new DirStore(dir, AwsReadModels.exportPrefixOf(slug), manifest, overlay)
+    val store = new LocalExportStore(
+      dir,
+      AwsReadModels.exportPrefixOf(slug),
+      Some(manifest),
+      overlay.map(emptyPart)
+    )
     val heapPools = ManagementFactory.getMemoryPoolMXBeans.asScala
       .filter(_.getType == MemoryType.HEAP)
     collect()

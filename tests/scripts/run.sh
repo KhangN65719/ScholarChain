@@ -644,6 +644,13 @@ D_SCRIPT=""
 D_ARGS=""
 EVDIR=""
 
+# Phase 16 P16-7 (repair R2): smoke-test.sh requires --question and has no default, so every
+# smoke invocation built here names one. SM_Q_MODE is given (the default: --question
+# "$SM_QUESTION"), omit (no --question flag) or empty (--question ""). The question is a
+# well-formed one under 200 characters; the script records only its sha256.
+SM_QUESTION="Who are the top 3 researchers by average coauthors per paper between 2015 and 2019?"
+SM_Q_MODE=given
+
 # build KEY MODE RECORD [ACCT] [COST] [REGION]: fills A with a valid argument list for
 # one script (MODE dry or digest; RECORD is "-" to leave --approval-record out) and sets
 # SN (script name), AN (approval action), GS (record GIT_SHA), PD (record PLAN_DIGEST)
@@ -673,7 +680,11 @@ build() {
       A=("$flag" "${CA[@]}" --state-bucket scholarchain-harness-state --state-key env/course/terraform.tfstate --state-version-id v1.2-abc) ;;
     smoke)
       SN=smoke-test; AN=smoke-test
-      A=("$flag" "${CA[@]}" --out-dir "$OUT_BASE/smoke" --fast-url http://10.20.0.10:8080 --slow-url http://10.20.0.11:8081 --query-secret-arn "arn:aws:secretsmanager:us-east-2:${acct}:secret:scholarchain/query-token-AbCdEf" --bedrock off) ;;
+      A=("$flag" "${CA[@]}" --out-dir "$OUT_BASE/smoke" --fast-url http://10.20.0.10:8080 --slow-url http://10.20.0.11:8081 --query-secret-arn "arn:aws:secretsmanager:us-east-2:${acct}:secret:scholarchain/query-token-AbCdEf" --bedrock off)
+      case "$SM_Q_MODE" in
+        given) A=("${A[@]}" --question "$SM_QUESTION") ;;
+        empty) A=("${A[@]}" --question "") ;;
+      esac ;;
     pipeline)
       SN=run-bounded-pipeline; AN=pipeline
       stop_on="first-failure,dlq-nonempty"
@@ -1318,6 +1329,107 @@ A=("${A[@]}" --read-secret-arn "arn:aws:secretsmanager:us-east-1:${ACCT}:secret:
 run_build
 case_begin "5.smoke.read-secret-arn-us-east-1"
 a_refused "--read-secret-arn must be a Secrets Manager ARN in account $ACCT, us-east-2"
+case_end
+
+# Phase 16 P16-7 (repair R2): --question is required, with no default. The check sits right
+# after validate-params starts, so a missing or empty --question is refused before the identity
+# check, the approval record, any network or AWS call, and any digest line, for a real run, a
+# dry run and --print-digest. A record that is valid for a run WITH the question is used, so the
+# refusal can only come from the missing question and not from the record.
+SM_Q_MODE=given
+prep_key smoke
+SM_Q_SDIG="$D_SCRIPT"
+SM_Q_ADIG="$D_ARGS"
+rec_base smoke-test "$SM_Q_SDIG" "$SM_Q_ADIG" n/a n/a
+rec_write "$REC/smoke-q.env"
+
+# sm_q_case MODE FORM: MODE omit (no --question) or empty (--question ""); FORM real, dry,
+# digest or order (a dry run whose approval record does not exist: the question refusal must
+# come before the record is read).
+sm_q_case() {
+  local mode="$1" form="$2"
+  SM_Q_MODE="$mode"
+  case "$form" in
+    real) build smoke dry "$REC/smoke-q.env"; A=("${A[@]:1}") ;;
+    dry) build smoke dry "$REC/smoke-q.env" ;;
+    digest) build smoke digest - ;;
+    order) build smoke dry "$REC/does-not-exist.env" ;;
+  esac
+  SM_Q_MODE=given
+  run_build
+  case_begin "5.smoke.question-$mode.$form-refused-before-any-work"
+  a_refused "--question is required"
+  a_err "no default"
+  a_not_out "TARGET_ACCOUNT="
+  a_not_out "IDENTITY_CHECK="
+  a_not_out "IDENTITY_OK"
+  a_not_out "identity-check"
+  a_not_out "WOULD_RUN"
+  a_not_out "APPROVAL_CONSUMED"
+  a_not_out "SCRIPT_DIGEST="
+  a_not_out "ARGS_DIGEST="
+  a_not_out "ARGS_CANONICAL="
+  a_not_out_re '^STEP\[[0-9]+\] (approval-record|identity-check|health|readiness|bounded-query)'
+  if grep -qF -- "approval record is missing" "$ERR"; then note_fail "the approval record was read before the question was checked"; fi
+  if [ "$form" = "real" ]; then a_state_empty; fi
+  case_end
+}
+for sm_mode in omit empty; do
+  for sm_form in real dry digest order; do
+    sm_q_case "$sm_mode" "$sm_form"
+  done
+done
+
+# A valid question passes validate-params and the record built for it.
+build smoke dry "$REC/smoke-q.env"
+run_build
+case_begin "4.approval.smoke.question-given-dry-run-passes-validate-params-and-record"
+a_dry_common
+a_out "APPROVAL_VERIFIED action=smoke-test"
+a_out "APPROVAL_NOT_CONSUMED dry-run"
+if grep -qF -- "--question is required" "$ERR"; then note_fail "a given question was refused as missing"; fi
+case_end
+
+# The record binds the question: the same invocation with another question is refused by the
+# ARGS_DIGEST check, and the question is recorded as its sha256, never as text.
+build smoke dry "$REC/smoke-q.env"
+A=("${A[@]}" --question "Which researchers collaborated most between 2015 and 2020?")
+run_build
+case_begin "5.smoke.question-changed-after-approval-refused-by-args-digest"
+a_refused "ARGS_DIGEST does not match"
+case_end
+
+build smoke digest -
+run_build
+SM_Q_CANON="$(sed -n 's/^ARGS_CANONICAL=//p' "$OUT" | head -n 1)"
+printf '%s' "$SM_QUESTION" > "$REC/smoke-question.txt"
+SM_Q_SHA="$(sha_of "$REC/smoke-question.txt")"
+case_begin "2.print-digest.smoke.question-is-recorded-as-sha256-and-binds-the-digest"
+a_rc 0
+a_out_re '^ARGS_DIGEST=[0-9a-f]{64}$'
+a_trip_empty
+case "$SM_Q_CANON" in
+  *";question=$SM_Q_SHA;"*) ;;
+  *) note_fail "ARGS_CANONICAL lacks ;question=<sha256 of the question>;" ;;
+esac
+case "$SM_Q_CANON" in
+  *"top 3 researchers"*) note_fail "the question text is in ARGS_CANONICAL" ;;
+esac
+case_end
+
+# Boundary: 200 characters is accepted by validate-params (and changes the digest), 201 is
+# still refused by the 200-character check (5.smoke.question-201-chars).
+SM_Q200="$(awk 'BEGIN { for (i = 0; i < 200; i++) printf "a" }')"
+build smoke digest -
+A=("${A[@]}" --question "$SM_Q200")
+run_build
+SM_Q200_ADIG="$(sed -n 's/^ARGS_DIGEST=//p' "$OUT" | head -n 1)"
+case_begin "5.smoke.question-200-chars-accepted-by-validate-params"
+a_rc 0
+a_out_re '^ARGS_DIGEST=[0-9a-f]{64}$'
+a_trip_empty
+if grep -qF -- "limited to 200 characters" "$ERR"; then note_fail "a 200-character question was refused"; fi
+[ "$SM_Q200_ADIG" != "$SM_Q_ADIG" ] || note_fail "ARGS_DIGEST did not change with the question"
 case_end
 
 # run-bounded-pipeline.sh limits.

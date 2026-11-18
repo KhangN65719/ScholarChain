@@ -15,10 +15,10 @@
 #                                   request lines live there; default retention is 3 days, so
 #                                   collect within 3 days of the run)
 #   SCHOLARCHAIN_QL_LOADCLIENT_STREAM_PREFIX awslogs-stream-prefix/container-name of that task
-#                                   definition (PENDING-WO-10); the stream is <prefix>/<task id>
+#                                   definition (read it from the deployed definition); the stream is <prefix>/<task id>
 #   SCHOLARCHAIN_QL_SERVICE_LOG_GROUP        optional: the service's log group, for the per-request
 #                                   stage timings (planning, graph, vector, fusion, synthesis,
-#                                   verification). PENDING-WO-8: the line format is not final.
+#                                   verification). The retrieval-mode field is `retrievalMode`.
 #   SCHOLARCHAIN_QL_ALARM_PREFIX             optional: alarm name prefix of the scaling alarms
 # Files (raw, one call each): cloudwatch-metric-data.json, metric-queries.json,
 # loadclient-logs.json, ecs-describe-services.json, optional service-logs.json,

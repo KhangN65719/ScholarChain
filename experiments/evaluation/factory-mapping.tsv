@@ -1,0 +1,59 @@
+# Mapping table for FactoryCounts (Phase 16). Columns are tab separated.
+#
+# severity <word> <class>            normalises a reviewer severity word to blocker, major, minor, advisory
+# alias <word> <role>                a file-name word that stands for a role (for names without the role name).
+#                                    Aliases apply to document file names only. Finding text and headings match
+#                                    full role names, or a role or alias inside an explicit "Owner: <role>" tag.
+# file <phase regex> <path regex> <role> <parser> <round> <idMap>
+#                                    first matching row wins; the path is relative to the phase directory
+#   role   : work-order, report, review, decision, ratification, human-commands, evidence, ignore
+#   parser : none, auto, heading-bullets, numbered-severity, id-bullet
+#   round  : a number, "auto" (digits after round, review or verdict-round in the file name) or "-" (1)
+#   idMap  : id letter to severity for the id-bullet parser, e.g. K=blocker,M=major; "-" uses the default
+#
+# Where the formats drift between phases the drift is handled here, not in code:
+#   phase 5   numbered findings "1. HIGH, ..." (numbered-severity)
+#   phase 12  bullets "- H1 (High)." with agent headings (id-bullet)
+#   phase 15  severity headings Blockers, Major, Minor, Advisory with K/M/m/a ids (heading-bullets)
+# A review file that yields no finding is listed under reviewFilesWithoutParsedFindings; add a row for it.
+severity	blocker	blocker
+severity	blockers	blocker
+severity	critical	blocker
+severity	high	blocker
+severity	must-fix	blocker
+severity	major	major
+severity	medium	major
+severity	minor	minor
+severity	low	minor
+severity	low-medium	minor
+severity	advisory	advisory
+severity	nit	advisory
+severity	note	advisory
+alias	hadoop	hadoop-engineer
+alias	dataset	dataset-engineer
+alias	domain	domain-engineer
+alias	spark	spark-engineer
+alias	storage	storage-engineer
+alias	rag	rag-engineer
+alias	service	service-engineer
+alias	test	test-engineer
+alias	build	build-engineer
+alias	infra	infra-engineer
+alias	er	entity-resolution-engineer
+alias	reviewer	code-reviewer
+file	.*	(^|/)(prompt|spec|course-[^/]*)\.md$	ignore	none	-	-
+file	.*	(^|/)[^/]*work-order[^/]*\.md$	work-order	none	-	-
+file	.*	(^|/)review-brief[^/]*\.md$	evidence	none	-	-
+file	^phase-05$	(^|/)review-verdict-round\d+\.md$	review	numbered-severity	auto	-
+file	^phase-12$	(^|/)review-round-\d+\.md$	review	id-bullet	auto	H=blocker,M=major,L=minor
+file	^phase-15$	(^|/)review-\d+-verdict\.md$	review	heading-bullets	auto	-
+file	.*	(^|/)(re-review|must-fix-re-review)[^/]*\.md$	review	auto	2	-
+file	.*	(^|/)revalidation-review\.md$	review	auto	2	-
+file	.*	(^|/)final-review\.md$	review	auto	3	-
+file	.*	(^|/)[^/]*review[^/]*\.md$	review	auto	auto	-
+file	.*	(^|/)human-commands[^/]*\.md$	human-commands	none	-	-
+file	.*	(^|/)ratification[^/]*\.md$	ratification	none	-	-
+file	.*	(^|/)(decisions?|open-decisions)[^/]*\.md$	decision	none	-	-
+file	.*	(^|/)reports?/	report	none	-	-
+file	.*	(^|/)[^/]*report[^/]*\.md$	report	none	-	-
+file	.*	\.md$	evidence	none	-	-

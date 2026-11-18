@@ -25,7 +25,8 @@ final case class ModelResponse(
     modelVersion: String,
     promptTokens: Int,
     completionTokens: Int,
-    tokensEstimated: Boolean
+    tokensEstimated: Boolean,
+    stopReason: Option[String] = None
 )
 
 /** The only way the runtime reaches a model. The deterministic offline stub and
@@ -544,12 +545,69 @@ final case class ModelRetryPolicy(
   require(maxRetries >= 0 && maxRetries <= 5, "maxRetries must be 0 to 5")
   def maxAttempts: Int = maxRetries + 1
 
+/** What happened to one model attempt, kept only when it was rejected or the
+  * service reported a stop reason. `rejections` are fixed codes from
+  * `RejectionReason.code`, never model text. An attempt that ended with a valid
+  * reply and no stop reason (the offline stub) leaves no record.
+  */
+final case class ModelAttempt(
+    promptId: String,
+    attempt: Int,
+    accepted: Boolean,
+    rejections: Vector[String],
+    stopReason: Option[String],
+    outputTokens: Int
+):
+  def toJson: ujson.Value =
+    ujson.Obj(
+      "promptId" -> promptId,
+      "attempt" -> attempt,
+      "accepted" -> accepted,
+      "stopReason" -> Facts.optStr(stopReason),
+      "outputTokens" -> outputTokens,
+      "rejections" -> Facts.strs(rejections)
+    )
+
+  /** One service-log line: IDs, codes and counts only. */
+  def logLine(queryId: String): String =
+    s"model-attempt queryId=$queryId promptId=$promptId attempt=$attempt " +
+      s"accepted=$accepted stopReason=${stopReason.getOrElse("none")} " +
+      s"outputTokens=$outputTokens rejections=${rejections.mkString("|")}"
+
+/** Maps a rejection reason to a fixed code. A reason from the schema check
+  * names a path and a rule; the one rule that echoes model text (an unexpected
+  * key) is cut to its rule. A reason this does not recognize becomes `other`,
+  * so a code never holds model text.
+  */
+object RejectionReason:
+  val Other = "other"
+  private val fixed: Set[String] = Set(
+    StructuredCall.OverBudget,
+    "output is too long",
+    "output is not valid JSON",
+    "an evidence ID is malformed"
+  )
+  private val schemaRule =
+    """(?s)^(\$[A-Za-z0-9_.\[\]]*): (wrong type, expected [a-z]+(?: or [a-z]+)*|value is not one of the allowed values|too short|too long|below the minimum|above the maximum|too few items|too many items|missing|matches none of the allowed forms|unexpected key.*)$""".r
+  private val callFailed = """^model call failed: [A-Za-z0-9_$-]{1,80}$""".r
+
+  def code(reason: String): String = reason match
+    case r if fixed.contains(r) => r
+    case schemaRule(path, rule) =>
+      val kept =
+        if rule.startsWith("unexpected key") then "unexpected key" else rule
+      s"$path: $kept".take(200)
+    case r if callFailed.matches(r)           => r
+    case r if r.startsWith("unknown schema ") => "unknown schema"
+    case _                                    => Other
+
 final case class ModelUsage(
     calls: Int,
     promptTokens: Int,
     completionTokens: Int,
     modelVersion: Option[String],
-    estimated: Boolean
+    estimated: Boolean,
+    attempts: Vector[ModelAttempt] = Vector.empty
 ):
   def +(other: ModelUsage): ModelUsage =
     ModelUsage(
@@ -557,7 +615,8 @@ final case class ModelUsage(
       promptTokens + other.promptTokens,
       completionTokens + other.completionTokens,
       modelVersion.orElse(other.modelVersion),
-      estimated || other.estimated
+      estimated || other.estimated,
+      attempts ++ other.attempts
     )
 
 object ModelUsage:
@@ -601,8 +660,11 @@ object StructuredCall:
       var reasons = Vector.empty[String]
       var result: Option[ujson.Value] = None
       var stop = false
+      var log = Vector.empty[ModelAttempt]
       while result.isEmpty && !stop && attempt < policy.maxAttempts do
         attempt += 1
+        var stopReason: Option[String] = None
+        var outputTokens = 0
         val hinted =
           if reasons.isEmpty then request
           else
@@ -617,6 +679,8 @@ object StructuredCall:
             )
         try
           val reply = model.complete(hinted)
+          stopReason = reply.stopReason
+          outputTokens = reply.completionTokens
           usage = usage + ModelUsage(
             1,
             reply.promptTokens,
@@ -648,6 +712,18 @@ object StructuredCall:
             reasons = Vector(
               s"model call failed: ${error.getClass.getSimpleName}"
             )
+        val accepted = result.isDefined
+        if !accepted || stopReason.isDefined then
+          log = log :+ ModelAttempt(
+            request.promptId,
+            attempt,
+            accepted,
+            if accepted then Vector.empty
+            else reasons.take(8).map(RejectionReason.code),
+            stopReason,
+            outputTokens
+          )
+      val withAttempts = usage.copy(attempts = log)
       result match
-        case Some(json) => StructuredOutcome.Valid(json, attempt, usage)
-        case None       => StructuredOutcome.Failed(reasons, attempt, usage)
+        case Some(json) => StructuredOutcome.Valid(json, attempt, withAttempts)
+        case None => StructuredOutcome.Failed(reasons, attempt, withAttempts)

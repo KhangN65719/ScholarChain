@@ -11,9 +11,8 @@
 #   SCHOLARCHAIN_E_BASE_URL   internal ALB URL, http://<dns name>[:port], no path
 # Caps from the manifest through the environment: --max-clients MAX_CONCURRENCY,
 # --max-requests MAX_TASKS (needs at least 1,053), --max-minutes MAX_MINUTES minus 10.
-# The retrieval-mode request field name is the client default `retrievalMode`
-# (PENDING-WO-8: change load_client.py --mode-field default or this constant when WO-8 reports the
-# landed name; a change is a new script digest and a new approval record).
+# The retrieval-mode request field is `retrievalMode` (final, QueryService.scala), the client
+# default. A change to this script is a new script digest and a new approval record.
 SC_ENTRY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=experiments/lib/exp-lib.sh
 source "$SC_ENTRY_DIR/../lib/exp-lib.sh"

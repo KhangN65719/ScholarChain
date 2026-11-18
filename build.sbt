@@ -186,7 +186,8 @@ lazy val root = project
     sparkAnalytics,
     storage,
     rag,
-    services
+    services,
+    evaluation
   )
   // Test-scoped only, in both edges. Aggregation is not a classpath edge, so
   // an independent test under tests/ can reference only what is named here.
@@ -213,7 +214,13 @@ lazy val root = project
     // Runtime or packaged-classpath edge and lets the black-box tests under
     // tests/ start the service runtime. No cycle: services depends on core,
     // storage and rag, and nothing depends on root.
-    services % "test->compile"
+    services % "test->compile",
+    // evaluation is an offline leaf (Phase 16, D2); this Test-only edge adds no
+    // Compile, Runtime or packaged-classpath edge and lets the independent
+    // suites under tests/adversarial reference scholarchain.evaluation.*. No
+    // cycle: evaluation depends on core, storage, rag and sparkAnalytics, and
+    // nothing depends on root.
+    evaluation % "test->compile"
   )
   .settings(quickSettings)
   .settings(
@@ -415,6 +422,26 @@ lazy val services =
         "org.slf4j" % "slf4j-simple" % DependencyVersions.slf4j % Runtime
       )
     )
+// Offline and laptop evaluation (Phase 16, plan D2). A leaf of the graph:
+// nothing depends on it, root takes no edge to it (only aggregation, so check
+// and quick cover it), and no packaging task or Docker stage names it. Spark is
+// Provided in sparkAnalytics and Provided is not carried across a project edge,
+// so the projector's Spark types are declared here at Compile, which also puts
+// them on the Runtime classpath for runMain. The forked run takes the Spark
+// flags with the heap raised from 2g to 6g: loading the graph through the
+// projector into InMemoryNeptune needs about 6 GB (GraphRehearsal.scala:14-16).
+lazy val evaluationJvmOptions =
+  "-Xmx6g" +: sparkJvmOptions.filterNot(_ == "-Xmx2g")
+lazy val evaluation = project
+  .in(file("experiments/evaluation"))
+  .dependsOn(core, storage, rag, sparkAnalytics)
+  .settings(quickSettings)
+  .settings(
+    publish / skip := true,
+    libraryDependencies += "org.apache.spark" % "spark-sql_2.13" % DependencyVersions.spark,
+    Compile / run / fork := true,
+    Compile / run / javaOptions ++= evaluationJvmOptions
+  )
 
 addCommandAlias("fmt", ";root / scalafmtAll;root / scalafmtSbt")
 addCommandAlias("check", "root / markTestRun")

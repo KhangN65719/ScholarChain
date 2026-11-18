@@ -11,7 +11,7 @@
 # Settings (environment, identifiers only, no secret); the task definition is built by WO-10:
 #   SCHOLARCHAIN_LC_CLUSTER          ECS cluster to run the task in
 #   SCHOLARCHAIN_LC_TASK_DEFINITION  task definition family or ARN of the load client
-#   SCHOLARCHAIN_LC_CONTAINER        container name inside that task definition (PENDING-WO-10)
+#   SCHOLARCHAIN_LC_CONTAINER        container name inside that task definition (read it from the deployed definition)
 #   SCHOLARCHAIN_LC_SUBNETS          comma-separated private subnet IDs
 #   SCHOLARCHAIN_LC_SECURITY_GROUPS  comma-separated security group IDs (the ALB admits this one)
 # The query bearer token reaches the container through the task definition's `secrets`

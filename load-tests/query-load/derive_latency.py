@@ -17,6 +17,17 @@ are given as all_*. error_rate = requests whose status is 0 or not 2xx, over all
 Throughput = ok requests per second over the level window from the LEVEL_START and LEVEL_END
 events (levels), or over the span from the first to the last send (otherwise).
 Raw files are never modified; SUMMARY.txt lists the sha256 of every input.
+
+Optional bootstrap interval (derive --bootstrap-resamples B, default 0 = off): for each group the
+ok latencies are resampled with replacement B times (same size as the group's ok count, a
+random.Random seeded from --bootstrap-seed and the group name, so a rerun gives the same bytes),
+p50 and p95 are taken on every resample with the same nearest-rank rule, and the 95% interval is
+the nearest-rank 2.5th and 97.5th percentile of the B resampled values. It is written to a
+separate latency-ci-by-<group>.csv; latency-by-<group>.csv and every other output are the same
+bytes as without the option, and SUMMARY.txt only gains bootstrap_* lines. The resample treats
+requests as independent draws; in a closed-loop run requests in a window are correlated through
+shared service state, so the interval is a lower bound on the real uncertainty (stated in the
+results).
 """
 
 import argparse
@@ -24,6 +35,7 @@ import csv
 import hashlib
 import json
 import os
+import random
 import sys
 from collections import defaultdict
 
@@ -117,7 +129,33 @@ def stats(rows):
     return ok, got, errors
 
 
+MAX_RESAMPLES = 10000
+
+
+def bootstrap_ci(values, resamples, seed, key):
+    """Return (p50, p50_lo, p50_hi, p95, p95_lo, p95_hi) as strings; values is sorted ok latencies."""
+    n = len(values)
+    if n == 0:
+        return [""] * 6
+    rng = random.Random("%d:%s" % (seed, key))
+    p50s, p95s = [], []
+    for _ in range(resamples):
+        sample = sorted(rng.choices(values, k=n))
+        p50s.append(percentile(sample, 50))
+        p95s.append(percentile(sample, 95))
+    p50s.sort()
+    p95s.sort()
+    lo = max(1, (25 * resamples + 999) // 1000)
+    hi = (975 * resamples + 999) // 1000
+    return ["%.3f" % x for x in (percentile(values, 50), p50s[lo - 1], p50s[hi - 1],
+                                 percentile(values, 95), p95s[lo - 1], p95s[hi - 1])]
+
+
 def cmd_derive(args):
+    if args.bootstrap_resamples < 0 or args.bootstrap_resamples > MAX_RESAMPLES:
+        die("--bootstrap-resamples must be from 0 (off) to %d" % MAX_RESAMPLES)
+    if args.bootstrap_resamples and args.bootstrap_resamples < 40:
+        die("--bootstrap-resamples below 40 cannot resolve a 95% interval; use 0 or at least 40")
     rows = read_jsonl(args.requests)
     if not rows:
         die("%s holds no request line" % args.requests)
@@ -170,6 +208,16 @@ def cmd_derive(args):
                         metrics_derive.iso(metrics_derive.parse_ts(first)), metrics_derive.iso(metrics_derive.parse_ts(last)),
                         "%.3f" % window, rps, pct(ok, 50), pct(ok, 95), pct(ok, 99), pct(ok, 100),
                         pct(got, 50), pct(got, 95), pct(got, 99), zero_evidence, abstained])
+
+    if args.bootstrap_resamples:
+        with open(os.path.join(args.out_dir, "latency-ci-by-%s.csv" % args.group_by), "x", newline="", encoding="utf-8") as handle:
+            w = csv.writer(handle)
+            w.writerow(["group", "ok", "resamples", "seed", "ok_p50_ms", "ok_p50_ci95_lo_ms", "ok_p50_ci95_hi_ms",
+                        "ok_p95_ms", "ok_p95_ci95_lo_ms", "ok_p95_ci95_hi_ms"])
+            for key in order:
+                ok, _, _ = stats(groups[key])
+                w.writerow([key, len(ok), args.bootstrap_resamples, args.bootstrap_seed]
+                           + bootstrap_ci(ok, args.bootstrap_resamples, args.bootstrap_seed, key))
 
     stage_rows = 0
     if args.service_logs:
@@ -247,6 +295,9 @@ def cmd_derive(args):
         if args.service_logs:
             handle.write("input %s sha256 %s\n" % (args.service_logs, sha256_file(args.service_logs)))
         handle.write("requests %d\ngroups %d\ngroup_by %s\nstage_rows %d\n" % (len(rows), len(order), args.group_by, stage_rows))
+        if args.bootstrap_resamples:
+            handle.write("bootstrap_resamples %d\nbootstrap_seed %d\nbootstrap_interval percentile 2.5 to 97.5 (nearest rank), iid resampling of ok latencies\n"
+                         % (args.bootstrap_resamples, args.bootstrap_seed))
     print("DERIVE_COMPLETE requests=%d groups=%d out=%s" % (len(rows), len(order), args.out_dir))
     return 0
 
@@ -265,6 +316,9 @@ def main(argv=None):
     p.add_argument("--group-by", choices=("level", "mode"), required=True)
     p.add_argument("--out-dir", required=True)
     p.add_argument("--title", default="Query load")
+    p.add_argument("--bootstrap-resamples", type=int, default=0,
+                   help="0 (default) = off; otherwise 40 to %d resamples for latency-ci-by-<group>.csv" % MAX_RESAMPLES)
+    p.add_argument("--bootstrap-seed", type=int, default=16)
     p.set_defaults(func=cmd_derive)
     args = parser.parse_args(argv)
     return args.func(args)

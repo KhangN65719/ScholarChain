@@ -8,8 +8,8 @@
 #   SCHOLARCHAIN_F_WORKER_LOG_GROUP   REQUIRED, the worker's log group (WORKER_MSG lines; default
 #                                     retention 3 days, collect within 3 days)
 #   SCHOLARCHAIN_F_LEDGER_TABLE       the run-ledger DynamoDB table name (the ledger item of the
-#                                     duplicated message is read with get-item; PENDING-WO-10 for the
-#                                     name, key layout from WO-7 and UNVERIFIED live)
+#                                     duplicated message is read with get-item; take the table
+#                                     name from the deployed stack; key layout from WO-7 and UNVERIFIED live)
 #   SCHOLARCHAIN_F_VECTOR_BUCKET      optional: the S3 Vectors bucket; with it the duplicate's vector
 #                                     is read with s3vectors get-vectors (CLI name UNVERIFIED)
 # Files: cloudwatch-metric-data.json, metric-queries.json (the template of Experiment C),

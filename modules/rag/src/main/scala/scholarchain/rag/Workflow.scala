@@ -96,9 +96,14 @@ final case class WorkflowResult(
     flags: Vector[String],
     audit: AuditEntry,
     mode: RetrievalMode = RetrievalMode.Fused,
-    timings: StageTimings = StageTimings.empty
+    timings: StageTimings = StageTimings.empty,
+    modelAttempts: Vector[ModelAttempt] = Vector.empty
 ):
   def verdict: Option[VerificationVerdict] = verification.flatMap(_.overall)
+
+  /** The service-log lines for the attempts, IDs and codes only. */
+  def attemptLogLines: Vector[String] =
+    modelAttempts.map(_.logLine(audit.payload("queryId").str))
 
 /** A graph port that answers every query with no rows. */
 private object NoGraph extends NeptuneQueryPort:
@@ -280,7 +285,8 @@ final class CollaborationWorkflow(
         (flags ++ builder.flags).toVector.distinct,
         entry,
         mode,
-        StageTimings(timings.toMap)
+        StageTimings(timings.toMap),
+        usage.attempts
       )
 
     private final case class Done(
@@ -679,6 +685,10 @@ final class CollaborationWorkflow(
           "stages" -> ujson.Arr.from(stages)
         )
         .value
+      // Only a rejected attempt or one with a stop reason is recorded, so the
+      // audit of a run with neither stays as it was.
+      if usage.attempts.nonEmpty then
+        payload("modelAttempts") = ujson.Arr.from(usage.attempts.map(_.toJson))
       val record = AuditRecord(
         session.sessionId,
         session.ordinal,

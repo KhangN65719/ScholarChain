@@ -1,11 +1,11 @@
 """Parser for the runtime service's one-line-per-request latency log (WO-8 with the WO-5 stage
 timings). Standard library only.
 
-PENDING-WO-8 and PENDING-WO-5: the exact key names were not final when this file was written
-(WO-8 item 3: request ID, mode, status, total ms, stage timings, UTC time; WO-5 item 3: planning,
-graph retrieval, vector retrieval, fusion, synthesis, verification in ms, a skipped retriever
-recorded as skipped and not as 0). Every name used by the experiments is in the tables below and
-nowhere else; change only them when the owners report the landed names.
+The line carries request ID, mode, status, total ms, stage timings and UTC time; the stages are
+planning, graph retrieval, vector retrieval, fusion, synthesis and verification in ms, a skipped
+retriever recorded as skipped and not as 0. The retrieval-mode request and log field is final:
+`retrievalMode` (QueryService.scala). Every name used by the experiments is in the tables below
+and nowhere else; change only them if a landed name changes.
 """
 
 import json

@@ -36,7 +36,7 @@
 #     --fast-url http://10.20.0.10:8080 \
 #     --slow-url http://10.20.0.11:8081 \
 #     --query-secret-arn arn:aws:secretsmanager:us-east-2:123456789012:secret:... \
-#     --bedrock off [--expected-image-tag <40-hex git sha>] [--question "text"] \
+#     --bedrock off [--expected-image-tag <40-hex git sha>] --question "text" \
 #     [--read-secret-arn arn:aws:secretsmanager:us-east-2:123456789012:secret:...]
 #
 #   --read-secret-arn  optional. The Secrets Manager ARN of a bearer token with the
@@ -46,6 +46,14 @@
 #                     step is skipped and SMOKE_COVERAGE says so. Handled like the
 #                     query token (private temp file, never printed). Its secret
 #                     layout is assumed to match the query secret (UNVERIFIED).
+#
+#   --question        required, no default, at most 200 characters. The question the
+#                     bounded query sends. It must be one the deployed planner answers
+#                     (an abstained answer fails the step), for example "Who are the
+#                     top 3 researchers by average coauthors per paper between 2015
+#                     and 2019?" (answered in STUB1 with 4 evidence items,
+#                     docs/releases/phase-15/smoke-tn.md). A run without it, real or
+#                     dry, is refused before any network or AWS call.
 #
 #   --bedrock on|off  off skips the Bedrock checks. on makes two single-request
 #                     calls (Titan embedding of "ping", Haiku with max 5 tokens),
@@ -65,7 +73,7 @@ SECRET_ARN=""
 READ_SECRET_ARN=""
 BEDROCK=""
 EXPECTED_TAG=""
-QUESTION="Which authors collaborated most between 2015 and 2020?"
+QUESTION=""
 TITAN_MODEL="amazon.titan-embed-text-v2:0"
 HAIKU_PROFILE="us.anthropic.claude-haiku-4-5-20251001-v1:0"
 VECTOR_DIM="256"
@@ -84,7 +92,10 @@ while [[ $# -gt 0 ]]; do
     --read-secret-arn) need_arg "$@"; READ_SECRET_ARN="$2"; shift 2 ;;
     --bedrock) need_arg "$@"; BEDROCK="$2"; shift 2 ;;
     --expected-image-tag) need_arg "$@"; EXPECTED_TAG="$2"; shift 2 ;;
-    --question) need_arg "$@"; QUESTION="$2"; shift 2 ;;
+    --question)
+      # An empty value is the same refusal as an absent flag (the required check below),
+      # not the generic "needs a value". Any other bad value still goes through need_arg.
+      if [[ $# -ge 2 && -z "$2" ]]; then QUESTION=""; shift 2; else need_arg "$@"; QUESTION="$2"; shift 2; fi ;;
     --titan-model-id) need_arg "$@"; TITAN_MODEL="$2"; shift 2 ;;
     --haiku-profile-id) need_arg "$@"; HAIKU_PROFILE="$2"; shift 2 ;;
     --vector-dimension) need_arg "$@"; VECTOR_DIM="$2"; shift 2 ;;
@@ -95,6 +106,9 @@ done
 dry_announce
 
 step validate-params
+# Required, no default (Phase 16 decision P16-7): the wording that answers depends on
+# the deployed planner, so the human names it. Refused before any network or AWS call.
+[[ -n "$QUESTION" ]] || die "--question is required and has no default: pass a question the deployed planner can answer, for example --question \"Who are the top 3 researchers by average coauthors per paper between 2015 and 2019?\""
 init_common yes
 require_cmd aws curl awk grep
 # python3 reads the JSON answers (no jq is assumed). A dry run reads none.
@@ -146,7 +160,7 @@ if is_dry_run; then
   dry_step readiness
   dry_would "GET $FAST_URL/readyz and $SLOW_URL/readyz"
   dry_step bounded-query
-  dry_would "read the query token from $SECRET_ARN into a mode 600 file under $SC_OUT_DIR; POST $SLOW_URL/v1/query (60 s limit)"
+  dry_would "read the query token from $SECRET_ARN into a mode 600 file under $SC_OUT_DIR; POST $SLOW_URL/v1/query (60 s limit): expect 200, abstained=false and at least one evidence item; an abstained answer fails and its abstentionReason is printed"
   dry_step bedrock-access
   if [[ "$BEDROCK" == "on" ]]; then
     dry_would "bedrock is on: two single-request billed calls (Titan embedding, Haiku converse)"
@@ -216,7 +230,11 @@ write_bearer_file() {
 # response can never put other text on the console through this function.
 # WHAT: query-id (queryId), evidence-id (the first id in claims[].evidenceIds, else
 # evidence.items[].evidenceId), evidence-id-of (evidenceId of an evidence view),
-# error-code (error.code), trace-id (error.traceId).
+# error-code (error.code), trace-id (error.traceId), abstained (the boolean
+# abstained, printed true or false; nothing when absent or not a boolean),
+# evidence-count (the number of evidence.items, 0 when absent), abstention-reason
+# (abstentionReason, none when null or absent; a reason outside the identifier
+# pattern prints nothing).
 JSON_FIELD_PY='import json, re, sys
 try:
     with open(sys.argv[1], "rb") as f:
@@ -242,6 +260,15 @@ try:
         v = d["error"]["code"]
     elif what == "trace-id":
         v = d["error"]["traceId"]
+    elif what == "abstained":
+        if isinstance(d["abstained"], bool):
+            v = "true" if d["abstained"] else "false"
+    elif what == "evidence-count":
+        v = str(len((d.get("evidence") or {}).get("items") or []))
+    elif what == "abstention-reason":
+        v = d.get("abstentionReason")
+        if v is None:
+            v = "none"
     if isinstance(v, str) and re.fullmatch(r"[A-Za-z0-9:_.=-]{1,300}", v):
         print(v)
         sys.exit(0)
@@ -275,8 +302,24 @@ CODE="$(curl -sS --max-time 60 --max-filesize 1048576 -o "$BODY_OUT" -w '%{http_
   -X POST -H "@$HDR" -H 'Content-Type: application/json' -H "Idempotency-Key: $IDEM_KEY" \
   --data "$QUERY_JSON" "$SLOW_URL/v1/query")" || CODE="curl-failed"
 printf 'CHECK bounded-query url=%s/v1/query http=%s bytes=%s\n' "$SLOW_URL" "$CODE" "$(wc -c < "$BODY_OUT" | tr -d ' ')"
-printf 'RESPONSE_HEAD %s\n' "$(head -c 300 "$BODY_OUT" | tr '\n' ' ')"
-[[ "$CODE" == "200" ]] || die "bounded query expected HTTP 200, got $CODE"
+if [[ "$CODE" != "200" ]]; then
+  # Identifier fields only (P16-11): never the body text.
+  ERR_CODE="$(json_field "$BODY_OUT" error-code)" || ERR_CODE="unreadable"
+  ERR_TRACE="$(json_field "$BODY_OUT" trace-id)" || ERR_TRACE="unreadable"
+  printf 'CHECK bounded-query-error error_code=%s trace_id=%s\n' "$ERR_CODE" "$ERR_TRACE"
+  die "bounded query expected HTTP 200, got $CODE"
+fi
+# HTTP 200 alone passed in Phase 15 while every answer abstained with no evidence
+# (docs/releases/phase-15/smoke-tn.md). An answered query needs abstained=false and
+# at least one evidence item; an abstention fails and prints its reason. Fail closed:
+# a body without a boolean abstained is a failure, not a pass.
+ABSTAINED="$(json_field "$BODY_OUT" abstained)" || die "the bounded query answer has no boolean abstained field"
+EVIDENCE_COUNT="$(json_field "$BODY_OUT" evidence-count)" || die "the bounded query answer is not readable JSON"
+ABSTENTION_REASON="$(json_field "$BODY_OUT" abstention-reason)" || ABSTENTION_REASON="unreadable"
+FIRST_QUERY_ID="$(json_field "$BODY_OUT" query-id)" || FIRST_QUERY_ID="unreadable"
+printf 'CHECK bounded-query-answer query_id=%s abstained=%s evidence_items=%s abstention_reason=%s\n' "$FIRST_QUERY_ID" "$ABSTAINED" "$EVIDENCE_COUNT" "$ABSTENTION_REASON"
+[[ "$ABSTAINED" == "false" ]] || die "bounded query abstained (abstentionReason=$ABSTENTION_REASON): an abstained answer is not a pass"
+[[ "$EVIDENCE_COUNT" =~ ^[0-9]+$ && "$EVIDENCE_COUNT" -gt 0 ]] || die "bounded query answered with $EVIDENCE_COUNT evidence items: an answer must carry at least one"
 step_ok
 
 step bedrock-access

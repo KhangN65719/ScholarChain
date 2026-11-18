@@ -1,0 +1,3 @@
+# Agent-generated artifacts that needed a substantial human rewrite. The human fills this
+# (plan H-9); it is the only manual input of FactoryCounts. Columns, tab separated:
+# phase<TAB>artifact path<TAB>what was rewritten and why

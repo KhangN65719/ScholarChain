@@ -1,0 +1,11 @@
+# Phase 16 Wave 1 repair batch 4 (from re-review 4, decision P16-13)
+
+Issued by the orchestrator on 2026-11-18. Findings N1-N4 of `review-4-verdict.md`. Serialized: experiment-engineer (N1, N2), then test-engineer (N3, N4). A narrow re-review covers only N1-N4.
+
+## Results
+- N1, N2, experiment-engineer: COMPLETE. Unknown options refused (exit 2, named, nothing written); a run needs `--vector-export DIR` or `--no-vector-export yes` (neither, both, or another value: exit 2); manifest `vectorCoverage.mode` `none-by-flag` or `checked`; `--chunkset-manifest` without `--vector-export` refused; `coverageMismatchOverride.checked` false when nothing compared; unreadable chunk-set manifest exits 2 with nothing written; README "Command line, options and exit codes" (exit 0/2/3; under `sbt runMain` with `fork := true` the shell sees sbt's status, unverified; the printed `BENCHMARK ERROR` / `BENCHMARK REFUSED` lines and absent outputs are the signal). N2: `RuntimeLimits` comment says all label caps are generator caps except the coauthor-lookup list (`Retrieval.scala:70`). `VectorCoverageSuite` 18 -> 25. `sbt quick` run 1 exited 1 (output truncated; evaluation report 25 tests 0 failures; failure elsewhere, cause unknown); run 2 on unchanged sources `[success] Total time: 157 s`, completed 3:28:38 AM, last totals 77 and 1126, 0 failed.
+
+- N3, N4, test-engineer: COMPLETE. N3: the `BODY_OUT=` strip rule anchored to the exact definition `BODY_OUT="$SC_OUT_DIR/.smoke-body.$$"`, required exactly once (`grep -cxF`); new mutation case `6.smoke.static.p16-11.body-file-audit-refuses-a-reassignment-of-the-body-variable`. N4: comment only in `P16LabelRulesSuite.scala`. README batch-4 paragraph. `sbt quick` `[success] Total time: 159 s`, completed 3:32:02 AM, exit 0, last totals 77 and 1126; `P16LabelRulesSuite` 30, 0 failures. `p16-wo7.sh` not run.
+
+## Orchestrator note: second unexplained `quick` exit 1
+This is the second `sbt quick` that exited 1 with truncated output and then passed on unchanged sources (first: storage RB2-I run 1, `review-3-verdict.md` finding 7). Both times the evaluation and storage reports showed 0 failures. A flaky suite outside those projects is possible; not identified. Covering evidence: the human's `sbt clean check`; if it fails, the failing suite name is the first thing to record.

@@ -34,8 +34,10 @@ Request budget for the levels schedule (the think-time arithmetic, also in READM
 Outputs (in --out-dir, created once; an existing directory is refused):
   requests.jsonl   one line per request: send_utc, latency_ms, status, mode, request_id, plus
                    server_request_id, level, clients, client, seq, bytes, error, evidence_items,
-                   abstained, uncertainty_chars and vector_gap_note (null unless a 200 body was
-                   parsed; vector_gap_note is true when evidence.uncertainty holds the fixed text
+                   abstained, abstention_reason, uncertainty_chars and vector_gap_note (null unless
+                   a 200 body was parsed; abstention_reason is the response's `abstentionReason`
+                   code when it is a string of at most 64 characters of A-Za-z0-9_.-, else
+                   "unparsed", and null when the field is absent; vector_gap_note is true when evidence.uncertainty holds the fixed text
                    "the vector read failed"), question_index (the index, never the question text)
   events.jsonl     LEVEL_START, LEVEL_END, COOLDOWN_START, COOLDOWN_END, SEQUENCE_START, ... (UTC)
   run-config.json  the arguments and the plan (no token)
@@ -64,6 +66,7 @@ from datetime import datetime, timezone
 MODES = ("graph", "vector", "fused")
 URL_RE = re.compile(r"^(https?)://([A-Za-z0-9.-]+)(?::([0-9]{2,5}))?$")
 TAG_RE = re.compile(r"^[A-Za-z0-9._-]{1,40}$")
+REASON_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 
 
 class Refused(Exception):
@@ -214,7 +217,7 @@ class Client:
         if self.token:
             headers["Authorization"] = "Bearer " + self.token
         status, error, size, server_id, items, abstained = 0, "", 0, None, None, None
-        uncertainty_chars, vector_gap = None, None
+        uncertainty_chars, vector_gap, abstention_reason = None, None, None
         send_utc = utc_ms()
         started = time.perf_counter()
         try:
@@ -243,6 +246,11 @@ class Client:
                             vector_gap = isinstance(note, str) and "the vector read failed" in note
                         if isinstance(document.get("abstained"), bool):
                             abstained = document["abstained"]
+                        # a fixed reason code only (never free text): anything that is not a
+                        # short code is recorded as "unparsed"
+                        reason = document.get("abstentionReason")
+                        if isinstance(reason, str):
+                            abstention_reason = reason if REASON_RE.match(reason) else "unparsed"
                 except ValueError:
                     pass
         except Exception as caught:  # class name only; the text may hold a host name
@@ -271,6 +279,7 @@ class Client:
                 "error": error,
                 "evidence_items": items,
                 "abstained": abstained,
+                "abstention_reason": abstention_reason,
                 "uncertainty_chars": uncertainty_chars,
                 "vector_gap_note": vector_gap,
                 "question_index": question_index,
@@ -336,8 +345,7 @@ def build_parser():
     p.add_argument("--modes", default="graph,vector,fused")
     p.add_argument("--limit-queries", type=int, default=0, help="sequence: use only the first N questions")
     p.add_argument("--clients", type=int, default=1, help="sequence: number of clients")
-    # PENDING-WO-8: the retrieval-mode request field name is not final; D and E pass it explicitly.
-    p.add_argument("--mode-field", default="retrievalMode")
+    p.add_argument("--mode-field", default="retrievalMode", help="request field of the retrieval mode (QueryService.scala)")
     p.add_argument("--queries", default="builtin:windows", help="builtin:windows or a file, one question per line")
     p.add_argument("--think-min", type=float, default=2.0)
     p.add_argument("--think-max", type=float, default=4.0)

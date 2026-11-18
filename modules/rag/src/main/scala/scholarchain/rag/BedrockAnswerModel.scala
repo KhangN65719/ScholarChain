@@ -171,11 +171,15 @@ final class BedrockAnswerModel(
     )
     val callNumber = claim(request.promptId)
     val started = nanos()
-    def line(outcome: String, outChars: Int): String =
+    def line(
+        outcome: String,
+        outChars: Int,
+        stop: Option[String] = None
+    ): String =
       s"bedrock-call promptId=${request.promptId} callNo=$callNumber " +
         s"modelId=$modelId inputChars=${turn.user.length + turn.system.length} " +
         s"outputChars=$outChars millis=${math.max(0L, nanos() - started) / 1000000L} " +
-        s"outcome=$outcome"
+        s"outcome=$outcome stopReason=${stop.getOrElse("none")}"
     val reply =
       try client.converse(turn)
       catch
@@ -183,23 +187,42 @@ final class BedrockAnswerModel(
           val mapped = BedrockAnswerModel.mapError(error)
           log(line(mapped.kind, 0))
           throw mapped
-    val reason = reply.stopReason.toLowerCase
-    if reason == "guardrail_intervened" || reason == "content_filtered" then
-      log(line("blocked", reply.text.length))
+    val stop = BedrockAnswerModel.normalizeStopReason(reply.stopReason)
+    if stop.exists(BedrockAnswerModel.BlockedStopReasons.contains) then
+      log(line("blocked", reply.text.length, stop))
       throw new ModelCallException(
         "blocked",
         "The model reply was blocked by the service."
       )
-    log(line("ok", reply.text.length))
+    // A reply cut at the token limit is returned, not thrown: whether the
+    // truncated text still satisfies the schema is `StructuredCall`'s call, and
+    // the stop reason travels with the response so the audit can name it.
+    val outcome =
+      if stop.contains(BedrockAnswerModel.MaxTokens) then "max-tokens" else "ok"
+    log(line(outcome, reply.text.length, stop))
     ModelResponse(
       jsonOf(reply.text),
       modelVersion,
       reply.inputTokens,
       reply.outputTokens,
-      tokensEstimated = false
+      tokensEstimated = false,
+      stopReason = stop
     )
 
 object BedrockAnswerModel:
+  val MaxTokens = "max_tokens"
+  val BlockedStopReasons: Set[String] =
+    Set("guardrail_intervened", "content_filtered")
+
+  /** The service's stop reason, lower case, or `None` when the reply carries
+    * none. Anything that is not a short snake_case word becomes `other`, so a
+    * log line or audit record never holds free text.
+    */
+  def normalizeStopReason(raw: String): Option[String] =
+    Option(raw).map(_.trim.toLowerCase).filter(_.nonEmpty).map { r =>
+      if r.matches("[a-z_]{1,40}") then r else "other"
+    }
+
   /** The per-process call cap when the caller names none. */
   val DefaultMaxCalls = 10
 
