@@ -46,3 +46,11 @@
 {"questionId":"Q-UA-06","version":"v1","stratum":"unanswerable","text":"Compare the publications of Mianzhao Wang between 2020 and 2029."}
 {"questionId":"Q-UA-07","version":"v1","stratum":"unanswerable","text":"Who is Cadogan Quarrington between 2020 and 2029?"}
 {"questionId":"Q-UA-08","version":"v1","stratum":"unanswerable","text":"Who are the coauthors of Mianzhao Wang between 2040 and 2049?"}
+{"questionId":"Q-FF-01","version":"v1","stratum":"free-form","text":"Who was Osvaldo Simeone writing papers with in the late 2000s?"}
+{"questionId":"Q-FF-02","version":"v1","stratum":"free-form","text":"Who was in Yuanqing Xia's research community in the 2020s?"}
+{"questionId":"Q-FF-03","version":"v1","stratum":"free-form","text":"Did Yuanqing Xia work with more different coauthors in the 2020s than in the late 2010s?"}
+{"questionId":"Q-FF-04","version":"v1","stratum":"free-form","text":"Can you give me a quick snapshot of Wentao Li's publication and coauthor activity in the 2020s?"}
+{"questionId":"Q-FF-05","version":"v1","stratum":"free-form","text":"Which four researchers worked with the most different people in the late 2010s?"}
+{"questionId":"Q-FF-06","version":"v1","stratum":"free-form","text":"Across all the years in the graph, which three researchers did the most to connect different research communities, based on bridge score?"}
+{"questionId":"Q-FF-07","version":"v1","stratum":"free-form","text":"Who were Elara Moonwhistle's coauthors in the late 2010s?"}
+{"questionId":"Q-FF-08","version":"v1","stratum":"free-form","text":"Whose papers picked up the most citations in the first half of the 2010s? Give me the top five."}

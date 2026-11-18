@@ -8,17 +8,17 @@
   "files": [
     {
       "name": "questions-v1.jsonl",
-      "sha256": "52cd1c1bc43e61a7eb027fc42bcafe9ed20119b23671a90670109670530dad44",
-      "rows": 48
+      "sha256": "0faab24b880a1c9c076f71b313512c7454970d98cc16a55df0fa8f544f1f6dea",
+      "rows": 56
     },
     {
       "name": "labels-v1.jsonl",
-      "sha256": "def1c3901a70e17efe8bf8dbbe9295809b9747c02840604b8d6127fd75598392",
-      "rows": 48
+      "sha256": "f7cf66951967326b7fa1fd2c9fa1105023bb92924eceab3c65f7644ae4261c6c",
+      "rows": 56
     },
     {
       "name": "free-form-slots-v1.jsonl",
-      "sha256": "a86ad19ca9ff35dcaf122b4e315cf28489f35cbdb4943fcac54d1273b6f7c3ae",
+      "sha256": "97a357a31d390cf88f83c2693b1df09ebd761153267ed471f70de6f010acec52",
       "rows": 8
     }
   ],
@@ -32,7 +32,8 @@
     "researcher-lookup": 7,
     "shortest-path": 4,
     "temporal-comparison": 5,
-    "unanswerable": 8
+    "unanswerable": 8,
+    "free-form": 8
   },
   "requestedCounts": {
     "coauthor-lookup": 8,
@@ -158,5 +159,87 @@
     "checked": true,
     "accepted": false,
     "failedChecks": []
-  }
+  },
+  "freeFormQuestionsFilled": 8,
+  "changes": [
+    {
+      "id": "free-form-fill",
+      "at": "2026-11-18T21:14:10.056242Z",
+      "tool": "benchmark-fill/1.0.0",
+      "command": "BenchmarkFill /Users/winnguyen/scholarchain-data/rehearsal/a-export /Users/winnguyen/ScholarChain/experiments/benchmark --version v1 --vector-export /Users/winnguyen/scholarchain-data/rehearsal/s-export --chunkset-manifest /Users/winnguyen/ScholarChain/datasets/tier-s/chunks-c/chunkset-manifest.json --generator-commit afaa244b11af153a2e6c4979abec8bf3485a8706",
+      "decisions": [
+        "P16-23",
+        "P16-26"
+      ],
+      "what": "filled the 8 free-form slots: free-form-slots wrote the questions with status filled; 8 lines appended to questions and to labels (the existing lines are unchanged bytes); files sha256 and rows, countsByStratum[free-form] and freeFormQuestionsFilled updated",
+      "previousFiles": [
+        {
+          "name": "questions-v1.jsonl",
+          "sha256": "52cd1c1bc43e61a7eb027fc42bcafe9ed20119b23671a90670109670530dad44",
+          "rows": 48
+        },
+        {
+          "name": "labels-v1.jsonl",
+          "sha256": "def1c3901a70e17efe8bf8dbbe9295809b9747c02840604b8d6127fd75598392",
+          "rows": 48
+        },
+        {
+          "name": "free-form-slots-v1.jsonl",
+          "sha256": "a86ad19ca9ff35dcaf122b4e315cf28489f35cbdb4943fcac54d1273b6f7c3ae",
+          "rows": 8
+        }
+      ],
+      "previousCountsByStratum": {
+        "coauthor-lookup": 8,
+        "community-component": 6,
+        "ranking": 10,
+        "researcher-lookup": 7,
+        "shortest-path": 4,
+        "temporal-comparison": 5,
+        "unanswerable": 8
+      },
+      "newFiles": [
+        {
+          "name": "questions-v1.jsonl",
+          "sha256": "0faab24b880a1c9c076f71b313512c7454970d98cc16a55df0fa8f544f1f6dea",
+          "rows": 56
+        },
+        {
+          "name": "labels-v1.jsonl",
+          "sha256": "f7cf66951967326b7fa1fd2c9fa1105023bb92924eceab3c65f7644ae4261c6c",
+          "rows": 56
+        },
+        {
+          "name": "free-form-slots-v1.jsonl",
+          "sha256": "97a357a31d390cf88f83c2693b1df09ebd761153267ed471f70de6f010acec52",
+          "rows": 8
+        }
+      ],
+      "labelOperations": {
+        "Q-FF-01": "coauthor-lookup",
+        "Q-FF-02": "community-component",
+        "Q-FF-03": "temporal-comparison",
+        "Q-FF-04": "researcher-lookup",
+        "Q-FF-05": "ranking",
+        "Q-FF-06": "ranking",
+        "Q-FF-07": "coauthor-lookup",
+        "Q-FF-08": "ranking"
+      },
+      "checks": [
+        "Q-FF-01 subject=Osvaldo Simeone id=researcher:v1:orcid:MDAwMC0wMDAxLTk4OTgtMzIwOQ mentionsWithSameName=0 window=2005-2009 coauthorCount=3 maxJoint=1",
+        "Q-FF-02 subject=Yuanqing Xia id=researcher:v1:orcid:MDAwMC0wMDAyLTU5NzctNDkxMQ mentionsWithSameName=0 window=2020-2029 groupId=researcher:v1:orcid:MDAwMC0wMDAxLTg2NTMtODYyNg groupSize=7 itemsListed=14",
+        "Q-FF-03 subject=Yuanqing Xia id=researcher:v1:orcid:MDAwMC0wMDAyLTU5NzctNDkxMQ mentionsWithSameName=0 publicationCount[2015-2019]=4 publicationCount[2020-2029]=4 distinctCoauthorCount[2015-2019]=11 distinctCoauthorCount[2020-2029]=14",
+        "Q-FF-04 subject=Wentao Li id=researcher:v1:orcid:MDAwMC0wMDAzLTQ5NDEtODgxNA mentionsWithSameName=0 window=2020-2029 publicationCount=2 distinctCoauthorCount=10 coauthorsListed=10",
+        "Q-FF-05 metric=distinctCoauthorCount window=2015-2019 N=4 rankedTotal=858 values=30,27,26,22 ranks=1,2,3,4 placeNPlus1=21",
+        "Q-FF-06 metric=bridgeScore window=all N=3 rankedTotal=5037 values=0.8772,0.8327,0.8298 ranks=1,2,3 placeNPlus1=0.8109",
+        "Q-FF-07 absentName=Elara Moonwhistle namesInExport=0 window=2015-2019 class=unknown-researcher expectedCodes=identity-unresolved",
+        "Q-FF-08 class=unrankable-metric window=2010-2014 metricKeys=averageCoauthorsPerPaper,bridgeScore,communitySize,componentSize,coreness,crossCommunityDegree,crossCommunityStrength,distinctCoauthorCount,distinctCommunitiesConnected,distinctNeighborCommunities,distinctUnresolvedCoauthorCount,maximumCoauthorsOnOnePaper,participationCoefficient,publicationCount,totalCoauthorOccurrences,unresolvedCoauthorOccurrences,weightedDegree citationKeys=0 expectedCodes=researcher-count"
+      ],
+      "scala3LibraryVersion": "3.3.7",
+      "note": "the scalaVersion field above is the Scala 2.13 standard library version, not the Scala 3 version of the build; it is left as generated",
+      "generatorCommit": "afaa244b11af153a2e6c4979abec8bf3485a8706",
+      "generatorTreeDirty": true,
+      "generatorDirtyBasis": "git status --porcelain over the whole working tree at generation"
+    }
+  ]
 }
