@@ -153,6 +153,69 @@ class BenchmarkGenSuite extends FunSuite:
       .flatMap(e => Vector((e.a, e.b) -> e.joint, (e.b, e.a) -> e.joint))
       .toMap
 
+  // The golden values pin what this generator writes for this fixture with
+  // the v1 seed (decision P16-27, m4). They were recorded from the generator
+  // as it stands after the label-builder refactor, so they catch FUTURE drift;
+  // they do not prove that the refactor kept the lines of the 08:40 run, and
+  // they cannot show that the committed `questions-v1.jsonl` of the real
+  // export is unchanged. The regeneration check against
+  // BENCHMARK-MANIFEST-v1.json does (human step, no AWS; benchmark/README.md).
+  test("golden: the generator writes the same three files for the fixture"):
+    val cfg = BenchConfig(20261117L, "v1")
+    val dir = Files.createTempDirectory("golden-")
+    val result = BenchmarkGen.generate(tables, cfg, VectorCoverage.noneByFlag)
+    BenchmarkGen.writeOutputs(
+      result,
+      cfg,
+      run,
+      Some("sha-export"),
+      VectorCoverage.noneByFlag,
+      Vector.empty,
+      dir
+    )
+    def sha(name: String): String =
+      scholarchain.evaluation.io.Digests.sha256File(dir.resolve(name))
+    def rows(name: String): Int =
+      Files.readString(dir.resolve(name)).count(_ == '\n')
+    // a second generation in a fresh directory is byte-identical
+    val again = Files.createTempDirectory("golden-again-")
+    BenchmarkGen.writeOutputs(
+      BenchmarkGen.generate(tables, cfg, VectorCoverage.noneByFlag),
+      cfg,
+      run,
+      Some("sha-export"),
+      VectorCoverage.noneByFlag,
+      Vector.empty,
+      again
+    )
+    Vector("questions-v1.jsonl", "labels-v1.jsonl", "free-form-slots-v1.jsonl")
+      .foreach(n =>
+        assertEquals(
+          scholarchain.evaluation.io.Digests.sha256File(again.resolve(n)),
+          sha(n),
+          n
+        )
+      )
+    assertEquals(rows("questions-v1.jsonl"), GoldenRows)
+    assertEquals(rows("labels-v1.jsonl"), GoldenRows)
+    assertEquals(rows("free-form-slots-v1.jsonl"), 8)
+    assertEquals(
+      Vector(
+        sha("questions-v1.jsonl"),
+        sha("labels-v1.jsonl"),
+        sha("free-form-slots-v1.jsonl")
+      ),
+      Vector(GoldenQuestionsSha, GoldenLabelsSha, GoldenSlotsSha)
+    )
+
+  private val GoldenRows = 21
+  private val GoldenQuestionsSha =
+    "6a6319beda71f22249ace6a20751ebdef860e3765f382ebec2704aa41a847b5b"
+  private val GoldenLabelsSha =
+    "ce9b4ba61079baa4c7a72a7a4b3bd8e3d32f6ca76847b04f8ae1fb8d37178725"
+  private val GoldenSlotsSha =
+    "a86ad19ca9ff35dcaf122b4e315cf28489f35cbdb4943fcac54d1273b6f7c3ae"
+
   test("names the planner cannot read back are not used"):
     assert(Wording.cleanName("Alice Smith"))
     assert(Wording.cleanName("Mary Anne Jones"))

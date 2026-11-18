@@ -16,11 +16,21 @@ Archived by the orchestrator. Each entry records who ran it (P16-5). Logs are un
 | 2026-11-18 | Wave 1 full harness `bash tests/scripts/run.sh` | human (`!` prefix, in the orchestrator session) | `RESULT pass=1941 fail=8`, `SKIPPED_CASES 0`, `0.real-repository-untouched PASS`. Failures: `5.smoke.question-empty.{real,dry,digest,order}-refused-before-any-work` (stderr was `EVIDENCE: --question needs a value`; lacks `--question is required` and `no default`; repair P16-16); `8.committed-manifest.{G,H,count}` and `15.experiment.manifests.each-of-the-six-manifests-has-a-json-copy-...` (8 manifests, expected 6; G and H `--print-digest` exit 1, `unknown EXPERIMENT_ID`; caused by uncommitted Wave 2 files, P16-17) | `phase16-wave1-run.log` |
 | 2026-11-18 | `bash scripts/check.sh --skip-sbt --skip-terraform` | human (`!` prefix, in the orchestrator session) | `CHECK_RESULT=PASS_WITH_SKIPS` (constitution-json, hook-syntax, shell-syntax, shellcheck PASS; sbt and terraform SKIP), exit 0 | `phase16-wave1-check-sh.log` |
 | 2026-11-18 | Wave 1 full harness rerun after repair P16-16 (`bash tests/scripts/run.sh`) | human (`!` prefix, in the orchestrator session) | `RESULT pass=1945 fail=4`, `SKIPPED_CASES 0`, `0.real-repository-untouched PASS`. The four `5.smoke.question-empty.*` cases now pass. Remaining failures are exactly the P16-17 set: `8.committed-manifest.{G,H,count}` and `15.experiment.manifests.each-of-the-six-...` | `phase16-wave1-run-2.log` |
+| 2026-11-18 08:33 | BenchmarkGen (`sbt "evaluation/runMain ...BenchmarkGen ... experiments/benchmark ... --chunkset-manifest datasets/tier-s/chunks-c/chunkset-manifest.json --generator-commit 51814c3..."`) | human (`!` prefix, in the orchestrator session) | exit 1: `BENCHMARK ERROR: chunk set manifest datasets/tier-s/chunks-c/chunkset-manifest.json is not a file; nothing written`, runner exit 2. Cause (orchestrator reading): `evaluation` forks `runMain` (`build.sbt:442`), so the forked JVM starts in `experiments/evaluation/` and relative paths resolve there; the file exists at the repo root. Nothing written. FactoryCounts' relative paths are affected the same way | `phase16-benchmarkgen.log` |
+| 2026-11-18 08:34 | GraphChecks (`--seed 16 --sample 50 --run-id graphchecks-a-export-1`, absolute paths) | human (`!` prefix, in the orchestrator session) | exit 0, `[success] Total time: 3 s`. Visible tail: edgesTotal 98661; danglingEdgeEndpoints, danglingWorkRefs, edgesWithoutSupport, jointCountMismatches, orphanResearchers, orphanWorks, pathHopsNotInEdges (27 checked), provenanceMissing, provenanceRunIdMismatches, supportRowsToMissingEdges, traceIncomplete all 0. Human's reading of the full output: run `graphchecks-a-export-1` COMPLETE, all counters 0, `edgeSupportRate` 1; reconciliation `edgeDifference` -12371 (export edge tables 123,417 vs Neptune load 135,788), to be explained by experiment-engineer from the loader (P16-21) | `phase16-graphchecks.log`; outputs under `/Users/winnguyen/scholarchain-data/experiments/runs/phase16` |
+| 2026-11-18 08:34 | FactoryCounts (`docs/agent-runs experiments/evaluation/factory-mapping.tsv ... --rewrites experiments/evaluation/factory-rewrites.tsv --phases 1-15 --run-id factorycounts-1`) | human (`!` prefix, in the orchestrator session) | exit 1: uncaught `NoSuchFileException`-path stack from `Files.readAllLines` at `Mapping$.load(FactoryCounts.scala:123)` via `cli(FactoryCounts.scala:835)`. Same cause as BenchmarkGen (forked JVM starts in `experiments/evaluation/`). Also a finding: FactoryCounts fails with a raw stack trace, where BenchmarkGen refuses with a one-line error | `phase16-factorycounts.log` |
+| 2026-11-18 08:40 | BenchmarkGen rerun with absolute paths (`--seed 20261117 --version v1 --generator-commit 51814c3`) | human (`!` prefix, in the orchestrator session) | exit 0, `[success] Total time: 4 s`. `BENCHMARK RESULT: 48 questions, 8 free-form slots, shortfalls 1`; `shortfall: shortest-path (absent): wanted 2, produced 0`; `VECTOR_COVERAGE sha256=true bytes=true rows=true by_summary_type=true by_window=true summaryOverlap=true`. Wrote `experiments/benchmark/{BENCHMARK-MANIFEST-v1.json, questions-v1.jsonl (48), labels-v1.jsonl (48), free-form-slots-v1.jsonl (8)}`. Orchestrator reading of the manifest: no repository absolute path recorded (file entries are bare names); `vectorExportDir` holds the data path `/Users/winnguyen/scholarchain-data/rehearsal/s-export` (an argument that was absolute in both runs); `generatorTreeDirty: true` (uncommitted Wave 2 files at generation); `scalaVersion: "2.13.16"` although the build is Scala 3.3.7 (likely the scala-library version, not the compiler) | `phase16-benchmarkgen-2.log` |
+| 2026-11-18 08:41 | FactoryCounts rerun with absolute paths (`--phases 1-15 --run-id factorycounts-1`) | human (`!` prefix, in the orchestrator session) | exit 0, `[success] Total time: 1 s`. Visible tail, first pass per agent (no finding; no blocker or major): dataset 1/3, 2/3; deploy 1/1, 1/1; documentation 1/1, 1/1; domain 3/4, 3/4; entity-resolution 0/2, 1/2; experiment 2/4, 3/4; factory 3/4, 3/4; hadoop 2/4, 3/4; infra 3/5, 3/5; rag 4/5, 5/5; service 0/3, 3/3; spark 5/6, 5/6; storage 3/4, 3/4; test 6/14, 10/14. Lines above the 15-line tail (totals, per-scope counts) not read here. Denominators of 1-6 per agent: small samples, a threat to validity per P16-8 | `phase16-factorycounts-2.log`; outputs under `/Users/winnguyen/scholarchain-data/experiments/runs/phase16` |
+| 2026-11-18 | `shellcheck scripts/run-experiment.sh experiments/g-retrieval/run.sh experiments/h-answers/run.sh` (bare, no `-x`) | human (`!` prefix, in the orchestrator session) | exit 1: SC1091 info (sourced lib not followed, all three); SC2034 `run-experiment.sh:230` and SC2164 `:426` (lines unchanged by Wave 2); SC2164 `cd "$EXP_REPO_ROOT"` at `g-retrieval/run.sh:67` and `h-answers/run.sh:85`. The project gate is `scripts/check.sh` shellcheck (PASS on the Wave 1 tree); not rerun on the Wave 2 tree here | |
+| 2026-11-18 | Wave 2 `bash scripts/check.sh --skip-sbt --skip-terraform` | human (`!` prefix, in the orchestrator session) | `CHECK_RESULT=PASS_WITH_SKIPS` (constitution-json, hook-syntax, shell-syntax, shellcheck PASS; sbt and terraform SKIP), exit 0. The project shellcheck gate passes on the Wave 2 tree, so the bare-shellcheck SC2164 warnings need no fix | `phase16-wave2-check-sh.log` |
+| 2026-11-18 | Wave 2 full harness `bash tests/scripts/run.sh` | human (`!` prefix, in the orchestrator session) | `RESULT pass=1949 fail=0`, `SKIPPED_CASES 0`, `0.real-repository-untouched PASS`, exit 0 | `phase16-wave2-harness.log` |
 | 2026-11-18 08:07 | H-1 billing reading | human | 8.91 USD month-to-date; about 2.73 USD for Phase 15 session 2 so far. Gate: 8.91 + about 0.50 lag + 2.40 HIGH = about 11.81 <= 14: GO (P16-15) | |
 
 ## Pending (after the Wave 1 commit)
 
 Use these output paths, not the in-repository ones in the WO-4 report (P16-8). Ran by: ______
+
+Every path is absolute (corrected 2026-11-18 at the human's instruction): `evaluation` forks `runMain`, so the forked JVM's working directory is `experiments/evaluation/` and a relative path resolves there, not at the repository root.
 
 ```zsh
 cd /Users/winnguyen/ScholarChain
@@ -32,13 +42,43 @@ sbt "evaluation/runMain scholarchain.evaluation.graph.GraphChecks /Users/winnguy
 ```zsh
 cd /Users/winnguyen/ScholarChain
 set -o pipefail
-sbt "evaluation/runMain scholarchain.evaluation.factory.FactoryCounts docs/agent-runs experiments/evaluation/factory-mapping.tsv /Users/winnguyen/scholarchain-data/experiments/runs/phase16 --rewrites experiments/evaluation/factory-rewrites.tsv --phases 1-15 --run-id factorycounts-1" 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase16-factorycounts.log | tail -n 60; echo "exit: $?"
+sbt "evaluation/runMain scholarchain.evaluation.factory.FactoryCounts /Users/winnguyen/ScholarChain/docs/agent-runs /Users/winnguyen/ScholarChain/experiments/evaluation/factory-mapping.tsv /Users/winnguyen/scholarchain-data/experiments/runs/phase16 --rewrites /Users/winnguyen/ScholarChain/experiments/evaluation/factory-rewrites.tsv --phases 1-15 --run-id factorycounts-1" 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase16-factorycounts.log | tail -n 60; echo "exit: $?"
 ```
 
-BenchmarkGen (after the Wave 1 commit, so `--generator-commit` names the commit that holds the generator):
+m4 regeneration check (W2-RB1; right after the Wave 2 commit, BEFORE the fill; the scratch directory must be new or empty; expect three `REGEN_MATCH` lines, any `REGEN_DIFFERS` means do not run the fill):
+
+```zsh
+cd /Users/winnguyen/ScholarChain
+mkdir -p /Users/winnguyen/scholarchain-data/logs /Users/winnguyen/scholarchain-data/benchmark-regen-check
+set -o pipefail
+sbt "evaluation/runMain scholarchain.evaluation.benchmark.BenchmarkGen /Users/winnguyen/scholarchain-data/rehearsal/a-export /Users/winnguyen/scholarchain-data/benchmark-regen-check --seed 20261117 --version v1 --vector-export /Users/winnguyen/scholarchain-data/rehearsal/s-export --chunkset-manifest /Users/winnguyen/ScholarChain/datasets/tier-s/chunks-c/chunkset-manifest.json --generator-commit $(git rev-parse HEAD)" 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase16-benchmark-regen-check.log | tail -n 20
+for f in questions-v1.jsonl labels-v1.jsonl free-form-slots-v1.jsonl; do now=$(shasum -a 256 /Users/winnguyen/scholarchain-data/benchmark-regen-check/$f | awk '{print $1}'); want=$(grep -A2 "\"name\": \"$f\"" /Users/winnguyen/ScholarChain/experiments/benchmark/BENCHMARK-MANIFEST-v1.json | grep '"sha256"' | sed -E 's/.*"sha256": "([0-9a-f]+)".*/\1/'); if [ "$now" = "$want" ]; then echo "REGEN_MATCH $f $now"; else echo "REGEN_DIFFERS $f regenerated=$now manifest=$want"; fi; done
+```
+
+GraphChecks rerun after OD-3 (W2-RB1; expect `GRAPHCHECKS RECONCILIATION composedEdges=135788 expectedEdges=135788 edgeDifference=0 composedVertices=32225 expectedVertices=32225 vertexDifference=0`):
 
 ```zsh
 cd /Users/winnguyen/ScholarChain
 set -o pipefail
-sbt "evaluation/runMain scholarchain.evaluation.benchmark.BenchmarkGen /Users/winnguyen/scholarchain-data/rehearsal/a-export experiments/benchmark --seed 20261117 --version v1 --vector-export /Users/winnguyen/scholarchain-data/rehearsal/s-export --chunkset-manifest datasets/tier-s/chunks-c/chunkset-manifest.json --generator-commit $(git rev-parse HEAD)" 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase16-benchmarkgen.log | tail -n 60; echo "exit: $?"
+sbt "evaluation/runMain scholarchain.evaluation.graph.GraphChecks /Users/winnguyen/scholarchain-data/rehearsal/a-export /Users/winnguyen/scholarchain-data/experiments/runs/phase16 --seed 16 --sample 50 --run-id graphchecks-a-export-2 --expect-vertices 32225 --expect-edges 135788 --expect-source /Users/winnguyen/scholarchain-data/logs/phase14-rehearsal-graph-2.log:20" 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase16-graphchecks-2.log | tail -n 60; echo "exit: $?"
+```
+
+ErExtras: the command in `wave-2/reports/w2-e-experiment-engineer.md`; expect an extra line `ER_REFERENCE_CHECK status=MATCH … TP=77 FP=0 … precision=1.000 recall=0.802 F1=0.890`.
+
+FF fill (W2-B, P16-26; backs up the four v1 files first; must land before G/H):
+
+```zsh
+cd /Users/winnguyen/ScholarChain
+mkdir -p /Users/winnguyen/scholarchain-data/logs /Users/winnguyen/scholarchain-data/benchmark-v1-pre-fill
+cp -p /Users/winnguyen/ScholarChain/experiments/benchmark/questions-v1.jsonl /Users/winnguyen/ScholarChain/experiments/benchmark/labels-v1.jsonl /Users/winnguyen/ScholarChain/experiments/benchmark/free-form-slots-v1.jsonl /Users/winnguyen/ScholarChain/experiments/benchmark/BENCHMARK-MANIFEST-v1.json /Users/winnguyen/scholarchain-data/benchmark-v1-pre-fill/
+set -o pipefail
+sbt "evaluation/runMain scholarchain.evaluation.benchmark.BenchmarkFill /Users/winnguyen/scholarchain-data/rehearsal/a-export /Users/winnguyen/ScholarChain/experiments/benchmark --version v1 --vector-export /Users/winnguyen/scholarchain-data/rehearsal/s-export --chunkset-manifest /Users/winnguyen/ScholarChain/datasets/tier-s/chunks-c/chunkset-manifest.json --generator-commit $(git rev-parse HEAD)" 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase16-ff-fill.log | tail -n 60; echo "exit: $?"
+```
+
+BenchmarkGen (done 08:40, see Results; after the Wave 1 commit, so `--generator-commit` names the commit that holds the generator):
+
+```zsh
+cd /Users/winnguyen/ScholarChain
+set -o pipefail
+sbt "evaluation/runMain scholarchain.evaluation.benchmark.BenchmarkGen /Users/winnguyen/scholarchain-data/rehearsal/a-export /Users/winnguyen/ScholarChain/experiments/benchmark --seed 20261117 --version v1 --vector-export /Users/winnguyen/scholarchain-data/rehearsal/s-export --chunkset-manifest /Users/winnguyen/ScholarChain/datasets/tier-s/chunks-c/chunkset-manifest.json --generator-commit $(git rev-parse HEAD)" 2>&1 | tee /Users/winnguyen/scholarchain-data/logs/phase16-benchmarkgen.log | tail -n 60; echo "exit: $?"
 ```

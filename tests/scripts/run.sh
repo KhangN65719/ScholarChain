@@ -1722,7 +1722,7 @@ exp_refuse minutes-zero set MAX_MINUTES 0 "must be a whole number from 1 to 90"
 # Flipped from "manifest REGION must be us-east-1" (Phase 14 D1: the approved Region is us-east-2).
 exp_refuse region-not-us-east-2 set REGION eu-west-1 "manifest REGION must be us-east-2"
 exp_refuse region-us-east-1 set REGION us-east-1 "manifest REGION must be us-east-2, got: us-east-1"
-exp_refuse unknown-experiment-id set EXPERIMENT_ID G "unknown EXPERIMENT_ID"
+exp_refuse unknown-experiment-id set EXPERIMENT_ID Z "unknown EXPERIMENT_ID"
 exp_refuse tier-unknown set SIZE_TIER XL "SIZE_TIER must be S, M or L"
 exp_refuse output-root-inside-repository set OUTPUT_ROOT "$REPO/exp-out" "must not be inside the repository"
 exp_refuse output-root-relative set OUTPUT_ROOT relative/exp-out "must be an absolute path"
@@ -1814,7 +1814,7 @@ done
 case_begin "8.committed-manifest.count"
 OUT="$LOGDIR/none.out"; ERR="$LOGDIR/none.err"; RC=0
 n_mf="$(find "$REPO/experiments/manifests" -name '*.manifest' -type f | wc -l | tr -d ' ')"
-[ "$n_mf" -eq 6 ] || note_fail "expected 6 committed manifests, found $n_mf"
+[ "$n_mf" -eq 8 ] || note_fail "expected 8 committed manifests, found $n_mf"
 case_end
 
 # An entry point that is not a tracked file: a real run refuses it at validation,
@@ -12347,9 +12347,9 @@ print('COMPARED keys=%d bad=%d' % (len(kv), bad))
 sys.exit(1 if bad else 0)
 EOF
 
-w15_begin "15.experiment.manifests.each-of-the-six-manifests-has-a-json-copy-that-says-the-same-as-its-key-value-file"
+w15_begin "15.experiment.manifests.each-of-the-eight-manifests-has-a-json-copy-that-says-the-same-as-its-key-value-file"
 w15_nmf="$(printf '%s\n' "$W15_MFLIST" | grep -c '.')"
-[ "$w15_nmf" = "6" ] || note_fail "experiments/manifests holds $w15_nmf manifests, expected 6"
+[ "$w15_nmf" = "8" ] || note_fail "experiments/manifests holds $w15_nmf manifests, expected 8"
 for w15_m in $W15_MFLIST; do
   w15_j="$(w15_json_of "$w15_m")"
   if [ -z "$w15_j" ]; then

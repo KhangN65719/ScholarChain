@@ -1,0 +1,63 @@
+# Experiment G: retrieval quality (graph, vector, fused) on the laptop runtime, tier S data. Phase 16 Wave 2.
+# UNAPPROVED and UNEXECUTED. Format: scripts/README.md, "Experiment manifest contract".
+# No spaces in values.
+# PLACEHOLDERS the human replaces before an approval record is written
+# (the record binds the sha256 of the final file, so any edit needs a new record):
+#   ACCOUNT_ID       123456789012 is the documented example, not a real account.
+#   OUTPUT_ROOT      /abs/outside/repo/... is a placeholder path; pick a durable directory
+#                    outside the repository (the Phase 16 raw root is
+#                    /Users/winnguyen/scholarchain-data/experiments/runs/phase16).
+# scripts/run-experiment.sh accepts EXPERIMENT_ID G and H (it validates this file as it stands:
+# tier S caps 90 min, 64 clients, 20000 tasks; projected spend burn x minutes / 60 within the
+# ceiling).
+# What runs: the Scala entry point scholarchain.evaluation.retrieval.RetrievalEval on the laptop
+# (experiments/g-retrieval/run.sh). The graph port is InMemoryNeptune over A's local export (no
+# Neptune, ECS or ALB). Vectors: Titan v2 (256 dimensions), S3 Vectors and S3 GetObject. The
+# answer model is the offline stub, so no Haiku call is made. Region us-east-2 only.
+# Workload: 56 questions (benchmark v1: 48 generated plus 8 free-form) x 3 modes x 2 repeats = 336
+# workflow calls, plus one direct search group (K = 5 and 10) per question and repeat.
+# Limits (tier S caps of decision P15-1: 90 min, 64 clients, 20000 tasks):
+#   MAX_TASKS 400        336 workflow calls plus margin. The entry point does not count tasks;
+#                        run.sh only refuses a figure below 336. The binding stops are the Titan
+#                        call cap and the USD stop in the process, and the wall clock.
+#   MAX_MINUTES 60       the entry point stops 10 minutes before it (MARGIN_MINUTES in run.sh): an
+#                        absolute deadline computed from the start of run.sh, so sbt start, compile and
+#                        the graph load are inside it. The 10 minutes cover the longest single question
+#                        (3 modes, at most 4 Titan embeds at the 60 s attempt deadline, no SDK retry,
+#                        plus S3 reads: about 5 minutes) and the closing writes; the deadline is
+#                        checked between questions. records.jsonl is appended and flushed per
+#                        question, so a kill at MAX_MINUTES keeps the finished questions.
+#   MAX_CONCURRENCY 1    the run is sequential.
+# COST (plan.md, "Projected AWS cost", rates UNVERIFIED, read from the pricing pages by the human):
+#   expected under 0.05 USD (about 1,000 Titan calls at 0.02 USD per million tokens, S3 Vectors
+#   queries and S3 reads at fractions of a cent), HIGH ceiling 0.25 USD. Every USD figure is an
+#   ESTIMATE at those rates, not a bound.
+#   SPEND_CEILING_USD 0.25   the HIGH figure. The binding stops are in the process, checked BEFORE
+#                            each call: a Titan call cap (2000, committed in run.sh) and a USD stop.
+#                            Titan has no usage field, so its USD is an estimate: input characters
+#                            over four at the Titan rate, and spend can pass the ceiling by the
+#                            error of one call. The Titan client does not retry, so one counted call
+#                            is one request. S3 Vectors queries and S3 reads are not metered.
+#   HOURLY_BURN_USD 0.10     a nominal figure (expected cost over the window) that only lets the
+#                            script's projected-spend check pass (0.10 x 60 / 60 = 0.10 under 0.25).
+#                            It is not a rate; the USD stop is.
+# CAVEAT for the human: the three rates in run.sh (Titan 0.02 USD per million tokens) are UNVERIFIED.
+# The METRIC names below are written from memory of CloudWatch naming and are UNVERIFIED.
+MANIFEST_VERSION=1
+EXPERIMENT_ID=G
+DESCRIPTION=retrieval-graph-vector-fused-56-questions-x3-modes-x2-repeats-laptop-tier-s
+ENVIRONMENT=course
+REGION=us-east-2
+ACCOUNT_ID=123456789012
+DATASET_SNAPSHOT=scholarchain-s-20261107-10dd7f34121b
+SIZE_TIER=S
+MAX_MINUTES=60
+MAX_CONCURRENCY=1
+MAX_TASKS=400
+SPEND_CEILING_USD=0.25
+HOURLY_BURN_USD=0.10
+STOP_CONDITIONS=wall-clock,first-failure,spend-estimate
+METRIC_NAMES=Invocations,InvocationLatency,InputTokenCount,OutputTokenCount,InvocationClientErrors,InvocationServerErrors,InvocationThrottles
+METRIC_NAMESPACES=AWS/Bedrock
+OUTPUT_ROOT=/abs/outside/repo/scholarchain-experiments
+ENTRY_POINT=script:experiments/g-retrieval/run.sh

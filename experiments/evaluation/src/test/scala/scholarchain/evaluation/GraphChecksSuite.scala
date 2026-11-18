@@ -228,7 +228,200 @@ class GraphChecksSuite extends FunSuite:
   test("reconciliation reports the expected counts without judging them"):
     val r = GraphChecks.runWith(writeExport(clean), 1L, 1, Some(10L), Some(10L))
     assertEquals(r.reconciliation("expectedVertices"), 10L)
-    assertEquals(r.reconciliation("vertexDifference"), 3L - 10L)
+    // clean: 2 researcher rows + 1 work row, 2 resolved mentions, no snapshot
+    assertEquals(r.reconciliation("vertexTablesRowSum"), 3L)
+    assertEquals(r.reconciliation("composedVertices"), 5L)
+    assertEquals(r.reconciliation("vertexDifference"), 5L - 10L)
+    assertEquals(r.reconciliation("vertexTablesRowSumMinusExpected"), 3L - 10L)
+
+  private def venue(id: String): String =
+    s"""{"venueId":"$id",${prov()}}"""
+
+  private def workWithSnapshot(id: String, snapshot: String): String =
+    s"""{"canonicalWorkId":"$id","source":"dblp","provenance":{"runId":"$run","sourceRecordId":"rec","snapshotId":"$snapshot"}}"""
+
+  private def published(w: String, v: String): String =
+    s"""{"fromId":"$w","toId":"$v",${prov()}}"""
+
+  private def authoredWith(r: String, w: String, mention: String): String =
+    s"""{"researcherNodeId":"$r","canonicalWorkId":"$w","mentionId":"$mention","authorPosition":1,${prov()}}"""
+
+  /** 2 researchers, 2 works of one snapshot, 1 venue; 3 authored rows (2 with a
+    * resolved mention, 1 whose mention is the researcher node), 2 published-in
+    * rows, 1 coauthor edge.
+    */
+  private def projected: Map[String, Vector[String]] = Map(
+    "nodes-researcher" -> Vector(researcher(r1), researcher(r2)),
+    "nodes-work" -> Vector(
+      workWithSnapshot(w1, "snap:1"),
+      workWithSnapshot("work:v1:w2", "snap:1")
+    ),
+    "nodes-venue" -> Vector(venue("venue:v1:a")),
+    "edges-authored" -> Vector(
+      authoredWith(r1, w1, "mention:v1:m1"),
+      authoredWith(r2, w1, "mention:v1:m2"),
+      authoredWith(r1, "work:v1:w2", r1)
+    ),
+    "edges-published-in" -> Vector(
+      published(w1, "venue:v1:a"),
+      published("work:v1:w2", "venue:v1:a")
+    ),
+    "edges-coauthored" -> Vector(edge(e1, r1, r2, 1)),
+    "edge-support" -> Vector(support(e1, w1)),
+    "path-evidence" -> Vector(hop("p", 1, r1, r2, e1))
+  )
+
+  test("the composed counts add the projector's derived edges and vertices"):
+    val r = GraphChecks.runWith(
+      writeExport(projected),
+      1L,
+      1,
+      Some(8L),
+      Some(10L),
+      Some("fixture")
+    )
+    val rec = r.reconciliation
+    // edges: 3 + 2 + 1 table rows; RESOLVES_TO = the 2 rows whose mention is
+    // not the researcher node; DERIVED_FROM = the 2 nodes-work rows
+    assertEquals(rec("edgeTablesRowSum"), 6L)
+    assertEquals(rec("resolvesToEdges"), 2L)
+    assertEquals(rec("derivedFromEdges"), 2L)
+    assertEquals(rec("composedEdges"), 10L)
+    // vertices: 2 + 2 + 1 table rows, 2 resolved mentions, 1 snapshot
+    assertEquals(rec("vertexTablesRowSum"), 5L)
+    assertEquals(rec("resolvedMentionVertices"), 2L)
+    assertEquals(rec("snapshotVertices"), 1L)
+    assertEquals(rec("composedVertices"), 8L)
+    // against figures that match: a zero difference, and the bare row sums
+    // still differ, which is why the old comparison was never zero
+    assertEquals(rec("edgeDifference"), 0L)
+    assertEquals(rec("vertexDifference"), 0L)
+    assertEquals(rec("edgeTablesRowSumMinusExpected"), 6L - 10L)
+    assertEquals(rec("vertexTablesRowSumMinusExpected"), 5L - 8L)
+    // edgesTotal counts the coauthor edges only
+    assertEquals(r.edgesTotal, 1L)
+    val json = r.toJson
+    assertEquals(json("counters")("coauthorEdgesTotal").num.toLong, 1L)
+    assertEquals(json("counters")("edgesTotal").num.toLong, 1L)
+    val basis = json("reconciliationBasis").str
+    assert(basis.contains("not the count of a Neptune load"), basis)
+    assert(basis.contains("source: fixture"), basis)
+    assert(basis.contains("coauthor edges only"), basis)
+    assert(!basis.contains("Neptune load:"), basis)
+
+  test("a wrong expected figure shows as a nonzero difference"):
+    val r = GraphChecks.runWith(
+      writeExport(projected),
+      1L,
+      1,
+      Some(9L),
+      Some(10L),
+      Some("fixture")
+    )
+    assertEquals(r.reconciliation("vertexDifference"), -1L)
+    assertEquals(r.reconciliation("edgeDifference"), 0L)
+
+  test("no expected figure means no difference is reported"):
+    val r = GraphChecks.run(writeExport(projected), 1L, 1)
+    assert(!r.reconciliation.contains("edgeDifference"))
+    assert(!r.reconciliation.contains("expectedEdges"))
+    assertEquals(r.reconciliation("composedEdges"), 10L)
+    assert(r.reconciliationBasis.contains("none given"))
+
+  test("an expected figure needs its source and has no default"):
+    val dir = writeExport(projected).toString
+    val noSource = GraphChecks.parseArgs(
+      Vector(dir, "/out", "--expect-edges", "10")
+    )
+    assert(noSource.left.exists(_.contains("--expect-source")), noSource)
+    val ok = GraphChecks
+      .parseArgs(
+        Vector(dir, "/out", "--expect-edges", "10", "--expect-source", "log:20")
+      )
+      .toOption
+      .get
+    assertEquals(ok.expectedEdges, Some(10L))
+    assertEquals(ok.expectedVertices, None)
+    assertEquals(ok.expectedSource, Some("log:20"))
+    val none = GraphChecks.parseArgs(Vector(dir, "/out")).toOption.get
+    assertEquals(none.expectedEdges, None)
+    assertEquals(none.expectedVertices, None)
+
+  test("an unknown option is refused by name and nothing is written"):
+    val dir = writeExport(projected).toString
+    val parsed = GraphChecks.parseArgs(
+      Vector(dir, "/out", "--expect-edge", "10", "--expect-source", "x")
+    )
+    assert(parsed.left.exists(_.contains("--expect-edge")), parsed)
+    assert(!parsed.left.exists(_.contains("--expect-source")), parsed)
+    val out = Files.createTempDirectory("gc-out-")
+    val captured = new java.io.ByteArrayOutputStream()
+    val code = Console.withOut(captured)(
+      GraphChecks.cli(
+        Vector(
+          dir,
+          out.toString,
+          "--run-id",
+          "typo",
+          "--expect-edge",
+          "10",
+          "--expect-source",
+          "x"
+        )
+      )
+    )
+    assertEquals(code, 2)
+    val text = captured.toString("UTF-8")
+    assert(text.contains("Unknown option: --expect-edge"), text)
+    assert(!text.contains("GRAPHCHECKS RESULT"), text)
+    assert(!Files.exists(out.resolve("typo")))
+    // every documented option is still accepted
+    val ok = GraphChecks.parseArgs(
+      Vector(
+        dir,
+        "/out",
+        "--seed",
+        "1",
+        "--sample",
+        "1",
+        "--run-id",
+        "r",
+        "--expect-vertices",
+        "1",
+        "--expect-edges",
+        "1",
+        "--expect-source",
+        "s"
+      )
+    )
+    assert(ok.isRight, ok)
+
+  test("the command line prints the reconciliation and records its source"):
+    val out = Files.createTempDirectory("gc-out-")
+    val args = Vector(
+      writeExport(projected).toString,
+      out.toString,
+      "--run-id",
+      "rec1",
+      "--sample",
+      "1",
+      "--expect-edges",
+      "10",
+      "--expect-vertices",
+      "8",
+      "--expect-source",
+      "rehearsal-log:20"
+    )
+    val captured = new java.io.ByteArrayOutputStream()
+    val code = Console.withOut(captured)(GraphChecks.cli(args))
+    assertEquals(code, 0)
+    val text = captured.toString("UTF-8")
+    assert(text.contains("GRAPHCHECKS RECONCILIATION"), text)
+    assert(text.contains("edgeDifference=0"), text)
+    assert(text.contains("vertexDifference=0"), text)
+    val info = ujson.read(Files.readString(out.resolve("rec1/run-info.json")))
+    assertEquals(info("expectedSource").str, "rehearsal-log:20")
+    assertEquals(info("expectedEdges").num.toLong, 10L)
 
   test("the command line writes a sealed run directory once"):
     val out = Files.createTempDirectory("gc-out-")

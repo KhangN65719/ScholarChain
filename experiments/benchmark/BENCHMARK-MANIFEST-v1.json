@@ -1,0 +1,162 @@
+{
+  "benchmarkVersion": "v1",
+  "generatorVersion": "benchmark-gen/1.0.0",
+  "scalaVersion": "2.13.16",
+  "seed": 20261117,
+  "sourceRunId": "run:v1:3cfb57b1-abd1-4913-8e53-da477d8d6027",
+  "exportManifestSha256": "b3e9985647b504542240f484644afc00646c6dc3288936aef388bd53a803d5c1",
+  "files": [
+    {
+      "name": "questions-v1.jsonl",
+      "sha256": "52cd1c1bc43e61a7eb027fc42bcafe9ed20119b23671a90670109670530dad44",
+      "rows": 48
+    },
+    {
+      "name": "labels-v1.jsonl",
+      "sha256": "def1c3901a70e17efe8bf8dbbe9295809b9747c02840604b8d6127fd75598392",
+      "rows": 48
+    },
+    {
+      "name": "free-form-slots-v1.jsonl",
+      "sha256": "a86ad19ca9ff35dcaf122b4e315cf28489f35cbdb4943fcac54d1273b6f7c3ae",
+      "rows": 8
+    }
+  ],
+  "generatedQuestions": 48,
+  "freeFormSlots": 8,
+  "plannedTotal": 56,
+  "countsByStratum": {
+    "coauthor-lookup": 8,
+    "community-component": 6,
+    "ranking": 10,
+    "researcher-lookup": 7,
+    "shortest-path": 4,
+    "temporal-comparison": 5,
+    "unanswerable": 8
+  },
+  "requestedCounts": {
+    "coauthor-lookup": 8,
+    "community-component": 6,
+    "free-form": 8,
+    "ranking": 10,
+    "researcher-lookup": 7,
+    "shortest-path": 6,
+    "temporal-comparison": 5,
+    "unanswerable": 8
+  },
+  "shortfalls": [
+    "shortest-path (absent): wanted 2, produced 0"
+  ],
+  "vectorCoverage": {
+    "mode": "checked",
+    "basis": "deleted set rebuilt from the chunk set selection rule over the vector export",
+    "vectorExportDir": "/Users/winnguyen/scholarchain-data/rehearsal/s-export",
+    "vectorExportSummaries": 41885,
+    "vectorExportRowsManifest": 41885,
+    "vectorExportRowsMatchManifest": true,
+    "sourceFiles": [
+      {
+        "path": "semantic-summaries/part-00000.jsonl",
+        "found": true,
+        "expectedSha256": "c36d3f28f573de2989c87c8561da73a764a3134277889bca3d4ebc4ebb5461bb",
+        "actualSha256": "c36d3f28f573de2989c87c8561da73a764a3134277889bca3d4ebc4ebb5461bb",
+        "sha256Matches": true,
+        "expectedBytes": 31833231,
+        "actualBytes": 31833231,
+        "bytesMatch": true,
+        "expectedRows": 20000,
+        "actualRows": 20000,
+        "rowsMatch": true
+      },
+      {
+        "path": "semantic-summaries/part-00001.jsonl",
+        "found": true,
+        "expectedSha256": "c6314456272a07564a38006836e56bb1d635ec2f80b8f96a45775f9d953898a2",
+        "actualSha256": "c6314456272a07564a38006836e56bb1d635ec2f80b8f96a45775f9d953898a2",
+        "sha256Matches": true,
+        "expectedBytes": 31902940,
+        "actualBytes": 31902940,
+        "bytesMatch": true,
+        "expectedRows": 20000,
+        "actualRows": 20000,
+        "rowsMatch": true
+      },
+      {
+        "path": "semantic-summaries/part-00002.jsonl",
+        "found": true,
+        "expectedSha256": "8406829d85c6ea5a2884f90efaf7e9614fcb5bbd960c03baa46eae4353b9523f",
+        "actualSha256": "8406829d85c6ea5a2884f90efaf7e9614fcb5bbd960c03baa46eae4353b9523f",
+        "sha256Matches": true,
+        "expectedBytes": 3007931,
+        "actualBytes": 3007931,
+        "bytesMatch": true,
+        "expectedRows": 1885,
+        "actualRows": 1885,
+        "rowsMatch": true
+      }
+    ],
+    "sourceFilesMatchManifest": true,
+    "sourceFilesSha256Match": true,
+    "sourceFilesBytesMatch": true,
+    "sourceFilesRowsMatch": true,
+    "checks": {
+      "sha256": true,
+      "bytes": true,
+      "rows": true,
+      "by_summary_type": true,
+      "by_window": true
+    },
+    "deletedRebuilt": 2000,
+    "deletedByTypeRebuilt": {
+      "community": 314,
+      "researcher-profile": 1685,
+      "work": 1
+    },
+    "deletedByTypeManifest": {
+      "community": 314,
+      "researcher-profile": 1685,
+      "work": 1
+    },
+    "deletedByTypeMatchesManifest": true,
+    "deletedByWindowRebuilt": {
+      "2000-2004": 14,
+      "2005-2009": 44,
+      "2010-2014": 97,
+      "2015-2019": 205,
+      "2020-2029": 638,
+      "all": 1001,
+      "not-windowed": 1
+    },
+    "deletedByWindowManifest": {
+      "2000-2004": 14,
+      "2005-2009": 44,
+      "2010-2014": 97,
+      "2015-2019": 205,
+      "2020-2029": 638,
+      "all": 1001,
+      "not-windowed": 1
+    },
+    "deletedByWindowMatchesManifest": true,
+    "summaryIds": 41885
+  },
+  "generatorCommit": "51814c3573090c88b0dd19fd23ba241890e139be",
+  "generatorTreeDirty": true,
+  "generatorDirtyBasis": "git status --porcelain over the whole working tree at generation",
+  "summaryIdOverlapWithVectorExport": {
+    "shared": 41885,
+    "graphExportSummaries": 41885
+  },
+  "subjectIdOverlapWithVectorExport": {
+    "graphSummarySubjects": 17552,
+    "vectorSummarySubjects": 17552,
+    "shared": 17552,
+    "graphResearchers": 17569,
+    "graphResearchersWithVectorSubject": 17490
+  },
+  "coverageMismatchOverride": {
+    "flag": "--accept-coverage-mismatch",
+    "checked": true,
+    "accepted": false,
+    "failedChecks": []
+  }
+}

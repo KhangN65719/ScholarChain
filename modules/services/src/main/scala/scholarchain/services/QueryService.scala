@@ -477,8 +477,18 @@ final class QueryService(
     records: QueryRecordStore,
     idempotency: IdempotencyPort,
     jobs: JobService,
-    clock: () => Instant = () => Instant.now()
+    clock: () => Instant = () => Instant.now(),
+    attemptSink: String => Unit = QueryService.logAttempt
 ):
+  // One line per model attempt the workflow recorded (a rejected attempt or one
+  // with a stop reason). The lines hold the query ID, prompt ID, codes and
+  // counts only, never prompt or answer text, and a failing sink never fails
+  // the query. They are written for a sync query and for an async job alike,
+  // apart from the structured `query_request` line of the HTTP layer.
+  private def logAttempts(result: WorkflowResult): Unit =
+    try result.attemptLogLines.foreach(attemptSink)
+    catch case NonFatal(_) => ()
+
   def run(request: QueryRequest, deadline: Deadline): QueryOutcome =
     val session = Session("svc-" + UUID.randomUUID().toString, 0)
     val result =
@@ -489,6 +499,7 @@ final class QueryService(
           request.retrievalMode
         )
       )
+    logAttempts(result)
     val bundle = result.response.evidence
     records.put(
       QueryRecord(
@@ -600,6 +611,11 @@ final class QueryService(
 object QueryService:
   private[services] val log =
     LoggerFactory.getLogger("scholarchain.services.query")
+
+  private val attemptLog =
+    LoggerFactory.getLogger("scholarchain.services.attempts")
+
+  private[services] def logAttempt(line: String): Unit = attemptLog.info(line)
 
 object JobViews:
   def status(job: Job): ujson.Value =

@@ -141,8 +141,8 @@ validate_manifest() {
   [[ "$(mf_value MANIFEST_VERSION)" == "1" ]] || die "unsupported MANIFEST_VERSION"
   EXP_ID="$(mf_value EXPERIMENT_ID)"
   case "$EXP_ID" in
-    A | B | C | D | E | F) ;;
-    *) die "unknown EXPERIMENT_ID '$EXP_ID': the course experiments are A to F" ;;
+    A | B | C | D | E | F | G | H) ;;
+    *) die "unknown EXPERIMENT_ID '$EXP_ID': the experiments are A to F (course) and G and H (Phase 16 evaluation)" ;;
   esac
   DESCRIPTION="$(mf_value DESCRIPTION)"
   re='^[A-Za-z0-9._,:/-]{1,200}$'

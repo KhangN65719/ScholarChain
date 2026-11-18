@@ -68,6 +68,15 @@ final case class TraceEntry(
   *   - `orphanResearchers` / `orphanWorks`: distinct `nodes-researcher` ids or
   *     `nodes-work` ids with no `edges-authored` row.
   *   - `duplicateIds`: per table, rows minus distinct id keys.
+  *   - `edgesTotal` (JSON counter `edgesTotal`, also `coauthorEdgesTotal`): the
+  *     distinct `edgeId` of `edges-coauthored` only, that is the coauthor edges
+  *     (`coauthor:v1:` and `mention-coauthor:v1:`). It is not the number of all
+  *     edges of the graph; see `reconciliation` for that.
+  *
+  * `reconciliation` composes the counts the projector builds from the export
+  * and compares them with an expected figure when one is given (see
+  * `reconciliationBasis`). It is informational: a difference is reported, not
+  * judged.
   */
 final case class GraphCheckReport(
     exportDir: String,
@@ -91,6 +100,7 @@ final case class GraphCheckReport(
     orphanWorks: Long,
     detail: Map[String, Long],
     reconciliation: Map[String, Long],
+    reconciliationBasis: String,
     traceSampleSize: Int,
     trace: Vector[TraceEntry]
 ):
@@ -121,6 +131,7 @@ final case class GraphCheckReport(
             "danglingEdgeEndpoints" -> danglingEdgeEndpoints,
             "danglingWorkRefs" -> danglingWorkRefs,
             "edgesTotal" -> edgesTotal,
+            "coauthorEdgesTotal" -> edgesTotal,
             "edgesWithoutSupport" -> edgesWithoutSupport,
             "jointCountMismatches" -> jointCountMismatches,
             "supportRowsToMissingEdges" -> supportRowsToMissingEdges,
@@ -163,14 +174,34 @@ final case class GraphCheckReport(
         "provenanceMismatchesByTable" -> Js.counts(provenanceByTable),
         "detail" -> Js.counts(detail),
         "reconciliation" -> Js.counts(reconciliation),
+        "reconciliationBasis" -> Js.s(reconciliationBasis),
         "traceSampleSize" -> Js.l(traceSampleSize.toLong),
         "traceSampled" -> Js.l(trace.size.toLong)
       )
     )
 
 object GraphChecks:
-  val ToolVersion = "graph-checks/1.1.0"
+  val ToolVersion = "graph-checks/1.2.0"
   val MaxTraceWorks = 5
+
+  /** What the reconciliation counts and what it compares with. */
+  def basisText(expectedSource: Option[String]): String =
+    "Informational, not a pass or fail. Composed counts are what the " +
+      "projector (Extended scope) builds from this export. Edges = rows of " +
+      "edges-authored, edges-published-in and edges-coauthored, plus " +
+      "RESOLVES_TO (one per edges-authored row whose mentionId differs from " +
+      "researcherNodeId) and DERIVED_FROM (one per nodes-work row). Vertices = " +
+      "rows of nodes-researcher, nodes-work, nodes-venue, nodes-topic and " +
+      "nodes-institution, plus one AuthorMention per distinct resolved " +
+      "mentionId and one DatasetSnapshot per distinct provenance.snapshotId " +
+      "of nodes-work. RESOLVES_TO and DERIVED_FROM have no export table, so " +
+      "the bare row sums (edgeTablesRowSum, vertexTablesRowSum) never equal " +
+      "the projected totals. The expected figures are projected counts of a " +
+      "rehearsal (the in-memory NeptuneExportReport), not the count of a " +
+      "Neptune load; source: " +
+      expectedSource.getOrElse("none given (no expected figure compared)") +
+      ". edgesTotal is the coauthor edges only (distinct edgeId of " +
+      "edges-coauthored)."
 
   /** Exit code when a required table is missing (2 is a usage error). */
   val IncompleteExit = 3
@@ -233,7 +264,8 @@ object GraphChecks:
       sampleSeed: Long,
       sampleSize: Int,
       expectedVertices: Option[Long],
-      expectedEdges: Option[Long]
+      expectedEdges: Option[Long],
+      expectedSource: Option[String] = None
   ): GraphCheckReport =
     val manifestPath = exportDir.resolve("export-manifest.json")
     val manifest: Option[ujson.Value] =
@@ -273,6 +305,9 @@ object GraphChecks:
     val supports = mutable.HashMap.empty[String, mutable.HashSet[String]]
     val authoredResearchers = mutable.HashSet.empty[String]
     val authoredWorks = mutable.HashSet.empty[String]
+    val resolvedMentions = mutable.HashSet.empty[String]
+    val snapshotIds = mutable.HashSet.empty[String]
+    var resolvedMentionRows = 0L
     val detail = mutable.TreeMap.empty[String, Long]
     val windowCounts = mutable.TreeMap.empty[String, Long]
     var danglingEndpoints = 0L
@@ -304,6 +339,10 @@ object GraphChecks:
               J.sourceRecordId(json)
             )
           }
+          J.field(json, "provenance")
+            .flatMap(p => J.str(p, "snapshotId"))
+            .filter(_.nonEmpty)
+            .foreach(snapshotIds += _)
         case "edges-coauthored" =>
           val id = J.scalar(json, "edgeId")
           val a = J.scalar(json, "researcherA")
@@ -342,6 +381,12 @@ object GraphChecks:
           val work = J.scalar(json, "canonicalWorkId")
           authoredResearchers += r
           authoredWorks += work
+          J.str(json, "mentionId") match
+            case Some(m) if m.nonEmpty && m != r =>
+              resolvedMentionRows += 1L
+              resolvedMentions += m
+            case Some(m) if m.nonEmpty => ()
+            case _ => bump("edges-authored.mentionId-missing")
           if !endpointCheck(table, "researcherNodeId", r) then
             danglingEndpoints += 1L
           if !works.contains(work) then
@@ -443,7 +488,10 @@ object GraphChecks:
         detail(s"orphanResearchers[$kind]") = rows.size.toLong
       )
 
-    // Reconciliation with the Neptune load: informational, not a pass or fail.
+    // Reconciliation with the projector's counts: informational, not a pass or
+    // fail. The two projector-derived edge types (RESOLVES_TO, DERIVED_FROM)
+    // and the two derived vertex kinds (resolved AuthorMention, DatasetSnapshot)
+    // have no export table, so they are composed from the rows they come from.
     val vertexTables =
       Vector("nodes-researcher", "nodes-work", "nodes-venue", "nodes-topic")
         ++ Vector("nodes-institution")
@@ -452,15 +500,25 @@ object GraphChecks:
     val recon = mutable.TreeMap.empty[String, Long]
     recon("vertexTablesRowSum") =
       vertexTables.map(rowTotals.getOrElse(_, 0L)).sum
+    recon("resolvedMentionVertices") = resolvedMentions.size.toLong
+    recon("snapshotVertices") = snapshotIds.size.toLong
+    recon("composedVertices") = recon("vertexTablesRowSum") +
+      recon("resolvedMentionVertices") + recon("snapshotVertices")
     recon("edgeTablesRowSum") = edgeTables.map(rowTotals.getOrElse(_, 0L)).sum
+    recon("resolvesToEdges") = resolvedMentionRows
+    recon("derivedFromEdges") = rowTotals.getOrElse("nodes-work", 0L)
+    recon("composedEdges") = recon("edgeTablesRowSum") +
+      recon("resolvesToEdges") + recon("derivedFromEdges")
     windowCounts.foreach((w, n) => recon(s"edges-coauthored[window=$w]") = n)
     expectedVertices.foreach { v =>
       recon("expectedVertices") = v
-      recon("vertexDifference") = recon("vertexTablesRowSum") - v
+      recon("vertexDifference") = recon("composedVertices") - v
+      recon("vertexTablesRowSumMinusExpected") = recon("vertexTablesRowSum") - v
     }
     expectedEdges.foreach { e =>
       recon("expectedEdges") = e
-      recon("edgeDifference") = recon("edgeTablesRowSum") - e
+      recon("edgeDifference") = recon("composedEdges") - e
+      recon("edgeTablesRowSumMinusExpected") = recon("edgeTablesRowSum") - e
     }
 
     // Provenance trace sample.
@@ -491,6 +549,11 @@ object GraphChecks:
       orphanW.size.toLong,
       detail.toMap,
       recon.toMap,
+      basisText(
+        expectedSource.filter(_ =>
+          expectedVertices.isDefined || expectedEdges.isDefined
+        )
+      ),
       sampleSize,
       trace
     )
@@ -620,13 +683,25 @@ object GraphChecks:
       seed: Long,
       sample: Int,
       runId: String,
-      expectedVertices: Long,
-      expectedEdges: Long
+      expectedVertices: Option[Long],
+      expectedEdges: Option[Long],
+      expectedSource: Option[String]
   )
 
   val Usage: String =
     "Usage: GraphChecks <export dir> <output base dir> [--seed N] " +
-      "[--sample N] [--run-id ID] [--expect-vertices N] [--expect-edges N]"
+      "[--sample N] [--run-id ID] [--expect-vertices N] [--expect-edges N] " +
+      "[--expect-source TEXT] (an expected figure needs --expect-source, the " +
+      "place the figure comes from; there is no default figure)"
+
+  private val KnownOptions: Set[String] = Set(
+    "--seed",
+    "--sample",
+    "--run-id",
+    "--expect-vertices",
+    "--expect-edges",
+    "--expect-source"
+  )
 
   def parseArgs(args: Vector[String]): Either[String, Args] =
     def loop(
@@ -642,15 +717,33 @@ object GraphChecks:
     args match
       case dir +: out +: rest =>
         loop(rest, Map.empty).flatMap { opts =>
+          val unknown = opts.keys.toVector.filterNot(KnownOptions).sorted
           def long(flag: String, default: Long): Either[String, Long] =
             opts.get(flag) match
               case None    => Right(default)
               case Some(v) => v.toLongOption.toRight(s"$flag needs a number")
+          def maybe(flag: String): Either[String, Option[Long]] =
+            opts.get(flag) match
+              case None    => Right(None)
+              case Some(v) =>
+                v.toLongOption.map(Some(_)).toRight(s"$flag needs a number")
           for
+            _ <- Either.cond(
+              unknown.isEmpty,
+              (),
+              s"Unknown option: ${unknown.mkString(", ")}"
+            )
             seed <- long("--seed", 16L)
             sample <- long("--sample", 50L)
-            vertices <- long("--expect-vertices", 32225L)
-            edgeCount <- long("--expect-edges", 135788L)
+            vertices <- maybe("--expect-vertices")
+            edgeCount <- maybe("--expect-edges")
+            source = opts.get("--expect-source")
+            _ <- Either.cond(
+              (vertices.isEmpty && edgeCount.isEmpty) || source.isDefined,
+              (),
+              "--expect-vertices and --expect-edges need --expect-source " +
+                "TEXT, the place the figure comes from (there is no default)"
+            )
           yield Args(
             Paths.get(dir),
             Paths.get(out),
@@ -658,7 +751,8 @@ object GraphChecks:
             sample.toInt,
             opts.getOrElse("--run-id", s"graphchecks-${RunOutput.stamp()}"),
             vertices,
-            edgeCount
+            edgeCount,
+            source
           )
         }
       case _ => Left("Expected <export dir> <output base dir>")
@@ -677,8 +771,9 @@ object GraphChecks:
           a.exportDir,
           a.seed,
           a.sample,
-          Some(a.expectedVertices),
-          Some(a.expectedEdges)
+          a.expectedVertices,
+          a.expectedEdges,
+          a.expectedSource
         )
         val dir = RunOutput.createRunDir(a.outBase, a.runId)
         RunOutput.write(
@@ -710,6 +805,11 @@ object GraphChecks:
                 ),
                 "seed" -> Js.l(a.seed),
                 "sampleSize" -> Js.l(a.sample.toLong),
+                "expectedVertices" ->
+                  a.expectedVertices.fold[ujson.Value](ujson.Null)(Js.l),
+                "expectedEdges" ->
+                  a.expectedEdges.fold[ujson.Value](ujson.Null)(Js.l),
+                "expectedSource" -> Js.opt(a.expectedSource),
                 "startedAt" -> Js.s(java.time.Instant.now().toString)
               )
             ),
@@ -725,4 +825,16 @@ object GraphChecks:
           )
         else println(s"GRAPHCHECKS RESULT: run directory $dir")
         println(ujson.write(report.toJson("counters"), indent = 2))
+        val r = report.reconciliation
+        println(
+          "GRAPHCHECKS RECONCILIATION " +
+            Vector(
+              "composedEdges",
+              "expectedEdges",
+              "edgeDifference",
+              "composedVertices",
+              "expectedVertices",
+              "vertexDifference"
+            ).map(k => s"$k=${r.get(k).fold("n/a")(_.toString)}").mkString(" ")
+        )
         if report.incomplete then IncompleteExit else 0

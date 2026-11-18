@@ -1,0 +1,66 @@
+# Experiment H: answer quality, fused mode, Haiku 4.5 (Phase 16, W2-R)
+
+Status: authored, NOT executed. No AWS call, no run, no approval record. Tests ran offline only (`sbt quick`).
+
+H must not start on a blind synthesis limit: run the diagnostic (H-4, below) first, then WO-3 part 2 sets `maxOutputTokens` with the logged reason (decisions P16-2, P16-3).
+
+## What it does
+- `AnswerEval --diagnostic` (H-4): at most 4 answer-model calls, first answerable question of each of up to four strata. Writes `diagnostic.jsonl` (appended and flushed per question: stratum, abstention fields, tokens and every model attempt with `stopReason`, rejection codes and output tokens), its `RAW-SHA256SUMS`, and `diagnostic-summary.json`. No question text and no answer text. Console: `DIAGNOSTIC calls=<n> stopReasons=<reason:count,...> maxTokens=<n>`.
+- `AnswerEval` full: every question once in fused mode (primary pass), then a seeded stratified repeat of up to 20 answerable, answered questions (temperature 0, answer variability). Appends `answers.jsonl` as each answer finishes (claims, evidence, the system verifier's own report, abstention fields, model attempts, tokens, latency; flushed to the operating system at once, so a kill keeps the answers made so far), then writes `RAW-SHA256SUMS` over it before any summary; then `model-attempts-summary.json`, `model-calls.jsonl`, `answer-summary.json`, and a stratified 20-answer `rating-sample.csv` (columns `sampleId, question, answer, evidence, usefulness_1to5, clarity_1to5, supported_yes_no, abstention_appropriate_yes_no_na, note`; no question id, because the ids carry the stratum, and no stratum or metric) with its `rating-sample-key.json` kept apart (it maps `sampleId` to the question id). `answers.jsonl` and the CSV are the only files that hold question and answer text.
+- `AnswerAudit` (no AWS, a separate step on the frozen `answers.jsonl`): independent of the system verifier. Structural claim support; which claims are factual is decided by the audit (a claim the verifier calls a `definition` or `abstention` is still audited when its text states an identifier or a number or it cites deterministic evidence; the summary counts `reclassifiedFactualByAudit` and `excludedByVerifierKind`); coauthor-edge, path-hop and supporting-publication validity against A's export; identifier and numeric accuracy (tolerance 0.01 absolute plus 0.001 relative, stated in the output); contradiction rate; the verifier's verdicts reported apart as self-reported; abstention recall, false-abstention rate and reason-code match against `expectedCodes`; repeat variability. Spelled-out numbers are not read (a stated limit).
+
+## Stops (checked BEFORE each call)
+Haiku call cap 460 (decisions P16-3 and P16-29), Titan call cap 1000, USD stop 2.00 (binding): spend so far plus the worst case of the next call (input = request and system characters over four, output = `maxOutputTokens`) must stay within the ceiling; spend is metered from the Converse usage tokens, and a failed call or a reply flagged as estimated is charged at the worst case. Every USD figure is an estimate at UNVERIFIED rates, not a bound (Titan is characters over four, so spend can pass the ceiling by the error of one call). A refused call raises no request; synthesis then reports `synthesis-failed`. Exit codes: 0 complete, 1 failed, 2 usage, 3 halted. An answer in which the guard refused a call is marked `costStopped` and is excluded from the audit and the sample; an answer whose last call finished and pushed spend past the ceiling is a finished answer (the next call is refused).
+
+Why 460: the planner classifier misses the rules for free-form and out-of-scope questions and then calls Haiku through `StructuredCall` (up to 3 attempts), and synthesis makes up to 3 attempts, so the worst case is 6 calls per answer. 76 answers (56 primary plus 20 repeat) x 6 = 456, plus 4 slack = 460. The manifest (`MAX_TASKS 460`), `run.sh` (`HAIKU_MAX_CALLS=460`, and it refuses a `MAX_TASKS` below it) and this README agree. The manifest stays valid under `scripts/run-experiment.sh` (tier S caps 90 min, 64, 20000; projected spend 0.80 x 90 / 60 = 1.20 under 2.00; experiment id H accepted).
+
+Wall clock: `run.sh` passes an absolute deadline, `MAX_MINUTES` (90) minus 10 minutes after the start of `run.sh`. sbt start, compile and the graph load (about 6 GB; duration unmeasured until the first live run) are inside that window. The deadline is checked between answers, so the run can pass it by one answer: at most 6 Haiku calls at the 40 s call deadline (4 minutes) plus 2 Titan embeds at the 60 s attempt deadline with no SDK retry (2 minutes), then the closing writes (under a minute); 10 minutes is the margin. A dependency that hangs past it is cut by the kill at `MAX_MINUTES`; the flushed `answers.jsonl` keeps the answers made so far (no `RAW-SHA256SUMS`, summaries, rating sample or seal in that case). If the graph load alone eats the window, nothing is answered and the run reports `HALTED` with `halt=wall-clock` and zero records.
+
+If Billing headroom is under 2.40 USD for G, H and the diagnostic, change the ceiling in the manifest and in `run.sh` together (new digest, new approval record); the repeat is dropped first (`REPEAT_COUNT=0` in `run.sh`).
+
+## Paste-ready commands (human, `!` prefix, zsh)
+Every path is absolute (the forked JVM starts in `experiments/evaluation/`). `AWS_PROFILE=scholarchain`, region us-east-2, logs masked of any 12-digit account id before they are written.
+
+The diagnostic (H-4) is the one run that does not go through `scripts/run-experiment.sh` (decision P16-28, which amends D10 for H-4 only): no manifest, approval record or digest binding applies. Its bounds are enforced inside the process: at most 4 answer-model calls (`--haiku-max-calls` above 4 is lowered to 4) and a USD ceiling of at most 0.15 (a larger `--usd-ceiling` is lowered to 0.15); a guard that allows more is refused before anything is written. G and H keep the full D10 route.
+
+H-4, the diagnostic:
+```
+cd /Users/winnguyen/ScholarChain
+mkdir -p /Users/winnguyen/scholarchain-data/logs /Users/winnguyen/scholarchain-data/experiments/runs/phase16
+set -o pipefail
+AWS_PROFILE=scholarchain sbt "evaluation/runMain scholarchain.evaluation.answer.AnswerEval --diagnostic --questions /Users/winnguyen/ScholarChain/experiments/benchmark/questions-v1.jsonl --labels /Users/winnguyen/ScholarChain/experiments/benchmark/labels-v1.jsonl --out-dir /Users/winnguyen/scholarchain-data/experiments/runs/phase16 --run-id h4-diagnostic-1 --export-dir /Users/winnguyen/scholarchain-data/rehearsal/a-export --region us-east-2 --data-bucket REPLACE_WITH_DATA_BUCKET --vector-bucket REPLACE_WITH_VECTOR_BUCKET --model-id us.anthropic.claude-haiku-4-5-20251001-v1:0 --titan-max-calls 50 --haiku-max-calls 4 --usd-ceiling 0.15 --haiku-input-usd-per-mtok 1.00 --haiku-output-usd-per-mtok 5.00 --titan-usd-per-mtok 0.02" 2>&1 | sed -E 's/[0-9]{12}/************/g' | tee "/Users/winnguyen/scholarchain-data/logs/phase16-h4-diagnostic.log" | tail -n 40; echo "exit: $?"
+```
+Expected: about 1 to 3 minutes, `ANSWER_RESULT status=COMPLETE mode=diagnostic` (or `HALTED ... halt=haiku-call-cap` when the fourth call is spent mid-question, which is allowed), `DIAGNOSTIC calls=<=4`, and `ANSWER_RUN_DIR /Users/winnguyen/scholarchain-data/experiments/runs/phase16/h4-diagnostic-1`. Under sbt the exit code is sbt's (1 for any non-zero); read the printed lines, not the number.
+
+H, the run (needs the manifest copy, an approval record, a clean tree with the filled benchmark committed, and the synthesis-limit decision; `scripts/run-experiment.sh` accepts experiment id H):
+```
+cd /Users/winnguyen/ScholarChain
+set -o pipefail
+ACCOUNT_ID="$(AWS_PROFILE=scholarchain aws sts get-caller-identity --query Account --output text)"
+export SCHOLARCHAIN_H_EXPORT_DIR="/Users/winnguyen/scholarchain-data/rehearsal/a-export"
+export SCHOLARCHAIN_H_QUESTIONS="/Users/winnguyen/ScholarChain/experiments/benchmark/questions-v1.jsonl"
+export SCHOLARCHAIN_H_LABELS="/Users/winnguyen/ScholarChain/experiments/benchmark/labels-v1.jsonl"
+export SCHOLARCHAIN_H_DATA_BUCKET="REPLACE_WITH_DATA_BUCKET"
+export SCHOLARCHAIN_H_VECTOR_BUCKET="REPLACE_WITH_VECTOR_BUCKET"
+export SCHOLARCHAIN_H_MODEL_ID="us.anthropic.claude-haiku-4-5-20251001-v1:0"
+AWS_PROFILE=scholarchain bash /Users/winnguyen/ScholarChain/scripts/run-experiment.sh --manifest "/Users/winnguyen/scholarchain-data/experiments/REPLACE_WITH_H_MANIFEST_COPY" --environment course --account-id "${ACCOUNT_ID}" --region us-east-2 --cost-ceiling-usd 20 --approval-record "/Users/winnguyen/scholarchain-data/approvals/REPLACE_WITH_H_APPROVAL.env" 2>&1 | sed -E 's/[0-9]{12}/************/g' | tee "/Users/winnguyen/scholarchain-data/logs/phase16-h-run.log" | tail -n 60; echo "exit: $?"
+```
+Expected: about 15 to 60 minutes; `ANSWER_RESULT status=COMPLETE mode=full` in `raw/entrypoint.log`. Output: `<OUTPUT_ROOT>/exp-H-<utc>-<sha>/raw/answers/`.
+
+AnswerAudit (no AWS; `REPLACE_WITH_RUN_ID` is the `exp-H-...` directory name; the audit output goes outside the read-only run directory):
+```
+cd /Users/winnguyen/ScholarChain
+set -o pipefail
+sbt "evaluation/runMain scholarchain.evaluation.answer.AnswerAudit --answers /Users/winnguyen/scholarchain-data/experiments/runs/phase16/REPLACE_WITH_RUN_ID/raw/answers/answers.jsonl --labels /Users/winnguyen/ScholarChain/experiments/benchmark/labels-v1.jsonl --export-dir /Users/winnguyen/scholarchain-data/rehearsal/a-export --out-dir /Users/winnguyen/scholarchain-data/experiments/runs/phase16 --run-id h-audit-1" 2>&1 | tee "/Users/winnguyen/scholarchain-data/logs/phase16-h-audit.log" | tail -n 40; echo "exit: $?"
+```
+Expected: `AUDIT_RESULT status=COMPLETE audited=<n>`; output `h-audit-1/` with `audit-claims.jsonl`, `audit-answers.jsonl`, `audit-summary.json`, `run-manifest.json`, `SHA256SUMS`, no claim or answer text.
+
+## Free-form questions
+As for G: the entry points read `--questions` and `--labels`, never `free-form-slots-v1.jsonl`; `BenchmarkFill` appends the 8 lines to both files and the filled files are committed before the run (P16-31). Free-form answers get a 2-answer share in the rating sample (`stratum` `free-form`); a free-form label with `expected.abstain: true` counts as an abstention.
+
+## Limits
+- Laptop-to-Bedrock latency, not in-VPC; the graph port is `InMemoryNeptune`.
+- The audit and the labels share A's export, so they check consistency with the graph, not real-world truth.
+- Single human rater for the rating sample, no inter-rater agreement.
+- The `out-of-scope` abstention mapping is the stub's behaviour; a real model may name an operation instead, and a different code is a finding (`benchmark/README.md`).
+- A cost stop ends the run early; the records made before it stay and the answer whose call was refused is excluded.

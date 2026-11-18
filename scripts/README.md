@@ -173,7 +173,7 @@ A flat `KEY=VALUE` file, `#` comments allowed, no spaces in values, every key ex
 | Key | Rule |
 |---|---|
 | `MANIFEST_VERSION` | `1` |
-| `EXPERIMENT_ID` | `A` to `F`, the course experiments. Anything else is refused |
+| `EXPERIMENT_ID` | `A` to `F`, the course experiments, or `G` (retrieval quality) or `H` (answer quality), the Phase 16 evaluation experiments. All eight ids take the same validation; there is no per-id table. Anything else is refused |
 | `DESCRIPTION` | 1 to 200 characters of `A-Za-z0-9._,:/-` (no spaces) |
 | `ENVIRONMENT` | equals `--environment` (only `course`) |
 | `REGION` | `us-east-2`, and equals `--region` |
@@ -199,7 +199,7 @@ Tier caps. Decision D12 is decided by P15-1 for tier S (Phase 15 decision of the
 | M | 90 | 16 | 5000 |
 | L | 150 | 32 | 20000 |
 
-Refused before anything runs, in a real run and in a dry run: a missing, duplicated, unknown or empty key, a malformed line, a limit missing or out of range or above its tier cap, a spend ceiling above the cost ceiling, a projected spend above the spend ceiling, a Region other than us-east-2, an unknown experiment id, a tier with no overlay file, an output path inside the repository, a dirty tree, a stop list without `wall-clock` or with an unsupported condition, key-material patterns in the manifest, an entry point outside `experiments/` and `load-tests/` or one that is not tracked (a dry run reports the missing file as `CHECK_SKIPPED entry-point`, and `--print-digest` tolerates it too, so a draft manifest whose entry point is not yet a tracked file can still print the digest it needs; a real run refuses; work order 09, observed by harness cases `8.committed-manifest.A` to `F` in check run 3), a record that does not name action `experiment`, this commit and this manifest, and an existing run directory.
+Refused before anything runs, in a real run and in a dry run: a missing, duplicated, unknown or empty key, a malformed line, a limit missing or out of range or above its tier cap, a spend ceiling above the cost ceiling, a projected spend above the spend ceiling, a Region other than us-east-2, an unknown experiment id, a tier with no overlay file, an output path inside the repository, a dirty tree, a stop list without `wall-clock` or with an unsupported condition, key-material patterns in the manifest, an entry point outside `experiments/` and `load-tests/` or one that is not tracked (a dry run reports the missing file as `CHECK_SKIPPED entry-point`, and `--print-digest` tolerates it too, so a draft manifest whose entry point is not yet a tracked file can still print the digest it needs; a real run refuses; work order 09, observed by harness cases `8.committed-manifest.A` to `F` in check run 3; the cases for `G` and `H` are not yet observed), a record that does not name action `experiment`, this commit and this manifest, and an existing run directory.
 
 The entry point's environment: `SCHOLARCHAIN_EXPERIMENT_ID`, `SCHOLARCHAIN_RUN_ID`, `SCHOLARCHAIN_RUN_DIR` (the `raw/` directory it writes into), `SCHOLARCHAIN_MAX_MINUTES`, `SCHOLARCHAIN_MAX_CONCURRENCY`, `SCHOLARCHAIN_MAX_TASKS`, `SCHOLARCHAIN_REGION`, `SCHOLARCHAIN_ACCOUNT_ID`, `SCHOLARCHAIN_DATASET_SNAPSHOT`, and the caller's AWS credential variables. Standard output and error go to `raw/entrypoint.log`. The script cannot stop an entry point from exceeding `MAX_CONCURRENCY` or `MAX_TASKS`; it enforces the wall-clock limit and the pre-start arithmetic, and the entry point is committed code the human approved by digest.
 

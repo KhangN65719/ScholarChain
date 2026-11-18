@@ -85,13 +85,17 @@ class AwsRuntimeSuite extends FunSuite:
 
   override def munitTimeout: Duration = 120.seconds
 
-  private val lines = new ConcurrentLinkedQueue[String]
   private var started = Vector.empty[AwsRuntime]
 
+  // Every launch owns its capture queue. A runtime of an earlier test stays up
+  // until afterAll, and the server writes its `query_request` line after the
+  // response is sent, so a late line of an earlier request must never reach the
+  // queue of a later test.
   private final class Started(
       val runtime: AwsRuntime,
       val backend: DemoBackend,
-      val recorder: RecordingPort
+      val recorder: RecordingPort,
+      val lines: ConcurrentLinkedQueue[String]
   ):
     def slow: String = runtime.slowUrl.get
     def fast: String = runtime.fastUrl.get
@@ -119,7 +123,7 @@ class AwsRuntimeSuite extends FunSuite:
       )
 
   private def launch(extra: Map[String, String] = Map.empty): Started =
-    lines.clear()
+    val lines = new ConcurrentLinkedQueue[String]
     val backend = new DemoBackend
     var recorder: RecordingPort = null
     val runtime = AwsRuntime.start(
@@ -131,14 +135,18 @@ class AwsRuntimeSuite extends FunSuite:
         recorder
     )
     synchronized { started = started :+ runtime }
-    new Started(runtime, backend, recorder)
+    new Started(runtime, backend, recorder, lines)
 
   override def afterAll(): Unit = started.foreach(_.close())
 
-  private def eventuallyLines(count: Int): Vector[ujson.Value] =
+  // Waits for `count` lines of this launch, then a short settle so a duplicate
+  // line would still be counted.
+  private def eventuallyLines(s: Started, count: Int): Vector[ujson.Value] =
     val deadline = System.nanoTime() + 5L * 1000000000L
-    while lines.size < count && System.nanoTime() < deadline do Thread.sleep(10)
-    lines.asScala.toVector.map(ujson.read(_))
+    while s.lines.size < count && System.nanoTime() < deadline do
+      Thread.sleep(10)
+    Thread.sleep(200)
+    s.lines.asScala.toVector.map(ujson.read(_))
 
   // Health --------------------------------------------------------------------
 
@@ -237,8 +245,15 @@ class AwsRuntimeSuite extends FunSuite:
     val s = launch()
     val r = s.post(Map("retrievalMode" -> ujson.Str("graph")))
     assertEquals(r.status, 200, r.body)
-    val logged = eventuallyLines(1)
+    val requestId = r.header("x-request-id").get
+    val logged = eventuallyLines(s, 1)
     assertEquals(logged.size, 1)
+    assertEquals(
+      logged.count(l =>
+        l("event").str == "query_request" && l("requestId").str == requestId
+      ),
+      1
+    )
     val line = logged.head
     assertEquals(line("event").str, "query_request")
     assertEquals(line("requestId").str, r.header("x-request-id").get)
@@ -275,7 +290,7 @@ class AwsRuntimeSuite extends FunSuite:
     val s = launch()
     val r = s.post(Map("retrievalMode" -> ujson.Str("hybrid")))
     assertEquals(r.status, 400)
-    val line = eventuallyLines(1).head
+    val line = eventuallyLines(s, 1).head
     assertEquals(line("status").num.toInt, 400)
     assertEquals(line("requestId").str, r.header("x-request-id").get)
     assertEquals(line("stagesMs").obj.size, 0)
@@ -286,7 +301,7 @@ class AwsRuntimeSuite extends FunSuite:
     TestHttp.send("GET", s.slow + "/healthz")
     s.get(s.fast, "/metrics")
     Thread.sleep(100)
-    assert(lines.isEmpty)
+    assert(s.lines.isEmpty)
   }
 
   // Composition ---------------------------------------------------------------

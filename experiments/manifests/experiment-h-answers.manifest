@@ -1,0 +1,73 @@
+# Experiment H: answer quality (fused mode, Haiku 4.5) on the laptop runtime, tier S data. Phase 16 Wave 2.
+# UNAPPROVED and UNEXECUTED. Format: scripts/README.md, "Experiment manifest contract".
+# No spaces in values.
+# PLACEHOLDERS the human replaces before an approval record is written
+# (the record binds the sha256 of the final file, so any edit needs a new record):
+#   ACCOUNT_ID       123456789012 is the documented example, not a real account.
+#   OUTPUT_ROOT      /abs/outside/repo/... is a placeholder path; pick a durable directory
+#                    outside the repository (the Phase 16 raw root is
+#                    /Users/winnguyen/scholarchain-data/experiments/runs/phase16).
+# scripts/run-experiment.sh accepts EXPERIMENT_ID G and H (it validates this file as it stands:
+# tier S caps 90 min, 64 clients, 20000 tasks; projected spend burn x minutes / 60 within the
+# ceiling). Run H also needs the Haiku diagnostic (decision P16-2, H-4; run directly under decision
+# P16-28, no manifest) and the synthesis limit decision (WO-3 part 2) before it is approved: it must
+# not start on a blind maxOutputTokens.
+# What runs: the Scala entry point scholarchain.evaluation.answer.AnswerEval on the laptop
+# (experiments/h-answers/run.sh). Graph port InMemoryNeptune over A's local export; Titan, S3
+# Vectors and S3 GetObject for the vector side; Haiku 4.5 through Bedrock Converse for synthesis.
+# Region us-east-2 only. Fused mode only.
+# Workload: 56 questions (primary pass; benchmark v1: 48 generated plus 8 free-form) plus a
+# 20-question repeat subset (temperature 0): 76 answers.
+# Limits (tier S caps of decision P15-1: 90 min, 64 clients, 20000 tasks):
+#   MAX_TASKS 460        the call cap of the answer model (decisions P16-3 and P16-29). Worst case per
+#                        answer: the planner classifier misses the rules and calls Haiku through
+#                        StructuredCall, up to 3 attempts, then synthesis, up to 3 attempts, so 6 calls;
+#                        76 answers x 6 = 456 calls, plus 4 slack = 460. The entry point's own cap is the
+#                        same number (--haiku-max-calls 460, committed in run.sh), and run.sh refuses a
+#                        MAX_TASKS below it. The USD stop below ends the run first in practice.
+#   MAX_MINUTES 90       the entry point stops 10 minutes before it (MARGIN_MINUTES in run.sh): an
+#                        absolute deadline computed from the start of run.sh, so sbt start, compile and
+#                        the graph load are inside it. The 10 minutes cover the longest single answer
+#                        (6 Haiku calls at the 40 s call deadline, 2 Titan embeds at the 60 s attempt
+#                        deadline, no SDK retry: 6 minutes) and the closing writes; the deadline is
+#                        checked between answers. answers.jsonl is appended and flushed per answer, so a
+#                        kill at MAX_MINUTES keeps the answers made so far.
+#   MAX_CONCURRENCY 1    the run is sequential.
+# COST (plan.md, "Projected AWS cost", rates UNVERIFIED, read from the pricing pages by the human):
+#   expected about 1.00 USD (Haiku 4.5 at 1 USD per million input tokens and 5 USD per million
+#   output tokens), HIGH ceiling 2.00 USD. Every USD figure is an ESTIMATE at those rates, not a bound.
+#   SPEND_CEILING_USD 2.00   the HIGH figure, and the BINDING limit (decision P16-3): the call cap
+#                            above is the worst case, the USD stop usually ends the run first. The
+#                            stop is metered from the Converse usage tokens of each call and is
+#                            checked BEFORE each call: spend so far plus the worst case of the next
+#                            call (input = request and system characters over four, output =
+#                            maxOutputTokens) must stay within the ceiling. A failed call is
+#                            charged at that worst case. Titan is an estimate (input characters
+#                            over four), so spend can pass the ceiling by the error of one call.
+#   HOURLY_BURN_USD 0.80     a nominal figure (about 1.2 USD expected over the 90 minute window)
+#                            that only lets the script's projected-spend check pass (0.80 x 90 / 60
+#                            = 1.20 under 2.00). It is not a rate; the USD stop is.
+# If Billing headroom is under 2.40 USD for G plus H plus the diagnostic (plan.md gate), edit
+# SPEND_CEILING_USD and the ceiling in run.sh together (a new digest, a new approval record); the
+# 20-question repeat is dropped first (--repeat-count 0), then the run is trimmed to 30 questions.
+# CAVEAT for the human: the rates in run.sh are UNVERIFIED (Haiku 1.00 and 5.00, Titan 0.02 USD per
+# million tokens). The METRIC names below are written from memory of CloudWatch naming and are
+# UNVERIFIED.
+MANIFEST_VERSION=1
+EXPERIMENT_ID=H
+DESCRIPTION=answers-fused-haiku-56-questions-plus-20-repeats-laptop-tier-s
+ENVIRONMENT=course
+REGION=us-east-2
+ACCOUNT_ID=123456789012
+DATASET_SNAPSHOT=scholarchain-s-20261107-10dd7f34121b
+SIZE_TIER=S
+MAX_MINUTES=90
+MAX_CONCURRENCY=1
+MAX_TASKS=460
+SPEND_CEILING_USD=2.00
+HOURLY_BURN_USD=0.80
+STOP_CONDITIONS=wall-clock,first-failure,spend-estimate
+METRIC_NAMES=Invocations,InvocationLatency,InputTokenCount,OutputTokenCount,InvocationClientErrors,InvocationServerErrors,InvocationThrottles
+METRIC_NAMESPACES=AWS/Bedrock
+OUTPUT_ROOT=/abs/outside/repo/scholarchain-experiments
+ENTRY_POINT=script:experiments/h-answers/run.sh

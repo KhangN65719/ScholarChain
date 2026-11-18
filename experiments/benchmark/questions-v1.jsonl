@@ -1,0 +1,48 @@
+{"questionId":"Q-RL-01","version":"v1","stratum":"researcher-lookup","text":"Who is Pei Wei between 2020 and 2029?"}
+{"questionId":"Q-RL-02","version":"v1","stratum":"researcher-lookup","text":"Who is Chengbiao Wan between 2015 and 2019?"}
+{"questionId":"Q-RL-03","version":"v1","stratum":"researcher-lookup","text":"Who is Chin Ying Teh between 2010 and 2014?"}
+{"questionId":"Q-RL-04","version":"v1","stratum":"researcher-lookup","text":"Who is Zifeng Wang between 2005 and 2009?"}
+{"questionId":"Q-RL-05","version":"v1","stratum":"researcher-lookup","text":"Who is Jing Lu between 2000 and 2004?"}
+{"questionId":"Q-RL-06","version":"v1","stratum":"researcher-lookup","text":"Who is Lina Mroueh over all time?"}
+{"questionId":"Q-RL-07","version":"v1","stratum":"researcher-lookup","text":"Who is Yanbiao Sun between 2020 and 2029?"}
+{"questionId":"Q-CA-01","version":"v1","stratum":"coauthor-lookup","text":"Who are the coauthors of Xingshu Chen between 2015 and 2019?"}
+{"questionId":"Q-CA-02","version":"v1","stratum":"coauthor-lookup","text":"Who are the coauthors of Jun Hou between 2010 and 2014?"}
+{"questionId":"Q-CA-03","version":"v1","stratum":"coauthor-lookup","text":"Who are the coauthors of Guosen Yue between 2005 and 2009?"}
+{"questionId":"Q-CA-04","version":"v1","stratum":"coauthor-lookup","text":"Who are the coauthors of Krishnendu Chakrabarty between 2000 and 2004?"}
+{"questionId":"Q-CA-05","version":"v1","stratum":"coauthor-lookup","text":"Who are the coauthors of Song Yao over all time?"}
+{"questionId":"Q-CA-06","version":"v1","stratum":"coauthor-lookup","text":"Who are the coauthors of Meng Wang between 2020 and 2029?"}
+{"questionId":"Q-CA-07","version":"v1","stratum":"coauthor-lookup","text":"Who are the coauthors of Xiaoqing Luo between 2015 and 2019?"}
+{"questionId":"Q-CA-08","version":"v1","stratum":"coauthor-lookup","text":"Who are the coauthors of Cunsheng Ding between 2010 and 2014?"}
+{"questionId":"Q-RK-01","version":"v1","stratum":"ranking","text":"Who are the top 5 researchers by number of publications between 2000 and 2004?"}
+{"questionId":"Q-RK-02","version":"v1","stratum":"ranking","text":"Who are the top 5 researchers by number of distinct coauthors between 2015 and 2019?"}
+{"questionId":"Q-RK-03","version":"v1","stratum":"ranking","text":"Who are the top 3 researchers by weighted degree between 2010 and 2014?"}
+{"questionId":"Q-RK-04","version":"v1","stratum":"ranking","text":"Who are the top 10 researchers by largest team size between 2020 and 2029?"}
+{"questionId":"Q-RK-05","version":"v1","stratum":"ranking","text":"Who are the top 5 researchers by coreness between 2010 and 2014?"}
+{"questionId":"Q-RK-06","version":"v1","stratum":"ranking","text":"Who are the top 5 researchers by bridge score over all time?"}
+{"questionId":"Q-RK-07","version":"v1","stratum":"ranking","text":"Who are the top 5 researchers by number of publications over all time?"}
+{"questionId":"Q-RK-08","version":"v1","stratum":"ranking","text":"Who are the top 3 researchers by number of distinct coauthors between 2010 and 2014?"}
+{"questionId":"Q-RK-09","version":"v1","stratum":"ranking","text":"Who are the top 10 researchers by weighted degree between 2005 and 2009?"}
+{"questionId":"Q-RK-10","version":"v1","stratum":"ranking","text":"Who are the top 5 researchers by largest team size between 2010 and 2014?"}
+{"questionId":"Q-SP-01","version":"v1","stratum":"shortest-path","text":"What is the shortest path between mention:v1:08322a0e7b4480d324b19ad02e27a75a9e5920f9aa0d6f040fcffa7522d67a92 and mention:v1:430a524e4d62c495f932af3d5123af5108cbc345f3d5489cb467cf22d892f9db between 2010 and 2014?"}
+{"questionId":"Q-SP-02","version":"v1","stratum":"shortest-path","text":"What is the shortest path between mention:v1:0dce986bcfe6639643e58d378b51bae377e1e9808e2b94b75c760c38db2e7cd9 and mention:v1:249b22e687c6cc905627ef57ffac461bfc8c2ef9cef4719a5f72d804fd5b1424 between 2005 and 2009?"}
+{"questionId":"Q-SP-03","version":"v1","stratum":"shortest-path","text":"What is the shortest path between mention:v1:39d22ca87ef40e6962744c9838c16a54e39a8e1572b708953f1771f0028438eb and mention:v1:54773b87d6db3e0f8b5fbe0aaca25406d1a812dc5d4dca52fb033583f60a4495 between 1900 and 1999?"}
+{"questionId":"Q-SP-04","version":"v1","stratum":"shortest-path","text":"What is the shortest path between mention:v1:143198c5ba4ef9f4df7fceb3bdaa1fbb5914c39a8c3f5f52997f0421ace95d16 and mention:v1:5838ef8ec8696c05e571b0e766205ac38281d3cc69fa1e4fe95cc4b28ddd6c83 between 2000 and 2004?"}
+{"questionId":"Q-CC-01","version":"v1","stratum":"community-component","text":"Which community does Yaxing Wei belong to between 2010 and 2014?"}
+{"questionId":"Q-CC-02","version":"v1","stratum":"community-component","text":"Which community does Osvaldo Simeone belong to between 2005 and 2009?"}
+{"questionId":"Q-CC-03","version":"v1","stratum":"community-component","text":"Which community does Zhong Su belong to between 2000 and 2004?"}
+{"questionId":"Q-CC-04","version":"v1","stratum":"community-component","text":"Which community does Onur Afacan belong to over all time?"}
+{"questionId":"Q-CC-05","version":"v1","stratum":"community-component","text":"What is the connected component of Huan Wang between 2005 and 2009?"}
+{"questionId":"Q-CC-06","version":"v1","stratum":"community-component","text":"What is the connected component of Peng Li between 2000 and 2004?"}
+{"questionId":"Q-TC-01","version":"v1","stratum":"temporal-comparison","text":"Compare the publications of Weinan Zhang between 2010 and 2014 and between 2015 and 2019."}
+{"questionId":"Q-TC-02","version":"v1","stratum":"temporal-comparison","text":"Compare the publications of Wentao Li between 2015 and 2019 and between 2020 and 2029."}
+{"questionId":"Q-TC-03","version":"v1","stratum":"temporal-comparison","text":"Compare the publications of Kuncheng Li between 2005 and 2009 and between 2010 and 2014."}
+{"questionId":"Q-TC-04","version":"v1","stratum":"temporal-comparison","text":"Compare the publications of Huawei Li between 2010 and 2014 and between 2020 and 2029."}
+{"questionId":"Q-TC-05","version":"v1","stratum":"temporal-comparison","text":"Compare the publications of Liping Di between 2010 and 2014 and between 2020 and 2029."}
+{"questionId":"Q-UA-01","version":"v1","stratum":"unanswerable","text":"Who are the coauthors of Ysolde Pellinghast between 2020 and 2029?"}
+{"questionId":"Q-UA-02","version":"v1","stratum":"unanswerable","text":"Who are the top 5 researchers by number of publications between 2031 and 2035?"}
+{"questionId":"Q-UA-03","version":"v1","stratum":"unanswerable","text":"Who are the coauthors of Yu Zhu between 2020 and 2029?"}
+{"questionId":"Q-UA-04","version":"v1","stratum":"unanswerable","text":"What is the capital of France?"}
+{"questionId":"Q-UA-05","version":"v1","stratum":"unanswerable","text":"Who are the top 5 researchers by citation count between 2020 and 2029?"}
+{"questionId":"Q-UA-06","version":"v1","stratum":"unanswerable","text":"Compare the publications of Mianzhao Wang between 2020 and 2029."}
+{"questionId":"Q-UA-07","version":"v1","stratum":"unanswerable","text":"Who is Cadogan Quarrington between 2020 and 2029?"}
+{"questionId":"Q-UA-08","version":"v1","stratum":"unanswerable","text":"Who are the coauthors of Mianzhao Wang between 2040 and 2049?"}

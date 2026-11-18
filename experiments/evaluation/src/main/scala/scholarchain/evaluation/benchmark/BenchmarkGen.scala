@@ -287,44 +287,59 @@ final class BenchmarkGen(
         ) && adjacency.contains((r.id, w))
     }
     picked.zipWithIndex.map { case ((r, w), i) =>
-      val row = metricsIdx((r.id, w))
-      // 25 is the coauthor-lookup limit, not a limit of this operation: the
-      // runtime's default retrieve branch returns metrics only (README,
-      // "Threats to validity").
-      val nbrs = adjacency((r.id, w)).take(RuntimeLimits.CoauthorLimit)
-      val items = ExpectedItem(r.id, 2) +:
-        nbrs.map(x => ExpectedItem(x.other, 1))
-      val status = vecStatus(r.id, w)
-      val (avail, total) = itemCoverage(items, w)
-      val q = Question(
-        qid("RL", i + 1),
-        cfg.version,
-        "researcher-lookup",
-        s"Who is ${r.displayName} ${win(w)}?"
-      )
-      BenchItem(
-        q,
-        Label(
-          q.questionId,
+      researcherLookupItem(
+        Question(
+          qid("RL", i + 1),
           cfg.version,
-          q.stratum,
           "researcher-lookup",
-          Vector(r.id),
-          Some(w),
-          Vector(w),
-          Expected(items, numbersOf(row), false, None),
-          vecAvailable(status),
-          status,
-          avail,
-          total,
-          source(
-            "researcher-metrics",
-            Some(row.ref),
-            row.ref +: nbrs.map(_.edge.ref)
-          )
-        )
+          s"Who is ${r.displayName} ${win(w)}?"
+        ),
+        r,
+        w,
+        "researcher-lookup"
       )
     }
+
+  private def researcherLookupItem(
+      q: Question,
+      r: ResearcherRow,
+      w: String,
+      operation: String
+  ): BenchItem =
+    val row = metricsIdx((r.id, w))
+    // 25 is the coauthor-lookup limit, not a limit of this operation: the
+    // runtime's default retrieve branch returns metrics only (README,
+    // "Threats to validity").
+    val nbrs =
+      adjacency
+        .getOrElse((r.id, w), Vector.empty)
+        .take(RuntimeLimits.CoauthorLimit)
+    val items = ExpectedItem(r.id, 2) +:
+      nbrs.map(x => ExpectedItem(x.other, 1))
+    val status = vecStatus(r.id, w)
+    val (avail, total) = itemCoverage(items, w)
+    BenchItem(
+      q,
+      Label(
+        q.questionId,
+        cfg.version,
+        q.stratum,
+        operation,
+        Vector(r.id),
+        Some(w),
+        Vector(w),
+        Expected(items, numbersOf(row), false, None),
+        vecAvailable(status),
+        status,
+        avail,
+        total,
+        source(
+          "researcher-metrics",
+          Some(row.ref),
+          row.ref +: nbrs.map(_.edge.ref)
+        )
+      )
+    )
 
   private def tier(joint: Int): Int = Grades.jointTier(joint)
 
@@ -339,60 +354,72 @@ final class BenchmarkGen(
         .exists(a => a.size >= 2 && a.size <= RuntimeLimits.CoauthorLimit)
     }
     picked.zipWithIndex.map { case ((r, w), i) =>
-      val nbrs = adjacency((r.id, w))
-      val items = nbrs.map(x => ExpectedItem(x.other, tier(x.joint)))
-      val status = vecStatus(r.id, w)
-      val (avail, total) = itemCoverage(items, w)
-      val edgeInfo = nbrs.map { x =>
-        Js.obj(
-          Vector(
-            "edgeId" -> Js.s(x.edge.edgeId),
-            "other" -> Js.s(x.other),
-            "joint" -> Js.l(x.joint.toLong),
-            "workIds" -> Js.arr(
-              supportIdx.getOrElse(x.edge.edgeId, Vector.empty).map(Js.s)
-            )
-          )
-        )
-      }
-      val q = Question(
-        qid("CA", i + 1),
-        cfg.version,
-        "coauthor-lookup",
-        s"Who are the coauthors of ${r.displayName} ${win(w)}?"
-      )
-      BenchItem(
-        q,
-        Label(
-          q.questionId,
+      coauthorLookupItem(
+        Question(
+          qid("CA", i + 1),
           cfg.version,
-          q.stratum,
           "coauthor-lookup",
-          Vector(r.id),
-          Some(w),
-          Vector(w),
-          Expected(
-            items,
-            Vector(
-              "coauthorCount" -> nbrs.size.toDouble,
-              "maxJoint" -> nbrs.map(_.joint).max.toDouble
-            ),
-            false,
-            None,
-            Vector("edges" -> Js.arr(edgeInfo))
-          ),
-          vecAvailable(status),
-          status,
-          avail,
-          total,
-          source(
-            "edges-coauthored",
-            nbrs.headOption.map(_.edge.ref),
-            nbrs.map(_.edge.ref)
+          s"Who are the coauthors of ${r.displayName} ${win(w)}?"
+        ),
+        r,
+        w,
+        "coauthor-lookup"
+      )
+    }
+
+  private def coauthorLookupItem(
+      q: Question,
+      r: ResearcherRow,
+      w: String,
+      operation: String
+  ): BenchItem =
+    val nbrs = adjacency((r.id, w))
+    val items = nbrs.map(x => ExpectedItem(x.other, tier(x.joint)))
+    val status = vecStatus(r.id, w)
+    val (avail, total) = itemCoverage(items, w)
+    val edgeInfo = nbrs.map { x =>
+      Js.obj(
+        Vector(
+          "edgeId" -> Js.s(x.edge.edgeId),
+          "other" -> Js.s(x.other),
+          "joint" -> Js.l(x.joint.toLong),
+          "workIds" -> Js.arr(
+            supportIdx.getOrElse(x.edge.edgeId, Vector.empty).map(Js.s)
           )
         )
       )
     }
+    BenchItem(
+      q,
+      Label(
+        q.questionId,
+        cfg.version,
+        q.stratum,
+        operation,
+        Vector(r.id),
+        Some(w),
+        Vector(w),
+        Expected(
+          items,
+          Vector(
+            "coauthorCount" -> nbrs.size.toDouble,
+            "maxJoint" -> nbrs.map(_.joint).max.toDouble
+          ),
+          false,
+          None,
+          Vector("edges" -> Js.arr(edgeInfo))
+        ),
+        vecAvailable(status),
+        status,
+        avail,
+        total,
+        source(
+          "edges-coauthored",
+          nbrs.headOption.map(_.edge.ref),
+          nbrs.map(_.edge.ref)
+        )
+      )
+    )
 
   private val rankMetrics: Vector[(String, String)] = Vector(
     "publicationCount" -> "number of publications",
@@ -425,18 +452,39 @@ final class BenchmarkGen(
       window: String,
       n: Int
   ): Option[(Vector[(MetricsRow, Double, Int)], Int)] =
+    rankingOrWhy(metric, window, n).toOption
+
+  /** `ranking`, with the reason of a refusal: no data in the window, fewer than
+    * N ranked, a tie across the cut-off, or a top value that is not positive.
+    */
+  def rankingOrWhy(
+      metric: String,
+      window: String,
+      n: Int
+  ): Either[String, (Vector[(MetricsRow, Double, Int)], Int)] =
     val scored = metricsByWindow
       .getOrElse(window, Vector.empty)
       .filter(m => !m.researcherId.startsWith("mention:"))
       .flatMap(m => m.values.get(metric).map(v => (m, v)))
       .sortBy((m, v) => (-v, m.researcherId))
-    if n < 1 || scored.size < n then None
-    else if scored.size > n && scored(n)._2 == scored(n - 1)._2 then None
+    if n < 1 then Left(s"N must be at least 1, not $n")
+    else if scored.isEmpty then
+      Left(s"no $metric data in window $window (window has no data)")
+    else if scored.size < n then
+      Left(
+        s"fewer than N ranked: $metric in $window ranks ${scored.size}, N is $n"
+      )
+    else if scored.size > n && scored(n)._2 == scored(n - 1)._2 then
+      Left(
+        s"tie across the cut-off: $metric in $window has value ${scored(n - 1)._2} at place $n and at place ${n + 1}"
+      )
     else
       val values = scored.map(_._2)
       val entries =
         scored.take(n).map((m, v) => (m, v, 1 + values.indexOf(v)))
-      if entries.head._2 <= 0.0 then None else Some((entries, scored.size))
+      if entries.head._2 <= 0.0 then
+        Left(s"the top $metric value in $window is not positive")
+      else Right((entries, scored.size))
 
   private def rankingQuestions(): Vector[BenchItem] =
     val n = count("ranking")
@@ -455,61 +503,21 @@ final class BenchmarkGen(
       found.foreach { case (w, (entries, total)) =>
         seen += ((metric, w))
         made += 1
-        val items =
-          entries.map((m, _, rank) =>
-            ExpectedItem(m.researcherId, Grades.ranking(rank))
-          )
         val q = Question(
           qid("RK", made),
           cfg.version,
           "ranking",
           s"Who are the top $limit researchers by $phrase ${win(w)}?"
         )
-        val (avail, itemTotal) = itemCoverage(items, w)
-        out += BenchItem(
+        out += rankingItem(
           q,
-          Label(
-            q.questionId,
-            cfg.version,
-            q.stratum,
-            if metric == "bridgeScore" then "bridge-analysis"
-            else "collaboration-metrics",
-            Vector.empty,
-            Some(w),
-            Vector(w),
-            Expected(
-              items,
-              Vector(
-                "N" -> limit.toDouble,
-                "rankedTotal" -> total.toDouble,
-                "entriesReturned" -> entries.size.toDouble,
-                "topValue" -> entries.head._2
-              ),
-              false,
-              None,
-              Vector(
-                "metric" -> Js.s(metric),
-                "ranking" -> Js.arr(entries.map { (m, v, rank) =>
-                  Js.obj(
-                    Vector(
-                      "id" -> Js.s(m.researcherId),
-                      "rank" -> Js.l(rank.toLong),
-                      "value" -> Js.d(v)
-                    )
-                  )
-                })
-              )
-            ),
-            None,
-            "not-applicable",
-            avail,
-            itemTotal,
-            source(
-              "researcher-metrics",
-              Some(entries.head._1.ref),
-              entries.map(_._1.ref)
-            )
-          )
+          metric,
+          limit,
+          w,
+          entries,
+          total,
+          if metric == "bridgeScore" then "bridge-analysis"
+          else "collaboration-metrics"
         )
       }
       k += 1
@@ -517,6 +525,65 @@ final class BenchmarkGen(
     if result.size < n then
       shortfalls += s"ranking: wanted $n, produced ${result.size}"
     result
+
+  private def rankingItem(
+      q: Question,
+      metric: String,
+      limit: Int,
+      w: String,
+      entries: Vector[(MetricsRow, Double, Int)],
+      total: Int,
+      operation: String
+  ): BenchItem =
+    val items =
+      entries.map((m, _, rank) =>
+        ExpectedItem(m.researcherId, Grades.ranking(rank))
+      )
+    val (avail, itemTotal) = itemCoverage(items, w)
+    BenchItem(
+      q,
+      Label(
+        q.questionId,
+        cfg.version,
+        q.stratum,
+        operation,
+        Vector.empty,
+        Some(w),
+        Vector(w),
+        Expected(
+          items,
+          Vector(
+            "N" -> limit.toDouble,
+            "rankedTotal" -> total.toDouble,
+            "entriesReturned" -> entries.size.toDouble,
+            "topValue" -> entries.head._2
+          ),
+          false,
+          None,
+          Vector(
+            "metric" -> Js.s(metric),
+            "ranking" -> Js.arr(entries.map { (m, v, rank) =>
+              Js.obj(
+                Vector(
+                  "id" -> Js.s(m.researcherId),
+                  "rank" -> Js.l(rank.toLong),
+                  "value" -> Js.d(v)
+                )
+              )
+            })
+          )
+        ),
+        None,
+        "not-applicable",
+        avail,
+        itemTotal,
+        source(
+          "researcher-metrics",
+          Some(entries.head._1.ref),
+          entries.map(_._1.ref)
+        )
+      )
+    )
 
   private def displayOrId(id: String): String =
     byId.get(id) match
@@ -676,8 +743,6 @@ final class BenchmarkGen(
         offset: Int,
         wanted: Int,
         idx: Map[(String, String), MemberRow],
-        groups: Map[(String, String), Vector[MemberRow]],
-        crossGrade: Boolean,
         firstIndex: Int
     ): Vector[BenchItem] =
       val picked = choose(kind, wanted, offset, order) { (r, w) =>
@@ -688,27 +753,6 @@ final class BenchmarkGen(
           )
       }
       picked.zipWithIndex.map { case ((r, w), i) =>
-        val m = idx((r.id, w))
-        val others = groups
-          .getOrElse((w, m.groupId), Vector.empty)
-          .map(_.researcherId)
-          .filter(_ != r.id)
-          .sorted
-          .take(RuntimeLimits.MaxGroupSize)
-        val cross =
-          if crossGrade then
-            adjacency
-              .getOrElse((r.id, w), Vector.empty)
-              .filter(x => idx.get((x.other, w)).exists(_.groupId != m.groupId))
-              .map(_.other)
-              .distinct
-              .filterNot(others.contains)
-              .take(RuntimeLimits.CoauthorLimit)
-          else Vector.empty
-        val items =
-          others.map(ExpectedItem(_, 2)) ++ cross.map(ExpectedItem(_, 1))
-        val status = vecStatus(r.id, w)
-        val (avail, total) = itemCoverage(items, w)
         val text =
           if kind == "community" then
             s"Which community does ${r.displayName} belong to ${win(w)}?"
@@ -719,55 +763,84 @@ final class BenchmarkGen(
           "community-component",
           text
         )
-        BenchItem(
-          q,
-          Label(
-            q.questionId,
-            cfg.version,
-            q.stratum,
-            kind,
-            Vector(r.id),
-            Some(w),
-            Vector(w),
-            Expected(
-              items,
-              Vector(
-                "groupSize" -> m.groupSize.toDouble,
-                "membersListed" -> others.size.toDouble
-              ),
-              false,
-              None,
-              Vector("groupId" -> Js.s(m.groupId))
-            ),
-            vecAvailable(status),
-            status,
-            avail,
-            total,
-            source(
-              if kind == "community" then "community-membership"
-              else "component-membership",
-              Some(m.ref),
-              m.ref +: groups
-                .getOrElse((w, m.groupId), Vector.empty)
-                .filter(_.researcherId != r.id)
-                .sortBy(_.researcherId)
-                .take(RuntimeLimits.MaxGroupSize)
-                .map(_.ref)
-            )
-          )
-        )
+        groupItem(q, kind, r, w, kind)
       }
-    build("community", "CC", 2, communityN, commIdx, commGroups, true, 1) ++
-      build(
-        "component",
-        "CC",
-        3,
-        componentN,
-        compIdx,
-        compGroups,
-        false,
-        communityN + 1
+    build("community", "CC", 2, communityN, commIdx, 1) ++
+      build("component", "CC", 3, componentN, compIdx, communityN + 1)
+
+  /** The label of a community or component question: grade 2 for the other
+    * members (up to `MaxGroupSize`), grade 1 for the cross-edge neighbours of a
+    * community. `kind` is `community` or `component`; `operation` is what the
+    * label records.
+    */
+  private def groupItem(
+      q: Question,
+      kind: String,
+      r: ResearcherRow,
+      w: String,
+      operation: String
+  ): BenchItem =
+    val (idx, groups, crossGrade) =
+      if kind == "community" then (commIdx, commGroups, true)
+      else (compIdx, compGroups, false)
+    val m = idx((r.id, w))
+    val others = groups
+      .getOrElse((w, m.groupId), Vector.empty)
+      .map(_.researcherId)
+      .filter(_ != r.id)
+      .sorted
+      .take(RuntimeLimits.MaxGroupSize)
+    val cross =
+      if crossGrade then
+        adjacency
+          .getOrElse((r.id, w), Vector.empty)
+          .filter(x => idx.get((x.other, w)).exists(_.groupId != m.groupId))
+          .map(_.other)
+          .distinct
+          .filterNot(others.contains)
+          .take(RuntimeLimits.CoauthorLimit)
+      else Vector.empty
+    val items =
+      others.map(ExpectedItem(_, 2)) ++ cross.map(ExpectedItem(_, 1))
+    val status = vecStatus(r.id, w)
+    val (avail, total) = itemCoverage(items, w)
+    BenchItem(
+      q,
+      Label(
+        q.questionId,
+        cfg.version,
+        q.stratum,
+        operation,
+        Vector(r.id),
+        Some(w),
+        Vector(w),
+        Expected(
+          items,
+          Vector(
+            "groupSize" -> m.groupSize.toDouble,
+            "membersListed" -> others.size.toDouble
+          ),
+          false,
+          None,
+          Vector("groupId" -> Js.s(m.groupId))
+        ),
+        vecAvailable(status),
+        status,
+        avail,
+        total,
+        source(
+          if kind == "community" then "community-membership"
+          else "component-membership",
+          Some(m.ref),
+          m.ref +: groups
+            .getOrElse((w, m.groupId), Vector.empty)
+            .filter(_.researcherId != r.id)
+            .sortBy(_.researcherId)
+            .take(RuntimeLimits.MaxGroupSize)
+            .map(_.ref)
+        )
       )
+    )
 
   private val windowPairs = Vector(
     ("2010-2014", "2015-2019"),
@@ -803,52 +876,61 @@ final class BenchmarkGen(
         case Some((w1, w2, r)) =>
           used += r.id
           made += 1
-          val a = metricsIdx((r.id, w1))
-          val b = metricsIdx((r.id, w2))
-          val numbers = Vector(
-            "publicationCount",
-            "distinctCoauthorCount",
-            "weightedDegree"
-          )
-            .flatMap { m =>
-              Vector(w1 -> a, w2 -> b).flatMap { (w, row) =>
-                row.values.get(m).map(v => s"$m[$w]" -> v)
-              }
-            }
-          val items = Vector(ExpectedItem(r.id, 2))
-          val status = vecStatus(r.id, w1)
           val q = Question(
             qid("TC", made),
             cfg.version,
             "temporal-comparison",
             s"Compare the publications of ${r.displayName} ${win(w1)} and ${win(w2)}."
           )
-          out += BenchItem(
-            q,
-            Label(
-              q.questionId,
-              cfg.version,
-              q.stratum,
-              "temporal-comparison",
-              Vector(r.id),
-              Some(w1),
-              Vector(w1, w2),
-              Expected(items, numbers, false, None),
-              vecAvailable(status),
-              status,
-              Vector(w1, w2).count(w =>
-                vecStatus(r.id, w) == VectorCoverage.Available
-              ),
-              2,
-              source("researcher-metrics", Some(a.ref), Vector(a.ref, b.ref))
-            )
-          )
+          out += temporalItem(q, r, w1, w2, "temporal-comparison")
         case None => ()
       k += 1
     val result = out.result()
     if result.size < n then
       shortfalls += s"temporal-comparison: wanted $n, produced ${result.size}"
     result
+
+  private def temporalItem(
+      q: Question,
+      r: ResearcherRow,
+      w1: String,
+      w2: String,
+      operation: String
+  ): BenchItem =
+    val a = metricsIdx((r.id, w1))
+    val b = metricsIdx((r.id, w2))
+    val numbers = Vector(
+      "publicationCount",
+      "distinctCoauthorCount",
+      "weightedDegree"
+    )
+      .flatMap { m =>
+        Vector(w1 -> a, w2 -> b).flatMap { (w, row) =>
+          row.values.get(m).map(v => s"$m[$w]" -> v)
+        }
+      }
+    val items = Vector(ExpectedItem(r.id, 2))
+    val status = vecStatus(r.id, w1)
+    BenchItem(
+      q,
+      Label(
+        q.questionId,
+        cfg.version,
+        q.stratum,
+        operation,
+        Vector(r.id),
+        Some(w1),
+        Vector(w1, w2),
+        Expected(items, numbers, false, None),
+        vecAvailable(status),
+        status,
+        Vector(w1, w2).count(w =>
+          vecStatus(r.id, w) == VectorCoverage.Available
+        ),
+        2,
+        source("researcher-metrics", Some(a.ref), Vector(a.ref, b.ref))
+      )
+    )
 
   private val firstNames = Vector(
     "Zephyrine",
@@ -884,7 +966,23 @@ final class BenchmarkGen(
       window: Option[String],
       table: String
   ): BenchItem =
-    val q = Question(qid("UA", code), cfg.version, "unanswerable", text)
+    abstainItem(
+      Question(qid("UA", code), cfg.version, "unanswerable", text),
+      cls,
+      op,
+      subjects,
+      window,
+      table
+    )
+
+  private def abstainItem(
+      q: Question,
+      cls: String,
+      op: String,
+      subjects: Vector[String],
+      window: Option[String],
+      table: String
+  ): BenchItem =
     BenchItem(
       q,
       Label(
@@ -1030,6 +1128,199 @@ final class BenchmarkGen(
       shortfalls += s"unanswerable: wanted $n, produced ${made.size}"
     made
 
+  /** Labels one human-written free-form question by the v1 rules, from the
+    * export tables only. Returns the item and the computed check values the
+    * human compares with an independent reading, or the reason it refuses
+    * (nothing is guessed): a subject name that is not exactly one canonical
+    * researcher, a window with no data, a ranking tie across the cut-off, fewer
+    * than N ranked, a list longer than the label caps, an unknown-researcher
+    * name that is in the export, or a citation metric that is in the export.
+    */
+  def freeForm(s: FreeFormSpec): Either[String, (BenchItem, Vector[String])] =
+    val q = Question(s.questionId, cfg.version, "free-form", s.text)
+    val tag = s.questionId
+    def window(w: String): Either[String, String] =
+      if presentWindows.contains(w) then Right(w)
+      else
+        Left(
+          s"$tag: window $w has no data (export windows: ${presentWindows.toVector.sorted.mkString(", ")})"
+        )
+    def subject(name: String): Either[String, ResearcherRow] =
+      canonical.filter(r =>
+        r.displayName.trim.toLowerCase == name.trim.toLowerCase
+      ) match
+        case Vector(one) => Right(one)
+        case Vector()    =>
+          Left(s"$tag: '$name' is not a canonical researcher (0 matches)")
+        case many =>
+          Left(
+            s"$tag: '$name' is ambiguous: ${many.size} canonical researchers (${many.map(_.id).mkString(", ")})"
+          )
+    def fmt(d: Double): String =
+      if d == math.rint(d) then d.toLong.toString
+      else String.format(java.util.Locale.ROOT, "%.4f", Double.box(d))
+    def metricOf(r: ResearcherRow, w: String, key: String): String =
+      metricsIdx.get((r.id, w)).flatMap(_.values.get(key)).fold("n/a")(fmt)
+    def mentionsNamed(name: String): Int =
+      t.researchers.count(x =>
+        x.id.startsWith("mention:") &&
+          x.displayName.trim.toLowerCase == name.trim.toLowerCase
+      )
+    def need[A](o: Option[A], what: String): Either[String, A] =
+      o.toRight(s"$tag: the spec has no $what")
+    s.intendedOperation match
+      case "researcher-lookup" =>
+        for
+          name <- need(s.subject, "subject")
+          r <- subject(name)
+          w <- need(s.windows.headOption, "window").flatMap(window)
+          _ <- Either.cond(
+            metricsIdx.contains((r.id, w)),
+            (),
+            s"$tag: ${r.id} has no researcher-metrics row in $w (window has no data)"
+          )
+        yield
+          val item = researcherLookupItem(q, r, w, s.labelOperation)
+          (
+            item,
+            Vector(
+              s"$tag subject=${r.displayName} id=${r.id} mentionsWithSameName=${mentionsNamed(name)} window=$w publicationCount=${metricOf(r, w, "publicationCount")} distinctCoauthorCount=${metricOf(r, w, "distinctCoauthorCount")} coauthorsListed=${item.label.expected.items.size - 1}"
+            )
+          )
+      case "coauthor-lookup" =>
+        for
+          name <- need(s.subject, "subject")
+          r <- subject(name)
+          w <- need(s.windows.headOption, "window").flatMap(window)
+          nbrs <- adjacency
+            .get((r.id, w))
+            .filter(_.nonEmpty)
+            .toRight(
+              s"$tag: ${r.id} has no coauthor edge in $w (window has no data)"
+            )
+          _ <- Either.cond(
+            nbrs.size <= RuntimeLimits.CoauthorLimit,
+            (),
+            s"$tag: ${r.id} has ${nbrs.size} coauthors in $w, more than the ${RuntimeLimits.CoauthorLimit} a label may hold"
+          )
+        yield (
+          coauthorLookupItem(q, r, w, s.labelOperation),
+          Vector(
+            s"$tag subject=${r.displayName} id=${r.id} mentionsWithSameName=${mentionsNamed(name)} window=$w coauthorCount=${nbrs.size} maxJoint=${nbrs.map(_.joint).max}"
+          )
+        )
+      case "community" =>
+        for
+          name <- need(s.subject, "subject")
+          r <- subject(name)
+          w <- need(s.windows.headOption, "window").flatMap(window)
+          m <- commIdx
+            .get((r.id, w))
+            .toRight(
+              s"$tag: ${r.id} has no community-membership row in $w (window has no data)"
+            )
+          _ <- Either.cond(
+            m.groupSize <= RuntimeLimits.MaxGroupSize,
+            (),
+            s"$tag: the community of ${r.id} in $w has ${m.groupSize} members, more than the ${RuntimeLimits.MaxGroupSize} a label may hold"
+          )
+        yield
+          val item = groupItem(q, "community", r, w, s.labelOperation)
+          (
+            item,
+            Vector(
+              s"$tag subject=${r.displayName} id=${r.id} mentionsWithSameName=${mentionsNamed(name)} window=$w groupId=${m.groupId} groupSize=${m.groupSize} itemsListed=${item.label.expected.items.size}"
+            )
+          )
+      case "temporal-comparison" =>
+        for
+          name <- need(s.subject, "subject")
+          r <- subject(name)
+          w1 <- need(s.windows.lift(0), "first window").flatMap(window)
+          w2 <- need(s.windows.lift(1), "second window").flatMap(window)
+          _ <- Either.cond(
+            metricsIdx.contains((r.id, w1)) && metricsIdx.contains((r.id, w2)),
+            (),
+            s"$tag: ${r.id} has no researcher-metrics row in both $w1 and $w2 (window has no data)"
+          )
+        yield (
+          temporalItem(q, r, w1, w2, s.labelOperation),
+          Vector(
+            s"$tag subject=${r.displayName} id=${r.id} mentionsWithSameName=${mentionsNamed(name)} publicationCount[$w1]=${metricOf(r, w1, "publicationCount")} publicationCount[$w2]=${metricOf(r, w2, "publicationCount")} distinctCoauthorCount[$w1]=${metricOf(r, w1, "distinctCoauthorCount")} distinctCoauthorCount[$w2]=${metricOf(r, w2, "distinctCoauthorCount")}"
+          )
+        )
+      case "ranking" =>
+        for
+          metric <- need(s.metric, "metric")
+          limit <- need(s.limit, "N")
+          w <- need(s.windows.headOption, "window").flatMap(window)
+          ranked <- rankingOrWhy(metric, w, limit).left.map(m => s"$tag: $m")
+        yield
+          val (entries, total) = ranked
+          (
+            rankingItem(q, metric, limit, w, entries, total, s.labelOperation),
+            Vector(
+              s"$tag metric=$metric window=$w N=$limit rankedTotal=$total values=${entries.map(e => fmt(e._2)).mkString(",")} ranks=${entries.map(_._3).mkString(",")} placeNPlus1=${scoredValues(metric, w).lift(limit).fold("none")(fmt)}"
+            )
+          )
+      case "unanswerable" =>
+        s.abstainClass match
+          case Some("unknown-researcher") =>
+            for
+              ghost <- need(s.absentName, "name that must be absent")
+              w <- need(s.windows.headOption, "window").flatMap(window)
+              _ <- Either.cond(
+                !allNames.contains(ghost.trim.toLowerCase),
+                (),
+                s"$tag: '$ghost' is in the export, so the question is answerable"
+              )
+            yield (
+              abstainItem(
+                q,
+                "unknown-researcher",
+                s.labelOperation,
+                Vector.empty,
+                Some(w),
+                "nodes-researcher"
+              ),
+              Vector(
+                s"$tag absentName=$ghost namesInExport=0 window=$w class=unknown-researcher expectedCodes=${AbstentionCodes.codesFor("unknown-researcher").mkString(",")}"
+              )
+            )
+          case Some("unrankable-metric") =>
+            val keys = t.metrics.flatMap(_.values.keys).distinct.sorted
+            for
+              w <- need(s.windows.headOption, "window").flatMap(window)
+              _ <- Either.cond(
+                !keys.exists(_.toLowerCase.contains("citation")),
+                (),
+                s"$tag: the export holds a citation metric (${keys.filter(_.toLowerCase.contains("citation")).mkString(", ")}), so the question is rankable"
+              )
+            yield (
+              abstainItem(
+                q,
+                "unrankable-metric",
+                s.labelOperation,
+                Vector.empty,
+                Some(w),
+                "researcher-metrics"
+              ),
+              Vector(
+                s"$tag class=unrankable-metric window=$w metricKeys=${keys.mkString(",")} citationKeys=0 expectedCodes=${AbstentionCodes.codesFor("unrankable-metric").mkString(",")}"
+              )
+            )
+          case other =>
+            Left(s"$tag: abstention class $other is not supported by the fill")
+      case other =>
+        Left(s"$tag: intended operation '$other' is not supported by the fill")
+
+  private def scoredValues(metric: String, window: String): Vector[Double] =
+    metricsByWindow
+      .getOrElse(window, Vector.empty)
+      .filter(m => !m.researcherId.startsWith("mention:"))
+      .flatMap(m => m.values.get(metric))
+      .sortBy(v => -v)
+
   private def freeFormSlots(): Vector[ujson.Value] =
     (1 to count("free-form")).toVector.map { i =>
       Js.obj(
@@ -1111,6 +1402,27 @@ object GeneratorState:
       )
     )
 
+/** The Scala versions a manifest records. `scala.util.Properties` reports the
+  * Scala 2.13 standard library that Scala 3 builds on, never the Scala 3
+  * version, so the Scala 3 library version is read from the file name of the
+  * jar that holds `scala.runtime.LazyVals` (a class of `scala3-library_3`
+  * only).
+  */
+object ScalaVersions:
+  private val Scala3Jar = """scala3-library_3-(.+)\.jar""".r
+
+  def fromJarName(name: String): Option[String] =
+    name match
+      case Scala3Jar(v) => Some(v)
+      case _            => None
+
+  def scala3Library: Option[String] =
+    try
+      val cls = Class.forName("scala.runtime.LazyVals$")
+      val location = cls.getProtectionDomain.getCodeSource.getLocation
+      fromJarName(Paths.get(location.toURI).getFileName.toString)
+    catch case _: Exception => None
+
 object BenchmarkGen:
   def generate(
       t: BenchTables,
@@ -1144,7 +1456,9 @@ object BenchmarkGen:
 
   /** A refusal reason for the options, or None. Unknown options, a run with
     * neither `--vector-export` nor `--no-vector-export yes`, both together, and
-    * `--chunkset-manifest` without `--vector-export` are all refused.
+    * `--chunkset-manifest` without `--vector-export` are all refused, and so is
+    * a `--seed` that is not a whole number (it used to fall back to the default
+    * seed silently).
     */
   def optionError(opts: Map[String, String]): Option[String] =
     val hasVector = opts.contains("--vector-export")
@@ -1152,6 +1466,12 @@ object BenchmarkGen:
     opts.keys.toVector.sorted
       .find(k => !KnownOptions.contains(k))
       .map(k => s"unknown option $k")
+      .orElse(
+        opts
+          .get("--seed")
+          .filter(_.toLongOption.isEmpty)
+          .map(s => s"--seed needs a whole number, got '$s'")
+      )
       .orElse(
         if noVector.exists(_ != "yes") then
           Some(s"$NoVectorFlag takes only the value yes")
@@ -1172,6 +1492,24 @@ object BenchmarkGen:
           Some("--chunkset-manifest needs --vector-export")
         else None
       )
+
+  /** Reads `--flag value` pairs. A flag with no value (last, or followed by
+    * another `--flag`) and a stray argument are refused with the reason; the
+    * caller prints `BENCHMARK ERROR: <reason>; nothing written` and exits 2.
+    */
+  def parseOptions(rest: Vector[String]): Either[String, Map[String, String]] =
+    @scala.annotation.tailrec
+    def go(
+        left: Vector[String],
+        acc: Map[String, String]
+    ): Either[String, Map[String, String]] =
+      if left.isEmpty then Right(acc)
+      else if !left.head.startsWith("--") then
+        Left(s"unexpected argument ${left.head}")
+      else if left.size < 2 || left(1).startsWith("--") then
+        Left(s"option ${left.head} needs a value")
+      else go(left.drop(2), acc.updated(left.head, left(1)))
+    go(rest, Map.empty)
 
   /** Names of the manifest checks of the coverage that are false. */
   def failedChecks(coverage: VectorCoverage): Vector[String] =
@@ -1241,7 +1579,12 @@ object BenchmarkGen:
       Vector(
         "benchmarkVersion" -> Js.s(v),
         "generatorVersion" -> Js.s(BenchConfig.GeneratorVersion),
-        "scalaVersion" -> Js.s(scala.util.Properties.versionNumberString),
+        "scala3LibraryVersion" -> Js.s(
+          ScalaVersions.scala3Library.getOrElse("UNRECORDED")
+        ),
+        "scala2StandardLibraryVersion" -> Js.s(
+          scala.util.Properties.versionNumberString
+        ),
         "seed" -> Js.l(cfg.seed),
         "sourceRunId" -> Js.s(sourceRunId),
         "exportManifestSha256" -> Js.opt(exportManifestSha),
@@ -1274,22 +1617,13 @@ object BenchmarkGen:
     System.exit(cli(args.toVector))
 
   def cli(args: Vector[String]): Int =
-    def options(
-        rest: Vector[String],
-        acc: Map[String, String]
-    ): Option[Map[String, String]] =
-      rest match
-        case Vector()                                       => Some(acc)
-        case flag +: value +: tail if flag.startsWith("--") =>
-          options(tail, acc.updated(flag, value))
-        case _ => None
     args match
       case dir +: out +: rest =>
-        options(rest, Map.empty) match
-          case None =>
-            println(Usage)
-            2
-          case Some(opts) =>
+        parseOptions(rest) match
+          case Left(why) =>
+            println(s"BENCHMARK ERROR: $why; nothing written")
+            ExitInputs
+          case Right(opts) =>
             val exportDir = Paths.get(dir)
             val cfg = BenchConfig(
               opts

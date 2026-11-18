@@ -2,11 +2,13 @@
 
 Phase 15 results (experiment-engineer, P15-46 step 3): the results summary is `RESULTS.md`, the limitations are `LIMITATIONS.md`, and the committed redacted results with their copy step are under `results/` (`results/README.md`). The paragraphs below predate the runs and still describe the drafts.
 
-Phase 15 Wave 1 update (experiment-engineer, nothing executed; repaired 2026-11-17 after review 1): manifests A and B were rewritten for tier S (decision P15-1 caps 90 min, 64, 20,000). `DATASET_SNAPSHOT` is filled (`scholarchain-s-20261107-10dd7f34121b`, reported by WO-4 and verified by the human); `ACCOUNT_ID` and `OUTPUT_ROOT` stay placeholders. B uses the full tier S cap (decision P15-16): `MAX_MINUTES=90`, `SPEND_CEILING_USD=2.40`, pipeline stop 88 min; its managed scaling is primary 1 plus core 1 to 3 (limits count core and task nodes only). Entry points `a-baseline/run.sh` (only if the audit verdict is RE-RUN, and it is) and `b-burst/run.sh` exist; B has a read-only collector, a derive script and rehearsals on synthetic fixtures. Details, open prerequisites and the paste-ready commands are in `a-baseline/README.md` and `b-burst/README.md`. `pipeline-inputs/s-run-input.draft.json` is superseded and stale (it uses input keys the pipeline script refuses); use the two `*.template.json` files. The rest of this file still describes the Phase 13 drafts; the A and B rows, the cost table and the "Per-key" notes below predate this update.
+Phase 15 Wave 1 update (experiment-engineer, nothing executed; repaired 2026-11-17 after review 1): manifests A and B were rewritten for tier S (decision P15-1 caps 90 min, 64, 20,000). `DATASET_SNAPSHOT` is filled (`scholarchain-s-20261107-10dd7f34121b`, reported by WO-4 and verified by the human); `ACCOUNT_ID` and `OUTPUT_ROOT` stay placeholders. B uses the full tier S cap (decision P15-16): `MAX_MINUTES=90`, `SPEND_CEILING_USD=2.40`, pipeline stop 88 min; its managed scaling is primary 1 plus core 1 to 3 (limits count core and task nodes only). Entry points `a-baseline/run.sh` (only if the audit verdict is RE-RUN, and it is) and `b-burst/run.sh` exist; B has a read-only collector, a derive script and rehearsals on synthetic fixtures. Details, open prerequisites and the paste-ready commands are in `a-baseline/README.md` and `b-burst/README.md`. `pipeline-inputs/s-run-input.draft.json` is superseded and stale (it uses input keys the pipeline script refuses); use the two `*.template.json` files. The rest of this file still describes the Phase 13 drafts; the A and B rows of the experiments table and the "Per-key" notes below predate this update. The cost table under "Cost per experiment" was refreshed in Phase 16 Wave 2 (W2-RB3) from the committed manifests A to H.
 
 Manifest JSON copies (decision P15-17): the course asks for a committed YAML or JSON manifest, and `scripts/run-experiment.sh` reads flat `KEY=VALUE`. Each manifest therefore keeps its `KEY=VALUE` file as the source (the approval record binds its sha256) and has a generated JSON copy `manifests/json/<name>.json` (all values are strings except `STOP_CONDITIONS`, `METRIC_NAMES` and `METRIC_NAMESPACES`, which are arrays). `bash experiments/check-manifest-json.sh` exits nonzero and names the key when any pair differs, when a JSON copy is missing, or when a JSON copy has no manifest. The edit rule: change the `KEY=VALUE` file, run `bash experiments/check-manifest-json.sh --generate`, commit both. `bash experiments/rehearse-manifest-json.sh` proves the check fails on a mismatch. The edit-time check is the human's or the test harness's to run; nothing in the approval path reads the JSON.
 
-Status: the six manifests under `experiments/manifests/` are DRAFTS. They are unapproved, unexecuted and valid only for `bash scripts/run-experiment.sh --dry-run`. Entry-point scripts and load generators are authored in Phase 15. None exists yet, so a dry run reports `CHECK_SKIPPED entry-point` for each manifest and a real run refuses (the entry point must be a tracked file). No placeholder script exists, on purpose: a stub that pretends to run would be worse than a missing file.
+Phase 16 Wave 2 update (experiment-engineer): two evaluation manifests, G (`experiment-g-retrieval.manifest`, retrieval quality in graph, vector and fused mode) and H (`experiment-h-answers.manifest`, answer quality in fused mode with Haiku 4.5), join A to F, so `experiments/manifests/` holds eight manifests. Both run on the laptop (the Scala entry points `RetrievalEval` and `AnswerEval` in `experiments/evaluation/`, started by `g-retrieval/run.sh` and `h-answers/run.sh`), are unapproved and unexecuted, and are valid under `scripts/run-experiment.sh` (experiment ids G and H are accepted). Their call caps, deadline margin and stop rules are in `g-retrieval/README.md` and `h-answers/README.md`; H's call cap is 460 (decision P16-29). The Haiku diagnostic (H-4) is the one evaluation run without a manifest (decision P16-28).
+
+Status of the Phase 13 text below: the six manifests A to F under `experiments/manifests/` were DRAFTS when this paragraph was written (they are now run; see `RESULTS.md`). They were unapproved, unexecuted and valid only for `bash scripts/run-experiment.sh --dry-run`. Entry-point scripts and load generators are authored in Phase 15. None exists yet, so a dry run reports `CHECK_SKIPPED entry-point` for each manifest and a real run refuses (the entry point must be a tracked file). No placeholder script exists, on purpose: a stub that pretends to run would be worse than a missing file.
 
 Nothing was executed: no AWS, no sbt, no experiment entry point. No approval record exists. The checks below are by reading `scripts/run-experiment.sh`. The test harness (`tests/scripts/run.sh`) dry-ran the six committed manifests in its own temporary repository: cases `8.committed-manifest.A` to `F` passed (`RESULT pass=546 fail=0`, `docs/agent-runs/phase-13/checks-3.md`). In that dry run each manifest passed `MANIFEST_VALID` and `LIMITS`, and the entry point was reported as `CHECK_SKIPPED` because it does not exist until Phase 15. That is not a dry run of `run-experiment.sh` against the real working tree, which refuses a dirty tree (see "Checks the human runs").
 
@@ -20,6 +22,8 @@ Nothing was executed: no AWS, no sbt, no experiment entry point. No approval rec
 | D | `experiment-d-query-load.manifest` | Query load at four concurrency levels: p50, p95, p99 latency, throughput, error rate, ECS tasks, CPU, memory, Neptune and DynamoDB behavior, vector-query and LLM latency. Design in `load-tests/README.md` | M | `load-tests/d-query-load/run.sh` |
 | E | `experiment-e-retrieval-modes.manifest` | Graph-only, S3-Vectors-only and fused retrieval (no OpenSearch exists, so no fourth mode) | M | `experiments/e-retrieval-modes/run.sh` |
 | F | `experiment-f-failure-recovery.manifest` | One safe fault; retry, dead-letter, idempotency and recovery | M | `experiments/f-failure-recovery/run.sh` |
+| G | `experiment-g-retrieval.manifest` | Retrieval quality of graph, vector and fused mode over benchmark v1 (Recall@K, Precision@K, nDCG@K, MRR, abstention outcomes); laptop runtime, Titan and S3 Vectors, stub answer model (Phase 16) | S | `experiments/g-retrieval/run.sh` |
+| H | `experiment-h-answers.manifest` | Answer quality in fused mode with Haiku 4.5: answer records, stop reasons, independent audit, a 20-answer human rating sample; laptop runtime, call cap 460, USD stop 2.00 (Phase 16) | S | `experiments/h-answers/run.sh` |
 
 No manifest uses tier L, so the human's tier L spend gate (G-L) is not triggered by these drafts.
 
@@ -64,21 +68,25 @@ Source: `infra/terraform/COST_ESTIMATE.md` (rates mostly UNVERIFIED; "LOW" is th
 
 | Id | Max minutes | Burn per hour (UNVERIFIED) | Projected window spend | `SPEND_CEILING_USD` | Nearest estimate row, session cost LOW / HIGH |
 |---|---|---|---|---|---|
-| A | 60 | 0.60 | 0.60 | 0.75 | 14.1 Pipeline S, 0.42 / 1.93 |
-| B | 90 | 2.02 | 3.03 | 3.50 | 15.3 Elasticity on M, 1.22 / 4.45 |
-| C | 60 | 0.70 | 0.70 | 1.00 | none; Titan tokens up to about 0.24 HIGH for 5,000 texts (section 2.2 rate, UNVERIFIED) |
-| D | 90 | 0.85 | 1.275 | 1.50 | 15.4 Load and latency, 2.70 / 6.77 |
-| E | 60 | 0.62 | 0.62 | 0.80 | 15.1 and 15.2 query sessions, 0.62 / 2.79 and 0.73 / 3.04 |
-| F | 30 | 0.62 | 0.31 | 0.50 | none |
-| Sum | | | 6.535 | 8.05 | |
+| A | 75 | 0.60 | 0.75 | 0.75 | 14.1 Pipeline S, 0.42 / 1.93 |
+| B | 90 | 1.55 | 2.325 | 2.40 | 15.3 Elasticity on M, 1.22 / 4.45 (Phase 13 mapping; B now runs tier S data) |
+| C | 60 | 0.45 | 0.45 | 0.60 | none; the ceiling includes Titan chunk tokens and S3 Vectors PUTs (manifest comments, HIGH about 0.58) |
+| D | 70 | 0.55 | 0.642 | 0.65 | 15.4 Load and latency, 2.70 / 6.77 (Phase 13 mapping) |
+| E | 60 | 0.42 | 0.42 | 0.45 | 15.1 and 15.2 query sessions, 0.62 / 2.79 and 0.73 / 3.04 (Phase 13 mapping) |
+| F | 30 | 0.40 | 0.20 | 0.25 | none |
+| G | 60 | 0.10 (nominal) | 0.10 | 0.25 | none; Titan and S3 only, no Haiku: expected under 0.05, HIGH 0.25 (plan.md, rates UNVERIFIED) |
+| H | 90 | 0.80 (nominal) | 1.20 | 2.00 | none; Haiku 4.5 through Bedrock: expected about 1.00, HIGH 2.00 (plan.md, rates UNVERIFIED) |
+| Sum A to H | | | 6.087 | 7.35 | |
 
-The ceilings bound the entry-point window only. The estimate rows are whole-session costs over 1 to 8 hours, so for B and D the ceiling is below the estimate's LOW or HIGH figure because the manifest caps the window at 90 minutes; the setup and teardown hours around it are not in the manifest. The cumulative ceiling is now 20 USD (decision D6; it replaced the 25 USD of `docs/agent-runs/phase-12/ratification.md`) and the script checks only that each `SPEND_CEILING_USD` is at most `--cost-ceiling-usd`, not the cumulative figure. The estimate itself puts S plus M at $25.42 at the HIGH bound, over the 20 USD ceiling (decision D8), and does not claim a fit, so the human reads Billing before each run (gates G-S, G-M) and records actual spend, and a ceiling here is not a forecast or a bill.
+Every row is read from the committed manifest in `experiments/manifests/` (`MAX_MINUTES`, `HOURLY_BURN_USD`, `SPEND_CEILING_USD`); projected spend is burn x max minutes / 60. The Sum covers all eight manifests A to H. Arithmetic: projected 0.75 + 2.325 + 0.45 + 0.642 (0.55 x 70 / 60 = 0.6417) + 0.42 + 0.20 + 0.10 + 1.20 = 6.087 (A to F alone 4.787, G and H 1.30); ceilings 0.75 + 2.40 + 0.60 + 0.65 + 0.45 + 0.25 + 0.25 + 2.00 = 7.35 (A to F alone 5.10, G and H 2.25). The "Nearest estimate row" column keeps the Phase 13 mapping and was not re-derived.
 
-Known limit accepted by the human (decision O1): a pipeline run at the estimate's HIGH hours may exceed the 60 and 90 minute caps of A and B. A timed-out run still spends and needs a new approval record.
+The ceilings bound the entry-point window only. The estimate rows are whole-session costs over 1 to 8 hours, so for B and D the ceiling is below the estimate's LOW or HIGH figure because the manifest caps the window (90 and 70 minutes); the setup and teardown hours around it are not in the manifest. The cumulative ceiling is now 20 USD (decision D6; it replaced the 25 USD of `docs/agent-runs/phase-12/ratification.md`) and the script checks only that each `SPEND_CEILING_USD` is at most `--cost-ceiling-usd`, not the cumulative figure. The estimate itself puts S plus M at $25.42 at the HIGH bound, over the 20 USD ceiling (decision D8), and does not claim a fit, so the human reads Billing before each run (gates G-S, G-M) and records actual spend, and a ceiling here is not a forecast or a bill.
+
+Known limit accepted by the human (decision O1): a pipeline run at the estimate's HIGH hours may exceed the then 60 (now 75) and 90 minute caps of A and B. A timed-out run still spends and needs a new approval record.
 
 ## Per-key check against the script
 
-The same table, for every manifest, is in the work report. Short form: every one of the 17 keys appears exactly once per file, every line is a comment or `KEY=VALUE` with no spaces, and `STOP_CONDITIONS` is `wall-clock,first-failure,spend-estimate` in all six.
+The same table, for every manifest, is in the work report. Short form: every one of the 17 keys appears exactly once per file, every line is a comment or `KEY=VALUE` with no spaces, and `STOP_CONDITIONS` is `wall-clock,first-failure,spend-estimate` in all eight (A to F and the Phase 16 manifests G and H).
 
 ## Checks the human runs
 
@@ -89,4 +97,4 @@ bash scripts/run-experiment.sh --print-digest --manifest /abs/path/to/experiment
 bash scripts/run-experiment.sh --dry-run --manifest /abs/path/to/experiments/manifests/experiment-a-baseline.manifest --environment course --account-id 123456789012 --region us-east-2 --cost-ceiling-usd 20 --approval-record /abs/path/to/approval.env
 ```
 
-Repeat for the other five manifests. Expect `MANIFEST_VALID`, `LIMITS`, then `CHECK_SKIPPED entry-point` and `DRY_RUN_COMPLETE`.
+Repeat for the other seven manifests. Expect `MANIFEST_VALID`, `LIMITS`, then `CHECK_SKIPPED entry-point` and `DRY_RUN_COMPLETE`.

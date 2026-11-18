@@ -162,6 +162,30 @@ object Js:
   def rate(num: Long, den: Long): ujson.Value =
     if den == 0L then ujson.Null else d(num.toDouble / den.toDouble)
 
+/** An append-only raw record file. It is created new (an existing file is an
+  * error) and every `append` goes straight to the operating system, with no
+  * user-space buffer, so a process killed after an append keeps that line. The
+  * caller hashes the file after `close`, before any summary is written.
+  */
+final class RawAppender(dir: Path, name: String) extends AutoCloseable:
+  val path: Path = dir.resolve(name)
+  private val out: java.io.OutputStream =
+    Files.newOutputStream(
+      path,
+      java.nio.file.StandardOpenOption.CREATE_NEW,
+      java.nio.file.StandardOpenOption.WRITE
+    )
+  private var closed = false
+
+  def append(line: String): Unit =
+    out.write((line + "\n").getBytes(UTF_8))
+    out.flush()
+
+  def close(): Unit =
+    if !closed then
+      closed = true
+      out.close()
+
 /** Write-once run directories with a SHA256SUMS seal. */
 object RunOutput:
   def stamp(): String =
@@ -182,6 +206,14 @@ object RunOutput:
     if Files.exists(target) then
       throw new IllegalStateException(s"Refusing to overwrite $target")
     Files.writeString(target, text, UTF_8)
+
+  /** The digest of the raw record file, written before any summary. */
+  def writeRawDigest(dir: Path, name: String): Unit =
+    write(
+      dir,
+      "RAW-SHA256SUMS",
+      s"${Digests.sha256File(dir.resolve(name))}  $name\n"
+    )
 
   /** Writes `SHA256SUMS` over every other regular file of the directory. */
   def seal(dir: Path): Unit =

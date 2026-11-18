@@ -807,6 +807,11 @@ object FactoryCounts:
     "Usage: FactoryCounts <agent-runs dir> <mapping tsv> <output base dir> " +
       "[--rewrites FILE] [--phases 1-15] [--run-id ID]"
 
+  /** A misspelt option (for example `--rewrite`) is refused by name: it used to
+    * be ignored, which gave a run with zero rewrites and no warning.
+    */
+  val KnownOptions: Set[String] = Set("--rewrites", "--phases", "--run-id")
+
   def main(args: Array[String]): Unit =
     System.exit(cli(args.toVector))
 
@@ -826,64 +831,125 @@ object FactoryCounts:
           case None =>
             println(Usage)
             2
+          case Some(opts) if opts.keys.exists(!KnownOptions.contains(_)) =>
+            refuse(
+              s"unknown option ${opts.keys.toVector.sorted.find(!KnownOptions.contains(_)).get}"
+            )
           case Some(opts) =>
             phaseNames(opts.getOrElse("--phases", "1-15")) match
               case Left(error) =>
                 println(error)
                 2
               case Right(phases) =>
-                val m = Mapping.load(Paths.get(mapping))
-                val rewrites = opts
-                  .get("--rewrites")
-                  .map(p => readRewrites(Paths.get(p)))
-                  .getOrElse(Vector.empty)
-                val report = compute(Paths.get(runs), phases, m, rewrites)
                 val runId = opts.getOrElse(
                   "--run-id",
                   s"factorycounts-${RunOutput.stamp()}"
                 )
-                val dir = RunOutput.createRunDir(Paths.get(out), runId)
-                RunOutput.write(
-                  dir,
-                  "factory-counts.json",
-                  ujson.write(report.counts, indent = 2) + "\n"
-                )
-                RunOutput.write(
-                  dir,
-                  "factory-evidence.tsv",
-                  ("category\tscope\tfile\tline\tdetail\ttext\n" +
-                    report.evidence
-                      .map(e =>
-                        s"${e.category}\t${e.scope}\t${e.file}\t${e.line}\t${e.detail}\t${e.text}"
-                      )
-                      .mkString("\n") + "\n")
-                )
-                RunOutput.write(
-                  dir,
-                  "factory-summary.txt",
-                  report.summary.mkString("", "\n", "\n")
-                )
-                RunOutput.write(
-                  dir,
-                  "run-info.json",
-                  ujson.write(
-                    Js.obj(
-                      Vector(
-                        "tool" -> Js.s(ToolVersion),
-                        "runId" -> Js.s(runId),
-                        "mappingSha256" -> Js.s(
-                          Digests.sha256File(Paths.get(mapping))
-                        ),
-                        "startedAt" -> Js.s(java.time.Instant.now().toString)
-                      )
-                    ),
-                    indent = 2
-                  ) + "\n"
-                )
-                RunOutput.seal(dir)
-                println(s"FACTORYCOUNTS RESULT: run directory $dir")
-                report.summary.foreach(println)
-                0
+                inputError(runs, mapping, opts.get("--rewrites"), out, runId)
+                  .map(refuse)
+                  .getOrElse {
+                    scala.util.Try {
+                      val m = Mapping.load(Paths.get(mapping))
+                      val rewrites = opts
+                        .get("--rewrites")
+                        .map(p => readRewrites(Paths.get(p)))
+                        .getOrElse(Vector.empty)
+                      compute(Paths.get(runs), phases, m, rewrites)
+                    }.toEither match
+                      case Left(e) =>
+                        val why =
+                          Option(e.getMessage).getOrElse(
+                            e.getClass.getSimpleName
+                          )
+                        refuse(s"the inputs could not be read: $why")
+                      case Right(report) =>
+                        writeRun(report, mapping, out, runId)
+                  }
       case _ =>
         println(Usage)
         2
+
+  /** Why the command cannot start, or None: every input must exist and be
+    * readable, and the run directory must not exist yet. Checked before any
+    * work, so a refusal writes nothing.
+    */
+  def inputError(
+      runs: String,
+      mapping: String,
+      rewrites: Option[String],
+      out: String,
+      runId: String
+  ): Option[String] =
+    def file(label: String, p: String): Option[String] =
+      val path = Paths.get(p)
+      if !Files.isRegularFile(path) then Some(s"$label $p is not a file")
+      else if !Files.isReadable(path) then Some(s"$label $p is not readable")
+      else None
+    val runsPath = Paths.get(runs)
+    val runsError =
+      if !Files.isDirectory(runsPath) then
+        Some(s"agent-runs directory $runs is not a directory")
+      else if !Files.isReadable(runsPath) then
+        Some(s"agent-runs directory $runs is not readable")
+      else None
+    runsError
+      .orElse(file("mapping file", mapping))
+      .orElse(rewrites.flatMap(file("rewrites file", _)))
+      .orElse(
+        if Files.exists(Paths.get(out).resolve(runId)) then
+          Some(s"run directory ${Paths.get(out).resolve(runId)} already exists")
+        else None
+      )
+
+  private def refuse(why: String): Int =
+    println(s"FACTORYCOUNTS ERROR: $why; nothing written")
+    2
+
+  private def writeRun(
+      report: FactoryReport,
+      mapping: String,
+      out: String,
+      runId: String
+  ): Int =
+    val dir = RunOutput.createRunDir(Paths.get(out), runId)
+    RunOutput.write(
+      dir,
+      "factory-counts.json",
+      ujson.write(report.counts, indent = 2) + "\n"
+    )
+    RunOutput.write(
+      dir,
+      "factory-evidence.tsv",
+      ("category\tscope\tfile\tline\tdetail\ttext\n" +
+        report.evidence
+          .map(e =>
+            s"${e.category}\t${e.scope}\t${e.file}\t${e.line}\t${e.detail}\t${e.text}"
+          )
+          .mkString("\n") + "\n")
+    )
+    RunOutput.write(
+      dir,
+      "factory-summary.txt",
+      report.summary.mkString("", "\n", "\n")
+    )
+    RunOutput.write(
+      dir,
+      "run-info.json",
+      ujson.write(
+        Js.obj(
+          Vector(
+            "tool" -> Js.s(ToolVersion),
+            "runId" -> Js.s(runId),
+            "mappingSha256" -> Js.s(
+              Digests.sha256File(Paths.get(mapping))
+            ),
+            "startedAt" -> Js.s(java.time.Instant.now().toString)
+          )
+        ),
+        indent = 2
+      ) + "\n"
+    )
+    RunOutput.seal(dir)
+    println(s"FACTORYCOUNTS RESULT: run directory $dir")
+    report.summary.foreach(println)
+    0
