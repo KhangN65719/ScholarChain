@@ -4,7 +4,7 @@
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp/readonly",
       "headers": {
-        "Authorization": "Bearer ${SCHOLARCHAIN_GITHUB_READ_TOKEN}"
+        "Authorization": "${SCHOLARCHAIN_GITHUB_AUTH_HEADER}"
       }
     },
     "aws-inspection": {

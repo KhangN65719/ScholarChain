@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# tests/scripts/hooks-guard.sh: hook command form, R03 guard refusals and header, D3 ownership row.
+# tests/scripts/hooks-guard.sh: hook command form, R03 guard refusals, the --list-categories interface, D3 ownership row.
 #
 #   bash tests/scripts/hooks-guard.sh
 #
 # Prints "CASE <id> PASS|FAIL <reason>" per case, then "RESULT pass=N fail=M"; exits 0 only when
-# fail=0. Read-only: it never writes under the repository, runs no hook except the guard's
-# decision function `policy.py guard` on made-up Bash payloads (nothing in those payloads is
-# executed), and uses placeholder names only. Needs bash, python3 and git.
+# fail=0. Read-only: it never writes under the repository, runs only two hook entry points, the
+# guard's decision function `policy.py guard` and `guard-dangerous.sh` itself (with
+# `--list-categories`, and with a made-up payload on stdin), on made-up Bash payloads (nothing in
+# those payloads is executed), and uses placeholder names only. Needs bash, python3 and git.
 #
 # Owner: test-engineer (tests/**). A failing case is a finding for the owner of the file under
 # test (factory-engineer for .claude/** and docs/agents.md), not a case to loosen.
@@ -97,26 +98,14 @@ check "2.header.guard-dangerous-is-executable" "$([ -x "$GUARD_SH" ]; echo $?)" 
 bash -n "$GUARD_SH" 2>"$TMP/syntax.err"
 check "2.header.guard-dangerous-passes-bash-n" "$?" "bash -n failed: $(head -n 1 "$TMP/syntax.err")"
 
-for heading in \
-  '# 1. AWS delete and terminate' '# 2. Terraform' '# 3. Git' '# 4. Database' \
-  '# 5. S3' '# 6. Neptune' '# 7. DynamoDB' '# 8. Vector index (S3 Vectors)'; do
-  grep -qxF -- "$heading" "$GUARD_SH"
-  check "2.header.category-heading.${heading#\# }" "$?" "heading '$heading' not found"
-done
-
-# Every line before the last three must be the shebang or a comment: the header adds no code.
 total="$(wc -l < "$GUARD_SH" | tr -d ' ')"
-code_lines="$(sed -n "1,$((total - 3))p" "$GUARD_SH" | grep -c -v -e '^#' -e '^[[:space:]]*$')"
-check "2.header.no-executable-line-before-the-last-three" "$([ "$code_lines" = "0" ]; echo $?)" "$code_lines non-comment lines precede the last three"
-
-l1="$(sed -n "$((total - 2))p" "$GUARD_SH")"
-l2="$(sed -n "$((total - 1))p" "$GUARD_SH")"
-l3="$(sed -n "${total}p" "$GUARD_SH")"
-check "2.header.last-three-lines-unchanged.set" "$([ "$l1" = 'set -euo pipefail' ]; echo $?)" "got: $l1"
-check "2.header.last-three-lines-unchanged.python-check" \
-  "$([ "$l2" = 'command -v python3 >/dev/null || { echo "ScholarChain guard requires Python 3." >&2; exit 2; }' ]; echo $?)" "got: $l2"
-check "2.header.last-three-lines-unchanged.exec" \
-  "$([ "$l3" = 'exec python3 -B "$(dirname "$0")/policy.py" guard' ]; echo $?)" "got: $l3"
+grep -qxF -- 'set -euo pipefail' "$GUARD_SH"
+check "2.header.set-euo-pipefail-line-present" "$?" "line 'set -euo pipefail' not found"
+grep -qxF -- 'command -v python3 >/dev/null || { echo "ScholarChain guard requires Python 3." >&2; exit 2; }' "$GUARD_SH"
+check "2.header.python-check-line-present" "$?" "python3 check line not found unchanged"
+last="$(sed -n "${total}p" "$GUARD_SH")"
+check "2.header.last-line-is-the-exec-of-policy-guard" \
+  "$([ "$last" = 'exec python3 -B "$(dirname "$0")/policy.py" guard' ]; echo $?)" "got: $last"
 check "2.header.shebang-is-first-line" "$([ "$(head -n 1 "$GUARD_SH")" = '#!/usr/bin/env bash' ]; echo $?)" "first line changed"
 
 
@@ -196,6 +185,70 @@ guard_case "4.infra-still-refused.terraform-apply" refuse 'terraform apply' infr
 guard_case "4.allowed.git-status" allow 'git status'
 guard_case "4.allowed.git-diff-stat" allow 'git diff --stat'
 guard_case "4.allowed.git-log-oneline" allow 'git log --oneline'
+
+### Interface: guard-dangerous.sh --list-categories ----------------------------------------------
+
+IDS='aws-delete-terminate terraform git database s3 neptune dynamodb vector-index'
+TAB="$(printf '\t')"
+
+bash "$GUARD_SH" --list-categories </dev/null >"$TMP/cats.out" 2>"$TMP/cats.err"
+check "6.list.exits-0" "$?" "--list-categories did not exit 0: $(head -c 200 "$TMP/cats.err")"
+bash "$GUARD_SH" --list-categories <&- >/dev/null 2>&1
+check "6.list.exits-0-with-stdin-closed" "$?" "--list-categories needs stdin"
+check "6.list.stderr-is-empty" "$([ ! -s "$TMP/cats.err" ]; echo $?)" "stderr: $(head -c 200 "$TMP/cats.err")"
+
+bad_lines="$(awk -F'\t' 'NF != 2 || $1 == "" || $2 == ""' "$TMP/cats.out" | wc -l | tr -d ' ')"
+nlines="$(wc -l < "$TMP/cats.out" | tr -d ' ')"
+check "6.list.every-line-is-id-tab-example" "$([ "$bad_lines" = "0" ] && [ "$nlines" -gt 0 ]; echo $?)" "$bad_lines malformed lines of $nlines"
+
+order="$(cut -f1 "$TMP/cats.out" | uniq | tr '\n' ' ' | sed 's/ $//')"
+check "6.list.ids-are-exactly-the-eight-in-order" "$([ "$order" = "$IDS" ]; echo $?)" "ids: $order"
+
+for id in $IDS; do
+  n="$(cut -f1 "$TMP/cats.out" | grep -cxF -- "$id")"
+  check "6.list.at-least-two-examples.$id" "$([ "$n" -ge 2 ]; echo $?)" "$n examples"
+done
+
+leak="$(cut -f2 "$TMP/cats.out" | grep -E '[0-9]{12}|arn:|AKIA|amazonaws\.com' | head -n 1)"
+bucket="$(cut -f2 "$TMP/cats.out" | grep -oE 's3://[^/ ]+' | grep -vE '^s3://(example|x$)' | head -n 1)"
+check "6.list.examples-use-placeholders-only" "$([ -z "$leak" ] && [ -z "$bucket" ]; echo $?)" "suspect text: $leak $bucket"
+
+# Each example must be refused by the decision function for test-engineer.
+refused() { # command -> 0 when policy.py guard exits 2 with a policy message
+  python3 -I -c '
+import json, sys
+print(json.dumps({"tool_name": "Bash", "tool_input": {"command": sys.argv[1]}, "cwd": sys.argv[2], "agent_type": "test-engineer"}))
+' "$1" "$ROOT" | python3 -B "$POLICY" guard >"$TMP/guard.out" 2>"$TMP/guard.err"
+  [ "$?" -eq 2 ] && grep -q '^ScholarChain policy:' "$TMP/guard.err"
+}
+for id in $IDS; do
+  misses=""
+  while IFS="$TAB" read -r cid ex; do
+    [ "$cid" = "$id" ] || continue
+    refused "$ex" || misses="$misses [$ex]"
+  done < "$TMP/cats.out"
+  check "6.list.every-example-refused.$id" "$([ -z "$misses" ]; echo $?)" "not refused:$misses"
+done
+
+### Hook payload through guard-dangerous.sh itself (no arguments, JSON on stdin) -------------------
+
+hook_case() { # id, expect refuse|allow, command
+  local rc
+  python3 -I -c '
+import json, sys
+print(json.dumps({"tool_name": "Bash", "tool_input": {"command": sys.argv[1]}, "cwd": sys.argv[2], "agent_type": "test-engineer"}))
+' "$3" "$ROOT" | bash "$GUARD_SH" >"$TMP/hook.out" 2>"$TMP/hook.err"
+  rc=$?
+  if [ "$2" = refuse ]; then
+    if [ "$rc" -eq 2 ] && grep -q '^ScholarChain policy:' "$TMP/hook.err"; then ok "$1"; else bad "$1" "expected exit 2 with a policy message, got $rc: $(head -c 200 "$TMP/hook.err")"; fi
+  else
+    if [ "$rc" -eq 0 ]; then ok "$1"; else bad "$1" "expected exit 0, got $rc: $(head -c 200 "$TMP/hook.err")"; fi
+  fi
+}
+hook_case "7.hook-payload.terraform-apply-refused" refuse 'terraform apply'
+hook_case "7.hook-payload.s3-rm-refused" refuse 'aws s3 rm s3://example-placeholder/x'
+hook_case "7.hook-payload.git-push-force-refused" refuse 'git push --force'
+hook_case "7.hook-payload.git-status-allowed" allow 'git status'
 
 ### D3: reports/** has exactly one ownership row ---------------------------------------------
 

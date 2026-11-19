@@ -75,6 +75,35 @@
 # write fence (policy.py:179-197) covers only Git metadata, the test marker and the constitution,
 # refuses all code-reviewer writes, and confines factory-engineer, test-engineer, deploy-engineer
 # and service-engineer to their paths. It is not a general per-owner path fence. See policy.py.
+#
+# CATEGORY_EXAMPLES below lists one refused example per line for each category above, as
+# <category-id><TAB><example>, in the same order. `--list-categories` prints it. The array decides
+# nothing: policy.py stays the only enforcer, and the harness pipes each example to it.
 set -euo pipefail
+CATEGORY_EXAMPLES=(
+  $'aws-delete-terminate\taws ec2 terminate-instances i-0abc'
+  $'aws-delete-terminate\taws ecr delete-repository example-placeholder'
+  $'terraform\tterraform apply'
+  $'terraform\tterraform -chdir=x destroy'
+  $'terraform\ttofu destroy'
+  $'git\tgit push --force'
+  $'git\tgit push origin --delete x'
+  $'git\tgit reset --hard'
+  $'database\tDROP TABLE x'
+  $'database\tDELETE FROM x'
+  $'s3\taws s3 rm s3://example-placeholder'
+  $'s3\taws s3 rb s3://example-placeholder'
+  $'neptune\taws neptune delete-db-cluster x'
+  $'neptune\taws neptunedata cancel-query x'
+  $'dynamodb\taws dynamodb delete-table x'
+  $'dynamodb\taws dynamodb delete-item x'
+  $'vector-index\taws s3vectors delete-index x'
+  $'vector-index\taws s3vectors delete-vector-bucket x'
+)
+readonly CATEGORY_EXAMPLES
+if [ "$#" -eq 1 ] && [ "$1" = "--list-categories" ]; then
+  printf '%s\n' "${CATEGORY_EXAMPLES[@]}"
+  exit 0
+fi
 command -v python3 >/dev/null || { echo "ScholarChain guard requires Python 3." >&2; exit 2; }
 exec python3 -B "$(dirname "$0")/policy.py" guard
