@@ -1,6 +1,6 @@
 # Phase 16 evaluation: measured facts (frozen outputs only)
 
-Author: experiment-engineer. Work orders W2-DOC1 (sections 1 to 5, 2026-11-18), W2-DOC2 (sections 6 to 8 and the corrections of decision P16-42, 2026-11-19) and W2-DOC3 (2026-11-19: `h-audit-2` figures, the H spend wording of P16-44, the H-1c reading of P16-43 and the SUMMARY.txt rewrite note). Path: `experiments/EVALUATION.md` (plan.md WO-9 write set; `docs/evaluation.md` is WO-10's interpretation document and is not this file). Status: written for independent review; nothing here is a reviewed or accepted result.
+Author: experiment-engineer. Work orders W2-DOC1 (sections 1 to 5, 2026-11-18), W2-DOC2 (sections 6 to 8 and the corrections of decision P16-42, 2026-11-19) and W2-DOC3 (2026-11-19: `h-audit-2` figures, the H spend wording of P16-44, the H-1c reading of P16-43 and the SUMMARY.txt rewrite note), W2-DOC4 (2026-11-19: section 6.4, the human rating sample, from the frozen rating file; decisions P16-42 and P16-46), W2-DOC5 (2026-11-19: the human's H-8 provenance and H-9 factory audit results, sections 1.2, 2.3, 2.3a and 8), W2-DOC6 (2026-11-19: section 7 reproducibility, the clean-checkout build and the phase-gate `sbt clean check`, and the lines that called that build pending in sections 8 and Sources) and W2-DOC7 (2026-11-19: the human-relayed H-12 B to F regeneration, sections 7 and 8 and Sources). Path: `experiments/EVALUATION.md` (plan.md WO-9 write set; `docs/evaluation.md` is WO-10's interpretation document and is not this file). Status: written for independent review; nothing here is a reviewed or accepted result.
 
 Rules for this file:
 
@@ -48,7 +48,9 @@ Run `graphchecks-a-export-2`, tool `graph-checks/1.2.0`, seed 16, sample 50, sta
 
 Rates: `edgeSupportRate` 1; `jointCountAgreementRate` 1; `orphanResearcherRate` 0; `orphanWorkRate` 0; `danglingEndpointRate` 0; `pathHopFailureRate` 0; `provenanceMismatchRate` 0. `provenanceMismatchesByTable`: 0 in all 17 tables. Detail: `edges[coauthor:v1]` 19,483; `edges[mention-coauthor:v1]` 79,178 (arithmetic: 98,661, equals edgesTotal); `edgesWithoutSupport` 0 for both kinds.
 
-Provenance trace: `traceSampleSize` 50, `traceSampled` 50, `traceIncomplete` 0 (full trace lines in `RUNS/graphchecks-a-export-2/provenance-trace.jsonl`; not read). The human's check of 10 traced edges (plan H-8) is NOT RECORDED in the files read.
+Provenance trace: `traceSampleSize` 50, `traceSampled` 50, `traceIncomplete` 0 (full trace lines in `RUNS/graphchecks-a-export-2/provenance-trace.jsonl`; not read). 
+
+Human check of traced edges (plan H-8; `human-commands.md` "Results recorded", 2026-11-19, H-8 row; recorded by W2-DOC5). The sheet was made by Claude in chat with its own script over the frozen trace, independent of agent code: `SCD/phase16-h8-provenance-sheet.md` (a `.html` copy is named in the row; not read). The human relayed: 45 of the 50 traced edges have a DBLP supporting work; the sheet used the first 10 of those 45; the human checked those 10 on dblp.org; 10 of 10 OK (both coauthors on the DBLP record and the year inside the edge's window). Selection rule, as given: the first 10 DBLP-backed edges in the trace order, not a fresh random draw (the 50 are GraphChecks' seeded sample, seed 16; the sheet header states the same rule). I read the sheet and confirm it holds 10 rows, with the OK column blank (the result is the human's relay; the sheet is not the marked record). The "45 of 50" is the human's figure; I did not read `provenance-trace.jsonl` and did not recount it. The 5 non-DBLP traced edges were outside the check: they have no recorded check. Counted by reading, the 10 sheet rows carry window "all" on 6 and "2020-2029" on 4 (arithmetic 6 + 4 = 10). Names and titles are not copied. Limits: one auditor, 10 edges, all DBLP-backed and taken in trace order; the check covers both coauthors on the record and the year in the window only, and does not cover the edge's `jointPublicationCount` or the supporting-row count.
 
 Path hops: 27 hops checked of the 42 `path-evidence` rows; matching rule exact `edgeId`, then endpoints, then window, no normalising (decision P16-8).
 
@@ -137,8 +139,38 @@ No agent is shown as a percentage because the denominators are 1 to 14 (decision
 
 - 44 review files were left unparsed and 23 findings are unclassified (`factory-summary.txt` lines 4-5 agree: 44 and 23).
 - 0 ownership violations were counted (`factory-summary.txt` line 3); the same file counts 150 hook or guard refusal events, of which 37 are keyword-classed state-changing and 80 unclassified. The two counters measure different things (a keyword class over prose lines); this file draws no link between them.
-- H-9 (the human audits the counts for one phase) is NOT RECORDED in the files read.
-- Human-annotated rewrites: 0 (`factory-summary.txt` line 10; the rewrites input is `experiments/evaluation/factory-rewrites.tsv`, not read).
+- H-9 (the human audits the counts for one phase): recorded in 2.3a below (human's audit of Phase 14, `human-commands.md` H-9 row, 2026-11-19).
+- Human-annotated rewrites: 0 (`factory-summary.txt` line 10; the rewrites input is `experiments/evaluation/factory-rewrites.tsv`, not read). The human's statement (H-9 Q2, 2.3a): no substantial human rewrites, "none, confirmed by the human"; the tsv stays empty. The 0 stands as the human's statement, not as a parser finding.
+
+### 2.3a Factory-count precision: the human's audit of Phase 14 (plan H-9; recorded by W2-DOC5)
+
+Sources: `human-commands.md` "Results recorded", H-9 rows, 2026-11-19; the sheet `SCD/phase16-h9-factory-sheet.md` (made by Claude in chat with its own script over the frozen `factorycounts-1` output, independent of agent code). The human's relay row in `human-commands.md` (H-9, 2026-11-19) states that the categories were sampled with seed 16. The human marked the items. I read the sheet for the item lists and the Phase 14 counts it prints; its OK column is blank, so the marks below are the human's relay. No count here is recomputed. `factory-counts.json` was read only at lines 168, 262, 265, 453-455 and 462-464, for comparison (cited in 149 and 169); `factory-evidence.tsv` was not read.
+
+Phase 14 counts as printed on the sheet: BLOCKED-ON events 6, BLOCKED-ON mentions 71, first-pass "no review" 12, hook or guard refusal prose 9, human rulings 26, repair files 5. Of these, BLOCKED-ON events 6 and repair files 5 match the frozen `factory-counts.json` (`blockedOnEventsByPhase` "phase-14" at line 262; `repairFilesByScope` "phase-14" at line 168). Mentions 71, refusals 9 and rulings 26 have no per-phase field in the JSON (totals only: 264 at line 265, 153 prose lines and 150 events at lines 454-455, 135 at line 453), so they rest on the sheet.
+
+Items audited (the sheet's draw: all 6 BLOCKED-ON events, all 5 repair files, 5 of 26 human rulings, 4 of 9 refusals) and the human's marks:
+
+| Category | Audited | Correct | Share (arithmetic) |
+|---|---|---|---|
+| BLOCKED-ON events | 6 | 5 | 5/6 |
+| Repair files | 5 | 5 | 5/5 |
+| Human rulings | 5 | 3 | 3/5 |
+| Hook or guard refusals | 4 | 3 | 3/4 |
+| Total counted items | 20 | 16 | 16/20 = 80% |
+
+(Arithmetic: 6 + 5 + 5 + 4 = 20; 5 + 5 + 3 + 3 = 16.)
+
+False-positive kinds the human named (4 of 20 items):
+
+- A status line "BLOCKED-ON OWNER: none" was counted as a BLOCKED-ON event (BLOCKED-ON events item 5; it is not a blocked state).
+- A deploy result (item D24) and account facts (item D1) were counted as human rulings (2 of the 5 rulings).
+- A read-only note (`report-51` line 95) was counted as a hook or guard refusal.
+
+Question 1 (the miss): Phase 14 reviews are recorded in `decisions-d33.md`, `decisions-d34.md` and `decisions-d35.md`, not in verdict files. The tool's Phase 14 first-pass "without review" count of 12 (the human's wording; the figure is printed on the sheet) is therefore wrong. It is a known parser limit for Phase 14: the tool pairs reviews through verdict files. The frozen `factory-counts.json` (lines 462-464) holds `firstPassPairs` 86, `firstPassPairsReviewed` 74 and `firstPassPairsWithoutReview` 12 as totals over phases 1-15, with no per-phase first-pass field, so attributing the 12 to Phase 14 rests on the sheet and the human. The 2.2 denominators sum to 74 (8 + 6 + 3 + 1 + 1 + 4 + 2 + 4 + 4 + 4 + 5 + 5 + 3 + 6 + 4 + 14 = 74), which equals `firstPassPairsReviewed`, so the 12 unreviewed pairs appear in no 2.2 row: the missed reviews exclude those pairs from 2.2 rather than miscount rows. This is not recomputed here; which pairs and which agents the 12 belong to is NOT DERIVED.
+
+Question 2: no substantial human rewrites (the human's answer; "none, confirmed by the human"). `factory-rewrites.tsv` stays empty, and no FactoryCounts rerun was made.
+
+Limits: one auditor, one phase (Phase 14 of the 15 counted), a sample of 20 items, and 2 categories audited in full and 2 by a draw (human rulings 5 of 26, refusals 4 of 9); the 80% is a share of this sample, not a precision of the tool across phases. Two categories were not audited at all: BLOCKED-ON mentions (71) and first-pass counts apart from the miss in Question 1.
 
 ### 2.4 Limits
 
@@ -367,7 +399,7 @@ Console (human): `ANSWER_RESULT status=COMPLETE ... halt=none`, `ANSWER_COST spe
 
 ## 6. Retrieval, answers, audit, rating and entity resolution
 
-All figures in 6.1 to 6.5 come from frozen run directories under `RUNS` (read-only; `exp-G-*` and `exp-H-*` carry `run-record.env` with `RECORD_COMPLETE=yes`).
+All figures in 6.1 to 6.5 come from frozen run directories under `RUNS` (read-only; `exp-G-*` and `exp-H-*` carry `run-record.env` with `RECORD_COMPLETE=yes`). Exception: the figures in 6.4 come from the human's rating CSVs and `phase16-rating-SHA256SUMS`, which are in `SCD`, not under `RUNS`. They are frozen by the human's chmod and sha256 record (the freeze record in 6.4, lines "Sources" and "Freeze record"), not by a run record; only `rating-sample-key.json` is under `RUNS`.
 
 ### 6.1 Retrieval quality (G) `exp-G-20261119T053608Z-2e8943cf`
 
@@ -616,7 +648,111 @@ Limits: the audit and the labels share the export (`h-answers/README.md`); path-
 
 ### 6.4 Human rating sample
 
-NOT DERIVED: pending the human's rating. The 20-row sample `rating-sample.csv` exists beside `answers.jsonl` in the H run directory (`human-commands.md` "Pending: after the overnight chain"; rubric in plan.md). The file holds question and answer text and was not read; `rating-sample-key.json` was not opened. Single rater, so no inter-rater agreement (plan, rubric).
+Sources (W2-DOC4): `SCD/phase16-rating-filled.csv` (frozen, read-only), `SCD/phase16-rating-filled.as-entered.csv`, `SCD/phase16-rating-SHA256SUMS`, and `rating-sample-key.json` in `RUNS/exp-H-20261119T053926Z-2e8943cf/raw/answers/`. The rating files hold question, answer and evidence text; none of that text is copied here, and no note text is copied. In both rating files the `note` column is the empty string on all 20 rows (0 rows have a note; counted by reading).
+
+Freeze record (the human's, `phase16-rating-SHA256SUMS`): `phase16-rating-filled.csv` sha256 `65cc1b77ec…` and `phase16-rating-filled.as-entered.csv` sha256 `809744048b…` (full values in that file). I cannot hash files; I did not recompute these values, and they are cited as the human's record.
+
+Procedure facts (decision P16-46, H-11): the human rated the 20-answer sample (columns sampleId, question, answer, evidence, usefulness 1 to 5, clarity 1 to 5, supported yes or no, abstention appropriate yes, no or n.a., note) seeing the question, the answer and the evidence, and no metrics; the human did not see the key while rating. `rating-sample-key.json` was opened only after the rating was complete, to identify the 6 refusals. Single rater: there is no inter-rater agreement, and plan D7 names this as a threat to validity.
+
+Rubric and sample design: the 1 to 5 scales for usefulness and clarity, and the supported and abstention-appropriate fields, are defined in `docs/agent-runs/phase-16/plan.md`, "Human rating rubric (D7)", lines 82 to 85; they are not copied here. Plan line 80 sets the sample: 20 Haiku answers, stratified, 2 or 3 per answerable stratum, 3 abstentions and 2 free-form. The key's `group` field matches: `abstention` is S03, S08 and S14 (3 rows); `free-form` is S09 and S18 (2 rows); the other 15 rows carry their stratum name as `group`. S08 is in the `abstention` group but its `stratum` is `free-form` and it is an answered row; the key does not say why it is in that group.
+
+Abstention-column correction (P16-46): the abstention column was entered "yes" on all 20 rows (as-entered file; counted by reading the last fields of all 20 rows: yes 20, no 0, n.a. 0). At the human's instruction, Claude in chat then corrected it: n.a. for the 14 answered rows; for the 6 refusals S03 yes, S14 yes, S02 no, S16 no, S18 no, S20 no (the frozen file; counted: yes 2, no 4, n.a. 14). I compared usefulness, clarity, supported and note of all 20 rows between the two files by reading: they are equal; 18 of 20 rows differ in the abstention column only (14 yes to n.a., 4 yes to no; S03 and S14 are unchanged). I did not compare the question, answer and evidence text of the two files cell by cell. The frozen abstention values therefore come from the human's instruction applied by Claude in chat, not from the human's own entry, and the as-entered copy is kept.
+
+Classification used below: "refused" is the 6 rows the key marks `abstained` true (S02, S03, S14, S16, S18, S20); I also read the answer text of each of these 6 and of the other 14 rows by reading, and the split agrees (the 6 are the refusal replies; the 14 give an answer). "Answered" is the other 14 rows. The key was used for this split and for strata only.
+
+#### 6.4.1 Scores by sampleId (frozen file; sampleId order; U usefulness, C clarity, Sup supported)
+
+| sampleId | Stratum (key) | Answered or refused | U | C | Sup | Abstention appropriate (frozen) | Abstention appropriate (as-entered) |
+|---|---|---|---|---|---|---|---|
+| S01 | community-component | answered | 3 | 3 | yes | n.a. | yes |
+| S02 | researcher-lookup | refused | 4 | 4 | yes | no | yes |
+| S03 | unanswerable | refused | 5 | 5 | yes | yes | yes |
+| S04 | coauthor-lookup | answered | 4 | 5 | yes | n.a. | yes |
+| S05 | temporal-comparison | answered | 5 | 5 | yes | n.a. | yes |
+| S06 | temporal-comparison | answered | 5 | 5 | yes | n.a. | yes |
+| S07 | ranking | answered | 5 | 2 | yes | n.a. | yes |
+| S08 | free-form | answered | 5 | 5 | yes | n.a. | yes |
+| S09 | free-form | answered | 4 | 5 | yes | n.a. | yes |
+| S10 | researcher-lookup | answered | 5 | 5 | yes | n.a. | yes |
+| S11 | ranking | answered | 4 | 5 | yes | n.a. | yes |
+| S12 | researcher-lookup | answered | 5 | 5 | yes | n.a. | yes |
+| S13 | coauthor-lookup | answered | 4 | 3 | yes | n.a. | yes |
+| S14 | unanswerable | refused | 2 | 3 | yes | yes | yes |
+| S15 | ranking | answered | 4 | 5 | yes | n.a. | yes |
+| S16 | shortest-path | refused | 3 | 2 | yes | no | yes |
+| S17 | coauthor-lookup | answered | 5 | 5 | yes | n.a. | yes |
+| S18 | free-form | refused | 2 | 5 | yes | no | yes |
+| S19 | community-component | answered | 3 | 4 | yes | n.a. | yes |
+| S20 | shortest-path | refused | 3 | 2 | yes | no | yes |
+
+The scores are equal in both files (checked above). S08 is in the key's `group` "abstention" and `stratum` "free-form"; it is an answered row (`abstained` false) and the stratum column above is the key's `stratum` field.
+
+#### 6.4.2 Distributions (counts of each score; counted from 6.4.1)
+
+| Score | Usefulness (rows) | Clarity (rows) |
+|---|---|---|
+| 1 | 0 | 0 |
+| 2 | 2 (S14, S18) | 3 (S07, S16, S20) |
+| 3 | 4 (S01, S16, S19, S20) | 3 (S01, S13, S14) |
+| 4 | 6 (S02, S04, S09, S11, S13, S15) | 2 (S02, S19) |
+| 5 | 8 (S03, S05, S06, S07, S08, S10, S12, S17) | 12 (S03, S04, S05, S06, S08, S09, S10, S11, S12, S15, S17, S18) |
+| total | 20 | 20 |
+
+Arithmetic: usefulness 0+2+4+6+8 = 20, sum 2x2 + 3x4 + 4x6 + 5x8 = 4 + 12 + 24 + 40 = 80; clarity 0+3+3+2+12 = 20, sum 2x3 + 3x3 + 4x2 + 5x12 = 6 + 9 + 8 + 60 = 83.
+
+Supported: yes 20, no 0 (all 20 rows read). Abstention appropriate (frozen): yes 2 (S03, S14), no 4 (S02, S16, S18, S20), n.a. 14. The as-entered column: yes 20.
+
+#### 6.4.3 Means (arithmetic; 2 decimals, rounded half up from the quotient shown)
+
+| Group | Rows | Usefulness sum / mean | Clarity sum / mean |
+|---|---|---|---|
+| All | 20 | 80 / 20 = 4.00 | 83 / 20 = 4.15 |
+| Answered (14 rows) | 14 | 61 / 14 = 4.357, 4.36 | 62 / 14 = 4.429, 4.43 |
+| Refused (6 rows) | 6 | 19 / 6 = 3.167, 3.17 | 21 / 6 = 3.50 |
+
+Inputs: refused usefulness S02 4 + S03 5 + S14 2 + S16 3 + S18 2 + S20 3 = 19; refused clarity 4 + 5 + 3 + 2 + 5 + 2 = 21; answered sums are the totals less the refused sums (arithmetic: 80 - 19 = 61; 83 - 21 = 62). The means are descriptive of 20 rows by one rater; no interval is computed.
+
+#### 6.4.4 Counts by stratum (key `stratum`; counted)
+
+| Stratum | Rows | Refused | Sample ids |
+|---|---|---|---|
+| researcher-lookup | 3 | 1 | S02, S10, S12 |
+| coauthor-lookup | 3 | 0 | S04, S13, S17 |
+| ranking | 3 | 0 | S07, S11, S15 |
+| shortest-path | 2 | 2 | S16, S20 |
+| community-component | 2 | 0 | S01, S19 |
+| temporal-comparison | 2 | 0 | S05, S06 |
+| unanswerable | 2 | 2 | S03, S14 |
+| free-form | 3 | 1 | S08, S09, S18 |
+| total | 20 | 6 | |
+
+Arithmetic: 3+3+3+2+2+2+2+3 = 20; refused 1+0+0+2+0+0+2+1 = 6. No per-stratum mean is given because the strata hold 2 or 3 rows each.
+
+#### 6.4.5 Check against the human's own figures (given in the work order)
+
+| Figure | Human | Counted here | Result |
+|---|---|---|---|
+| Rows | 20 | 20 | match |
+| Usefulness mean, all | 4.00 | 80 / 20 = 4.00 | match |
+| Usefulness mean, answered (14) | 4.36 | 61 / 14 = 4.357 | match |
+| Usefulness mean, refusals (6) | 3.17 | 19 / 6 = 3.167 | match |
+| Clarity mean, all | 4.15 | 83 / 20 = 4.15 | match |
+| Clarity mean, answered | 4.43 | 62 / 14 = 4.429 | match |
+| Clarity mean, refusals | 3.50 | 21 / 6 = 3.50 | match |
+| Supported | 20 of 20 yes | 20 of 20 yes | match |
+| Abstention appropriate yes | 2 (S03, S14) | 2 (S03, S14) | match |
+| Abstention appropriate no | 4 (S02, S16, S18, S20) | 4 (S02, S16, S18, S20) | match |
+| Abstention appropriate n.a. | 14 | 14 | match |
+
+There is no difference to report.
+
+#### 6.4.6 Limits
+
+- One rater, 20 rows; no inter-rater agreement (plan D7). Whether the rater is the person who wrote the free-form questions and checked 15 labels (section 3.5) is not stated in the files read.
+- The sample is 20 of the 56 questions (`ratingSampleSize` 20 and `seed` 20261118 in H's `config`, 6.2; the design is stated above from plan.md line 80 and the key's `group` field, and the selection procedure itself is not read here); the strata hold 2 or 3 rows, so the stratum counts above are not rates.
+- The rater saw the question, the answer and the evidence and no metrics, and did not see the key; the frozen abstention column was corrected after the rating by instruction (above).
+- All 20 rows are marked supported "yes", including the 6 refusals; the file has no row marked "no", so the column does not separate rows. Not interpreted here.
+- The frozen CSV sha256 is the human's record; the hash was not recomputed in this work order (no hashing tool), and the files are outside the repository.
 
 ### 6.5 Entity resolution
 
@@ -688,11 +824,33 @@ Limits (`er-README.md` "Threats to validity", with the report text): gold is 230
 
 ## 7. Reproducibility (plan group 7)
 
-Plan group 7 lists four items: a clean-checkout build, replay of the local sample pipeline and `EvaluationRun` compared by checksum, deployment from an approved plan cited from the release records (no new deploy), and regeneration of the B to F derived tables compared with the committed checksums. Decision P16-42 item 6 asks for the clean-checkout build the human runs on 2026-11-19. Nothing in this section is a result unless a file is cited.
+Plan group 7 lists four items: a clean-checkout build, replay of the local sample pipeline and `EvaluationRun` compared by checksum, deployment from an approved plan cited from the release records (no new deploy), and regeneration of the B to F derived tables compared with the committed checksums. Decision P16-42 item 6 asked for the clean-checkout build; the human ran it on 2026-11-19 and 7.1 records it (W2-DOC6). Status of the four items: clean-checkout build recorded (7.1); replay of `EvaluationRun` recorded (6.5.1, not repeated here); replay of the bounded local sample pipeline NOT DERIVED (7.3); deployment from an approved plan cited, no new deploy (7.3); B to F regeneration recorded by W2-DOC7 (7.3: run by Claude in chat, per-table counts partly confirmed in the compare log and partly in conflict with the relay, see 7.3). Nothing in this section is a result unless a file is cited.
 
 ### 7.1 Clean-checkout build (plan H-13)
 
-Result: NOT DERIVED: pending the human's clean-checkout build today. The sequence is the one in `scripts/README.md` "From a clean checkout" (every line runs without AWS credentials; sbt and the Terraform provider download need network access), preceded by the plan's `sbt clean check`. `<repository-url>` and `<id>` are placeholders the human fills (`<id>` is the approved account id; do not write it into any file in the repository). The checkout directory below is a suggestion, not a path recorded in any file read.
+Plan H-13 asks for one thing: a clean-checkout `sbt clean check` (plan.md H-13 row; group 7 text: "the human clones into a temporary directory and runs `sbt clean check`"). Recorded by W2-DOC6 from `human-commands.md` "Results recorded" (2026-11-19 rows) and the two logs named there. Ran by the human (`!` prefix, in the orchestrator session); the command was the human's own variant of the H-13 command (a `mktemp -d` directory under `/tmp`, a quiet `git clone`, no dirty-file count printed; a fresh clone holds only committed files).
+
+| Item | In-repository phase-gate `sbt clean check` | Clean-checkout `sbt clean check` (H-13) |
+|---|---|---|
+| Tree | working repository at commit `ccbc1ec` | fresh `git clone` of the repository, new temporary directory; `ccbc1ec` checked out per the human's relay (`human-commands.md` H-13 row), the log has no HEAD line |
+| Exit | 0 | 0 |
+| `[success] Total time` | 1314 s (0:21:54.0) | 1315 s (0:21:55.0) |
+| Completed | Nov 19, 2026, 8:36:12 AM | Nov 19, 2026, 9:01:38 AM |
+| Log | `SCD/logs/phase16-sbt-clean-check.log` (901,243 lines) | `SCD/logs/phase16-clean-checkout.log` (901,410 lines) |
+| Last two totals (confirmed in the log, last lines) | `Passed: Total 99, Failed 0, Errors 0, Passed 99` and `Passed: Total 1427, Failed 0, Errors 0, Passed 1427` | the same two lines, with the same figures |
+| All suite totals (review 23 Grep, `docs/agent-runs/phase-16/wave-2/review-23-verdict.md`; the same set as the human's reading) | 49, 331, 501 (Passed 500, Skipped 1), 389, 473, 170, 260, 99, 1427 in print order; all Failed 0 and Errors 0; no `[error]` line | the same nine totals, equal group by group; printed in the order 49, 331, 389, 501, 473, 170, 260, 99, 1427 (389 before 501); all Failed 0 and Errors 0; no `[error]` line |
+
+What I confirmed and what I did not:
+
+- Confirmed by reading the log tails with the Read tool (lines 901,190 to 901,243 of the first log and 901,360 to 901,410 of the second): the last two `Passed: Total` lines and the `[success] Total time` line of each log, as in the table. In both logs the order is 99 then 1427. The completion times 8:36:12 AM and 9:01:38 AM and the durations 1314 s and 1315 s equal the human's relay. The two last-total pairs are equal (99 and 1427, both with 0 failed and 0 errors).
+- Confirmed by review 23's Grep (`docs/agent-runs/phase-16/wave-2/review-23-verdict.md`, pattern `Passed: Total|Failed: Total|Skipped|\[success\]|\[error\]` on both logs; not by my tail reads): all nine group totals are equal group by group between the two logs (9 of 9), all with Failed 0 and Errors 0, and neither log has an `[error]` line. Log lines, phase-gate / clean-checkout: 49 at 166 / 546; 331 at 2941 / 3024; 501 at 2942 / 3149; 389 at 2943 / 3025; 473 at 3197 / 3192; 170 at 4853 / 4864; 260 at 4943 / 5667; 99 at 901240 / 901407; 1427 at 901241 / 901408. The phase-gate log prints 389 after 501 and the clean checkout prints 389 before 501; the set and the totals are the same.
+- The 1 skipped test, in both logs (review 23 Grep: one `==> s` marker per log, phase-gate line 2405 and clean-checkout line 2932, and exactly one `Skipped 1` total per log, in the 501 group, so the skip belongs to the 501 group by elimination); earlier recorded for the in-repository run (`human-commands.md`, phase-gate row; a read-only search made on 2026-11-19): `scholarchain.storage.ExportHeapMeasureSuite` "heap and time to load the real tier-S export" (`modules/storage/src/test/scala/scholarchain/storage/ExportHeapMeasureSuite.scala:61`), skipped by `assume(dirName.isDefined, "SCHOLARCHAIN_S_EXPORT_DIR is not set")` at lines 62 to 63; opt-in by design (doc comment at lines 8 to 11), so it skips on any machine without that variable; its JUnit report has `skipped="1"`. The row's link of the skip to the 501 group was inferred from the timestamp only; review 23's per-log skip count now supports it by elimination. I did not open the test file myself.
+- A fresh clone holds only committed files, so the clean checkout built the committed sources at the commit checked out. That this was `ccbc1ec` rests on the human's relay (`human-commands.md` H-13 row); the clean-checkout log has no `HEAD=`, `CLONE_DIR`, `DIRTY_FILES` or `ccbc1ec` line (it starts at sbt's welcome). The working repository can hold uncommitted changes; the number of dirty files in the working repository at the phase-gate run is NOT RECORDED (the human's command printed no count).
+- The logs hold machine paths and a private network address from Spark output; none is copied here.
+
+Limits: one run in each tree on one machine; no second clean-checkout run, so run-to-run variation of the suite totals is not measured; the two durations differ by 1 s. "Clean checkout" here means a fresh clone built in a new directory on the same machine; whether the dependency caches were warm is NOT STATED in the files read.
+
+The sequence below is the one in `scripts/README.md` "From a clean checkout" (every line runs without AWS credentials; sbt and the Terraform provider download need network access). It was not run in the clean checkout; no result of any line of it is recorded in the files read. `<repository-url>` and `<id>` are placeholders the human fills (`<id>` is the approved account id; do not write it into any file in the repository). The checkout directory below is a suggestion, not a path recorded in any file read.
 
 ```
 git clone <repository-url> /Users/winnguyen/scholarchain-data/clean-checkout-1/ScholarChain
@@ -711,7 +869,7 @@ bash tests/scripts/run.sh
 
 Prerequisites (`scripts/README.md`): bash 3.2 or later, git, python3, shellcheck, JDK 21, sbt, Terraform, and Docker with a running engine for `package.sh` (not needed with `--skip-images` or any dry run). `check.sh` ends with `CHECK_RESULT=PASS` or `PASS_WITH_SKIPS`; a skipped gate is not a pass.
 
-Earlier recorded runs that are not this result (`human-commands.md`): the Phase 16 harness `bash tests/scripts/run.sh` at `RESULT pass=1949 fail=0`, `SKIPPED_CASES 0` (logs `phase16-wave2-harness.log`, `phase16-wave2b-harness.log`, `phase16-wave2c-harness.log`); `check.sh --skip-sbt --skip-terraform` at `CHECK_RESULT=PASS_WITH_SKIPS` (Wave 2). The result of the human's `sbt clean check` on the current tree is NOT RECORDED in the files read.
+Earlier recorded runs that are not this result (`human-commands.md`): the Phase 16 harness `bash tests/scripts/run.sh` at `RESULT pass=1949 fail=0`, `SKIPPED_CASES 0` (logs `phase16-wave2-harness.log`, `phase16-wave2b-harness.log`, `phase16-wave2c-harness.log`, and `phase16-wave2d-harness.log` of 2026-11-19 at `RESULT pass=1949 fail=0`, `human-commands.md`); `check.sh --skip-sbt --skip-terraform` at `CHECK_RESULT=PASS_WITH_SKIPS` (Wave 2). The human's `sbt clean check` results at `ccbc1ec` (in the repository and in the clean checkout) are in the table above.
 
 ### 7.2 Commands that reproduce each frozen run
 
@@ -771,8 +929,9 @@ Replay results already recorded: the benchmark regeneration at generator commit 
 ### 7.3 Deployment from an approved plan; B to F regeneration
 
 - Deployment from an approved plan: no new deploy in Phase 16 (decision P16-34). The release records are `docs/releases/phase-14/` and `docs/releases/phase-15/` (README digest tables); they were not re-read for this file: NOT DERIVED here.
-- Regeneration of the B to F derived tables from raw and comparison with the committed `SHA256SUMS` (count of identical and differing files; plan H-12): NOT DERIVED: pending the human's run. The derive commands are in the Phase 15 records, not in the files read for this section.
-- The D bootstrap re-derive (WO-5) was run by Claude in chat with `cmp` of the point-estimate table returning exit 0 (section 4.4); that is the only derive re-run recorded.
+- Regeneration of the B to F derived tables from the frozen inputs and comparison by sha256 with `experiments/results` (plan H-12; recorded by W2-DOC7 from the H-12 row of `human-commands.md` "Results recorded", 2026-11-19). Run by Claude in chat (P16-5), local, no AWS: the frozen inputs in `SCD/results-copy` were re-derived into `SCD/phase16-h12-regen` and each output file was compared with the committed file. Logs: `SCD/logs/phase16-h12-regen.log` (8 `DERIVE_COMPLETE` lines then `EXIT=0`) and `SCD/logs/phase16-h12-compare.log` (49 lines, each `SAME` or `DIFF` and a relative path). Relayed (the row): D 9 of 9 identical; E 5 of 5 identical with the original `--title "Experiment E: latency by mode"` (with another title only the title text in `latency.svg` differs); F2 15 of 15; C 12 of 12; B 6 of 8 identical: `derived.json` and `summary.md` differ only in the recorded input sha256 of `COLLECTED.txt` and `emr-describe-cluster.json` and in the source path, because the regeneration read the redacted copy (account id masked); all B tables, events and the plot are identical; relayed total 47 of 49 files identical (arithmetic: 9 + 5 + 15 + 12 + 6 = 47; 9 + 5 + 15 + 12 + 8 = 49). Confirmed by reading `phase16-h12-compare.log` (counted by reading its 49 lines) and listing `SCD/phase16-h12-regen`: D 9 SAME, 0 DIFF (5 `D-latency` + 4 `D-metrics`); E with the original title 5 SAME (the 5 lines after the C block; the output directory is `e-latency-titlematch`); E with the other title 4 SAME and 1 DIFF, `latency.svg`; B 6 SAME and 2 DIFF, the DIFF files being `derived.json` and `summary.md`; the B `SAME` files are `capacity-timeline.csv`, `capacity.svg`, `cloudwatch-series.csv`, `events.csv`, `instances.csv` and `scale-events.csv`; `phase16-h12-regen.log` ends `EXIT=0`. Not confirmed, and in conflict with the relay: the log has 12 F2 lines (2 verdict, 6 queue, 4 metrics) and 10 C lines (6 queue, 4 metrics), all SAME, not 15 and 12; the committed `experiments/results` holds 12 derived files for F2 (`derived-verdict` 2, `derived-queue` 6, `derived-metrics` 4) and 10 for C (`derived-queue` 6, `derived-metrics` 4), which equals the log's counts, so I could not find the 15 and the 12. Confirmed totals by arithmetic from the log (not a field): 46 SAME and 3 DIFF in 49 lines (9 + 4 + 12 + 10 + 5 + 6 = 46; 1 + 2 = 3), or, leaving out the other-title E run, 42 of 44 files identical (9 + 5 + 12 + 10 + 6 = 42; 9 + 5 + 12 + 10 + 8 = 44). The relayed 47 of 49 equals neither; both 49 and the relay's figures need the human's or Claude in chat's correction before they are treated as a result. Not confirmed (rest on the relay alone): that the two B differences are only the input hashes and the source path (I did not open the B `derived.json` or `summary.md` of either side), that the redacted copy is the cause, that the `--title` value was the original one, and that the compare was by sha256 (the log shows `SAME` and `DIFF` only, with no hash value). The regeneration log has no `DERIVE_COMPLETE` line for B (8 lines for the D, E, F2 and C derives); B's `b-derived` output files exist. I copied no account id, bucket name, ARN or 12-digit number from the logs; the regeneration log prints session paths, which are not copied. The derive commands themselves are not in the H-12 row and were not read. This regeneration compares derived tables only; it is not a replay of the sample pipeline.
+- Replay of the bounded local sample pipeline compared by checksum (plan group 7): NOT DERIVED: no record of it in the files read. The harness runs and the benchmark regeneration in 7.1 and 7.2 are not that replay.
+- The D bootstrap re-derive (WO-5) was run by Claude in chat with `cmp` of the point-estimate table returning exit 0 (section 4.4); besides the H-12 regeneration above, that is the only derive re-run recorded.
 
 ---
 
@@ -785,9 +944,10 @@ Replay results already recorded: the benchmark regeneration at generator commit 
 - ER replay comparison: the "4 of 153 pass-3 pairs" label line compares pass-3 labels with `pass1_label` inside the same gold-v3 file, and `eval-v3-r3` used that same gold v3 (sha256 prefix `6e5342ddd6`), so the pooled rows are equal and 0 decisions changed (6.5.1; review 14 finding 5).
 - Audit: `h-audit-2` (after the metric-name fix) passes 12 of 12 ranking items, `exportMatchedRate` 0.954323 (585 export-matched, 25 evidence-only, 3 unmatched of 613) and `claimsCitingInvalidEvidence` 0 (6.3; the superseded earlier run is noted there). The 3 unmatched numbers and the 2 contradicted claims (rate 0.010050) are not explained here.
 - G: the meaning of `cost.haikuCalls` 210 in a stub-synthesis run is not stated (6.1).
-- Not in any frozen file read, so NOT DERIVED: the human's provenance audit of 10 traced edges (H-8); the factory audit of one phase (H-9); the Phase 15 billed total beyond the readings in 4.1; the human rating (6.4); the clean-checkout build and B to F regeneration (7).
-- Human rating and the clean-checkout build are the pending human gates for this file (H-1c Billing was read, P16-43); independent review (code-reviewer) of this revision is the next gate.
-- Redaction note: this file's own scan for account ids, bucket names and ARNs is still by hand (W2-DOC3 session: `grep` and the equivalent shell search were refused, and the file was read back with the Read tool only). Review 14's Grep of the previous revision for the 12-digit, bucket-prefix and ARN-prefix patterns found 0 hits before this edit, and review 15 found one hit in this note (the literal tokens, since reworded) and none elsewhere; that is separate evidence from the review, not a result of the author's scan.
+- Human audits, recorded by W2-DOC5 from the human's relay (`human-commands.md`, 2026-11-19): H-8 provenance, 10 of 10 DBLP-backed traced edges OK (45 of the 50 traced edges are DBLP-backed; the first 10 of those were checked; the 5 non-DBLP edges were outside the check; 1.2). H-9 factory audit of Phase 14, 16 of 20 counted items correct (arithmetic 80%); the Phase 14 first-pass "without review" count of 12 is a known parser miss (reviews are in decision files), the frozen JSON has the 12 only as a total over phases 1-15 (lines 462-464), and the 2.2 denominators sum to 74, the reviewed pairs, so the 12 unreviewed pairs are in no 2.2 row; not recomputed, and which pairs and agents remain NOT DERIVED (2.3a); human-annotated rewrites 0 stands as the human's statement (2.3a). Single auditor each; the sheets' OK columns are blank, so these are the human's relayed results, not a marked file.
+- Not in any frozen file read, so NOT DERIVED: the Phase 15 billed total beyond the readings in 4.1; the bounded local sample pipeline replay (7.3). B to F regeneration is recorded in 7.3 (W2-DOC7: relayed 47 of 49 identical; the compare log confirms D 9 of 9, E 5 of 5, B 6 of 8, F2 12 of 12 and C 10 of 10 and contradicts the relayed 15 and 12, so the total is unresolved). The clean-checkout build is recorded in 7.1 (exit 0; nine of nine suite totals equal group by group, all Failed 0 and Errors 0, and the single skip in both logs, per review 23's Grep).
+- Human rating: filled in 6.4 by W2-DOC4 from the frozen rating file (20 rows, single rater; the abstention column was corrected after rating, P16-46). The clean-checkout build is no longer pending (7.1). Separately, H-1c Billing was read (P16-43). Independent review (code-reviewer) of this revision is the next gate.
+- Redaction note: this file's own scan for account ids, bucket names and ARNs is still by hand (W2-DOC3 session: `grep` and the equivalent shell search were refused, and the file was read back with the Read tool only). Review 14's Grep of the previous revision for the 12-digit, bucket-prefix and ARN-prefix patterns found 0 hits before this edit, and review 15 found one hit in this note (the literal tokens, since reworded) and none elsewhere; review 20's Grep for the 12-digit, bucket-prefix and ARN-prefix patterns found 0 hits on the W2-DOC5 revision; that is review evidence, separate from the author's scan; review 21's Grep found 0 hits; review 23's Grep found 0 hits on the W2-DOC6 revision.
 
 ---
 
@@ -795,4 +955,8 @@ Replay results already recorded: the benchmark regeneration at generator commit 
 
 Repository: `CLAUDE.md`, `docs/agents.md`, `.claude/agents/experiment-engineer.md`, `docs/agent-runs/phase-16/{plan.md, decisions.md, human-commands.md, morning.md, wave-2/reports/w2-doc1-experiment-engineer.md}`, `docs/agent-runs/phase-15/ratification.md`, `experiments/RESULTS.md`, `experiments/LIMITATIONS.md`, `experiments/benchmark/{BENCHMARK-MANIFEST-v1.json, README.md, questions-v1.jsonl, labels-v1.jsonl (lines 41 to 48 only)}`, `experiments/evaluation/er-README.md`, `experiments/g-retrieval/README.md`, `experiments/h-answers/README.md`, `scripts/README.md`.
 Data (under `RUNS`): `graphchecks-a-export-2/{graph-check-report.json, run-info.json}`, `factorycounts-1/{factory-summary.txt, factory-counts.json (first 150 lines), run-info.json}`, `h4-diagnostic-{1,2,3,4}/{diagnostic-summary.json, run-manifest.json}`, `exp-G-20261119T053608Z-2e8943cf/{run-record.env, raw/retrieval/summary.json, raw/retrieval/run-manifest.json}`, `exp-H-20261119T053926Z-2e8943cf/{run-record.env, raw/answers/answer-summary.json, raw/answers/model-attempts-summary.json, raw/answers/model-calls.jsonl, raw/answers/run-manifest.json}`, `h-audit-2/{audit-summary.json, audit-answers.jsonl, run-manifest.json}`, `er-replay-v3-r3-1/evaluation-report.txt`, `erextras-1/{er-extras-report.txt, run-info.json}`; under `SCD`: `phase16-ci-on/{latency-ci-by-level.csv, latency-by-level.csv, SUMMARY.txt}`, `phase16-label-spotcheck.md`.
-Not read: `exp-*/raw/retrieval/records.jsonl`, `raw/answers/answers.jsonl`, `rating-sample.csv`, `rating-sample-key.json`, `h-audit-2/audit-claims.jsonl`, `erextras-1/{er-extras-report.json, bootstrap-resamples.csv}`, `er-replay-v3-r3-1/{evaluation-report.json, decisions.jsonl}`, the `metrics/` directories, `entrypoint.log` files.
+Added by W2-DOC5 (1.2, 2.3, 2.3a): `SCD/phase16-h8-provenance-sheet.md`, `SCD/phase16-h9-factory-sheet.md`, and the H-8 and H-9 rows of `docs/agent-runs/phase-16/human-commands.md` "Results recorded". Added by W2-RB15 (2.3a, 2.2): `factorycounts-1/factory-counts.json` lines 168, 262, 265 and 453-464, read for comparison only (the "first 150 lines" entry above is the earlier reader).
+Added by W2-DOC7 (7.3, 8): `SCD/logs/phase16-h12-regen.log`, `SCD/logs/phase16-h12-compare.log`, a listing of `SCD/phase16-h12-regen`, a listing of `experiments/results`, and the H-12 row of `docs/agent-runs/phase-16/human-commands.md` "Results recorded".
+Added by W2-DOC4 (section 6.4): `SCD/phase16-rating-filled.csv`, `SCD/phase16-rating-filled.as-entered.csv`, `SCD/phase16-rating-SHA256SUMS`, `RUNS/exp-H-20261119T053926Z-2e8943cf/raw/answers/rating-sample-key.json`, `docs/agent-runs/phase-16/decisions.md` (P16-46 row) and `docs/agent-runs/phase-16/plan.md` (lines 78 to 88, "Human rating rubric (D7)", read for the pointer and sample design in 6.4).
+Added by W2-DOC6 (section 7.1, 7.3): `docs/agent-runs/phase-16/plan.md` (group 7, H-12 and H-13 rows, lines 76, 123 and 124), the 2026-11-19 H-13 and phase-gate rows of `docs/agent-runs/phase-16/human-commands.md`, and `SCD/logs/phase16-sbt-clean-check.log` and `SCD/logs/phase16-clean-checkout.log` (last 54 and 51 lines only; the other lines of both logs were not read by the author). Added by W2-RB17 from review 23 (a source separate from the author's tail reads): the Grep log evidence table in `docs/agent-runs/phase-16/wave-2/review-23-verdict.md` (group totals, skip, `[error]` and HEAD-line absence in both logs).
+Not read: `exp-*/raw/retrieval/records.jsonl`, `raw/answers/answers.jsonl`, `rating-sample.csv`, `h-audit-2/audit-claims.jsonl`, `erextras-1/{er-extras-report.json, bootstrap-resamples.csv}`, `er-replay-v3-r3-1/{evaluation-report.json, decisions.jsonl}`, the `metrics/` directories, `entrypoint.log` files.
