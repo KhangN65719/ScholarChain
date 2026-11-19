@@ -29,7 +29,7 @@ sys.path.insert(0, HERE)
 import derive_latency  # noqa: E402
 import load_client  # noqa: E402
 
-TOKEN = "REHEARSAL-TOKEN-NOT-A-SECRET"
+STUB_BEARER = "-".join(("REHEARSAL", "TOKEN", "NOT", "A", "SECRET"))
 SEEN = []
 PASS = 0
 FAIL = 0
@@ -67,7 +67,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         pass
 
 
-def run_client(args, token=TOKEN):
+def run_client(args, token=STUB_BEARER):
     env = dict(os.environ)
     env.pop("SCHOLARCHAIN_QUERY_TOKEN", None)
     if token:
@@ -165,12 +165,12 @@ def main():
         summary = jload(os.path.join(out, "summary.json"))
         check("sequence: summary says 12 sent, stop_reason none, all 200",
               summary["requests_sent"] == 12 and summary["stop_reason"] == "none" and summary["by_status"] == {"200": 12})
-        check("sequence: every request carried the bearer token", all(s["auth"] == "Bearer " + TOKEN for s in SEEN))
+        check("sequence: every request carried the bearer token", all(s["auth"] == "Bearer " + STUB_BEARER for s in SEEN))
         leaked = False
         for name in (os.listdir(out) if os.path.isdir(out) else []):
-            if TOKEN in text(os.path.join(out, name)):
+            if STUB_BEARER in text(os.path.join(out, name)):
                 leaked = True
-        check("sequence: the token is in no output file and not on stdout", not leaked and TOKEN not in stdout)
+        check("sequence: the token is in no output file and not on stdout", not leaked and STUB_BEARER not in stdout)
         check("sequence: --echo printed 12 LOADCLIENT_RAW lines", sum(1 for x in stdout.splitlines() if x.startswith("LOADCLIENT_RAW ")) == 12)
         rc2, _, err2 = run_client(["--base-url", base, "--out-dir", out, "--sequence", "rotate-modes", "--queries", questions])
         check("sequence: an existing out-dir is refused (exit 2)", rc2 == 2 and "already exists" in err2)

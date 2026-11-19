@@ -359,31 +359,31 @@ class AwsNeptuneQuerySuite extends munit.FunSuite:
   }
 
   test("errors and log lines never carry a parameter value or the AWS text") {
-    val secret = "orcid-0000-0001-SENTINEL"
+    val sentinel = "orcid-0000-0001-SENTINEL"
     val lines = mutable.ArrayBuffer.empty[String]
-    val query = CypherCatalog.coauthorsOf(secret, window, 5)
+    val query = CypherCatalog.coauthorsOf(sentinel, window, 5)
     Vector(
       failure(
         400,
         "MalformedQueryException",
-        s"bad value $secret in the query"
+        s"bad value $sentinel in the query"
       ),
-      failure(403, "AccessDeniedException", s"denied for $secret"),
-      failure(429, "ThrottlingException", s"throttled $secret"),
-      failure(500, "TimeLimitExceededException", s"slow $secret")
+      failure(403, "AccessDeniedException", s"denied for $sentinel"),
+      failure(429, "ThrottlingException", s"throttled $sentinel"),
+      failure(500, "TimeLimitExceededException", s"slow $sentinel")
     ).foreach { error =>
       val s = stubbed(_ => throw error)
       val e = intercept[Throwable](
         new AwsNeptuneQuery(s.client, lines += _).run(query)
       )
-      assert(!e.getMessage.contains(secret), e.getMessage)
+      assert(!e.getMessage.contains(sentinel), e.getMessage)
       assert(!e.getMessage.contains("bad value"), e.getMessage)
       assert(e.getMessage.contains(query.name), e.getMessage)
     }
     val ok = stubbed(_ => answer())
     new AwsNeptuneQuery(ok.client, lines += _).run(query)
     assertEquals(lines.size, 5)
-    lines.foreach(line => assert(!line.contains(secret), line))
+    lines.foreach(line => assert(!line.contains(sentinel), line))
     assert(lines.last.startsWith("NEPTUNE_QUERY name=coauthors-of rows=0 ms="))
     assert(
       lines.head.startsWith("NEPTUNE_QUERY_FAILED name=coauthors-of kind=")

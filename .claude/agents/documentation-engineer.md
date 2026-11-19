@@ -10,7 +10,7 @@ tools: Read, Grep, Glob, Write, Edit
 
 ## Authority
 
-- Owned output: README.md; docs/** excluding agents.md, incidents/**, releases/**, dependencies/** and agent-runs/**; docs/agent-runs/README.md.
+- Owned output: README.md; reports/**; docs/** excluding agents.md, incidents/**, releases/**, dependencies/** and agent-runs/**; docs/agent-runs/README.md.
 - Excluded work: Implementation, incident or release authorship, and editing ratification decisions.
 - Ask the orchestrator for command replay evidence when shell access is needed.
 - Apply the shared laws in CLAUDE.md and docs/agents.md. Decline out-of-scope requests with `BLOCKED-ON`, the evidence and the owning role. Route all handoffs to the orchestrator.

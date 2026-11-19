@@ -37,7 +37,7 @@ APPROVED_OWNERSHIP = {
     'infra-engineer': 'infra/terraform/**; scripts/** excluding datasets/scripts; .github/workflows/**',
     'deploy-engineer': 'docs/releases/**',
     'experiment-engineer': 'experiments/**; load-tests/**',
-    'documentation-engineer': 'README.md; docs/** excluding agents.md, incidents/**, releases/**, dependencies/** and agent-runs/**; docs/agent-runs/README.md',
+    'documentation-engineer': 'README.md; reports/**; docs/** excluding agents.md, incidents/**, releases/**, dependencies/** and agent-runs/**; docs/agent-runs/README.md',
     'incident-responder': 'docs/incidents/**',
     'dependency-updater': 'Version values in project/DependencyVersions.scala; docs/dependencies/**',
 }

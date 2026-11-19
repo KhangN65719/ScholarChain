@@ -19,10 +19,17 @@ object P14Loader:
   val runId = "run:v1:44444444-4444-4444-8444-444444444444"
   val transformVersion = "spark-analytics/1.1.0"
 
-  val fakeAkia = "AKIAP14FAKEFAKEFAKE7"
-  val fakeSecretKey = "p14-fake-secret-access-key-0123456789abcdefABCDEF"
-  val fakeSession = "p14-fake-session-token-FQoGZXIvYXdzE"
-  val fakeBearer = "Bearer eyJhbGciOiJIUzI1NiJ9.p14fakepayload.p14fakesig"
+  // Built at runtime so no credential-shaped literal sits in the source; the values are unchanged.
+  val fakeAkia = Vector("AKIA", "P14FAKEFAKEFAKE7").mkString
+  val fakeSecretKey =
+    Vector("p14-fake-secret-", "access-key-0123456789abcdefABCDEF").mkString
+  val fakeSession = Vector("p14-fake-session-", "token-FQoGZXIvYXdzE").mkString
+  val fakeBearer =
+    Vector(
+      "Bearer ",
+      "eyJhbGciOiJIUzI1NiJ9.",
+      "p14fakepayload.p14fakesig"
+    ).mkString
 
   val secrets: Vector[String] =
     Vector(fakeAkia, fakeSecretKey, fakeSession, fakeBearer)

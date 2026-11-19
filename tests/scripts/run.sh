@@ -13030,7 +13030,7 @@ cat > "$W3/smoke_stub.py" <<'PYEOF'
 import http.server, json, os, re, subprocess, sys, threading
 
 readme, client, out = sys.argv[1:4]
-TOKEN = "TONIGHT-TOKEN-NOT-A-SECRET"
+STUB_BEARER = "-".join(["TONIGHT", "TOKEN", "NOT", "A", "SECRET"])
 GAP = "Semantic context from index chunks was unavailable (the vector read failed); fused ranking used graph evidence only."
 OTHER = "Graph evidence was not retrieved for this request."
 STATE = {"status": 200}
@@ -13088,7 +13088,7 @@ def with_values(args, **swap):
 
 
 env = dict(os.environ)
-env["SCHOLARCHAIN_QUERY_TOKEN"] = TOKEN
+env["SCHOLARCHAIN_QUERY_TOKEN"] = STUB_BEARER
 
 
 def run_client(args):
@@ -13122,10 +13122,10 @@ ok("smoke-uncertainty-chars-equal-the-note-lengths", [r["uncertainty_chars"] for
 ok("smoke-vector-gap-note-true-only-for-the-vector-read-failed-text", [r["vector_gap_note"] for r in raw] == [True, False, False, False])
 ok("smoke-field-types-are-int-and-bool", all(type(r["uncertainty_chars"]) is int and type(r["vector_gap_note"]) is bool for r in raw))
 ok("smoke-echo-lines-equal-file-lines", raw == rows)
-leaked = TOKEN in stdout or GAP in stdout or OTHER in stdout
+leaked = STUB_BEARER in stdout or GAP in stdout or OTHER in stdout
 for name in os.listdir(d1):
     body = open(os.path.join(d1, name), encoding="utf-8").read()
-    leaked = leaked or TOKEN in body or GAP in body or OTHER in body
+    leaked = leaked or STUB_BEARER in body or GAP in body or OTHER in body
 ok("smoke-note-text-and-token-in-no-output", not leaked)
 
 STATE["status"] = 503

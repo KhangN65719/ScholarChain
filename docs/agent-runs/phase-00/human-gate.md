@@ -1,0 +1,10 @@
+# Phase 0 human gate
+
+Compiled by the orchestrator on 2026-11-19 from the records cited below (decision P17-4); the decision is the human's, to be confirmed at H-4.
+
+- Decision: NOT RECORDED as a separate Phase 0 acceptance. The Phase 1 human ratification used the first Phase 0 commit as its "Reviewed baseline" (`docs/agent-runs/phase-01/ratification.md`), and the later Phase 0 edit was confirmed by the human architect as made at the architect's direction (`docs/agent-runs/phase-01/orchestrator-update/ratification.md`).
+- What was reviewed: NOT RECORDED for Phase 0 itself. The Phase 0 seed edit to the factory-engineer role was covered by the Phase 1 orchestrator-repair review (review, re-review, re-review-2 APPROVE) (`docs/agent-runs/phase-01/orchestrator-update/ratification.md`).
+- Accepted or rejected: the Phase 1 ratification accepted the first Phase 0 commit `2313f50` ("Phase-0: Add Factory Agent") as its reviewed baseline (`docs/agent-runs/phase-01/ratification.md:4`). The second Phase 0 commit `08b95c3` ("Phase 0: Name the main session as orchestrator in factory-engineer") was committed after Phase 3's `9ee8b22` (`git log`), and was covered by the Phase 1 orchestrator-update ratification cited above. No rejection recorded. Plan D2 asked for this gate to be built from the two commit messages only; the Phase 1 records are cited as well because they are the only human statements about Phase 0.
+- Manual changes: yes. "The Phase 0 seed edit to factory-engineer.md ... were made at my direction outside the subagent workflow" (human architect, `docs/agent-runs/phase-01/orchestrator-update/ratification.md`).
+- Remaining risk: NOT RECORDED. No Phase 0 prompt, report or review was archived (decision P17-2).
+- Accepted commit: 08b95c3caa5afa278f736faeed2cbcb445aba43e (the last commit labelled Phase 0 in `git log`; chosen by plan D2, approved under P17-1, and not named in any ratification). The human confirms or replaces this choice at H-4; the alternative is `2313f50`, the baseline Phase 1 accepted.

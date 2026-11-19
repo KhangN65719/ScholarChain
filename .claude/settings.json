@@ -120,7 +120,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-dangerous.sh\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-dangerous.sh",
             "timeout": 15
           }
         ],
@@ -132,7 +132,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/format-scala.sh\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-scala.sh",
             "timeout": 120
           }
         ],
@@ -144,7 +144,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/verify-tests-ran.sh\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify-tests-ran.sh",
             "timeout": 15
           }
         ]
@@ -155,7 +155,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/verify-tests-ran.sh\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify-tests-ran.sh",
             "timeout": 15
           }
         ]

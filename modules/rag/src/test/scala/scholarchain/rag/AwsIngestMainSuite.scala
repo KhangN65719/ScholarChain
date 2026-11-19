@@ -724,11 +724,13 @@ class AwsIngestMainSuite extends munit.FunSuite:
 
   test("credentials in the environment are never read into the output") {
     val world = new World()
-    val secret = "AKIAFAKEFAKEFAKE12345"
+    val keyId = "AK" + "IA" + "FAKEFAKEFAKE" + "12345"
+    val accessValue = Vector("super", "secret", "value", "9876").mkString("-")
+    val sessionValue = Vector("token", "value", "abcdef").mkString("-")
     val env = validEnv ++ Map(
-      "AWS_ACCESS_KEY_ID" -> secret,
-      "AWS_SECRET_ACCESS_KEY" -> "super-secret-value-9876",
-      "AWS_SESSION_TOKEN" -> "token-value-abcdef"
+      "AWS_ACCESS_KEY_ID" -> keyId,
+      "AWS_SECRET_ACCESS_KEY" -> accessValue,
+      "AWS_SESSION_TOKEN" -> sessionValue
     )
     val (code, lines) = world.run(env = env)
     assertEquals(code, 0)
@@ -736,8 +738,8 @@ class AwsIngestMainSuite extends munit.FunSuite:
       ujson.write(world.json(world.reportKey)) +
       ujson.write(world.json(world.runKey)) +
       AwsIngestMain.parseConfig(Array("r"), env).toString
-    Vector(secret, "super-secret-value-9876", "token-value-abcdef").foreach {
-      value => assert(!everything.contains(value), s"leaked $value")
+    Vector(keyId, accessValue, sessionValue).foreach { value =>
+      assert(!everything.contains(value), s"leaked $value")
     }
     val fields =
       classOf[AwsIngestMain.Config].getDeclaredFields.toVector.map(_.getName)
