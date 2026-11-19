@@ -5,9 +5,9 @@ Orchestrator-compiled index of this phase's archived reports (decision P17-11); 
 STATUS: COMPLETE
 OWNER: test-engineer
 WORK ORDER: see the phase prompt and the numbered work orders in this folder
-FILES CREATED: NOT RECORDED in this index; see the reports below
-FILES MODIFIED: NOT RECORDED in this index; see the reports below
-COMMANDS RUN: NOT RECORDED in this index; see the reports below
+FILES CREATED: NOT RECORDED in this index; see the owner report files below
+FILES MODIFIED: NOT RECORDED in this index; see the owner report files below
+COMMANDS RUN: NOT RECORDED in this index; see the owner report files below
 TEST RESULTS: second human sbt clean check Total 81 and 1072, 0 failed, [success] (ratification); the first run failed 1067 of 1068
 VALIDATION RESULTS: formatter-hook live check passed in a fresh session (ratification, step 0)
 ASSUMPTIONS: NOT RECORDED in this index; see the owner reports

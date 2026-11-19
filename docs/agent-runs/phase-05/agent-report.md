@@ -5,8 +5,8 @@ Orchestrator-compiled index of this phase's archived reports (decision P17-11); 
 STATUS: COMPLETE
 OWNER: entity-resolution-engineer
 WORK ORDER: see the phase prompt and the work orders listed below
-FILES CREATED: NOT RECORDED in this index; see the reports below
-FILES MODIFIED: NOT RECORDED in this index; see the reports below
+FILES CREATED: NOT RECORDED in this index; see the owner report files below
+FILES MODIFIED: NOT RECORDED in this index; see the owner report files below
 COMMANDS RUN: NOT RECORDED in this index; see the gate and subset-run records below
 TEST RESULTS: final sbt check [success], core 41, tests 240, entity-resolution 366, hadoop 207, 0 failures (ratification)
 VALIDATION RESULTS: gold v3 precision 1.000, recall 0.802, F1 0.890 (ratification)

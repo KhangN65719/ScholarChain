@@ -5,8 +5,8 @@ Orchestrator-compiled index of this phase's archived reports (decision P17-11); 
 STATUS: COMPLETE
 OWNER: experiment-engineer
 WORK ORDER: see the phase prompt, the plan and the wave work-order files in this folder
-FILES CREATED: NOT RECORDED in this index; see the reports below
-FILES MODIFIED: NOT RECORDED in this index; see the reports below
+FILES CREATED: NOT RECORDED in this index; see the owner report files below
+FILES MODIFIED: NOT RECORDED in this index; see the owner report files below
 COMMANDS RUN: NOT RECORDED in this index; see the human-command record
 TEST RESULTS: human sbt clean check [success] in 1314 s, all suites 0 failed; final script harness 1949 passed, 0 failed (ratification)
 VALIDATION RESULTS: clean-checkout build equal to the phase gate; ER replay equal to the reference evaluation (ratification)

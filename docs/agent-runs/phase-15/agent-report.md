@@ -5,8 +5,8 @@ Orchestrator-compiled index of this phase's archived reports (decision P17-11); 
 STATUS: COMPLETE
 OWNER: experiment-engineer
 WORK ORDER: see the phase prompt, the plan and the wave work-order files in this folder
-FILES CREATED: NOT RECORDED in this index; see the reports below
-FILES MODIFIED: NOT RECORDED in this index; see the reports below
+FILES CREATED: NOT RECORDED in this index; see the owner report files below
+FILES MODIFIED: NOT RECORDED in this index; see the owner report files below
 COMMANDS RUN: NOT RECORDED in this index; see the session records and human-command files
 TEST RESULTS: human sbt clean check [success], suites 411, 167, 260, 99, 1162, 0 failed; script harness 1935 passed, 0 failed (ratification)
 VALIDATION RESULTS: experiments A, B, C, D, E and F2 on AWS; F1 invalid (ratification)

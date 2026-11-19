@@ -5,8 +5,8 @@ Orchestrator-compiled index of this phase's archived reports (decision P17-11); 
 STATUS: COMPLETE
 OWNER: build-engineer
 WORK ORDER: see the phase prompt in this folder
-FILES CREATED: NOT RECORDED in this index; see the reports below
-FILES MODIFIED: NOT RECORDED in this index; see the reports below
+FILES CREATED: NOT RECORDED in this index; see the owner report files below
+FILES MODIFIED: NOT RECORDED in this index; see the owner report files below
 COMMANDS RUN: NOT RECORDED in this index; see the validation and revalidation results below
 TEST RESULTS: sbt check, two human runs, 18 of 18 tests passing (ratification)
 VALIDATION RESULTS: module graph and scaffold boundaries APPROVE by code-reviewer (ratification)

@@ -5,8 +5,8 @@ Orchestrator-compiled index of this phase's archived reports (decision P17-11); 
 STATUS: COMPLETE
 OWNER: infra-engineer
 WORK ORDER: see the phase prompt and the numbered work orders in this folder
-FILES CREATED: NOT RECORDED in this index; see the reports below
-FILES MODIFIED: NOT RECORDED in this index; see the reports below
+FILES CREATED: NOT RECORDED in this index; see the owner report files below
+FILES MODIFIED: NOT RECORDED in this index; see the owner report files below
 COMMANDS RUN: NOT RECORDED in this index; see the check records and release records
 TEST RESULTS: human sbt clean check Total 93 and 1,133, 0 failed, 0 errors, [success]; script harness 1,453 cases, 0 failed (ratification)
 VALIDATION RESULTS: tier S pipeline, 41,885 vectors and Neptune load of 32,225 vertices and 135,788 edges with 0 errors, per the loader's own lines (ratification)

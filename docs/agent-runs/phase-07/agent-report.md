@@ -5,8 +5,8 @@ Orchestrator-compiled index of this phase's archived reports (decision P17-11); 
 STATUS: COMPLETE
 OWNER: storage-engineer
 WORK ORDER: see the phase prompt and the numbered work orders in this folder
-FILES CREATED: NOT RECORDED in this index; see the reports below
-FILES MODIFIED: NOT RECORDED in this index; see the reports below
+FILES CREATED: NOT RECORDED in this index; see the owner report files below
+FILES MODIFIED: NOT RECORDED in this index; see the owner report files below
 COMMANDS RUN: NOT RECORDED in this index; see the validation record below
 TEST RESULTS: human sbt clean check exit 0, [success] in 1128 s (ratification)
 VALIDATION RESULTS: Spark pipeline rerun exit 0, 25 tables, 0 integrity violations (ratification)

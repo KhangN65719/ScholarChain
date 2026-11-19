@@ -5,8 +5,8 @@ Orchestrator-compiled index of this phase's archived reports (decision P17-11); 
 STATUS: COMPLETE
 OWNER: factory-engineer
 WORK ORDER: see the phase prompt in this folder
-FILES CREATED: NOT RECORDED in this index; see the reports below
-FILES MODIFIED: NOT RECORDED in this index; see the reports below
+FILES CREATED: NOT RECORDED in this index; see the owner report files below
+FILES MODIFIED: NOT RECORDED in this index; see the owner report files below
 COMMANDS RUN: NOT RECORDED in this index; see the validation and restart records below
 TEST RESULTS: human-observed probe-policy 136 probes passed, 0 failed; sbt check Total 18, Failed 0 (sandbox-repair ratification)
 VALIDATION RESULTS: validate-agent-files 4 PASS lines (sandbox-repair ratification); live hook interception partly failed or unverified (restart results)

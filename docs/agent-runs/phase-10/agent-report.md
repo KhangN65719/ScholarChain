@@ -5,8 +5,8 @@ Orchestrator-compiled index of this phase's archived reports (decision P17-11); 
 STATUS: COMPLETE
 OWNER: service-engineer
 WORK ORDER: see the phase prompt, the specification and the numbered work orders in this folder
-FILES CREATED: NOT RECORDED in this index; see the reports below
-FILES MODIFIED: NOT RECORDED in this index; see the reports below
+FILES CREATED: NOT RECORDED in this index; see the owner report files below
+FILES MODIFIED: NOT RECORDED in this index; see the owner report files below
 COMMANDS RUN: NOT RECORDED in this index; see the validation record below
 TEST RESULTS: human sbt clean check exit 0, [success] in 1501 s (ratification)
 VALIDATION RESULTS: contracted routes, typed errors, limits, overload, idempotency and shutdown under test (ratification)

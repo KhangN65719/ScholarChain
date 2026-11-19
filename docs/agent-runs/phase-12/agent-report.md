@@ -5,8 +5,8 @@ Orchestrator-compiled index of this phase's archived reports (decision P17-11); 
 STATUS: COMPLETE
 OWNER: infra-engineer
 WORK ORDER: see the phase prompt and the numbered work orders in this folder
-FILES CREATED: NOT RECORDED in this index; see the reports below
-FILES MODIFIED: NOT RECORDED in this index; see the reports below
+FILES CREATED: NOT RECORDED in this index; see the owner report files below
+FILES MODIFIED: NOT RECORDED in this index; see the owner report files below
 COMMANDS RUN: NOT RECORDED in this index; see the Terraform checks and clean-check records below
 TEST RESULTS: second human sbt clean check Total 81 and 1098, 0 failed, [success] (ratification); the first run failed with exit 56 (environmental)
 VALIDATION RESULTS: terraform validate, terraform fmt -check and bash -n each exited 0; shellcheck not installed (ratification)

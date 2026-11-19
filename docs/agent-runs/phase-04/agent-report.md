@@ -5,8 +5,8 @@ Orchestrator-compiled index of this phase's archived reports (decision P17-11); 
 STATUS: COMPLETE
 OWNER: hadoop-engineer
 WORK ORDER: see the phase prompt and the Hadoop work order in this folder
-FILES CREATED: NOT RECORDED in this index; see the reports below
-FILES MODIFIED: NOT RECORDED in this index; see the reports below
+FILES CREATED: NOT RECORDED in this index; see the owner report files below
+FILES MODIFIED: NOT RECORDED in this index; see the owner report files below
 COMMANDS RUN: NOT RECORDED in this index; see the validation record below
 TEST RESULTS: human sbt clean check run 11, root 81/81 and hadoop 148/148 (ratification)
 VALIDATION RESULTS: two real MapReduce jobs on LocalJobRunner; counters, rejects, repeated-run equivalence and provenance passing (ratification)

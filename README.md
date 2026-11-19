@@ -6,7 +6,7 @@ ScholarChain uses Scala 3, Hadoop MapReduce, Spark and AWS to build a temporal c
 
 Replay marks used in this file. NOT REPLAYED means no one has run the command against this tree for this document; the human replays commands at gate H-8 and archives the results. OBSERVED (record) means an archived record shows an earlier run, cited by file; it is not a replay. PENDING names who supplies a missing value. Nothing here was run by the author of this file, who has no shell tool.
 
-## Autograder notes
+## Known check findings
 
 Statements of fact about findings that an automated repository check reports. Each cites the file it rests on.
 
