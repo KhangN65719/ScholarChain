@@ -307,6 +307,71 @@ class BedrockAnswerModelSuite extends munit.FunSuite:
     assertEquals(reply.stopReason, "end_turn")
   }
 
+  private final class UsageStub(usage: Option[TokenUsage])
+      extends BedrockRuntimeClient:
+    def serviceName(): String = "bedrock-runtime"
+    def close(): Unit = ()
+    override def converse(request: ConverseRequest): ConverseResponse =
+      val b = ConverseResponse
+        .builder()
+        .output(
+          ConverseOutput
+            .builder()
+            .message(
+              Message
+                .builder()
+                .role(ConversationRole.ASSISTANT)
+                .content(ContentBlock.fromText("""{"ok":true}"""))
+                .build()
+            )
+            .build()
+        )
+        .stopReason(StopReason.END_TURN)
+      usage.foreach(b.usage(_))
+      b.build()
+
+  private def sdkModel(usage: Option[TokenUsage]) =
+    model(new SdkConverseClient(new UsageStub(usage)))
+
+  test("a reply with no usage is flagged as estimated, counts 0") {
+    val response = sdkModel(None).complete(synthesisRequest())
+    assert(response.tokensEstimated)
+    assertEquals(response.promptTokens, 0)
+    assertEquals(response.completionTokens, 0)
+  }
+
+  test("a reply with only one usage count is flagged as estimated") {
+    val onlyIn = TokenUsage.builder().inputTokens(Int.box(9)).build()
+    val onlyOut = TokenUsage.builder().outputTokens(Int.box(4)).build()
+    val a = sdkModel(Some(onlyIn)).complete(synthesisRequest())
+    assert(a.tokensEstimated)
+    assertEquals(a.promptTokens, 9)
+    assertEquals(a.completionTokens, 0)
+    val b = sdkModel(Some(onlyOut)).complete(synthesisRequest())
+    assert(b.tokensEstimated)
+    assertEquals(b.promptTokens, 0)
+    assertEquals(b.completionTokens, 4)
+  }
+
+  test("a reply with both usage counts is metered, not estimated") {
+    val full = TokenUsage
+      .builder()
+      .inputTokens(Int.box(5))
+      .outputTokens(Int.box(7))
+      .build()
+    val response = sdkModel(Some(full)).complete(synthesisRequest())
+    assert(!response.tokensEstimated)
+    assertEquals(response.promptTokens, 5)
+    assertEquals(response.completionTokens, 7)
+  }
+
+  test("the model carries a client's usageReported = false as estimated") {
+    val client = new FakeClient(_ =>
+      ConverseReply("""{"ok":true}""", 0, 0, "end_turn", usageReported = false)
+    )
+    assert(model(client).complete(synthesisRequest()).tokensEstimated)
+  }
+
   /** A client that answers like the stub model, so the workflow can run end to
     * end, and can tamper with the synthesis reply the way a steered model
     * might.

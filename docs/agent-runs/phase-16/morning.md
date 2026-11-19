@@ -117,4 +117,26 @@ Then one `sbt check` at the end of the night.
 (updated below as orders complete)
 
 - W2-S service-engineer: COMPLETE (`wave-2/reports/w2-s-service-engineer.md`). Flake cause (code reading): one shared log queue across all runtimes in `AwsRuntimeSuite`; the service writes its `query_request` line after sending the response, so late lines from earlier tests landed in a later test's capture. Fix: per-launch capture plus a requestId check; the assertion `logged.size == 1` kept. Attempt lines now logged on `scholarchain.services.attempts` (no text). Two `sbt quick` passes (4:37, 4:40 AM). Note: this fix is a Wave 2 file (`modules/services/**`), so the Wave 1 commit alone still contains the old flaky test.
+- (2026-11-19, see section 7 for the night of 18 to 19 November.)
 - W2-E experiment-engineer (ErExtras): COMPLETE (`wave-2/reports/w2-e-experiment-engineer.md`). Per-path recall, stratified bootstrap CI, sensitivity (GOLD-MANIFEST names no suspect pair ids: "not-identifiable", plus a labelled proxy set), tier-S population view; `ErStatsSuite` 17, `ErRunSuite` 15, 0 failures; `sbt quick` passed 4:51 AM. Paste-ready human command in the report (after the Wave 1 commit).
+
+## 7. Night of 2026-11-18 to 19 (orchestrator, unattended)
+
+While the chain ran, nothing was written to the repository (H's `run-experiment.sh` re-checks a clean tree at its start, and the guard refuses writes outside the project), so the draft and these notes were staged in the gitignored `target/p16-drafts/` and copied here after the chain finished.
+
+### 7.1 Results
+- **Chain:** `OVERNIGHT G=0 H=0 ER_REPLAY=0 ERREXTRAS=0` (05:36 to 05:49 UTC). Details in `human-commands.md` "Results recorded".
+- **G** `exp-G-20261119T053608Z-2e8943cf`: COMPLETED in 194 s; 336 of 336 records usable, no halt; 296 Titan calls, estimated 0.0001 USD.
+- **H** `exp-H-20261119T053926Z-2e8943cf`: COMPLETED in 569 s; 76 of 76 records usable (56 primary: 34 answered, 22 abstained; 20 repeats), no halt; 57 Haiku calls, estimated 0.89 USD of the 3.00 stop; answer latency p50 8.0 s, p95 17.7 s.
+- **ER replay** `er-replay-v3-r3-1`: identical to `eval-v3-r3` (P 1.000, R 0.802, F1 0.890; 0 of 230 decisions changed). **ErExtras** `erextras-1`: `ER_REFERENCE_CHECK status=MATCH`.
+- **Prep (2a-2d)** and `h4-diagnostic-4` (both ranking questions `end_turn`, 7 claims, about 1,820 tokens, prompt 1.2.0): recorded in `human-commands.md`.
+- **EVALUATION.md draft** (W2-DOC1, experiment-engineer): `target/p16-drafts/EVALUATION.md` (gitignored, not in the repository yet). Intended path `experiments/EVALUATION.md` (WO-9). Sections 1-5 cover the frozen outputs (graph integrity with the composed reconciliation at 0/0, factory counts, benchmark v1, Phase 15 performance with the D bootstrap CIs, the H-4 truncation finding with total diagnostic spend 0.255987 USD); section 6 holds "NOT DERIVED: pending" placeholders for G, H (with AnswerAudit and the rating sample) and ER, which the next order fills from the frozen runs above. Report archived as `wave-2/reports/w2-doc1-experiment-engineer.md`.
+
+### 7.2 For you
+1. **Spot-check count:** P16-22 records "25 of 25 independent MATCH", but `/Users/winnguyen/scholarchain-data/phase16-label-spotcheck.md` lists 15 rows, "all 15 MATCH". Which is right? The draft states both.
+2. **Account id in run logs:** both `raw/entrypoint.log` files (G and H) hold the unmasked account id inside the bucket names of sbt's `running (fork)` line. They are local, outside the repository; mask them before any archive or upload (`archive-evidence.sh`). A fix (pass bucket names so sbt does not echo them, or mask in `run.sh`) would be experiment-engineer's.
+3. **H token estimate flag:** `answer-summary.json` says `tokensEstimated: true`, so at least one call was charged at the estimated worst case; the 0.89 USD is an upper-leaning estimate. The billed cost needs a Billing reading (H-1c).
+4. **Next steps (your call):** AnswerAudit on `exp-H-…/raw/answers/answers.jsonl` (no AWS; command in `experiments/h-answers/README.md`, run id `h-audit-1`); the human rating sample (`rating-sample.csv`); then the order that fills EVALUATION.md section 6 from G, H, audit and ER, and moves the draft to `experiments/EVALUATION.md`.
+5. **D CIs:** assume independent requests (stated); computed by Claude in chat, so `phase16-ci-on/SUMMARY.txt` cites the chat sandbox's paths.
+6. **Gaps in the draft:** no file holds the H-1 Phase 15 billed-cost reconciliation; Phase 15 numbers come from `experiments/RESULTS.md`, not the session records; `h4-diagnostic-1` to `-3` record no prompt version in their manifests; no reproducibility section yet (plan group 7).
+7. **Rule 6 across H:** H-4 covered two ranking questions; H itself is the full measurement (to read in the audit).

@@ -164,6 +164,41 @@ object AuditRules:
     val stripped = orcid.replaceAllIn(IdPattern.replaceAllIn(text, " "), " ")
     number.findAllIn(stripped).toVector.flatMap(_.toDoubleOption)
 
+  /** The runtime names a ranking's metric by `CollaborationMetric.wire`
+    * (kebab-case); the export's researcher-metrics columns, and the metric fact
+    * of the runtime, use camelCase. This table is the only bridge, one entry
+    * for each metric the runtime ranks by (the stored metric fields).
+    * `shortest-path-length` is not a stored metric column, so it is left out
+    * and a ranking by it reports `unknown-metric`, as does any other name.
+    */
+  val RankingMetricKeys: Map[String, String] = Map(
+    "publication-count" -> "publicationCount",
+    "distinct-coauthor-count" -> "distinctCoauthorCount",
+    "total-coauthor-occurrences" -> "totalCoauthorOccurrences",
+    "average-coauthors-per-paper" -> "averageCoauthorsPerPaper",
+    "maximum-coauthors-on-one-paper" -> "maximumCoauthorsOnOnePaper",
+    "weighted-degree" -> "weightedDegree",
+    "component-size" -> "componentSize",
+    "bridge-score" -> "bridgeScore",
+    "coreness" -> "coreness"
+  )
+
+  /** The export metrics row of each ranked entry, `None` when the entry names
+    * no researcher, the fact no window, or the export has no such row.
+    */
+  private def rankingRows(
+      entries: Vector[ujson.Value],
+      window: Option[String],
+      ix: ExportIndex
+  ): Vector[Option[Map[String, Double]]] =
+    entries.map(en =>
+      for
+        w <- window
+        id <- Facts.s(en, "researcherId")
+        row <- ix.metrics.get((id, w))
+      yield row
+    )
+
   private def ok(category: String): Check = Check(category, true, None)
   private def bad(category: String, why: String): Check =
     Check(category, false, Some(why))
@@ -266,15 +301,13 @@ object AuditRules:
                 else bad("metric", "differs:" + wrong.sorted.mkString(",")))
           case "ranking" =>
             val metric = Facts.s(fact, "metric").getOrElse("")
+            val key = RankingMetricKeys.get(metric)
             val entries = Facts.list(fact, "entries")
             val values = entries.map(en => Facts.n(en, "value"))
-            val exportValues = entries.map { en =>
-              for
-                w <- window
-                id <- Facts.s(en, "researcherId")
-                v <- ix.metrics.get((id, w)).flatMap(_.get(metric))
-              yield v
-            }
+            val rows = rankingRows(entries, window, ix)
+            val exportValues = rows.map(_.flatMap(r => key.flatMap(r.get)))
+            val rowMissing = rows.exists(_.isEmpty)
+            val keyMissing = !rowMissing && exportValues.exists(_.isEmpty)
             val matches = entries.indices.forall { i =>
               (values(i), exportValues(i)) match
                 case (Some(a), Some(b)) => tol.near(a, b)
@@ -289,6 +322,9 @@ object AuditRules:
             }
             Vector(
               if entries.isEmpty then bad("ranking", "empty")
+              else if key.isEmpty then bad("ranking", "unknown-metric")
+              else if rowMissing then bad("ranking", "row-missing")
+              else if keyMissing then bad("ranking", "key-missing")
               else if !matches then bad("ranking", "value-differs")
               else if !sorted then bad("ranking", "order")
               else if !canonical then bad("ranking", "mention-ranked")
@@ -338,16 +374,16 @@ object AuditRules:
             .map(_.values.toVector)
             .getOrElse(Vector.empty)
         case "ranking" =>
-          val metric = Facts.s(fact, "metric").getOrElse("")
+          val key = RankingMetricKeys.get(Facts.s(fact, "metric").getOrElse(""))
           val entries = Facts.list(fact, "entries")
           entries.indices.map(i => (i + 1).toDouble) ++
-            entries.flatMap { en =>
+            rankingRows(entries, window, ix).flatMap(row =>
               for
-                w <- window
-                id <- Facts.s(en, "researcherId")
-                v <- ix.metrics.get((id, w)).flatMap(_.get(metric))
+                r <- row
+                k <- key
+                v <- r.get(k)
               yield v
-            }
+            )
         case "coauthor" =>
           Facts
             .s(fact, "edgeId")

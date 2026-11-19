@@ -249,10 +249,13 @@ object AuditFixture:
       ) ++ windowFields*
     )
 
+  /** A ranking fact as the runtime writes it: `metric` is the kebab-case
+    * `CollaborationMetric.wire` (review 14 finding 1), not an export column.
+    */
   def rankingFact(
       entries: Vector[(String, Double)] =
         Vector(R2 -> 5.0, R1 -> 3.0, R3 -> 1.0),
-      metric: String = "publicationCount"
+      metric: String = "publication-count"
   ): ujson.Value =
     fact(
       "ranking",

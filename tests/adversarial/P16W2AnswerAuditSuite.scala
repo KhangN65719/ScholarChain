@@ -247,7 +247,7 @@ class P16W2AnswerAuditSuite extends FunSuite:
 
   private def rankingFact(
       entries: Seq[(String, Double)],
-      metric: String = "publicationCount"
+      metric: String = "publication-count"
   ): ujson.Value =
     fact(
       "ranking",
@@ -612,6 +612,66 @@ class P16W2AnswerAuditSuite extends FunSuite:
     assertEquals(
       problems(rankingFact(Seq(alpha -> 10, ghost -> 9, beta -> 7))),
       Vector("mention-ranked")
+    )
+  }
+
+  test(
+    "a ranked mention with no export row is row-missing, not mention-ranked"
+  ) {
+    assertEquals(
+      problems(
+        rankingFact(Seq(alpha -> 10, "mention:v1:phantom" -> 9, beta -> 7))
+      ),
+      Vector("row-missing")
+    )
+  }
+
+  test(
+    "a camelCase ranking metric is unknown-metric; row-missing and key-missing are distinct from value-differs"
+  ) {
+    val good = Seq(alpha -> 10.0, beta -> 7.0)
+    // the runtime writes kebab-case; the export's own column name is not a runtime name
+    assertEquals(
+      problems(rankingFact(good, metric = "publicationCount")),
+      Vector("unknown-metric")
+    )
+    assertEquals(
+      problems(rankingFact(good, metric = "no-such-metric")),
+      Vector("unknown-metric")
+    )
+    // the runtime name is accepted
+    assert(problems(rankingFact(good, metric = "publication-count")).isEmpty)
+    // other kebab-case names map to their export columns
+    assert(
+      problems(
+        rankingFact(
+          Seq(beta -> 6.0, alpha -> 4.0),
+          metric = "weighted-degree"
+        )
+      ).isEmpty
+    )
+    assert(
+      problems(
+        rankingFact(
+          Seq(beta -> 2.0, alpha -> 1.0),
+          metric = "distinct-coauthor-count"
+        )
+      ).isEmpty
+    )
+    // a known runtime metric whose column the export rows lack is key-missing
+    assertEquals(
+      problems(rankingFact(good, metric = "bridge-score")),
+      Vector("key-missing")
+    )
+    // an entry with no export row is row-missing
+    assertEquals(
+      problems(rankingFact(Seq(alpha -> 10.0, "researcher:v1:nobody" -> 5.0))),
+      Vector("row-missing")
+    )
+    // and a real wrong value is still value-differs
+    assertEquals(
+      problems(rankingFact(Seq(alpha -> 12.0, beta -> 7.0))),
+      Vector("value-differs")
     )
   }
 

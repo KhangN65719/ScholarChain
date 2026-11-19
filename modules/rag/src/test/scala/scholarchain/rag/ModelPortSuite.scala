@@ -131,6 +131,70 @@ class ModelPortSuite extends munit.FunSuite:
       case other => fail(s"expected valid output, got $other")
   }
 
+  private def usage(estimated: Boolean) =
+    ModelUsage(1, 10, 5, Some("m/1"), estimated)
+
+  test("p16 usage: zero is the identity, so zero plus metered is metered") {
+    val total = ModelUsage.zero + usage(estimated = false)
+    assert(!total.estimated)
+    assertEquals(total.calls, 1)
+    assert(!ModelUsage.zero.estimated)
+    assertEquals(ModelUsage.zero.calls, 0)
+  }
+
+  test("p16 usage: zero plus an estimated call is estimated") {
+    assert((ModelUsage.zero + usage(estimated = true)).estimated)
+  }
+
+  test("p16 usage: any estimated call makes the total estimated") {
+    val mixed = usage(false) + usage(true) + usage(false)
+    assert(mixed.estimated)
+    assert(!(usage(false) + usage(false)).estimated)
+    assertEquals(mixed.calls, 3)
+  }
+
+  private def meteredWorld(estimatedOn: Int => Boolean) =
+    var synthesisCalls = 0
+    val stub = new DeterministicStubModel
+    val model = new ModelPort:
+      def complete(r: ModelRequest): ModelResponse =
+        val reply = stub.complete(r)
+        if r.promptId == Prompts.Synthesis.id then
+          synthesisCalls += 1
+          val raw =
+            if synthesisCalls == 1 && estimatedOn(2) then "garbage"
+            else reply.rawJson
+          reply.copy(
+            rawJson = raw,
+            tokensEstimated = estimatedOn(synthesisCalls)
+          )
+        else reply.copy(tokensEstimated = false)
+    DemoWorld.build(model = model)
+
+  private val coauthorQuestion =
+    "Who are the coauthors of Ada Quillfeather in 2000-2009?"
+
+  test("p16 usage: a workflow whose calls are all metered is not estimated") {
+    val r = ask(meteredWorld(_ => false), coauthorQuestion)
+    assert(!r.abstained, r.response.answer)
+    assert(r.audit.payload("modelCalls").num >= 1)
+    assertEquals(r.audit.payload("tokens")("estimated").bool, false)
+  }
+
+  test("p16 usage: one estimated call makes the workflow estimated") {
+    // The first synthesis reply is metered and malformed; the retry is estimated.
+    val r = ask(meteredWorld(_ == 2), coauthorQuestion)
+    assertEquals(r.audit.payload("modelCalls").num.toInt, 2)
+    assertEquals(r.audit.payload("tokens")("estimated").bool, true)
+  }
+
+  test("p16 usage: a workflow that makes no model call is not estimated") {
+    val r = ask(DemoWorld.build(), "   ")
+    assertEquals(r.abstentionReason, Some("invalid-question"))
+    assertEquals(r.audit.payload("modelCalls").num.toInt, 0)
+    assertEquals(r.audit.payload("tokens")("estimated").bool, false)
+  }
+
   test("past the bound the stage fails closed") {
     val model = new ScriptedModel((_, _) => Some("garbage"))
     StructuredCall.run(model, request(), ModelRetryPolicy()) match

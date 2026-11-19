@@ -661,7 +661,10 @@ final case class ModelUsage(
     )
 
 object ModelUsage:
-  val zero: ModelUsage = ModelUsage(0, 0, 0, None, estimated = true)
+  /** The identity of `+`: no call was made, so nothing in it is estimated. The
+    * total is estimated only when some counted call was (P16, review 14).
+    */
+  val zero: ModelUsage = ModelUsage(0, 0, 0, None, estimated = false)
 
 enum StructuredOutcome:
   case Valid(json: ujson.Value, attempts: Int, usage: ModelUsage)

@@ -4,8 +4,10 @@ import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.{Files, Path}
 import scala.collection.mutable
 import munit.FunSuite
+import scholarchain.core.CollaborationMetric
 import scholarchain.evaluation.answer.AuditFixture.*
 import scholarchain.evaluation.retrieval.LabelRec
+import scholarchain.rag.MetricValues
 
 class AnswerAuditSuite extends FunSuite:
   private val tol = Tolerance()
@@ -173,9 +175,118 @@ class AnswerAuditSuite extends FunSuite:
     )
     assertEquals(
       problems(rankingFact(Vector(M1 -> 5.0))),
-      Vector("value-differs")
+      Vector("row-missing")
     )
     assertEquals(problems(rankingFact(Vector.empty)), Vector("empty"))
+  }
+
+  test("a ranking in the runtime's kebab-case metric names validates") {
+    val byMetric = Vector(
+      "publication-count" -> Vector(R2 -> 5.0, R1 -> 3.0, R3 -> 1.0),
+      "distinct-coauthor-count" -> Vector(R1 -> 2.0, R2 -> 1.0, R3 -> 1.0),
+      "weighted-degree" -> Vector(R1 -> 4.0, R2 -> 3.0, R3 -> 1.0),
+      "maximum-coauthors-on-one-paper" -> Vector(R1 -> 2.0)
+    )
+    byMetric.foreach { (metric, entries) =>
+      assertEquals(
+        checks(rankingFact(entries, metric)),
+        Vector(Check("ranking", true, None)),
+        metric
+      )
+    }
+  }
+
+  test("a kebab-case ranking with a wrong value still fails as value-differs") {
+    assertEquals(
+      problems(rankingFact(Vector(R1 -> 9.0), "weighted-degree")),
+      Vector("value-differs")
+    )
+  }
+
+  test("a ranking row or key missing from the export has its own codes") {
+    assertEquals(
+      problems(rankingFact(Vector(R1 -> 3.0, "researcher:v1:zzz" -> 1.0))),
+      Vector("row-missing")
+    )
+    assertEquals(
+      problems(
+        rankingFact(
+          Vector(R1 -> 1.33, R2 -> 1.0),
+          "average-coauthors-per-paper"
+        )
+      ),
+      Vector("key-missing"),
+      "R2 has a row but no averageCoauthorsPerPaper"
+    )
+    assertEquals(
+      problems(rankingFact(Vector(R1 -> 1.0), "bridge-score")),
+      Vector("key-missing")
+    )
+  }
+
+  test("an unmapped metric name is unknown-metric, not value-differs") {
+    Vector("publicationCount", "shortest-path-length", "").foreach { metric =>
+      assertEquals(
+        problems(rankingFact(metric = metric)),
+        Vector("unknown-metric"),
+        metric
+      )
+    }
+  }
+
+  test("every runtime metric the table names maps to a camelCase export key") {
+    assertEquals(AuditRules.RankingMetricKeys.size, 9)
+    AuditRules.RankingMetricKeys.foreach { (wire, key) =>
+      val parts = wire.split('-').toVector
+      assertEquals(parts.head + parts.tail.map(_.capitalize).mkString, key)
+    }
+  }
+
+  test("RankingMetricKeys equals the runtime's metric table") {
+    val runtime = CollaborationMetric.values
+      .flatMap(m => MetricValues.field(m).map(m.wire -> _))
+      .toMap
+    assertEquals(AuditRules.RankingMetricKeys, runtime)
+  }
+
+  test("exportNumbers returns the export's ranking values for kebab-case") {
+    val numbers = AuditRules.exportNumbers(item("R", rankingFact()), index)
+    assertEquals(
+      numbers.toSet,
+      Set(1.0, 2.0, 3.0, 5.0, 2000.0, 2009.0),
+      "ranks, export values and the window years"
+    )
+    val wrongStated =
+      AuditRules.exportNumbers(
+        item("R", rankingFact(Vector(R2 -> 9.0, R1 -> 3.0, R3 -> 1.0))),
+        index
+      )
+    assert(
+      !wrongStated.contains(9.0),
+      "the export value is used, not the stated one"
+    )
+    assert(wrongStated.contains(5.0))
+    val weighted = AuditRules.exportNumbers(
+      item("R", rankingFact(Vector(R1 -> 4.0), "weighted-degree")),
+      index
+    )
+    assert(weighted.contains(4.0))
+  }
+
+  test(
+    "a ranking claim's numbers match the export, and its evidence is valid"
+  ) {
+    val a = answer(
+      claims = Vector(
+        claim("c", s"Rank 1 by publications: $R2 with 5.", Vector("K"))
+      ),
+      evidence = Vector(item("K", rankingFact()))
+    )
+    val c = audit(a).claims.head
+    assertEquals(c.numbersExportMatched, 2, "rank 1 and 5")
+    assertEquals(c.numbersEvidenceOnly, 0)
+    assertEquals(c.numbersUnmatched, 0)
+    assert(!c.citesInvalidEvidence)
   }
 
   test("a component or community size equals its membership row") {

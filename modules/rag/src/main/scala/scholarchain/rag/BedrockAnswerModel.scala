@@ -33,11 +33,18 @@ final case class ConverseTurn(
     temperature: Double
 )
 
+/** `usageReported` is false when the service sent no usage or only one of the
+  * two counts. The counts then hold what was reported and 0 for what was not:
+  * an explicit placeholder, never a measurement. `BedrockAnswerModel` turns the
+  * flag into `tokensEstimated = true`, so the cost guard charges the worst
+  * case.
+  */
 final case class ConverseReply(
     text: String,
     inputTokens: Int,
     outputTokens: Int,
-    stopReason: String
+    stopReason: String,
+    usageReported: Boolean = true
 )
 
 /** The Bedrock Runtime Converse call, behind an interface. */
@@ -76,11 +83,14 @@ final class SdkConverseClient(client: BedrockRuntimeClient)
       .getOrElse(Vector.empty)
       .mkString
     val usage = Option(response.usage())
+    val in = usage.flatMap(u => Option(u.inputTokens())).map(_.intValue)
+    val out = usage.flatMap(u => Option(u.outputTokens())).map(_.intValue)
     ConverseReply(
       text,
-      usage.flatMap(u => Option(u.inputTokens())).map(_.intValue).getOrElse(0),
-      usage.flatMap(u => Option(u.outputTokens())).map(_.intValue).getOrElse(0),
-      Option(response.stopReasonAsString()).getOrElse("")
+      in.getOrElse(0),
+      out.getOrElse(0),
+      Option(response.stopReasonAsString()).getOrElse(""),
+      usageReported = in.isDefined && out.isDefined
     )
 
 /** The synthesis and planner model on Amazon Bedrock (Converse).
@@ -205,7 +215,7 @@ final class BedrockAnswerModel(
       modelVersion,
       reply.inputTokens,
       reply.outputTokens,
-      tokensEstimated = false,
+      tokensEstimated = !reply.usageReported,
       stopReason = stop,
       replyShape = Some(ReplyMeasures.of(reply.text))
     )
