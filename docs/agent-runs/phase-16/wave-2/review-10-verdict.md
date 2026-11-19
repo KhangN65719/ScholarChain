@@ -1,0 +1,22 @@
+# Phase 16 review 10 verdict (WO-3 part 4 ranking claim cap; W2-TR3)
+
+Author: code-reviewer. Received by the orchestrator on 2026-11-18 and recorded with its attribution. Read/Grep/Glob only; working tree against the reports, no diff.
+
+**Verdict: REQUEST CHANGES.**
+
+Holds: rule 6 triggers only on a ranking fact; rule 5 pointer right; old 6 → 7; rule 1 citation kept; no code refers to old rule numbers (`Model.scala:80-87`). Over-cap check uses `InputShape.of(bundle).rankingEntries` (`Synthesis.scala:108-110,128-133`), fixed reason (`Model.scala:629`), runs only on schema-valid replies (`:756-760`); a reply cut at 4096 fails the parse and is not retried (`:772-776`); completed over-cap retried with the hint; the 460 H cap already counts 3 synthesis attempts. Arithmetic correct and slightly conservative. Tests: `Phase11ClaimIdSuite:197-205` spec-driven, not weakened; `Phase9RepairSuite:632-644` independent `MessageDigest`, `:651` not 1.1.0; pins in `RepairRound1Suite:514`, `ModelPortSuite:63-64`, `SynthesisOutputLimitSuite:54-61` consistent; `RankingClaimCapSuite` cap checks real. Version and hash consistent (1.2.0 `c3d58edb…`; schema `synthesis-output/3` `3ff03e97…`).
+
+## Findings
+
+1. **MEDIUM, rag-engineer.** `Model.scala:86` "Keep each claim "text" and the "analysis" to one short sentence." is not scoped to rankings; it may shorten every answer in all H strata. Scope it ("For a ranking, keep…"); repin `ModelPortSuite` (rag) and `Phase9RepairSuite` (test-engineer).
+2. **MEDIUM, rag-engineer.** `PlannerConfig.maxLimit = 20` (`Planner.scala:18,227`) allows a cap of 22 claims ≈ 5,386 tokens; break-even about 14 entries. Benchmark max is 10 (H unaffected), but a service top-20 can truncate. Bound it (lower `maxLimit`, or document) or test against `PlannerConfig().maxLimit`; `RankingClaimCapSuite:117-131` covers only 5 and 10 with self-computed numbers.
+3. **LOW, rag-engineer.** `StubModel.scala:277-293` writes one definition per wanted metric plus a bridge definition; a ranking question with no metric word goes to `BridgeAnalysis` with 3 default metrics (`Planner.scala:348-349`), as does one naming several metrics; the stub then exceeds the cap, is rejected 3 times, ends `synthesis-failed` (inferred; untested). Align the stub or add a test.
+4. **LOW, rag-engineer.** No test for a reply both over the cap and stopped at `max_tokens` (should not be retried).
+5. **LOW, experiment-engineer.** `experiments/h-answers/README.md:24` still uses a 949-character prompt (now about 1,465 by estimate, unverified; about 0.1409 for 4 calls; `CostGuardSuite:152` reads the live text, so 0.15 probably holds). `:35` "each of the two questions costs one synthesis call" no longer true for a completed over-cap reply.
+6. **MEDIUM, experiment-engineer, before H.** Runs do not record the prompt version: `AnswerRecords.scala:259-316` drops `audit.payload("prompts")`; the run manifest (`AnswerEval.scala:352-379`) has no prompt field; H-4 bypasses `run-experiment.sh` commit binding. `h4-diagnostic-3` (1.1.0) and the next rerun (1.2.0) are distinguishable only from the decision log. G less exposed (stub synthesis, `RetrievalEval.scala:426`).
+7. **Design decision, human.** Reject versus filter: a completed over-cap but otherwise valid reply (like Q-RK-02 at 4039) is retried up to 3 times then abstains; a filter keeping only rule-6 claim kinds would be deterministic and could not drop ranking claims, weakening the report's reason for rejecting. Rejecting is defensible; record the abstention cost. A valid answer does not need more than entries + 2 (ties beyond the cut-off not passed; missing evidence in `missingEvidence`), except the stub (3) and a topic-filtered ranking adding an abstention claim (complies once retried).
+8. **Risk, orchestrator and experiment-engineer.** If Haiku ignores rule 6, the 10 ranking questions plus repeats cost about 3 calls each, roughly +0.5 USD over 2.09 (under 3.00). With the 4-call H-4 cap, Q-RK-01 alone could use 3 calls.
+
+Comparability: no committed doc, manifest, README or label pins 1.1.0; only findings 5 and 6; historical `docs/agent-runs/**` pins stay.
+
+Pending: P16-40 not confirmed by the human (P16-36 authorizes a proposal; the claim-cap design needs acceptance before commit). Not checked: sha256 (rests on the passing `Phase9RepairSuite`); all runs; Haiku compliance and real per-claim size; long `labels-v1.jsonl` lines; W2-RB7's uncommitted diff. Owed: agent `sbt quick` after the repair.

@@ -60,8 +60,8 @@ class ModelPortSuite extends munit.FunSuite:
     val pinned = Map(
       "prompt planner-classify 1.0.0" ->
         "408c5c03311abab8f71a49e8d7646d4fb0d1774e75402c9e240a9371c1dce0a1",
-      "prompt synthesis 1.1.0" ->
-        "40c6597d381abb03df6a26a4b2b2984a5f95df5eb507a26041361d1de7cba7c7",
+      "prompt synthesis 1.2.0" ->
+        "ada69809dac953a6b32d96fc8ef7eb385f4c72af26fe79829e907318bbc74cd0",
       "schema scholarchain.rag.plan-output/1" ->
         "b55d8e903f6f2084079c9c7cb66d5bd78623ea1293d534e03a05818ba354503a",
       "schema scholarchain.rag.synthesis-output/3" ->

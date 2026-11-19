@@ -608,8 +608,8 @@ class Phase9RepairSuite extends FunSuite:
   private val pinnedPrompts: Map[(String, String), String] = Map(
     ("planner-classify", "1.0.0") ->
       "408c5c03311abab8f71a49e8d7646d4fb0d1774e75402c9e240a9371c1dce0a1",
-    ("synthesis", "1.1.0") ->
-      "40c6597d381abb03df6a26a4b2b2984a5f95df5eb507a26041361d1de7cba7c7"
+    ("synthesis", "1.2.0") ->
+      "ada69809dac953a6b32d96fc8ef7eb385f4c72af26fe79829e907318bbc74cd0"
   )
   private val pinnedSchemas: Map[String, String] = Map(
     "scholarchain.rag.plan-output/1" ->
@@ -648,6 +648,7 @@ class Phase9RepairSuite extends FunSuite:
 
   test("m2: the synthesis prompt and schema moved past the round-0 versions") {
     assertNotEquals(Prompts.Synthesis.version, "1.0.0")
+    assertNotEquals(Prompts.Synthesis.version, "1.1.0")
     assertNotEquals(
       Schemas.SynthesisOutputId,
       "scholarchain.rag.synthesis-output/1"

@@ -18,6 +18,7 @@ import scholarchain.evaluation.runtime.{
   CostStopped,
   EvalArgs,
   LaptopPorts,
+  RagIdentity,
   Rates,
   RunDeadline
 }
@@ -86,8 +87,13 @@ object AnswerEval:
       seed: Long = 20261118L,
       ratingSampleSize: Int = 20,
       sessionPrefix: String = "p16-h",
-      deadlineEpochMillis: Option[Long] = None
+      deadlineEpochMillis: Option[Long] = None,
+      questionIds: Option[Vector[String]] = None
   ):
+    require(
+      questionIds.isEmpty || diagnostic,
+      "--question-ids is only for --diagnostic"
+    )
     require(repeatCount >= 0, "repeatCount must not be negative")
     require(ratingSampleSize >= 0, "ratingSampleSize must not be negative")
 
@@ -114,13 +120,44 @@ object AnswerEval:
     * four different strata, in `DiagnosticStrata` order.
     */
   def diagnosticPairs(
-      pairs: Vector[(QuestionRec, LabelRec)]
+      pairs: Vector[(QuestionRec, LabelRec)],
+      questionIds: Option[Vector[String]] = None
   ): Vector[(QuestionRec, LabelRec)] =
-    DiagnosticStrata
-      .flatMap(s =>
-        pairs.find((_, l) => l.stratum == s && !l.abstain && l.hasItems)
-      )
-      .take(DiagnosticMaxCalls)
+    questionIds match
+      case Some(ids) => selectedPairs(pairs, ids)
+      case None      =>
+        DiagnosticStrata
+          .flatMap(s =>
+            pairs.find((_, l) => l.stratum == s && !l.abstain && l.hasItems)
+          )
+          .take(DiagnosticMaxCalls)
+
+  /** Exactly the named questions, in the order given. An empty list, a repeated
+    * id, an unknown id and more ids than the call cap are refused (nothing is
+    * written before this runs). The answerable filter does not apply: the
+    * caller named the questions.
+    */
+  def selectedPairs(
+      pairs: Vector[(QuestionRec, LabelRec)],
+      ids: Vector[String]
+  ): Vector[(QuestionRec, LabelRec)] =
+    require(ids.nonEmpty, "--question-ids needs at least one question id")
+    require(
+      ids.size <= DiagnosticMaxCalls,
+      s"--question-ids names ${ids.size} questions; the diagnostic allows at " +
+        s"most $DiagnosticMaxCalls"
+    )
+    require(
+      ids.distinct.size == ids.size,
+      s"--question-ids repeats an id: ${ids.diff(ids.distinct).distinct.mkString(",")}"
+    )
+    val byId = pairs.map(p => p._1.questionId -> p).toMap
+    val unknown = ids.filterNot(byId.contains)
+    require(
+      unknown.isEmpty,
+      s"--question-ids names unknown question ids: ${unknown.mkString(",")}"
+    )
+    ids.map(byId)
 
   def run(config: Config, wiring: LaptopPorts.Wiring): Report =
     runWith(config, wiring, defaultAsk(wiring))
@@ -149,7 +186,7 @@ object AnswerEval:
       BenchmarkFiles.readLabels(config.labelsPath)
     )
     val chosen =
-      if config.diagnostic then diagnosticPairs(all)
+      if config.diagnostic then diagnosticPairs(all, config.questionIds)
       else
         config.maxQuestions.fold(all)(n =>
           Subsets.stratified(all, p => p._2.stratum, n)
@@ -337,6 +374,8 @@ object AnswerEval:
             "repeatCount" -> Js.l(config.repeatCount.toLong),
             "ratingSampleSize" -> Js.l(config.ratingSampleSize.toLong),
             "retrievalMode" -> Js.s("fused")
+          ) ++ config.questionIds.toVector.map(ids =>
+            "questionIds" -> Js.arr(ids.map(Js.s))
           )
         ),
         "counts" -> Js.obj(
@@ -348,6 +387,9 @@ object AnswerEval:
             "errors" -> Js.l(records.count(_.error.isDefined).toLong),
             "vectorQueries" -> Js.l(wiring.vectorQueries)
           )
+        ),
+        "ragIdentity" -> RagIdentity.json(plannerMaxLimit =
+          wiring.config.planner.maxLimit
         ),
         "wiring" -> wiring.description,
         "cost" -> wiring.guard.snapshot
@@ -434,6 +476,7 @@ object AnswerEval:
           "promptTokens" -> Js.l(r.promptTokens.toLong),
           "completionTokens" -> Js.l(r.completionTokens.toLong),
           "attempts" -> Js.arr(r.attempts.map(_.toJson)),
+          "prompts" -> Js.arr(r.prompts.map(_.toJson)),
           "costStopped" -> Js.b(r.costStopped),
           "error" -> Js.opt(r.error)
         )
@@ -456,6 +499,27 @@ object AnswerEval:
             "calls" -> Js.l(wiring.guard.haikuCallCount.toLong),
             // All records: the question the cap cut off made real calls too.
             "attempts" -> attemptSummary(records),
+            "retryDecisions" ->
+              Js.counts(
+                records
+                  .flatMap(_.attempts.flatMap(_.retryDecision))
+                  .groupBy(identity)
+                  .map((k, v) => k -> v.size.toLong)
+              ),
+            // Per attempt, text-free: question id, attempt number, stop
+            // reason, output tokens and the measures that were recorded.
+            "attemptMeasures" -> Js.arr(
+              records.flatMap(r =>
+                r.attempts.map(a =>
+                  Js.obj(
+                    Vector("questionId" -> Js.s(r.questionId)) ++
+                      a.toJson.obj.toVector.filter((k, _) =>
+                        k != "rejections" && k != "promptId"
+                      )
+                  )
+                )
+              )
+            ),
             "calls_log" -> Js.arr(wiring.guard.calls.map(_.toJson))
           )
         ),
@@ -468,6 +532,7 @@ object AnswerEval:
     "labels",
     "out-dir",
     "run-id",
+    "question-ids",
     "repeat-count",
     "max-questions",
     "max-minutes",
@@ -490,7 +555,7 @@ object AnswerEval:
 
   val Usage: String =
     "usage: AnswerEval --questions FILE --labels FILE --out-dir DIR " +
-      "--run-id ID [--diagnostic] [--repeat-count N] [--max-questions N] " +
+      "--run-id ID [--diagnostic [--question-ids ID,ID,...]] [--repeat-count N] [--max-questions N] " +
       "[--max-minutes N] [--deadline-epoch-seconds N] [--seed N] " +
       "[--rating-sample-size N] " +
       "(--offline | --export-dir DIR --data-bucket B --vector-bucket V " +
@@ -516,6 +581,26 @@ object AnswerEval:
         try
           val offline = a.flag("offline")
           val diagnostic = a.flag("diagnostic")
+          val questionIds =
+            a.get("question-ids").map(_.split(",", -1).toVector.map(_.trim))
+          // Refused before the wiring is built (the live wiring loads the
+          // graph) and before anything is written.
+          questionIds.foreach { ids =>
+            require(diagnostic, "--question-ids is only for --diagnostic")
+            require(
+              ids.forall(_.nonEmpty),
+              "--question-ids has an empty entry"
+            )
+            selectedPairs(
+              BenchmarkFiles.pair(
+                BenchmarkFiles.readQuestions(
+                  Paths.get(a.required("questions"))
+                ),
+                BenchmarkFiles.readLabels(Paths.get(a.required("labels")))
+              ),
+              ids
+            )
+          }
           val haikuCap =
             if diagnostic then
               math.min(
@@ -576,7 +661,8 @@ object AnswerEval:
               a.int("rating-sample-size", 20),
               deadlineEpochMillis = a
                 .get("deadline-epoch-seconds")
-                .map(_ => a.long("deadline-epoch-seconds", 0L) * 1000L)
+                .map(_ => a.long("deadline-epoch-seconds", 0L) * 1000L),
+              questionIds = questionIds
             )
             val report = run(config, wiring)
             val snap = wiring.guard.snapshot

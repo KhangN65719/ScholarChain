@@ -251,38 +251,52 @@ class AnswerEvalSuite extends FunSuite:
     assertEquals(g.haikuCallCount, 2)
   }
 
-  test(
-    "a model with usage tokens is metered and the attempts reach the summary"
-  ) {
+  private def meteredSummary(stop: String, attemptsExpected: Int): Unit =
     val dir = tempDir()
     val g = guard()
-    val fake = new Broken(Some("max_tokens"))
+    val fake = new Broken(Some(stop))
     val wiring = LaptopPorts.offline(g, Some(fake), modelBillable = true)
     val report = AnswerEval.run(
       config(dir, repeatCount = 0).copy(maxQuestions = Some(1)),
       wiring
     )
+    val n = attemptsExpected
+    assertEquals(fake.calls, n)
     val summary =
       ujson.read(
         Files.readString(report.runDir.resolve("model-attempts-summary.json"))
       )
-    assertEquals(summary("attempts").num.toInt, 3)
-    assertEquals(summary("rejected").num.toInt, 3)
-    assertEquals(summary("stopReasons")("max_tokens").num.toInt, 3)
-    assertEquals(summary("maxTokensAttempts").num.toInt, 3)
+    assertEquals(summary("attempts").num.toInt, n)
+    assertEquals(summary("rejected").num.toInt, n)
+    assertEquals(summary("stopReasons")(stop).num.toInt, n)
+    assertEquals(
+      summary("maxTokensAttempts").num.toInt,
+      if stop == "max_tokens" then n else 0
+    )
     assertEquals(
       summary("rejectionCodes")("output is not valid JSON").num.toInt,
-      3
+      n
     )
     val calls = Files
       .readAllLines(report.runDir.resolve("model-calls.jsonl"))
       .asScala
       .toVector
-    assertEquals(calls.count(_.trim.nonEmpty), 3)
+    assertEquals(calls.count(_.trim.nonEmpty), n)
     val first = ujson.read(calls.head)
     assertEquals(first("promptTokens").num.toInt, 1000)
-    assertEquals(first("stopReason").str, "max_tokens")
-    assertEqualsDouble(g.usd, 3 * (1000 * 1.0 / 1e6 + 1000 * 5.0 / 1e6), 1e-12)
+    assertEquals(first("stopReason").str, stop)
+    assertEqualsDouble(g.usd, n * (1000 * 1.0 / 1e6 + 1000 * 5.0 / 1e6), 1e-12)
+
+  test(
+    "a max_tokens model is metered, makes one call per answer, and the attempt reaches the summary"
+  ) {
+    meteredSummary("max_tokens", 1)
+  }
+
+  test(
+    "a model with another invalid reply is still retried to the bound and metered per attempt"
+  ) {
+    meteredSummary("end_turn", 3)
   }
 
   // --- the diagnostic ---
@@ -320,7 +334,9 @@ class AnswerEvalSuite extends FunSuite:
   ) {
     val dir = tempDir()
     val g = guard(haiku = 4, usd = 0.15)
-    val fake = new Broken(Some("max_tokens"))
+    // end_turn: an invalid reply with this stop reason is retried to the
+    // bound. (A max_tokens reply is not retried: see the next test.)
+    val fake = new Broken(Some("end_turn"))
     val wiring = LaptopPorts.offline(g, Some(fake), modelBillable = true)
     val report = AnswerEval.run(config(dir, diagnostic = true), wiring)
     assertEquals(fake.calls, 4, "at most four answer-model calls")
@@ -350,7 +366,7 @@ class AnswerEvalSuite extends FunSuite:
       )
     )
     assertEquals(
-      attempts.count(a => a("stopReason") == ujson.Str("max_tokens")),
+      attempts.count(a => a("stopReason") == ujson.Str("end_turn")),
       4
     )
     val summary = ujson.read(
@@ -358,7 +374,149 @@ class AnswerEvalSuite extends FunSuite:
     )
     assertEquals(summary("calls").num.toInt, 4)
     assertEquals(summary("attempts")("attempts").num.toInt, 5)
-    assertEquals(summary("attempts")("maxTokensAttempts").num.toInt, 4)
+    assertEquals(summary("attempts")("maxTokensAttempts").num.toInt, 0)
+    assertEquals(summary("retryDecisions").obj.size, 0)
+  }
+
+  test(
+    "a max_tokens diagnostic makes one call per question and carries the per-attempt measures, with no text"
+  ) {
+    val dir = tempDir()
+    val g = guard(haiku = 4, usd = 0.15)
+    val fake = new Broken(Some("max_tokens"))
+    val wiring = LaptopPorts.offline(g, Some(fake), modelBillable = true)
+    val report = AnswerEval.run(config(dir, diagnostic = true), wiring)
+    // Three strata in the fixture, one call each: the cap is not reached.
+    assertEquals(fake.calls, 3)
+    assertEquals(report.status, "COMPLETE")
+    val diag = Files
+      .readAllLines(report.runDir.resolve("diagnostic.jsonl"))
+      .asScala
+      .toVector
+      .filter(_.trim.nonEmpty)
+      .map(l => ujson.read(l))
+    val attempts = diag.flatMap(d => d("attempts").arr)
+    assertEquals(attempts.size, 3)
+    attempts.foreach { a =>
+      assertEquals(a("stopReason").str, "max_tokens")
+      assertEquals(a("retryDecision").str, "max_tokens-no-retry")
+      assertEquals(a("replyChars").num.toInt, "not json".length)
+      assertEquals(a("claimsStarted").num.toInt, 0)
+      assertEquals(a("repeatRatio").num, 0.0)
+      assert(a("evidenceItems").num.toInt >= 0)
+      // No ranking in these questions' bundles: the ranking measures are absent.
+      assert(!a.obj.contains("rankingEntries"))
+      assert(!a.obj.contains("tieAtCutoff"))
+    }
+    val summary = ujson.read(
+      Files.readString(report.runDir.resolve("diagnostic-summary.json"))
+    )
+    assertEquals(
+      summary("retryDecisions")("max_tokens-no-retry").num.toInt,
+      3
+    )
+    val measures = summary("attemptMeasures").arr
+    assertEquals(measures.size, 3)
+    assertEquals(
+      measures.map(_("questionId").str).toVector,
+      diag.map(_("questionId").str)
+    )
+    measures.foreach { m =>
+      assertEquals(m("replyChars").num.toInt, "not json".length)
+      assertEquals(m("retryDecision").str, "max_tokens-no-retry")
+      assert(!m.obj.contains("rejections") && !m.obj.contains("promptId"))
+    }
+    val text = allText(report.runDir)
+    Vector("not json", "Quillfeather", "Who is").foreach { w =>
+      assert(!text.contains(w), s"the diagnostic output holds text: $w")
+    }
+  }
+
+  test(
+    "an attempt record round-trips every new measure and writes only those that are set"
+  ) {
+    val bare = AttemptRec("p", 1, false, Vector("r"), Some("end_turn"), 7)
+    val bareJson = bare.toJson
+    Vector(
+      "replyChars",
+      "claimsStarted",
+      "repeatRatio",
+      "evidenceItems",
+      "rankingEntries",
+      "rankedTotal",
+      "cutoffTies",
+      "tieAtCutoff",
+      "retryDecision"
+    ).foreach(k => assert(!bareJson.obj.contains(k), s"$k written when absent"))
+    // An older record (no new keys) reads back with every measure absent.
+    assertEquals(AttemptRec.fromJson(bareJson), bare)
+    val full = bare.copy(
+      replyChars = Some(4096),
+      claimsStarted = Some(3),
+      repeatRatio = Some(0.8125),
+      evidenceItems = Some(9),
+      rankingEntries = Some(25),
+      rankedTotal = Some(858),
+      cutoffTies = Some(2),
+      tieAtCutoff = Some(true),
+      retryDecision = Some("max_tokens-no-retry")
+    )
+    val back = AttemptRec.fromJson(ujson.read(ujson.write(full.toJson)))
+    assertEquals(back, full)
+    assertEquals(full.toJson("tieAtCutoff"), ujson.Bool(true))
+    assertEquals(full.toJson("repeatRatio").num, 0.8125)
+    // A partial record: only the set ones are written.
+    val some = bare.copy(replyChars = Some(5), tieAtCutoff = Some(false))
+    assertEquals(
+      some.toJson.obj.keySet -- bareJson.obj.keySet,
+      Set("replyChars", "tieAtCutoff")
+    )
+  }
+
+  test("AttemptRec.of copies the measures of a model attempt, set or not") {
+    val raw = scholarchain.rag.ModelAttempt(
+      "p",
+      2,
+      false,
+      Vector("output is not valid JSON"),
+      Some("max_tokens"),
+      4096,
+      reply = Some(scholarchain.rag.ReplyShape(9000, 4, 0.5)),
+      input = scholarchain.rag.InputShape(
+        Some(7),
+        Some(25),
+        Some(858),
+        Some(3),
+        Some(true)
+      ),
+      retryDecision = Some("max_tokens-no-retry")
+    )
+    assertEquals(
+      AttemptRec.of(raw),
+      AttemptRec(
+        "p",
+        2,
+        false,
+        Vector("output is not valid JSON"),
+        Some("max_tokens"),
+        4096,
+        Some(9000),
+        Some(4),
+        Some(0.5),
+        Some(7),
+        Some(25),
+        Some(858),
+        Some(3),
+        Some(true),
+        Some("max_tokens-no-retry")
+      )
+    )
+    val plain =
+      scholarchain.rag.ModelAttempt("p", 1, true, Vector.empty, None, 3)
+    assertEquals(
+      AttemptRec.of(plain),
+      AttemptRec("p", 1, true, Vector.empty, None, 3)
+    )
   }
 
   test(
@@ -413,6 +571,169 @@ class AnswerEvalSuite extends FunSuite:
       AnswerEval.diagnosticPairs(pairs).map(_._1.questionId),
       Vector("L1", "R1", "K1", "S1")
     )
+  }
+
+  private def pairOf(
+      id: String,
+      stratum: String,
+      abstain: Boolean = false
+  ): (QuestionRec, LabelRec) =
+    QuestionRec(id, "t") ->
+      LabelRec(
+        id,
+        stratum,
+        stratum,
+        if abstain then Vector.empty else Vector(("x", 1)),
+        Vector.empty,
+        abstain,
+        None,
+        Vector.empty,
+        Vector.empty,
+        None,
+        None,
+        Vector.empty,
+        None
+      )
+
+  test(
+    "--question-ids selects exactly the named questions in the order given, answerable or not"
+  ) {
+    val pairs = Vector(
+      pairOf("A", "researcher-lookup"),
+      pairOf("B", "ranking"),
+      pairOf("C", "ranking"),
+      pairOf("U", "unanswerable", abstain = true)
+    )
+    assertEquals(
+      AnswerEval
+        .diagnosticPairs(pairs, Some(Vector("C", "A")))
+        .map(_._1.questionId),
+      Vector("C", "A")
+    )
+    assertEquals(
+      AnswerEval
+        .diagnosticPairs(pairs, Some(Vector("U", "B", "C")))
+        .map(_._1.questionId),
+      Vector("U", "B", "C")
+    )
+    // Without ids the default selection is unchanged.
+    assertEquals(
+      AnswerEval.diagnosticPairs(pairs).map(_._1.questionId),
+      Vector("A", "B")
+    )
+  }
+
+  test(
+    "--question-ids refuses an unknown, repeated, empty or surplus id list"
+  ) {
+    val pairs = Vector(pairOf("A", "ranking"), pairOf("B", "ranking"))
+    val unknown = intercept[IllegalArgumentException](
+      AnswerEval.diagnosticPairs(pairs, Some(Vector("A", "Z9", "Y8")))
+    )
+    assert(unknown.getMessage.contains("Z9,Y8"), unknown.getMessage)
+    val repeated = intercept[IllegalArgumentException](
+      AnswerEval.diagnosticPairs(pairs, Some(Vector("A", "A")))
+    )
+    assert(repeated.getMessage.contains("repeats"), repeated.getMessage)
+    intercept[IllegalArgumentException](
+      AnswerEval.diagnosticPairs(pairs, Some(Vector.empty))
+    )
+    val many = (1 to 5).map(i => pairOf(s"Q$i", "ranking")).toVector
+    val surplus = intercept[IllegalArgumentException](
+      AnswerEval.diagnosticPairs(many, Some(many.map(_._1.questionId)))
+    )
+    assert(surplus.getMessage.contains("at most 4"), surplus.getMessage)
+  }
+
+  private def cliArgs(dir: Path, runId: String, extra: Seq[String]) =
+    val (q, l) = BenchFixture.write(dir.resolve("bench"))
+    Seq(
+      "--offline",
+      "--diagnostic",
+      "--questions",
+      q.toString,
+      "--labels",
+      l.toString,
+      "--out-dir",
+      dir.resolve("cli").toString,
+      "--run-id",
+      runId
+    ) ++ extra
+
+  test(
+    "a diagnostic command line with --question-ids answers those questions in that order and keeps the clamps"
+  ) {
+    val dir = tempDir()
+    val lines = mutable.ArrayBuffer.empty[String]
+    val code = AnswerEval.execute(
+      cliArgs(
+        dir,
+        "ids-ok",
+        Seq(
+          "--question-ids",
+          "Q-SP-01,Q-RL-01",
+          "--usd-ceiling",
+          "5",
+          "--haiku-max-calls",
+          "50"
+        )
+      ),
+      lines += _
+    )
+    assertEquals(code, 0, lines.toString)
+    val run = dir.resolve("cli/ids-ok")
+    val diag = Files
+      .readAllLines(run.resolve("diagnostic.jsonl"))
+      .asScala
+      .toVector
+      .filter(_.trim.nonEmpty)
+      .map(l => ujson.read(l)("questionId").str)
+    assertEquals(diag, Vector("Q-SP-01", "Q-RL-01"))
+    val manifest =
+      ujson.read(Files.readString(run.resolve("run-manifest.json")))
+    assertEquals(manifest("cost")("limits")("usdCeiling").num, 0.15)
+    assertEquals(manifest("cost")("limits")("haikuMaxCalls").num.toInt, 4)
+    assertEquals(
+      manifest("config")("questionIds").arr.map(_.str).toVector,
+      Vector("Q-SP-01", "Q-RL-01")
+    )
+    assertEquals(manifest("inputs")("questionsRun").num.toInt, 2)
+  }
+
+  test(
+    "a diagnostic command line refuses an unknown question id before writing anything"
+  ) {
+    val dir = tempDir()
+    val lines = mutable.ArrayBuffer.empty[String]
+    val code = AnswerEval.execute(
+      cliArgs(dir, "ids-bad", Seq("--question-ids", "Q-RL-01,Q-NOPE-9")),
+      lines += _
+    )
+    assertEquals(code, 2)
+    assert(lines.exists(_.contains("Q-NOPE-9")), lines.toString)
+    assert(!Files.exists(dir.resolve("cli")), "nothing was written")
+    // --question-ids without --diagnostic is refused too.
+    val full = AnswerEval.execute(
+      cliArgs(dir, "ids-full", Seq("--question-ids", "Q-RL-01"))
+        .filterNot(_ == "--diagnostic"),
+      lines += _
+    )
+    assertEquals(full, 2)
+    assert(!Files.exists(dir.resolve("cli")), "nothing was written")
+    assert(AnswerEval.Usage.contains("--question-ids"))
+  }
+
+  test(
+    "a diagnostic run with --question-ids still refuses a guard above the caps, before writing"
+  ) {
+    val dir = tempDir()
+    val cfg = config(dir, diagnostic = true)
+      .copy(questionIds = Some(Vector("Q-RL-01", "Q-CA-01")))
+    val e = intercept[IllegalArgumentException](
+      AnswerEval.run(cfg, LaptopPorts.offline(guard(haiku = 5)))
+    )
+    assert(e.getMessage.contains("at most 4"))
+    assert(!Files.exists(dir.resolve("out").resolve("run-h")))
   }
 
   test(

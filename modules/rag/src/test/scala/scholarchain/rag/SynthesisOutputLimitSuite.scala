@@ -51,8 +51,9 @@ class SynthesisOutputLimitSuite extends munit.FunSuite:
     assert(planner.forall(_.maxOutputTokens == 200), planner.toString)
   }
 
-  test("the prompt and schema versions are unchanged by the limit") {
-    assertEquals(Prompts.Synthesis.version, "1.1.0")
+  test("the limit leaves the schema version unchanged") {
+    // the prompt went 1.1.0 to 1.2.0 for the ranking claim cap (WO-3 part 4)
+    assertEquals(Prompts.Synthesis.version, "1.2.0")
     assertEquals(
       Schemas.SynthesisOutputId,
       "scholarchain.rag.synthesis-output/3"

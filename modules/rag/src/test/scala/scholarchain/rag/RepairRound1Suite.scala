@@ -511,7 +511,7 @@ class RepairRound1Suite extends munit.FunSuite:
     assert(text.contains("""every string field inside "facts""""))
     assert(text.contains("knownGaps"))
     assert(text.contains("untrustedData"))
-    assertEquals(Prompts.Synthesis.version, "1.1.0")
+    assertEquals(Prompts.Synthesis.version, "1.2.0")
   }
 
   // ---- m1: the allowlist compares the query text ---------------------------------

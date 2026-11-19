@@ -121,7 +121,7 @@ class StopReasonAttemptsSuite extends munit.FunSuite:
   test("each attempt keeps its own rejection code, in order") {
     val model = new Replies(
       Vector(
-        ("not json", Some("max_tokens")),
+        ("not json", Some("stop_sequence")),
         (
           s"""{"schema":"$planSchema","operation":null,"confidence":0.5,"$Canary":1}""",
           Some("end_turn")
@@ -140,7 +140,7 @@ class StopReasonAttemptsSuite extends munit.FunSuite:
         val a = usage.attempts
         assertEquals(a.map(_.attempt), Vector(1, 2, 3))
         assertEquals(a(0).rejections, Vector("output is not valid JSON"))
-        assertEquals(a(0).stopReason, Some("max_tokens"))
+        assertEquals(a(0).stopReason, Some("stop_sequence"))
         assertEquals(a(0).outputTokens, 4)
         assertEquals(a(1).rejections, Vector("$: unexpected key"))
         assertEquals(a(1).stopReason, Some("end_turn"))
@@ -160,7 +160,7 @@ class StopReasonAttemptsSuite extends munit.FunSuite:
     "an accepted retry keeps the earlier rejection and its own stop reason"
   ) {
     val model = new Replies(
-      Vector(("{", Some("max_tokens")), (goodPlan, Some("end_turn")))
+      Vector(("{", Some("stop_sequence")), (goodPlan, Some("end_turn")))
     )
     StructuredCall.run(model, request(_.Planner), ModelRetryPolicy()) match
       case StructuredOutcome.Valid(_, attempts, usage) =>
@@ -224,26 +224,27 @@ class StopReasonAttemptsSuite extends munit.FunSuite:
     val r = ask(DemoWorld.build(model = bedrock), question)
     assert(r.abstained)
     assertEquals(r.abstentionReason, Some("synthesis-failed"))
-    assertEquals(r.modelAttempts.size, 3)
+    // A reply cut at max_tokens is not retried (WO-3 part 3): one attempt.
+    assertEquals(r.modelAttempts.size, 1)
     assert(r.modelAttempts.forall(_.promptId == Prompts.Synthesis.id))
     assert(r.modelAttempts.forall(_.stopReason.contains("max_tokens")))
     assert(
       r.modelAttempts.forall(_.rejections == Vector("output is not valid JSON"))
     )
     val audited = r.audit.payload("modelAttempts").arr.toVector
-    assertEquals(audited.size, 3)
+    assertEquals(audited.size, 1)
     assertEquals(audited.head("stopReason").str, "max_tokens")
     assertEquals(
       audited.head("rejections").arr.toVector.map(_.str),
       Vector("output is not valid JSON")
     )
-    assertEquals(audited.map(_("attempt").num.toInt), Vector(1, 2, 3))
+    assertEquals(audited.map(_("attempt").num.toInt), Vector(1))
     // What was stored carries the same, and none of the model's text.
     val stored = ujson.write(r.audit.payload)
     assert(stored.contains("modelAttempts"))
     assert(!stored.contains(Canary))
     val lines = r.attemptLogLines
-    assertEquals(lines.size, 3)
+    assertEquals(lines.size, 1)
     assert(lines.forall(_.contains("stopReason=max_tokens")), lines.toString)
     assert(
       lines.forall(_.contains("rejections=output is not valid JSON")),

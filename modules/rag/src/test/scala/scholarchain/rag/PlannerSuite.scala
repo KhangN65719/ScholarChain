@@ -107,7 +107,16 @@ class PlannerSuite extends munit.FunSuite:
     )
     assertEquals(
       planned("Name the top 500 researchers by distinct coauthors").resultLimit,
-      20
+      PlannerConfig().maxLimit
+    )
+    assertEquals(PlannerConfig().maxLimit, 12)
+    assertEquals(
+      planned("Name the top 20 researchers by distinct coauthors").resultLimit,
+      12
+    )
+    assertEquals(
+      planned("Name the top 12 researchers by distinct coauthors").resultLimit,
+      12
     )
   }
 

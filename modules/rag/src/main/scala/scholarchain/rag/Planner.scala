@@ -11,11 +11,14 @@ import scholarchain.core.{
   YearWindow
 }
 
+/** `maxLimit` bounds a top-N request. A ranking answer may hold `maxLimit + 2`
+  * claims, which must fit the synthesis output limit (P16-41).
+  */
 final case class PlannerConfig(
     defaultWindow: YearWindow = YearWindow(1, 9999),
     maxNames: Int = 4,
     defaultLimit: Int = 5,
-    maxLimit: Int = 20
+    maxLimit: Int = 12
 )
 
 /** The plan before researcher names are resolved. A core `QueryPlan` carries

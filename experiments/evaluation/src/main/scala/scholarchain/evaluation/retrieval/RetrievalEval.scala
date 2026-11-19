@@ -11,6 +11,7 @@ import scholarchain.evaluation.runtime.{
   CostStopped,
   EvalArgs,
   LaptopPorts,
+  RagIdentity,
   Rates,
   RunDeadline
 }
@@ -435,6 +436,9 @@ object RetrievalEval:
             "errors" -> Js.l(records.count(_.error.isDefined).toLong),
             "vectorQueries" -> Js.l(wiring.vectorQueries)
           )
+        ),
+        "ragIdentity" -> RagIdentity.json(plannerMaxLimit =
+          wiring.config.planner.maxLimit
         ),
         "wiring" -> wiring.description,
         "cost" -> wiring.guard.snapshot

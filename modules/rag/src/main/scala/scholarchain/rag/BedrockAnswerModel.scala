@@ -206,7 +206,8 @@ final class BedrockAnswerModel(
       reply.inputTokens,
       reply.outputTokens,
       tokensEstimated = false,
-      stopReason = stop
+      stopReason = stop,
+      replyShape = Some(ReplyMeasures.of(reply.text))
     )
 
 object BedrockAnswerModel:

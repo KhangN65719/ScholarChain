@@ -45,6 +45,21 @@
 #   more, so the retries and the planner calls are not in the range; they are inside the 3.00
 #   ceiling's headroom. If Billing headroom is short, the 20-question repeat is the first thing
 #   dropped (20 x 0.017 to 20 x 0.0275 = about 0.35 to 0.55 USD). Every USD figure is an ESTIMATE at those rates, not a bound.
+#   Ranking claim cap (decision P16-41, synthesis prompt 1.2.0 rule 6): a completed ranking reply with more
+#   than entries + 2 claims is rejected and retried, up to 3 synthesis attempts. If Haiku ignores rule 6,
+#   each question with a ranking fact in its evidence costs 3 calls instead of 1. Rule 6 applies by
+#   evidence (Synthesis.scala:112-113, shape.rankingEntries), not by stratum: 10 ranking-stratum
+#   questions plus 2 answerable free-form ranking questions (labels-v1.jsonl lines 53, 54) = 12:
+#   12 x 2 extra x 0.0275 = about 0.66 USD over the 2.09 projection, so about 2.75 USD. Whether lines
+#   53-54 and a bridge-analysis question yield a ranking fact depends on the planner (not verified).
+#   Only an answer whose 3 attempts all fail ends synthesis-failed (abstained) and leaves the repeat
+#   pass. A reply rejected once or twice and then accepted is answered, can be picked for the repeat
+#   pass and may cost up to 3 calls again. The repeat takes 20 questions round-robin over about 7
+#   strata, so about 4 ranking questions, range 2-5 (ESTIMATE; ranking stratum 2-3 of 10, free-form 0-2
+#   of its 2): 4 x 2 extra x 0.0275 = about +0.22, so about 2.97 USD worst case, headroom about 0.03. At 5
+#   the repeat adds about 0.275, about 3.03 USD: the USD stop (checked before each call) ends the run,
+#   the repeat pass is cut, and spend cannot exceed 3.00. A reply cut at max_tokens is not
+#   retried (one call). Not measured: Haiku compliance with rule 6.
 #   SPEND_CEILING_USD 3.00   the HIGH figure, and the BINDING limit (decisions P16-3 and P16-33): the
 #                            call cap (460, unchanged) above is the worst case, the USD stop
 #                            usually ends the run first. The

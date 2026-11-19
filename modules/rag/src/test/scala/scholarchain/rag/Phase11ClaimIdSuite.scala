@@ -195,7 +195,10 @@ class Phase11ClaimIdSuite extends munit.FunSuite:
   }
 
   test("n1: an abstention beside a kept claim does not abstain the answer") {
-    val r = askWith(editClaims(claims => claims :+ abstention))
+    // The stub's ranking answer already holds the capped count (entries plus a
+    // definition and a semantic claim, prompt 1.2.0 rule 6), so the abstention
+    // replaces the last claim instead of being added past the cap.
+    val r = askWith(editClaims(claims => claims.init :+ abstention))
     assert(!r.abstained, r.response.answer)
     assertEquals(r.abstentionReason, None)
     assert(r.response.claims.exists(_.text == Rendering.AbstentionText))

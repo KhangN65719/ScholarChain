@@ -84,8 +84,33 @@ final case class AttemptRec(
     accepted: Boolean,
     rejections: Vector[String],
     stopReason: Option[String],
-    outputTokens: Int
+    outputTokens: Int,
+    replyChars: Option[Int] = None,
+    claimsStarted: Option[Int] = None,
+    repeatRatio: Option[Double] = None,
+    evidenceItems: Option[Int] = None,
+    rankingEntries: Option[Int] = None,
+    rankedTotal: Option[Int] = None,
+    cutoffTies: Option[Int] = None,
+    tieAtCutoff: Option[Boolean] = None,
+    retryDecision: Option[String] = None
 ):
+  /** The text-free per-attempt measures that are set. Numbers, one boolean and
+    * one fixed decision code; never reply or prompt text.
+    */
+  private def measures: Vector[(String, ujson.Value)] =
+    Vector[(String, Option[ujson.Value])](
+      "replyChars" -> replyChars.map(n => Js.l(n.toLong)),
+      "claimsStarted" -> claimsStarted.map(n => Js.l(n.toLong)),
+      "repeatRatio" -> repeatRatio.map(Js.d),
+      "evidenceItems" -> evidenceItems.map(n => Js.l(n.toLong)),
+      "rankingEntries" -> rankingEntries.map(n => Js.l(n.toLong)),
+      "rankedTotal" -> rankedTotal.map(n => Js.l(n.toLong)),
+      "cutoffTies" -> cutoffTies.map(n => Js.l(n.toLong)),
+      "tieAtCutoff" -> tieAtCutoff.map(Js.b),
+      "retryDecision" -> retryDecision.map(Js.s)
+    ).flatMap((k, v) => v.map(k -> _))
+
   def toJson: ujson.Value =
     Js.obj(
       Vector(
@@ -95,7 +120,7 @@ final case class AttemptRec(
         "rejections" -> Js.arr(rejections.map(Js.s)),
         "stopReason" -> Js.opt(stopReason),
         "outputTokens" -> Js.l(outputTokens.toLong)
-      )
+      ) ++ measures
     )
 
 object AttemptRec:
@@ -106,7 +131,16 @@ object AttemptRec:
       a.accepted,
       a.rejections,
       a.stopReason,
-      a.outputTokens
+      a.outputTokens,
+      a.reply.map(_.chars),
+      a.reply.map(_.claimsStarted),
+      a.reply.map(_.repeatRatio),
+      a.input.evidenceItems,
+      a.input.rankingEntries,
+      a.input.rankedTotal,
+      a.input.cutoffTies,
+      a.input.tieAtCutoff,
+      a.retryDecision
     )
 
   def fromJson(v: ujson.Value): AttemptRec =
@@ -116,7 +150,54 @@ object AttemptRec:
       J.field(v, "accepted").flatMap(_.boolOpt).getOrElse(false),
       J.strings(v, "rejections"),
       J.str(v, "stopReason"),
-      J.int(v, "outputTokens").getOrElse(0)
+      J.int(v, "outputTokens").getOrElse(0),
+      J.int(v, "replyChars"),
+      J.int(v, "claimsStarted"),
+      J.num(v, "repeatRatio"),
+      J.int(v, "evidenceItems"),
+      J.int(v, "rankingEntries"),
+      J.int(v, "rankedTotal"),
+      J.int(v, "cutoffTies"),
+      J.field(v, "tieAtCutoff").flatMap(_.boolOpt),
+      J.str(v, "retryDecision")
+    )
+
+/** A prompt the answer's workflow call used, as the workflow's audit records
+  * it: id, version, sha256 of the text and schema id. Only a prompt that made a
+  * model call is listed.
+  */
+final case class PromptRec(
+    id: String,
+    version: String,
+    sha256: String,
+    schemaId: String
+):
+  def toJson: ujson.Value =
+    Js.obj(
+      Vector(
+        "id" -> Js.s(id),
+        "version" -> Js.s(version),
+        "sha256" -> Js.s(sha256),
+        "schemaId" -> Js.s(schemaId)
+      )
+    )
+
+object PromptRec:
+  def fromJson(v: ujson.Value): PromptRec =
+    PromptRec(
+      J.str(v, "id").getOrElse(""),
+      J.str(v, "version").getOrElse(""),
+      J.str(v, "sha256").getOrElse(""),
+      J.str(v, "schemaId").getOrElse("")
+    )
+
+  /** From the audit payload's `prompts` entries (`hash` there). */
+  def ofAudit(v: ujson.Value): PromptRec =
+    PromptRec(
+      J.str(v, "id").getOrElse(""),
+      J.str(v, "version").getOrElse(""),
+      J.str(v, "hash").getOrElse(""),
+      J.str(v, "schemaId").getOrElse("")
     )
 
 /** The frozen record of one answer: everything the audit and the rating sample
@@ -148,7 +229,8 @@ final case class AnswerRecord(
     answerHash: String,
     operation: Option[String],
     costStopped: Boolean,
-    error: Option[String]
+    error: Option[String],
+    prompts: Vector[PromptRec] = Vector.empty
 ):
   def usable: Boolean = !costStopped && error.isEmpty
 
@@ -177,7 +259,8 @@ final case class AnswerRecord(
         "answerHash" -> Js.s(answerHash),
         "operation" -> Js.opt(operation),
         "costStopped" -> Js.b(costStopped),
-        "error" -> Js.opt(error)
+        "error" -> Js.opt(error),
+        "prompts" -> Js.arr(prompts.map(_.toJson))
       )
     )
 
@@ -209,7 +292,8 @@ object AnswerRecord:
       J.str(v, "answerHash").getOrElse(""),
       J.str(v, "operation"),
       J.field(v, "costStopped").flatMap(_.boolOpt).getOrElse(false),
-      J.str(v, "error")
+      J.str(v, "error"),
+      array(v, "prompts").map(PromptRec.fromJson)
     )
 
   /** The record of a finished workflow call. */
@@ -269,7 +353,8 @@ object AnswerRecord:
       result.audit.answerHash,
       result.planDraft.map(_.operation.wire),
       costStopped,
-      None
+      None,
+      payload("prompts").arr.toVector.map(PromptRec.ofAudit)
     )
 
   /** The record of a question that raised instead of answering. */

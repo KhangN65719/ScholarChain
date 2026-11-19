@@ -274,12 +274,22 @@ object DeterministicStubModel:
         "assertion" -> ujson.Obj("kind" -> "semantic"),
         "uncertainty" -> ujson.Null
       )
-    val terms = (wanted ++ (
-      if operation == QueryOperation.Community.wire ||
-        operation == QueryOperation.BridgeAnalysis.wire
-      then Vector(CollaborationMetric.BridgeScore)
-      else Vector.empty
-    )).flatMap(Glossary.termsFor).distinct
+    // Prompt rule 6: a ranking answer holds one definition claim at most, for
+    // the ranked metric only, so it stays within the entries plus two.
+    val ranked = byKind("ranking").nonEmpty
+    val terms =
+      if ranked then
+        rankMetric
+          .flatMap(Rendering.metricByWire)
+          .flatMap(Glossary.termsFor)
+          .toVector
+      else
+        (wanted ++ (
+          if operation == QueryOperation.Community.wire ||
+            operation == QueryOperation.BridgeAnalysis.wire
+          then Vector(CollaborationMetric.BridgeScore)
+          else Vector.empty
+        )).flatMap(Glossary.termsFor).distinct
     terms.foreach { term =>
       count += 1
       claims += ujson.Obj(

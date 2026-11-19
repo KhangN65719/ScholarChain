@@ -23,6 +23,20 @@ object AnswerSynthesisAgent:
     */
   val MaxOutputTokens = 4096
 
+  /** The reason of a ranking reply with more claims than the cap. */
+  val TooManyRankingClaims = "too many claims for a ranking"
+
+  /** Claims allowed beside a ranking fact of `entries` entries: one `ranking`
+    * claim per entry, plus at most one definition and one semantic claim
+    * (prompt synthesis 1.2.0, rule 6). The h4-diagnostic-3 replies held 17 and
+    * 18 claims for 5 entries and filled the 4096-token limit (decision P16-40).
+    * At the measured 238 tokens a claim, the cap is 1.7k tokens for 5 entries
+    * (7 claims) and 2.9k for 10 (12 claims). A reply over the cap is rejected
+    * and retried with the reason; it is not trimmed, because a trim would
+    * choose which claims to drop.
+    */
+  def rankingClaimCap(entries: Int): Int = entries + 2
+
 /** Writes the analysis and typed claims from the evidence bundle through the
   * model port. The prompt and the output schema are versioned
   * (`Prompts.Synthesis`, `Schemas.SynthesisOutput`). The question and every
@@ -84,13 +98,23 @@ final class AnswerSynthesisAgent(
       })
     )
 
-  private def checks(json: ujson.Value): Vector[String] =
+  private def checks(rankingEntries: Option[Int])(
+      json: ujson.Value
+  ): Vector[String] =
     val badEvidence = Facts
       .list(json, "claims")
       .flatMap(c => Facts.list(c, "evidenceIds"))
       .exists(e => !e.str.startsWith("evidence:v1:"))
+    // Reject rather than trim: a trim could drop required ranking claims
+    // (P16-41). Cost of a rejection: a completed over-cap reply is retried up
+    // to 3 synthesis attempts, about 0.027 USD each at 4096 output tokens,
+    // then the answer abstains as synthesis-failed.
+    val overCap = rankingEntries.exists(n =>
+      Facts.list(json, "claims").size > AnswerSynthesisAgent.rankingClaimCap(n)
+    )
     Vector(
-      if badEvidence then Some("an evidence ID is malformed") else None
+      if badEvidence then Some("an evidence ID is malformed") else None,
+      if overCap then Some(AnswerSynthesisAgent.TooManyRankingClaims) else None
     ).flatten
 
   def synthesize(
@@ -105,7 +129,15 @@ final class AnswerSynthesisAgent(
       input(draft, bundle, gaps),
       AnswerSynthesisAgent.MaxOutputTokens
     )
-    StructuredCall.run(model, request, retry, checks) match
+    val shape = InputShape.of(bundle)
+    StructuredCall.run(
+      model,
+      request,
+      retry,
+      checks(shape.rankingEntries),
+      shape,
+      stopOnMaxTokens = true
+    ) match
       case StructuredOutcome.Valid(json, attempts, usage) =>
         SynthesisResult.Done(
           SynthesisOutput(
