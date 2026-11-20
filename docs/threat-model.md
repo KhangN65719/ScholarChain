@@ -1,6 +1,6 @@
 # ScholarChain threat model
 
-Scope: the build-time pipeline (datasets, Hadoop, entity resolution, Spark, export, loaders), the runtime (services, RAG, stores, Bedrock), the Terraform and scripts, and the agentic factory that authored them. Written 2026-11-19 from repository files. Nothing here was replayed by the author: documentation-engineer has no shell, and every command or test named below is marked with what the cited record observed, or NOT REPLAYED until the human's replay (H-8).
+Scope: the build-time pipeline (datasets, Hadoop, entity resolution, Spark, export, loaders), the runtime (services, RAG, stores, Bedrock), the Terraform and scripts, and the agentic factory that authored them. Written 2026-11-19 from repository files. Nothing here was replayed by the author: documentation-engineer has no shell, and every command or test named below is marked with what the cited record observed, or NOT REPLAYED. The human's H-8 records (`docs/agent-runs/phase-17/human-commands.md`) cover only `validate-agent-files.sh`, `sbt check` on `dc15299` and the Phase 7 agent replay.
 
 How to read the tables. "Control" says what the repository does. "Evidence" names the file, test, hook, IAM statement or script, and says whether a record observed it. "Gap" is what remains. A control that exists in code but was never exercised live is stated as such. Account ids are masked everywhere (`000000000000`).
 
@@ -131,7 +131,7 @@ Threat: a record's source or transformation history is altered, or an answer cit
 | Material runtime claims cite an evidence bundle: source ids, graph or retrieval evidence, uncertainty. Evidence and explain endpoints return it | `modules/core` `EvidenceBundle`, `AnswerClaim` (`Contracts.scala:425-489`); `docs/api.md` | Query records, jobs and idempotency are in-process, so `/v1/evidence` and `/v1/explain` work only in the task that served the query (`SESSION2.md` section 1). The evidence bundle table holds the record; its integrity is not hash-chained |
 | Idempotency: the same key with a different body is 422 `IDEMPOTENCY_KEY_REUSED` (fingerprint is a SHA-256 of body and mode) | `scripts/README.md` smoke coverage; `QueryService.scala` | A replay is observable only as the same `queryId` |
 | Vectors are never overwritten with different content (`ChangedVectorContent`) | see 3 | Deleted keys in Phase 15 are recorded |
-| Release evidence: plan digest, script digest and image tags (immutable) are recorded per deploy; `package.sh` writes `SHA256SUMS`; `archive-evidence.sh` writes `MANIFEST.sha256` | `docs/releases/phase-15/README.md`; `scripts/README.md` | `DEPLOY_COMPLETE` is unstamped (Phase 14 open items). `package.sh` checksums: NOT REPLAYED until H-8 |
+| Release evidence: plan digest, script digest and image tags (immutable) are recorded per deploy; `package.sh` writes `SHA256SUMS`; `archive-evidence.sh` writes `MANIFEST.sha256` | `docs/releases/phase-15/README.md`; `scripts/README.md` | `DEPLOY_COMPLETE` is unstamped (Phase 14 open items). `package.sh` checksums: NOT REPLAYED |
 | Agent evidence is archived as received with its author identified; a reviewer never approves its own work | `docs/agents.md` boundary rules; `docs/agent-runs/README.md` | Phase 17 `human-gate.md` and `agent-report.md` files are orchestrator-compiled indexes, labelled as such. Git history is the only tamper-evidence for the archive |
 
 ## 9. Open items carried to the human
@@ -142,4 +142,4 @@ Threat: a record's source or transformation history is altered, or an answer cit
 4. The Neptune openCypher condition key behaviour on a live query path: UNVERIFIED.
 5. Secret values left in Secrets Manager across sessions: human decision pending (`docs/releases/phase-15/README.md`).
 6. The hook header (R03) is ratified and committed at `5157e0e` (`guard-dangerous.sh:1-81`, `--list-categories`). The 114/0 `hooks-guard.sh` run is recorded, not replayed here; native interception in a fresh session stays tracked in the restart probes.
-7. Every test and script named here: NOT REPLAYED by this document's author. Replay result lands with H-8.
+7. Every test and script named here: NOT REPLAYED by this document's author.

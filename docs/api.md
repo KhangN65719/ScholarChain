@@ -202,7 +202,7 @@ Live-AWS limits and Region availability are in `docs/service-limits.md` (WO-B3),
 
 ## 7. Replay status
 
-NOT REPLAYED. `docs/releases/phase-15/smoke-tn.md` holds no `curl` examples: its smokes were `ecs run-task` runs of the load-client image against the internal ALB (`smoke-tn.md:5`), and it records their results. `scripts/smoke-test.sh` is the script that calls the endpoints with `curl` (`scripts/README.md`, "`smoke-test.sh` coverage"). The README's API examples (WO-B1) carry their own replay marks (H-8).
+NOT REPLAYED. `docs/releases/phase-15/smoke-tn.md` holds no `curl` examples: its smokes were `ecs run-task` runs of the load-client image against the internal ALB (`smoke-tn.md:5`), and it records their results. `scripts/smoke-test.sh` is the script that calls the endpoints with `curl` (`scripts/README.md`, "`smoke-test.sh` coverage"). The README's API examples (WO-B1) carry their own replay marks.
 
 ## 8. Sources read
 

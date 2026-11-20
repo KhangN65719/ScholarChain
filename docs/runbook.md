@@ -1,6 +1,6 @@
 # ScholarChain runbook
 
-Written 2026-11-19 from `scripts/README.md`, `infra/terraform/README.md`, `infra/terraform/SESSION2.md`, `docs/releases/phase-14/` and `docs/releases/phase-15/`. Documentation-engineer has no shell and replayed nothing. Every command below is quoted from those files and is marked NOT REPLAYED until the human's replay (H-8) is archived. The phase records say whether a command ran on a real account in an earlier phase; that is cited as OBSERVED (record), and is not a replay by this document.
+Written 2026-11-19 from `scripts/README.md`, `infra/terraform/README.md`, `infra/terraform/SESSION2.md`, `docs/releases/phase-14/` and `docs/releases/phase-15/`. Documentation-engineer has no shell and replayed nothing. Every command below is quoted from those files and is marked NOT REPLAYED; the H-8 records (`docs/agent-runs/phase-17/human-commands.md`) cover only `validate-agent-files.sh`, `sbt check` on `dc15299` and the Phase 7 agent replay. The phase records say whether a command ran on a real account in an earlier phase; that is cited as OBSERVED (record), and is not a replay by this document.
 
 Rules that apply to every section:
 
@@ -28,7 +28,7 @@ bash scripts/plan.sh --dry-run --environment course --account-id <id> --cost-cei
 bash scripts/run-experiment.sh --help
 ```
 
-NOT REPLAYED until H-8. Earlier observed (record): the dry-run, refusal and `--help` paths of the scripts under a stubbed harness, `RESULT pass=570 fail=0` (`scripts/README.md`, `docs/agent-runs/phase-13/checks-5.md`). That run did not exercise any real AWS call. Later script edits changed digests. The full script harness was last recorded at `RESULT pass=1949 fail=0`, `SKIPPED_CASES 0` (human run, 2026-11-19; `docs/agent-runs/phase-17/human-commands.md`; `docs/agent-runs/phase-16/ratification.md`, Gates). The hook harness `hooks-guard.sh` was recorded at `RESULT pass=114 fail=0` (Claude in chat on the final Wave A2 files, `docs/agent-runs/phase-17/human-commands.md`). Both are recorded results, not replayed by this document's author.
+NOT REPLAYED. Earlier observed (record): the dry-run, refusal and `--help` paths of the scripts under a stubbed harness, `RESULT pass=570 fail=0` (`scripts/README.md`, `docs/agent-runs/phase-13/checks-5.md`). That run did not exercise any real AWS call. Later script edits changed digests. The full script harness was last recorded at `RESULT pass=1949 fail=0`, `SKIPPED_CASES 0` (human run, 2026-11-20, fresh clone of `264f24b`, exit 0; `docs/agent-runs/phase-17/human-commands.md`, section "Phase 17 final gate, F3"). The Phase 16 gate recorded the same count, 1949/0 (`docs/agent-runs/phase-16/ratification.md`, Gates). The hook harness `hooks-guard.sh` was recorded at `RESULT pass=114 fail=0` on the same clone (same section). Both are recorded results, not replayed by this document's author.
 
 `check.sh --skip-sbt --skip-terraform` is the fast form; its last line is `CHECK_RESULT=PASS_WITH_SKIPS`, never `PASS`. `CHECK_RESULT=PASS` means every gate ran and passed.
 
@@ -178,7 +178,7 @@ Source: the `aws ... describe-*` forms in `infra/terraform/README.md` ("Availabi
 
 | Section | Status |
 |---|---|
-| 1 local checks | NOT REPLAYED until H-8 |
+| 1 local checks | NOT REPLAYED (the H-8 `sbt check` on `dc15299` is recorded in `docs/agent-runs/phase-17/human-commands.md`, but it is not this step) |
 | 2 deployment | NOT REPLAYED; deploys OBSERVED in Phase 14 and 15 records |
 | 3 smoke | NOT REPLAYED; Phase 15 smokes OBSERVED (two FAIL, one PASS) |
 | 4 failures | records only |

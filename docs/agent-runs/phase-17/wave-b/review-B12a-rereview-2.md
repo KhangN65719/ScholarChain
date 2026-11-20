@@ -1,0 +1,3 @@
+# Review B12a, re-review 2 (code-reviewer, Opus), as received 2026-11-19 (condensed by the orchestrator)
+
+Verdict: APPROVE. `architecture.md:180` and `api.md:209` sources notes are accurate (`infra/terraform/README.md:451-453`; `AwsSettings.scala:245-265` covers `:122`; the `api.md` repair-round list matches its citations). `api.md:205` is supported by `scripts/README.md:247-252` and `:60` and by `scripts/smoke-test.sh` (`curl`). Non-blocking: if the line is touched again, add `scripts/README.md:60`. No other change seen; line counts are unchanged (181, 210). The six Wave B docs (B2, B3) are approved. Pending: Mermaid rendering, H-8.

@@ -1,13 +1,13 @@
 # ScholarChain demonstration script
 
-Narrated script for the demonstration video (deliverable D19, human step H-12). It covers the 22 items of the course "Demonstration requirements" in order, on the basis recorded as decision P17-26 (option iii): laptop runs plus archived evidence, with no live AWS session. Option (i), a live Neptune load and query, stays optional for item 11 only.
+Narrated script for the demonstration video (deliverable D19, human step H-12). It covers the 22 items of the course "Demonstration requirements" in order, on the basis recorded as decision P17-26 (option iii): laptop runs plus archived evidence, with no live AWS session. Decision P17-33 (2026-11-20) dropped the optional live Neptune session, so item 11 is ARCHIVED only. Decision P17-37 (2026-11-20) makes the AWS parts of items 13 and 14 ARCHIVED too: no Titan, Haiku or S3 Vectors call is made in Phase 17.
 
 Status of this file: written from repository files; nothing in it was run by its author, who has no shell tool. Every command, file name and expected output below is NOT REPLAYED until the human records a rehearsal or the take. No result is claimed as live. Where an expected output comes from an archived record, the record is cited, and it is an earlier run, not a promise about this one.
 
 Labels used for each item:
 
 - **LIVE (laptop)**: run on the presenter's laptop during recording.
-- **LIVE (AWS, read-only)**: a free read-only console page or CLI call. No AWS-changing command is run in an option (iii) item. The only exceptions are the optional live path (i) of item 11, which is human-run under approval records, and the item 4 refusal probe `aws s3 rm s3://example-placeholder/x`, which the guard must refuse before it runs (see item 4).
+- **LIVE (AWS, read-only)**: a free read-only console page or CLI call. No AWS-changing command is run in an option (iii) item. The only exception is the item 4 refusal probe `aws s3 rm s3://example-placeholder/x`, which the guard must refuse before it runs (see item 4). No live AWS session runs (P17-33).
 - **ARCHIVED**: shown from a committed file, path given.
 
 Replay marks: NOT REPLAYED (nobody has run it against this tree for this script), UNVERIFIED (not seen in a file read), NOT RECORDED (no record holds it), PENDING (names who supplies it).
@@ -16,12 +16,12 @@ Replay marks: NOT REPLAYED (nobody has run it against this tree for this script)
 
 ### 1.1 Have open before recording
 
-- Terminal A: repository root, clean working tree on `main` (`git status --short` empty except the held `docs/agent-runs/phase-17/` and `reports/final-report.md` until they are committed). `package.sh` and `deploy.sh` refuse a dirty tree, and an untracked file such as `docs/.DS_Store` counts as dirty (`scripts/README.md`, "From a clean checkout").
+- Terminal A: repository root, clean working tree on `main` (`git status --short` empty except the held `docs/agent-runs/phase-17/` until it is committed in the close commit; `reports/final-report.md` and this file were committed in `dc15299`). `package.sh` and `deploy.sh` refuse a dirty tree, and an untracked file such as `docs/.DS_Store` counts as dirty (`scripts/README.md`, "From a clean checkout").
 - Terminal B: for `curl` only. Sbt is run in one terminal at a time (project rule). The local services run in items 14 and 15 occupy one sbt, so nothing else uses sbt then.
 - An editor or file viewer open at the repository root, for the ownership map, a role file, `.claude/settings.json`, the SVG plots and the archived records.
 - A browser with two tabs: the AWS console signed in to the read-only profile (items 12, 19, 22; region us-east-2) and the repository page.
 - Claude Code installed (version in README "Version record"; 2.1.328 human-reported). Start it from the repository root with `claude`. Do not approve any MCP server on camera; the four servers in `.mcp.json` stay disabled until approved one by one (`CLAUDE.md`, "MCP trust boundaries").
-- A rehearsal of every LIVE item first. The live refusal in item 4 and the Stop gate in item 5 were NOT RECORDED after the last restart (README "Reproducing the agentic workflow", step 5 and 6), so a first observation on camera is a risk.
+- A rehearsal of every LIVE item first. After the last restart the item 4 refusal is recorded as P1 PASS and P1b PASS, but the item 5 Stop gate is recorded only as P3 PARTIAL: the hook did not block a stop made without sbt, but no source file differed from HEAD at that moment (`docs/agent-runs/phase-17/human-commands.md`, "Results recorded"). The full block-then-pass loop has not been seen, so rehearse item 5; it is recorded in the video.
 
 ### 1.2 Environment variable names (never values)
 
@@ -40,7 +40,7 @@ Replay marks: NOT REPLAYED (nobody has run it against this tree for this script)
 
 ### 1.4 Spend
 
-No item in the option (iii) path starts a paid AWS resource. The claim "no AWS-changing command is run" holds for option (iii) with two named exceptions: the optional live path (i) of item 11, and the item 4 probe `aws s3 rm s3://example-placeholder/x`, which is a delete-class command that the guard must refuse and which would fail on a placeholder bucket if it ever ran. Items 12, 18, 19 and 22 are read calls; item 18 runs `plan.sh`, which applies nothing. Items 9, 10, 15 and 16 run locally with no network. Item 14's local segment is offline. The optional laptop runs against Bedrock, Titan and S3 Vectors are in item 13 (the G retrieval run) and item 14 (the H answer runs, `experiments/h-answers/README.md`); each needs its own approval record (the H-4 diagnostic is the one run that bypasses `scripts/run-experiment.sh`, with in-process bounds) and its own Billing reading. Billing reference points: 10.39 USD month-to-date at 10:59 on 2026-11-19 with nothing running, against the 14 USD operating stop (`docs/agent-runs/phase-17/decisions.md`, P17-17).
+No item in the option (iii) path starts a paid AWS resource. The claim "no AWS-changing command is run" holds for option (iii) with one named exception: the item 4 probe `aws s3 rm s3://example-placeholder/x`, which is a delete-class command that the guard must refuse and which would fail on a placeholder bucket if it ever ran. Items 12, 18, 19 and 22 are read calls; item 18 runs `plan.sh`, which applies nothing. Items 9, 10, 15 and 16 run locally with no network. Item 14's local segment is offline. No Titan, Haiku or S3 Vectors call is made in Phase 17 (decision P17-37): the AWS parts of items 13 and 14 are ARCHIVED from the Phase 16 records, and the local-services segment of items 14 and 15 uses the stub model and makes no AWS call. Billing reference points: 10.39 USD month-to-date at 10:59 on 2026-11-19 with nothing running, against the 14 USD operating stop (`docs/agent-runs/phase-17/decisions.md`, P17-17); and 10.44 USD month-to-date at 12:58 on 2026-11-20 (same file, P17-33). Both are account-level readings by the human, subject to Billing lag.
 
 ## 2. Time budget
 
@@ -59,9 +59,9 @@ Narrated time per item, after cutting waiting time (an `sbt` run is started and 
 | 8 Dataset manifest and samples | LIVE (laptop) | 2 |
 | 9 Hadoop evidence and counters | LIVE (laptop) | 2.5 |
 | 10 Spark evidence and outputs | LIVE (laptop) | 3 |
-| 11 Neptune graph query | ARCHIVED (primary); optional LIVE | 2 |
+| 11 Neptune graph query | ARCHIVED | 2 |
 | 12 DynamoDB record | LIVE (AWS, read-only) or ARCHIVED | 1.5 |
-| 13 S3 Vectors query | ARCHIVED (laptop live optional) | 2 |
+| 13 S3 Vectors query | ARCHIVED | 2 |
 | 14 Complete query through the API | ARCHIVED, plus a local demo-data segment | 3 |
 | 15 Evidence and explain endpoints | ARCHIVED, plus a local demo-data segment | 2 |
 | 16 Claim verification | LIVE (laptop) | 2.5 |
@@ -117,7 +117,7 @@ State once that the demonstration uses option (iii): no AWS resource other than 
   bash tests/scripts/hooks-guard.sh
   ```
   Expected, from the human relay recorded in `docs/agent-runs/phase-17/human-commands.md` and the README: 18 lines over 8 categories (AWS delete and terminate, Terraform, Git, database, S3, Neptune, DynamoDB, vector index), exit 0; the harness ends `RESULT pass=114 fail=0`. The harness run time is NOT RECORDED; cut to its last line.
-- **Show, part 2 (session):** start `claude` at the repository root and ask the orchestrator to run `terraform apply`, then `aws s3 rm s3://example-placeholder/x`. Expected per the README: both refused by the guard hook, nothing executed. The result after the last restart is NOT RECORDED, so rehearse it. Run this session in a shell with no AWS credentials in its environment (unset `AWS_PROFILE` and any `AWS_*` credential variables first), so that a guard failure cannot reach a real account. Both commands would then fail anyway (no Terraform working directory, a placeholder bucket and no credentials), but stop the take if either runs. `aws s3 rm` is a delete-class command: this is the one AWS-delete-class command in the script, and it is shown as refused, not run.
+- **Show, part 2 (session):** start `claude` at the repository root and ask the orchestrator to run `terraform apply`, then `aws s3 rm s3://example-placeholder/x`. Expected, and recorded after the last restart as P1 PASS (`docs/agent-runs/phase-17/human-commands.md`): both refused by the PreToolUse hook before they ran, with the messages "Apply, destroy, force-push and destructive database operations require the human operator." and "Direct AWS shell calls are limited to metadata inspection. Route mutations through the approved human workflow."; the direct script probe P1b also printed the first message and `exit 2`. Rehearse it again anyway. Run this session in a shell with no AWS credentials in its environment (unset `AWS_PROFILE` and any `AWS_*` credential variables first), so that a guard failure cannot reach a real account. Both commands would then fail anyway (no Terraform working directory, a placeholder bucket and no credentials), but stop the take if either runs. `aws s3 rm` is a delete-class command: this is the one AWS-delete-class command in the script, and it is shown as refused, not run.
 - **Viewer sees:** a refusal message from the hook, and the category list.
 - **Narration:** "The guard refuses direct dangerous requests before they run. The policy lives in `policy.py`; the shell file lists the guarded categories with example commands. The harness feeds each example to the policy and checks it is refused."
 - **Limits to state:** hooks inspect ordinary tool inputs and do not analyze what an approved script does (`CLAUDE.md`, "Hook operation"). Live apply, deploy and rollback stay human-controlled.
@@ -128,7 +128,7 @@ State once that the demonstration uses option (iii): no AWS resource other than 
 - **Label:** LIVE (laptop).
 - **Show:** open `.claude/settings.json` lines 142-163 (the `Stop` and `SubagentStop` entries, which run `.claude/hooks/verify-tests-ran.sh`), then `.claude/hooks/policy.py` function `verify_tests` (lines 270 onward). The rule: if any changed or untracked source file is newer than `.claude/.last-test-run`, the first Stop is blocked; a repeat stop is not blocked, so a turn cannot loop, and it reports an unverified stop.
 - **Show, the probe:** `changed_paths()` reads `git diff HEAD` plus untracked files, so touching a tracked file leaves no diff and does not trigger the gate. Create an untracked disposable file with the human's `!` prefix inside the session, for example `! echo '// stop-gate probe' > modules/core/Probe.scala`, end the turn and observe the block. Then `sbt quick` (recorded at 65 to 71 s, `CLAUDE.md`, "Hook operation"), end the turn again and observe no block. Finally `! rm modules/core/Probe.scala` and `! git status --short`.
-- **Open points, state them on camera:** the full loop (a block, then an agent run that clears it) is still unobserved (`CLAUDE.md`, restart probe P4-D); the block message text is NOT RECORDED; whether `sbt quick` accepts a comment-only Scala file is UNVERIFIED. Rehearse. A passing `sbt quick` means the quick set passed on these sources, not every test.
+- **Open points, state them on camera:** probe P3 is recorded as PARTIAL (the Stop hook did not block a stop made without sbt, but no source file differed from HEAD at that moment, `docs/agent-runs/phase-17/human-commands.md`); the full loop (a block, then an agent run that clears it) is still unobserved (`CLAUDE.md`, restart probe P4-D) and is to be shown and recorded in this video; the block message text is NOT RECORDED; whether `sbt quick` accepts a comment-only Scala file is UNVERIFIED. Rehearse. A passing `sbt quick` means the quick set passed on these sources, not every test.
 - **Viewer sees:** the block on the first stop, then the gate satisfied by the marker.
 - **Narration:** "A finish is blocked when source files are newer than the last successful test run. `sbt quick` or `sbt check` updates the marker only after format check, compile and tests pass. The full suite is the human's `sbt clean check` at each phase gate."
 - **Marks:** NOT REPLAYED. Deliverable index: D02, D04.
@@ -153,7 +153,7 @@ State once that the demonstration uses option (iii): no AWS resource other than 
 - **Show, recorded:**
   - `docs/agent-runs/phase-16/ratification.md`: the human's `sbt clean check` at `ccbc1ec`, `[success]` in 1314 s, every group 0 failed and 0 errors, matched by a clean-checkout run group by group.
   - `docs/agent-runs/phase-17/human-commands.md`: the clean-clone run at `5157e0e` (2026-11-19), `[success] Total time: 1363 s`, nine groups, group totals 49, 389, 331, 501 (1 skipped), 473, 170, 260, 99, 1427.
-  The final-tree `sbt clean check` is the human's gate H-14 and is PENDING; replace these with it when it is recorded.
+  - `docs/agent-runs/phase-17/decisions.md` (P17-39): the human's gate `sbt clean check` on a fresh clone of `264f24b` (2026-11-20), exit 0, nine groups all Failed 0 and Errors 0, `[success] Total time: 1360 s`. Later changes are documentation only.
 - **Viewer sees:** `[success]` and a per-group count line.
 - **Narration:** "`sbt check` verifies formatting, compiles every module and runs every test. The phase gate is the human's `sbt clean check`; these are its recorded results."
 - **Marks:** NOT REPLAYED here. Deliverable index: D04.
@@ -198,9 +198,7 @@ State once that the demonstration uses option (iii): no AWS resource other than 
 
 ### Item 11. Neptune graph query
 
-This item has two paths. The primary path is ARCHIVED. The second is OPTIONAL LIVE and is decided on Saturday 2026-11-21 after a fresh Billing reading (decisions P17-26 and P17-17).
-
-**Path (iii), primary: ARCHIVED.**
+This item is ARCHIVED only. Decision P17-33 (2026-11-20) dropped the optional live Neptune session, and no live AWS session runs in Phase 17.
 
 - **Show:**
   - `docs/releases/phase-15/README.md` ("Session outcome"): the graph-only reload from experiment A's export, `SUCCEEDED` in 5.2 minutes, `NEPTUNE_LOAD=LOADED vertices=32225 edges=135788`; and the record `docs/releases/phase-15/deploy-tn-s1-a1.md`.
@@ -210,21 +208,7 @@ This item has two paths. The primary path is ARCHIVED. The second is OPTIONAL LI
 - **State honestly:** no standalone Gremlin or openCypher query transcript against Neptune is archived. The Phase 14 release record says Neptune cannot be queried from outside the VPC and that no independent query was made (`docs/releases/phase-14/README.md` line 36). The archived "query" evidence is the load report and the deployed service's graph-retrieval stage timing. Neptune no longer exists: it was destroyed at session down without a snapshot (`docs/releases/phase-15/README.md`, "Rollback gate").
 - **Narration:** "Neptune holds the coauthorship graph. It is billed hourly, so it exists only during a session. This is the record of the load that put 32,225 vertices and 135,788 edges into it, and of the deployed service reading the graph. There is no live Neptune query in this video."
 
-**Path (i), optional LIVE: a live Neptune load and query with no live Haiku.**
-
-Use only if the human chooses it on Saturday. Every step is human-run, with an approval record per script and a typed IAM approval line where IAM changes, and session-down after. Sequence from the infra-engineer's read-only reports (`docs/agent-runs/phase-17/wave-b/report-B8-infra-engineer.md` and the stub-answer revision `report-B8b-infra-engineer.md`, which governs where they differ):
-
-1. Billing reading first. Gate from P17-17: 10.39 + 0.40 lag reserve + 2.30 session ceiling = 13.09, at most the 14 stop. Use `--cost-ceiling-usd 2.30` (decimal acceptance UNVERIFIED) and cap the reload at about 15 minutes. Cost without Haiku (`report-B8b-infra-engineer.md`, section 4): projected HIGH about 1.21 USD at UNVERIFIED rates (xlarge window 40 min x 0.97 = 0.65; services 60 min x 0.37 = 0.37; teardown 0.09; other 0.10), a margin of 1.09 to the 2.30 ceiling. Sensitivities: a 60-minute xlarge window gives 1.53; 90 minutes gives 2.02; 90 minutes of xlarge plus 120 minutes of services gives 2.39, over the ceiling. Keep the services window to 60 minutes or less. The earlier 1.9 to 2.0 USD figure in the B8 report included about 0.72 USD of Haiku and does not apply.
-2. A1: `course.tfvars` plus the S overlay plus `graph-load` (`db.r6g.xlarge`) plus `session-down-services` plus `session2` (off-repository), then `bash scripts/deploy.sh` with an approval record and a typed IAM line. The last two overlays keep the services stack and combined layout, because the `SESSION2.md:228` A1 command omits `enable_services_stack` and `service_layout` and a literal plan might destroy the stack (report B8, line 42; report B8b section 3, step 1). Expected IAM: 2 creates (the Neptune bulk-load role, principal `rds.amazonaws.com`). Stop on any role, ECR, log-group or security-group destroy, or a Neptune replace.
-3. Reload: a loader-only run through `bash scripts/run-bounded-pipeline.sh` (record action `pipeline`) with `--size small --max-minutes 15 --spend-ceiling-usd 0.25` (report B8b section 3, step 2).
-4. A2-stub overlay set (report B8b section 1): `course` plus `experiment-size-s` plus `services-session` plus `session2` (off-repository), with no `services-smoke.tfvars`. This is the Phase 15 A3 set (`SESSION2.md:71, 230`). The answer model is the stub, set at `services-session.tfvars:49`, so no Haiku call is made and P17-26 holds. Keep `enable_bedrock` (dropping it saves about 0.03 USD but gives untested plan shapes and removes the loader's Titan path). Then `bash scripts/deploy.sh` with an approval record. Expect no IAM change; the writer goes from xlarge to t4g in place. The slow deadline of P16-34 (`slow_deadline_millis = 60000`, set in `services-smoke.tfvars`) is not needed without Haiku: the default 10 s applies and stub queries take milliseconds. Unverified: that the off-repository `session2.tfvars` sets no `answer_model` or `slow_deadline_millis`; the human checks it before planning.
-5. Before the first query: the Phase 15 `session2.tfvars` is not in the repository (`infra/terraform/SESSION2.md:229` passes it from the human's data directory), so the human supplies that file. Rewrite its `load_client_image_tag` (line 5 per the B8 report) to the session HEAD SHA, push the load-client image at that SHA, and confirm the three auth secrets hold values (`infra/terraform/SESSION2.md` section 8).
-6. Queries: 4 queries (`--limit-queries 4`) through a load-client `ecs run-task` (no approval record). The client records status, evidence count and abstained, never the answer text; evidence and explain cannot be shown live on AWS because the load balancer forwards only port 8081 (report B8, gaps 1 and 3).
-7. Teardown (`SESSION2.md:231` form; report B8b section 3, step 6): `session-down` plus `session-down-services` plus `session2` with `STATEFUL_CHANGE_ACKNOWLEDGED=yes`. Expect 2 IAM destroys. Then the post-teardown read (item 22 commands).
-
-Risks to state (report B8b): SMOKE2 abstained live in Phase 15 and the Phase 16 fix is unproven on AWS, so a stub query may abstain too; evidence and explain are not reachable live (port 8080); the load client records no answer text, only status, evidence count and abstained; `--cost-ceiling-usd 2.30` (decimal) acceptance is UNVERIFIED because `lib.sh` was not read; the cost figure uses UNVERIFIED rates. Any destroy of a role, ECR repository, log group or security group, or a Neptune replace, in the first read-only plan is a stop. Four queries (`--limit-queries 4`) are planned.
-
-- **Marks:** NOT REPLAYED; path (i) not decided. Deliverable index: D09, D14, D15.
+- **Marks:** NOT REPLAYED; archived evidence only, no live path (P17-33). Deliverable index: D09, D14, D15.
 
 ### Item 12. DynamoDB run or query record
 
@@ -242,22 +226,21 @@ Risks to state (report B8b): SMOKE2 abstained live in Phase 15 and the Phase 16 
 
 ### Item 13. S3 Vectors query returning source pointers
 
-- **Label:** ARCHIVED. A laptop live run against S3 Vectors is optional and needs approval (below).
+- **Label:** ARCHIVED only. No S3 Vectors or Titan call is made in Phase 17 (decision P17-37); the evidence is the Phase 16 record cited below.
 - **Show, archived:**
   - `experiments/EVALUATION.md` section 6.1, run `exp-G-20261119T053608Z-2e8943cf`: retrieval in graph, vector and fused modes, Titan v2 embeddings (256 dimensions) and S3 Vectors queries from the laptop, with pooled recall at K = 10 of 0.1498 for vector, 0.4935 for graph and 0.5008 for fused, and the limits (`docs/evaluation.md` section 2.3).
   - `experiments/g-retrieval/README.md`, "What it measures": each record holds the ranked ids retrieved per question and mode; the raw per-question records are `records.jsonl` outside the repository, hashed by `RAW-SHA256SUMS`.
   - `experiments/RESULTS.md` section 3.D and 3.E: the vector-stage latency in the deployed service (p50 485, 311, 416 and 3,250 ms at 1, 8, 24 and 48 clients).
 - **State honestly:** the repository holds no committed excerpt of a vector query that prints source pointers. The raw `records.jsonl` is outside the repository and was not read for this script. If the human wants a source-pointer view, open the raw file first, confirm it holds the ids and no account id or bucket name, and show only masked lines. Evidence ids of deployed answers are not captured in the Phase 15 data (`experiments/RESULTS.md` requirement 2, "counts only").
-- **Optional LIVE (laptop, against AWS data services):** the G run through `scripts/run-experiment.sh` with experiment id G, using the paste-ready block in `experiments/g-retrieval/README.md`; it needs a manifest copy, an approval record, a clean tree, the filled benchmark committed, about 10 to 40 minutes, a Titan call cap of 2000 and a USD stop of 0.25 (frozen run estimate 0.000117 USD, `experiments/EVALUATION.md` section 7.2). The block holds absolute paths with a user directory and bucket placeholders; do not show it on screen. Decide after a Billing reading.
 - **Narration:** "S3 Vectors holds the semantic summaries. In the retrieval evaluation, vector search alone is weak on this benchmark and graph retrieval is strong; fusion adds little. Those are negative results and are kept in the evaluation."
 - **Marks:** NOT REPLAYED. Deliverable index: D09, D10, D16.
 
 ### Item 14. A complete user query through the API
 
-- **Label:** ARCHIVED (deployed API). Added segment: LIVE (laptop), local services over demo data.
+- **Label:** ARCHIVED (deployed API and the Bedrock answers). Added segment: LIVE (laptop), local services over demo data with the stub model; it makes no AWS call (decision P17-37).
 - **Show, archived:** `docs/releases/phase-15/smoke-tn.md`: STUB1 PASS (4 of 4 answered with evidence, stub answer model), SMOKE1 FAIL and SMOKE2 FAIL (Haiku synthesis rejected). `experiments/RESULTS.md` section 3.D (7,428 requests across four load levels with the stub model). The Haiku answers over 56 questions are from the laptop evaluation H (`experiments/EVALUATION.md` section 6.2, run `exp-H-20261119T053926Z-2e8943cf`; laptop-to-Bedrock, graph port `InMemoryNeptune`, not the deployed HTTP API).
 - **State honestly:** no archived complete query through the deployed HTTP API returned a Haiku-synthesized answer. The Phase 16 fix for synthesis truncation is proven on the laptop evaluation (`docs/evaluation.md` section 2.4) and unproven on AWS. The services have no public ingress (`README.md`).
-- **Optional LIVE (laptop, against Bedrock, Titan and S3 Vectors): the H answer entry points** in `experiments/h-answers/README.md`, used only if the human chooses and after a Billing reading. Two forms: the H-4 diagnostic (`AnswerEval --diagnostic`, at most 4 Haiku calls and at most 0.15 USD, bounds enforced in the process, no approval record; about 1 to 3 minutes expected; for named questions `--question-ids Q-RK-01,Q-RK-02` with a new run id), and the full H run through `scripts/run-experiment.sh` with experiment id H (manifest copy, approval record, clean tree, USD stop 3.00, about 15 to 60 minutes; far too long for the video). Both are laptop-to-Bedrock with the graph on `InMemoryNeptune`, not the deployed API. The paste-ready blocks contain absolute paths with a user directory and bucket placeholders, so do not show them on screen; rehearse them off camera. Otherwise this item stays ARCHIVED from run `exp-H-20261119T053926Z-2e8943cf`.
+- **No live Bedrock, Titan or S3 Vectors call (decision P17-37).** The Haiku answers stay ARCHIVED from run `exp-H-20261119T053926Z-2e8943cf` (`experiments/EVALUATION.md` section 6.2; entry points in `experiments/h-answers/README.md`, not run in Phase 17).
 - **Show, live (laptop), demo data:** say before starting: "This is the local services over a bundled demo world, not the deployed system and not the real corpus."
   - Terminal A: `sbt "services/runMain scholarchain.services.runtime.LocalRuntime"` (the main prints `fast service: <url>`, `slow service: <url>`, and the token placeholder note). This command is composed from the `main` method at `LocalRuntime.scala:260` and the project at `build.sbt:414`; no record of it exists (NOT REPLAYED, UNVERIFIED).
   - Terminal B, using the printed slow URL (shape from `README.md` "API query examples" and `docs/api.md`):
@@ -276,7 +259,7 @@ Risks to state (report B8b): SMOKE2 abstained live in Phase 15 and the Phase 16 
 
 - **Label:** ARCHIVED (deployed API). Added segment: LIVE (laptop), local services over demo data.
 - **Show, archived:** `docs/api.md` section 4.1 (`GET /v1/evidence/{id}`, `GET /v1/explain/{id}`, `GET /v1/graph/nodes/{id}/neighbors`, read scope, port 8080) and section 4.2 for the query route. The Phase 15 service-engineer records on these routes are `docs/agent-runs/phase-15/wave-2/reports/wo-08-service-engineer.md` and `wo-08b-service-engineer.md` (they mention the routes; not read in detail for this script).
-- **State honestly:** the deployed load balancer forwards only the slow port 8081, so no archived live call to the evidence or explain endpoint of the deployed system was found, and none can be made live in an option (i) session without a second target group (report B8, gap 1). Lookups work only while the answer is in the service's in-memory index (`README.md`, "Known limitations").
+- **State honestly:** the deployed load balancer forwards only the slow port 8081, so no archived live call to the evidence or explain endpoint of the deployed system was found, and none can be made live in a session without a second target group (report B8, gap 1; no live session runs, P17-33). Lookups work only while the answer is in the service's in-memory index (`README.md`, "Known limitations").
 - **Show, live (laptop), demo data:** with the local services still running from item 14, in terminal B and using the fast service URL and the ids from the item 14 response:
   ```
   curl -sS "<fast service url>/v1/evidence/<evidenceId>" -H "Authorization: Bearer $READ_TOKEN"
@@ -321,7 +304,7 @@ Risks to state (report B8b): SMOKE2 abstained live in Phase 15 and the Phase 16 
   5. Show the orchestrator delegating to `domain-engineer`. Cut to the end: `sbt check` (the Phase 7 record shows 1128 s for the full clean check; later phases take longer), then compare with the archived report: `StableIds.mentionCoauthorEdge`, id format `mention-coauthor:v1:<64 hex>`, a new `MentionCoauthorSuite` with 8 tests, the core suite 41 to 49 tests, `[success]` with Failed 0 and Errors 0 (archived `sbt quick` groups 181, 49, 389, 42, 267 at 66 s).
   Afterwards: `git checkout main` and delete the branch; commit nothing.
 - **Show, the replay instructions:** README sections "Agent catalog" and "Reproducing the agentic workflow" (the 11 steps).
-- **State honestly:** the agent replay uses Claude usage whose cost is NOT RECORDED; the outcome of an agent replay is NOT REPLAYED until the human archives it at H-8 (`docs/agent-runs/phase-17/`). A replay compares required artifacts, tests and results, not byte-identical wording.
+- **State honestly:** the agent replay uses Claude usage whose cost is NOT RECORDED; the human ran the Phase 7 work order 01 agent replay in H-8 part 2 and recorded the verdict PARTIAL: requirements and gate reproduced, the exact contract (the edge-id prefix and the added test suite) not (`docs/agent-runs/phase-17/human-commands.md`, H-8 part 2; the replay report is outside the repository). Any further replay is NOT REPLAYED. A replay compares required artifacts, tests and results, not byte-identical wording.
 - **Viewer sees:** dry-run markers, the branch checkout, a session delegating to the named agent, and the comparison with the archived report.
 - **Narration:** "Every script has `--help` and `--dry-run`, and the clean-checkout path needs no AWS. To replay an agent phase, check out the recorded starting commit, open a fresh session, paste the archived work order, name the owning agent, run the gate and compare with the archived report."
 - **Marks:** NOT REPLAYED. Deliverable index: D13, D02, D03, D17.
@@ -336,13 +319,13 @@ Risks to state (report B8b): SMOKE2 abstained live in Phase 15 and the Phase 16 
   terraform -chdir=infra/terraform/environments/course validate
   bash scripts/plan.sh --dry-run --environment course --account-id <id> --cost-ceiling-usd 20
   ```
-  These are from `infra/terraform/README.md` ("Checks to run") and the README. `docs/agent-runs/phase-13/checks-1.md` records only the `terraform fmt`, `init -backend=false` and `validate` lines passing on 2026-11-11, before later Terraform edits (its overall exit was 1, from `shellcheck`, not Terraform). It does not cover `plan.sh --dry-run`. All are NOT REPLAYED on the final tree (human, H-8).
+  These are from `infra/terraform/README.md` ("Checks to run") and the README. `docs/agent-runs/phase-13/checks-1.md` records only the `terraform fmt`, `init -backend=false` and `validate` lines passing on 2026-11-11, before later Terraform edits (its overall exit was 1, from `shellcheck`, not Terraform). It does not cover `plan.sh --dry-run`. The human ran `fmt -check -recursive` (exit 0, no output) and `init -backend=false` then `validate` (`Success! The configuration is valid.`) on a fresh clone of `264f24b` on 2026-11-20 (`docs/agent-runs/phase-17/human-commands.md`, "Phase 17 final gate, F3"); the `-diff` flag and `plan.sh --dry-run` are NOT REPLAYED.
 - **Show, read-only plan:**
   ```
   bash scripts/plan.sh --environment course --account-id <id> --cost-ceiling-usd 20 --extra-var-file "$TF/session-down.tfvars" --extra-var-file "$TF/session-down-services.tfvars" --extra-var-file "$S2" 2>&1 | sed -E 's/[0-9]{12}/************/g' | grep -E 'PLAN_DIGEST=|STATEFUL_DESTROY_OR_REPLACE'
   ```
   This pipeline is composed for this script. It is not a committed command and was never run. The overlay set follows the post-services-session teardown in `docs/runbook.md` section 7.1 (line 158) and `infra/terraform/SESSION2.md:231`; `session2.tfvars` is not in the repository (`SESSION2.md:229`), and if the services stack was never applied, section 7.1 says to use `session-down.tfvars` only. Choose the set that matches the state of the account, and rehearse the plan before recording. `TF` (the absolute path of `infra/terraform/environments/course`) and `S2` (the absolute path of the human's `session2.tfvars`) are shell variables set before recording, off camera, because a typed absolute path shows the home directory on screen. `plan.sh` needs absolute var-file paths. `plan.sh` applies nothing and calls AWS only for `sts` and the Terraform state (`scripts/README.md`). The `grep` limits what appears on screen; the markers it matches are the two named in `docs/runbook.md` section 2.2, and a full summary may use other marker names (UNVERIFIED). No apply, deploy, destroy or other AWS-changing command is run in this item. A Terraform plan may take a short-lived state lock; that is Terraform behavior and is not verified for this backend. The expected content of a session-down plan is in `docs/runbook.md` section 7.1. If a live plan is not run, show the archived plan summaries instead: `docs/releases/phase-15/deploy-tn-s4-down.md` and `docs/releases/phase-14/deploy-down-5.md`.
-- **Also show:** the module layout under `infra/terraform/` and `infra/terraform/README.md`. The security scan (tflint, tfsec, checkov) was not run (`docs/agent-runs/phase-12/decisions.md:44`); say so. The plan checksum for the release manifest is PENDING (human, H-8).
+- **Also show:** the module layout under `infra/terraform/` and `infra/terraform/README.md`. The security scan (tflint, tfsec, checkov) was not run (`docs/agent-runs/phase-12/decisions.md:44`); say so. The plan checksum is NOT RECORDED in Phase 17, because no plan ran (`docs/releases/phase-17/README.md`, section 4).
 - **Viewer sees:** a plan digest and, if shown, the stateful-change flag; the Terraform README.
 - **Narration:** "All infrastructure is defined in Terraform. The plan script prints a digest that the human's approval record must name before any apply. Nothing here applies anything."
 - **Marks:** NOT REPLAYED. Deliverable index: D12, D13, D14.
@@ -379,7 +362,7 @@ Risks to state (report B8b): SMOKE2 abstained live in Phase 15 and the Phase 16 
   1. Create an untracked file in the repository root with `! touch demo-dirty-tree.txt`. Any untracked file counts as dirty (`scripts/README.md`).
   2. `bash scripts/package.sh --dry-run`. Expected per `scripts/README.md`: refused on a dirty tree even in a dry run, exit 1, with an `EVIDENCE:` line on stderr. The exact text is NOT RECORDED.
   3. `! rm demo-dirty-tree.txt`, then `bash scripts/package.sh --dry-run` again. Expected: the dry run proceeds to its `WOULD_RUN:` lines. Nothing is built and no cloud command is called.
-  Precondition: the recovery dry run in step 3 passes only if the tree is otherwise clean, and `git status` counts untracked files as dirty (`scripts/README.md:322`: "A clean tree ... a run without `--allow-dirty` stops with `EVIDENCE: refusing: dirty=yes`"). Until `docs/agent-runs/phase-17/`, `docs/demo-script.md` and `reports/final-report.md` are committed, the main working tree is already dirty and step 3 would fail. So either commit those files first, or run item 21 in the fresh clone made for item 17 (a clone holds only committed files). Say which on camera. Rehearse first: the exact refusal text and exit code were not observed for this script.
+  Precondition: the recovery dry run in step 3 passes only if the tree is otherwise clean, and `git status` counts untracked files as dirty (`scripts/README.md:322`: "A clean tree ... a run without `--allow-dirty` stops with `EVIDENCE: refusing: dirty=yes`"). `docs/demo-script.md` and `reports/final-report.md` were committed in `dc15299`, but until `docs/agent-runs/phase-17/` is committed (the close commit) the main working tree is already dirty and step 3 would fail. So either commit it first, or run item 21 in the fresh clone made for item 17 (a clone holds only committed files). Say which on camera. Rehearse first: the exact refusal text and exit code were not observed for this script.
 - **Viewer sees:** the verdict table of F2, then a refusal with its evidence line, the file removed, and the dry run passing.
 - **Narration:** "Experiment F injected a poison message and a duplicate. The poison message was retried, refused and dead-lettered, the duplicate was written once, and the queue drained. The first attempt was invalid and is kept in the record, labelled invalid. Locally, the same discipline: the script refuses to act on a dirty tree, tells you why, and proceeds once the tree is clean."
 - **Marks:** NOT REPLAYED. Deliverable index: D15, D13.
@@ -404,14 +387,14 @@ Risks to state (report B8b): SMOKE2 abstained live in Phase 15 and the Phase 16 
   The four added lines cover the runbook 7.3 ECS-task, ECS-service-count and dead-letter-queue checks (`docs/runbook.md:175`). The Neptune engine filter stops `describe-db-clusters` from counting non-Neptune clusters. The cluster, service and queue names are placeholders to fill off camera from the Terraform resource names; do not show the queue URL (it contains the account id) and do not run `ecs list-clusters` with output other than the count. Whether the ECS cluster name appears in a committed record in a form that can be typed is NOT RECORDED here. The expected state after the last session-down is the one recorded in `docs/releases/phase-15/deploy-tn-s4-down.md`: no EMR cluster, no running task, no Neptune, only gateway endpoints, no NAT, Elastic IP, load balancer, unattached volume or running instance. The state today is NOT RECORDED until this step is run.
 - **Show, retained state:** storage stays after a session: S3 buckets, DynamoDB tables, the S3 Vectors bucket and indexes, ECR repositories, log groups and three Secrets Manager secrets (`docs/releases/phase-14/README.md`, `docs/releases/phase-15/deploy-tn-s4-down.md`, `docs/runbook.md` section 7.1). Do not list them on screen.
 - **Show, the cleanup path:** `bash scripts/cleanup.sh --help` (prints the argument line; four modes `plan-flip`, `apply-flip`, `plan-destroy`, `apply-destroy`), and `docs/runbook.md` section 7.2. Full cleanup is human-only, needs `--i-am-the-human`, `--acknowledge-data-loss`, an approval record and a saved plan, deletes only through `terraform destroy` of a saved plan, and is planned for mid-December 2026 after grades are released (decision P17-7; exact date PENDING, human). The AWS Budget created outside Terraform is removed by a separate human action.
-- **State honestly:** the course asks for an inventory before and after cleanup. The "after cleanup" inventory does not exist yet: it is PENDING (human, H-11; release record by deploy-engineer). What this item shows is the inventory after session-down, with storage retained.
+- **State honestly:** the course asks for an inventory before and after cleanup. The "after cleanup" inventory falls after the deadline (full cleanup is planned for mid-December 2026, P17-7), so at submission it does not exist: it is PENDING (human, H-11; release record by deploy-engineer). Since no live session runs (P17-33), what this item shows is the current read-only inventory, with storage retained.
 - **Viewer sees:** zeros and gateway-only endpoints, then the cleanup help text and the runbook section.
 - **Narration:** "After a session the expensive resources are removed by a Terraform session-down plan; storage is kept. The read-only inventory checks that nothing billing hourly is left. The full cleanup is a separate, human-only, approval-gated script that I run after grading; this is the plan for it, not the result."
 - **Marks:** NOT REPLAYED. Deliverable index: D20, D13, D14.
 
 ## 5. Closing (1 min)
 
-Open the README "Known limitations" and the final-report link (PENDING, `reports/final-report.md`). Narration: "What is not here: OpenSearch and separately scaled retrieval services were not implemented; there is no single clean-checkout command through Hadoop, entity resolution and Spark; false abstention is about 28 percent; vector retrieval is weak. Every command in the README is marked as replayed or not, and the human's replay results are archived at the final gate."
+Open the README "Known limitations" and the final report ([reports/final-report.md](../reports/final-report.md), committed in `dc15299`). Narration: "What is not here: OpenSearch and separately scaled retrieval services were not implemented; there is no single clean-checkout command through Hadoop, entity resolution and Spark; false abstention is about 28 percent; vector retrieval is weak. Every command in the README is marked as replayed or not, and the human's replay results are archived at the final gate."
 
 ## 6. Final checklist: item to README deliverable index
 
@@ -429,7 +412,7 @@ Tick each line only after the take, with the recording time stamp. Until then ev
 | 8 Manifest and samples | LIVE (laptop) | D05 | `python3 -B datasets/scripts/datasets.py validate` | [ ] |
 | 9 Hadoop and counters | LIVE (laptop) | D06 | `sbt "hadoop / testOnly scholarchain.hadoop.PipelineDriverOutputsSuite"` | [ ] |
 | 10 Spark and graph outputs | LIVE (laptop) | D08 | `sbt "sparkAnalytics / testOnly scholarchain.spark.CollaborationPipelineSuite"` | [ ] |
-| 11 Neptune query | ARCHIVED (optional LIVE) | D09, D14, D15 | `docs/releases/phase-15/README.md` | [ ] |
+| 11 Neptune query | ARCHIVED | D09, D14, D15 | `docs/releases/phase-15/README.md` | [ ] |
 | 12 DynamoDB record | LIVE (AWS, read-only) or ARCHIVED | D09, D14 | `describe-table`; `experiments/RESULTS.md` 3.D | [ ] |
 | 13 S3 Vectors query | ARCHIVED | D09, D10, D16 | `experiments/EVALUATION.md` 6.1 | [ ] |
 | 14 Complete query | ARCHIVED (+ local demo) | D10, D11, D14 | `docs/releases/phase-15/smoke-tn.md`; local `POST /v1/query` | [ ] |
@@ -446,6 +429,6 @@ After the take:
 
 - [ ] Video link recorded in the README (D19; hosting decision P17-8: unlisted YouTube link; PENDING human, H-12).
 - [ ] Account id masked in every shot; no bucket, ARN, secret name or token on screen (re-watch the whole video once).
-- [ ] If option (i) ran: session-down confirmed by the item 22 reads, Billing reading after, and the records archived under `docs/agent-runs/phase-17/` and `docs/releases/phase-17/` (owners: orchestrator and deploy-engineer).
+- [ ] No live AWS session ran (P17-33): the read-only inventory of item 22, if run, and the final Billing reading are archived under `docs/agent-runs/phase-17/` (owner: orchestrator).
 - [ ] `git status --short` clean: probe file from item 5 and the dirty-tree file from item 21 removed, branch from item 17 deleted.
 - [ ] Items whose live result differed from the expectation here recorded as such, with the difference, in the Phase 17 evidence files; this script is not edited to match.

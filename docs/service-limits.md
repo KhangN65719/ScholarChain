@@ -92,7 +92,7 @@ Ordinary S3 object and key limits, Neptune per-account shared limits, ECS and Fa
 | Claude Haiku 4.5 cross-Region and global | 5,000,000 tokens a minute | same file and caveat |
 | Fargate vCPU quota | 30 vCPU assumed in `SESSION2.md` section 3 | UNVERIFIED. Decision P15-8 asked the human for the EC2 and Fargate vCPU quota check; the result is NOT RECORDED in the files read |
 | EC2 On-Demand Standard vCPU quota | the elasticity overlay needs 20 vCPUs (5 x `m5.xlarge`) | UNVERIFIED, same reason |
-| Hourly rates (interface endpoints, Neptune, EMR, Fargate, ALB) | in `infra/terraform/COST_ESTIMATE.md` | Mostly UNVERIFIED (the file marks each rate). Phase 15 session 2 billed about 2.7 USD per the Phase 17 plan; billing readings are the human's |
+| Hourly rates (interface endpoints, Neptune, EMR, Fargate, ALB) | in `infra/terraform/COST_ESTIMATE.md` | Mostly UNVERIFIED (the file marks each rate). The Phase 17 plan reads about 2.7 USD for Phase 15 session 2 including standing storage, which is the orchestrator's reading and not a measured session cost (the Phase 15 billed total is NOT DERIVED, `docs/evaluation.md` section 4); billing readings are the human's |
 | Project spend limit (AWS-enforced) | 20 USD, pause idle resources on | Terraform README, Phase 14 D1 |
 | AWS Budget | 25 USD, alerts at 10, 15, 20; alert only | same |
 | Code ceiling | 20 USD (`SC_PROJECT_CEILING_USD` in `scripts/lib.sh`, `budget_total_usd` validation) | read in the README; not re-read in the script for this document |
@@ -173,4 +173,4 @@ AWS CLI connect timeout 10 s, read timeout 60 s; three attempts only for `descri
 - No limit above was re-read from AWS on 2026-11-19.
 - Fargate and EC2 vCPU quotas, ALB, Step Functions, SQS and CloudWatch limits: NOT RECORDED.
 - The cost rates are mostly UNVERIFIED; billed figures come from the human.
-- Replay of any limit-dependent behaviour (for example a PutVectors batch of 500) is NOT REPLAYED until H-8.
+- Replay of any limit-dependent behaviour (for example a PutVectors batch of 500) is NOT REPLAYED.

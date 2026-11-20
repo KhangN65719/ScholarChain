@@ -210,7 +210,7 @@ Class: `GraphExportJob` (`jobs/GraphExportJob.scala:37`). Stage `graph-export` (
 
 ## 8. Local bounded sample: expected values
 
-Inputs: `datasets/samples/{dblp.xml,openalex.jsonl,crossref.jsonl,orcid.jsonl}` (`test/TestRun.scala:42-48`). Expected values below are read from test assertions. They are UNVERIFIED until the human replays the suites (H-8); no run was made for this document.
+Inputs: `datasets/samples/{dblp.xml,openalex.jsonl,crossref.jsonl,orcid.jsonl}` (`test/TestRun.scala:42-48`). Expected values below are read from test assertions. The suites that hold them passed inside the `sbt check` run on `dc15299` recorded at H-8 part 1 (`docs/agent-runs/phase-17/human-commands.md`) and inside the human's gate `sbt clean check` on a fresh clone of `264f24b` (P17-39, `docs/agent-runs/phase-17/decisions.md`); their per-suite output was not read, and no separate run was made for this document.
 
 - DBLP: InputRecords 2, AcceptedRecords 2, no rejects; 2 works, 2 venues (`test/LocalPipelineSuite.scala:53-60`). Each of openalex, orcid, crossref: 2 and 2, no rejects (`:62-77`). ORCID writes no works and 2 researchers (`:79-83`). Six works from dblp, openalex, crossref (`:85-91`).
 - Team expansion: 30 pairs, EmittedPairs 30, SingleAuthorWorks 3, 6 teams, 18 author-papers, no DuplicateRecords (`:110-124`). Largest team 5, largest pair expansion 10 (`:104-108`). OversizeAuthorTeams, SuppressedPairs, OversizeBlocks all 0 at the default bounds (`:126-130`). Every pair has `mentionA < mentionB` (`:146`).
@@ -256,4 +256,4 @@ Not covered by a suite read here: a multi-reducer or YARN run of any job in the 
 - All rejects of one reason code share one reducer (0.7, derived).
 - Several source files were not read for this document: `DblpParser`, `SourceNormalizers` (beyond the registry), `ExactIdentifiers`, `XmlRecordStream`, `TextNormalizer`, `LocalPipelineRunner`, and the suites marked above. Statements that depend on them are marked UNVERIFIED.
 - `build.sbt:342` (Hadoop is `Provided`) is taken from the WO-B7a report and was not re-read here.
-- No runtime result is recorded here. Counters and invariants in section 8 are assertions from tests, NOT REPLAYED until H-8.
+- No per-suite runtime output is recorded here. Counters and invariants in section 8 are assertions from tests; they passed within the aggregate H-8 part 1 `sbt check` (section 8) and within the human's gate `sbt clean check` on a fresh clone of `264f24b` (exit 0, all groups Failed 0 and Errors 0; `docs/agent-runs/phase-17/decisions.md`, P17-39). No per-suite output was read from either run, and no standalone run was replayed.
