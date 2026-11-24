@@ -40,6 +40,33 @@ Author: orchestrator, 2026-11-20, fresh session. Order set by the human: F1 revi
   - Test counts: P17-39, the F2 quick, F3 `hooks-guard` 114/0, and `run.sh` PENDING (human).
   - Artifact checksums: NOT RECORDED unless a record holds them, because `package.sh` was not replayed.
 
+## Commit Z scope (queued, P17-42)
+
+- documentation-engineer:
+  - README D19: the video link.
+  - Demo item 5: the P3 result.
+  - Final report:
+    - the P17-40 to P17-44 by-source entries;
+    - P17-43 in the "manually edited" class;
+    - the V1 to V3 results on `e3580fe` (`human-commands.md`, "Phase 17 close").
+  - Any text that still says V1 to V3 on the final commit are PENDING.
+- Orchestrator:
+  - `human-commands.md`: the P3 result and the video link.
+  - `decisions.md`: a P17-45 entry for commit Z.
+  - `human-gate.md`: V1 to V3 marked recorded; P3 and video recorded.
+- The human tags Z.
+
+## WO-Z1: documentation-engineer, commit Z (P17-45)
+
+- Write set: `README.md`, `reports/final-report.md`, `docs/demo-script.md`. Docs only; no sbt.
+- Video link (human, 2026-11-23, unlisted): https://youtu.be/tWTDWoxji7c. README D19 and the README "Final report and demonstration video" section; every video reference in `docs/demo-script.md` and `reports/final-report.md`.
+- P3 / P4-D PASS from `human-commands.md` (2026-11-22 entry): demo item 5 and the final report.
+- Final report: P17-40 to P17-45 in the by-source list; P17-43 in the "manually edited" class.
+- V1 to V3 results on `e3580fe` (`human-commands.md`, "Phase 17 close") in place of every remaining PENDING for them.
+- README final tag: `v1.0-final`, on commit Z (P17-45).
+- Then one short code-reviewer pass (WO-Z2) over the uncommitted diff.
+- Result: WO-Z2 REQUEST CHANGES (`review-Z2-verdict.md`): items 1, 2, 4 and 5 to documentation-engineer (WO-Z1-R1, `report-Z1-R1-documentation-engineer.md`); item 3, `human-gate.md:23`, fixed by the orchestrator. Re-review 1: APPROVE (`review-Z2-rereview-1.md`). Docs only; no sbt.
+
 ## WO-F5-R1: repair round for review F5
 
 - Orchestrator: B1, and items 4, 5, 9 and 10, applied to `phase-17/human-gate.md` and `agent-report.md`.

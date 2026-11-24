@@ -19,15 +19,15 @@ Compiled by the orchestrator on 2026-11-20 from the records cited below (decisio
   - Agent `sbt quick`: `[success]` in 158 s and 159 s (`final-gate/report-F2-test-engineer.md`, `report-F2b-test-engineer.md`).
   - Terraform `fmt -check` exit 0; `validate` gave "Success! The configuration is valid."; `hooks-guard.sh` 114 passed, 0 failed (F3, human, `human-commands.md`).
   - Full harness `tests/scripts/run.sh` on `264f24b` (human, 2026-11-20, `/tmp/sc-gate`): exit 0, `RESULT pass=1949 fail=0`, `SKIPPED_CASES 0`, `real-repository-untouched PASS` (`human-commands.md`, "Phase 17 final gate, F3").
-  - V1 to V3: PENDING (human), run after this commit (P17-42).
-- Manual changes: edits by Claude in chat outside the agent workflow, recorded as P17-18, P17-24, P17-27, P17-29, P17-30, P17-31 item 1 and P17-43 (`decisions.md`; final report, "manually edited" class M1 to M8 and M10 to M13, with no M9; P17-43 is added to the report in commit Z). Orchestrator redactions in archive files: P17-34 and P17-36. The human accepted condensed archive files (P17-35).
+  - V1 to V3, run by the human on a fresh clone of commit Y `e3580fe` (recorded in commit Z): V1 40 pass, 2 fail (K02 and E03, explained), 7 warn, 9 info; V2 dataset_engineering 7 met and 1 partial, hadoop_mapreduce 10 met and 2 partial, spark_analytics 11 met; V3 factory_reproducibility 10 met, no flags (`human-commands.md`, "Phase 17 close").
+- Manual changes: edits by Claude in chat outside the agent workflow, recorded as P17-18, P17-24, P17-27, P17-29, P17-30, P17-31 item 1 and P17-43 (`decisions.md`; final report, "manually edited" class M1 to M8 and M10 to M14, with no M9; M14 is P17-43, added in commit Z). Orchestrator redactions in archive files: P17-34 and P17-36. The human accepted condensed archive files (P17-35).
 - Remaining risk:
-  - Probe P3 is PARTIAL. The full block-then-pass loop is to be recorded in the demo video, and its result goes into commit Z.
+  - Probe P3 / P4-D: PASS on 2026-11-22, recorded in commit Z. The first stop was blocked, a bare agent `sbt quick` gave `[success]` in 168 s with no failures observed, and the next stop was not blocked. It ran in a `/clear`ed session, not a restarted one (`human-commands.md`, "Results recorded").
   - The H-8 part 2 replay reproduced PARTIALLY.
   - K02 (a fake key in history) and E03 stay explained, not fixed.
   - DATA-02 is a known V2 partial (P17-29).
   - No Terraform plan checksum and no artifact checksums were recorded in Phase 17.
   - No live AWS session ran (P17-33, P17-37).
-  - The demonstration video link is PENDING (commit Z, P17-42).
+  - Demonstration video: https://youtu.be/tWTDWoxji7c (unlisted), recorded in commit Z (P17-45).
 - H-4: the human confirmed the phase 01 to 16 `human-gate.md` decisions and accepted commits as compiled (P17-40).
-- Accepted commit: d396fe81702a732451be945325e93248a48ed8f6 (commit X, "Phase 17: Add the Phase 17 records, release manifest and final documentation"). This file and `commit.txt` are added in follow-up commit Y. The video link and the P3 result follow in commit Z, which carries the final tag (P17-42).
+- Accepted commit: d396fe81702a732451be945325e93248a48ed8f6 (commit X, "Phase 17: Add the Phase 17 records, release manifest and final documentation"). This file and `commit.txt` are added in follow-up commit Y. The video link and the P3 result follow in commit Z, which carries the final tag `v1.0-final` (P17-42, P17-45).

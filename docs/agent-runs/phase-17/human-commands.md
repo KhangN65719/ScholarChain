@@ -73,6 +73,19 @@ Results, relayed by the human on 2026-11-20 and recorded by the orchestrator. Ru
 
 The human's note: since the last full harness pass (1949/0 on `2151c01`), only `.claude/hooks/guard-dangerous.sh` and `tests/scripts/hooks-guard.sh` changed, and the 114/0 run covers both.
 
+## Phase 17 close: V1 to V3 on commit Y
+
+Relayed by the human on 2026-11-20 and recorded by the orchestrator. The runs used a fresh clone of `e3580fe` (commit Y; commit X is `d396fe8`). The CSVs are kept outside the repository.
+- V1: 40 pass, 2 fail, 7 warn, 9 info, 0 not yet due. The two FAILs are K02 and E03, both explained in the README's "Known check findings".
+- V2:
+  - Results: dataset_engineering 7 met, 1 partial; hadoop_mapreduce 10 met, 2 partial; spark_analytics 11 met. Pre-scan HIGH missed: none. Flag: "judge opened only 7% of the evidence pack".
+  - Compared with the run on `4341dbb`, dataset_engineering went from 6 met and 2 partial to 7 met and 1 partial, and hadoop_mapreduce from 11 met and 1 partial to 10 met and 2 partial. The judge's run-to-run variance is not measured, so the change is not attributed to any commit.
+  - Partial criteria in this run, from the human's `grep` of `V2/results/sc-final-20261120-142013/*/result.md`: HADOOP-04 (no note); HADOOP-12, noted "always confirmed by a human (rubric): cannot be verified from the repo alone"; DATA-02 (no note; the known V2 partial, P17-29). Human, 2026-11-20: the earlier V2 runs on `5157e0e` and `4341dbb` named HADOOP-11 (job contracts) as the Hadoop partial, and HADOOP-12 was met in those runs. Comparing `4341dbb` with `e3580fe`:
+    - HADOOP-11 moved from partial to met, after `modules/hadoop/JOB-CONTRACTS.md` (WO-B14) was added.
+    - HADOOP-04 and HADOOP-12 moved from met to partial, with no change to Hadoop code. They are recorded as judge variance, per the human.
+    - `git diff --stat 4341dbb..e3580fe -- modules/hadoop`, run by the orchestrator, shows one file, `JOB-CONTRACTS.md` (+259), which is documentation only.
+- V3: factory_reproducibility 10 met, no flags.
+
 ## Results recorded
 
 Relayed by the human, 2026-11-19:
@@ -141,3 +154,12 @@ Relayed by the human, 2026-11-19:
   - Process deviation, disclosed by the replaying agent itself: it wrote its gate-to-test list after implementing. The project rule says the owner writes that list before writing implementation code.
   - Verdict (human): PARTIAL reproduction. Requirements and gates were reproduced; the exact contract was not.
   - The replay branch was deleted and nothing was committed. Step 8 (optional review) was not run. No `sbt check` ran on the replay branch; the step 6 record above is from `dc15299`.
+- P3 / restart probe P4-D, the Stop gate's block-then-pass loop, 2026-11-22, for commit Z. Run in the orchestrator session after `/clear` at `e3580fe`, and recorded by the orchestrator. This supersedes the P3 PARTIAL above.
+  - Setup by the human with the `!` prefix: `echo '// stop-gate probe' > modules/core/Probe.scala`.
+  - The first stop was blocked by the Stop hook: `[bash "$CLAUDE_PROJECT_DIR"/.claude/hooks/verify-tests-ran.sh]: ScholarChain policy: Changed sources are newer than the test marker. Run sbt check after the final edit.`
+  - The orchestrator agent then ran bare `sbt quick`. The guard allowed it and no sandbox-lock error appeared. It ended with `[success] Total time: 168 s (0:02:48.0), completed Nov 22, 2026, 8:48:31 PM`. The last two group totals were `Passed: Total 77, Failed 0, Errors 0, Passed 77` and `Passed: Total 1306, Failed 0, Errors 0, Passed 1306`. The earlier groups were not tallied, and no failures were observed. Earlier recorded `sbt quick` runs took 65 to 71 s. The cause of the longer time is not investigated.
+  - The next stop was not blocked. The marker's mtime was not read, because the guard refuses shell reads of `.claude/` paths, so a refreshed marker is inferred from the unblocked stop.
+  - Cleanup by the human: `rm modules/core/Probe.scala`. `git status --short` afterwards, run by both the orchestrator and the human, showed only ` M docs/agent-runs/phase-17/final-gate/work-orders.md` and ` M docs/agent-runs/phase-17/human-commands.md`.
+  - Side observation: the guard refused `grep` on the saved sbt output, both piped and plain, because the path lies under `~/.claude/`. The Read tool worked.
+  - Verdict: P3 PASS, and the full loop (P4-D) is observed in a `/clear`ed session, not a restarted one. `docs/agent-runs/phase-01/orchestrator-update/restart-probes.md` is not updated, by the human's direction.
+- Demonstration video, relayed by the human on 2026-11-23 and recorded by the orchestrator: uploaded to YouTube as unlisted, https://youtu.be/tWTDWoxji7c. The orchestrator did not open the link. Whether the recording shows the P3 loop above is not stated in the relay.
